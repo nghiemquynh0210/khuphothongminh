@@ -503,11 +503,15 @@ export default function App() {
       <div className="flex-1 flex flex-col md:pl-20 lg:pl-64 min-w-0 transition-all duration-300">
         
         {/* Top Header Bar */}
-        <header className="h-16 border-b border-slate-200 bg-white flex items-center justify-between px-3 sm:px-6 sticky top-0 z-30 shrink-0 shadow-sm">
+        <header className="h-16 border-b border-slate-200/80 bg-white/95 backdrop-blur-md flex items-center justify-between px-3 sm:px-6 sticky top-0 z-30 shrink-0 shadow-2xs transition-all">
           <div className="flex items-center gap-2 sm:gap-3 pl-12 md:pl-0 flex-1 min-w-0 mr-2 sm:mr-4">
-            <h2 className="font-extrabold text-slate-800 text-sm sm:text-base lg:text-lg tracking-tight whitespace-nowrap overflow-hidden text-ellipsis max-w-[240px] sm:max-w-md lg:max-w-xl">
+            <h2 className="font-extrabold text-slate-900 text-sm sm:text-base lg:text-lg tracking-tight whitespace-nowrap overflow-hidden text-ellipsis max-w-[240px] sm:max-w-md lg:max-w-xl">
               {currentUser.role === "nguoidan" && activeTab === "dashboard" ? "Cổng Dịch Vụ Cư Dân Số" : getTabTitle()}
             </h2>
+            <span className="hidden xl:inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-slate-100 text-slate-600 border border-slate-200/60 shrink-0 select-none">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+              KP3 • P. An Phú • TP. Thủ Đức
+            </span>
           </div>
 
           {/* Right Header items */}

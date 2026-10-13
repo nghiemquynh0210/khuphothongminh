@@ -345,7 +345,7 @@ export default function Dashboard({
             {/* Service 1: Biểu mẫu hành chính */}
             <button
               onClick={() => setActiveTab("forms")}
-              className="p-4 rounded-2xl border border-emerald-200/80 bg-gradient-to-br from-emerald-50/60 to-teal-50/40 hover:border-emerald-500 transition-all text-left flex items-start gap-3.5 cursor-pointer group shadow-2xs"
+              className="p-4 rounded-2xl border border-emerald-200/80 bg-gradient-to-br from-emerald-50/60 to-teal-50/40 hover:border-emerald-500 transition-all text-left flex items-start gap-3.5 cursor-pointer group shadow-2xs interactive-card interactive-tap"
             >
               <div className="w-10 h-10 rounded-xl bg-emerald-600 text-white flex items-center justify-center shrink-0 group-hover:scale-110 transition-transform shadow-xs">
                 <FileText size={20} />
@@ -366,7 +366,7 @@ export default function Dashboard({
             {/* Service 2 */}
             <button
               onClick={() => setActiveTab("reports")}
-              className="p-4 rounded-2xl border border-slate-100 bg-slate-50/40 hover:bg-emerald-50/30 hover:border-emerald-300 transition-all text-left flex items-start gap-3.5 cursor-pointer group"
+              className="p-4 rounded-2xl border border-slate-100 bg-slate-50/40 hover:bg-emerald-50/30 hover:border-emerald-300 transition-all text-left flex items-start gap-3.5 cursor-pointer group interactive-card interactive-tap"
             >
               <div className="w-10 h-10 rounded-xl bg-emerald-100/80 text-emerald-700 flex items-center justify-center shrink-0 group-hover:scale-110 transition-transform">
                 <MessageSquare size={20} />
@@ -387,7 +387,7 @@ export default function Dashboard({
             {/* Service 3 */}
             <button
               onClick={() => setActiveTab("ai")}
-              className="p-4 rounded-2xl border border-slate-100 bg-slate-50/40 hover:bg-indigo-50/30 hover:border-indigo-300 transition-all text-left flex items-start gap-3.5 cursor-pointer group"
+              className="p-4 rounded-2xl border border-slate-100 bg-slate-50/40 hover:bg-indigo-50/30 hover:border-indigo-300 transition-all text-left flex items-start gap-3.5 cursor-pointer group interactive-card interactive-tap"
             >
               <div className="w-10 h-10 rounded-xl bg-indigo-100/80 text-indigo-700 flex items-center justify-center shrink-0 group-hover:scale-110 transition-transform">
                 <Bot size={20} />
@@ -408,7 +408,7 @@ export default function Dashboard({
             {/* Service 4 */}
             <button
               onClick={() => setActiveTab("gis")}
-              className="p-4 rounded-2xl border border-slate-100 bg-slate-50/40 hover:bg-teal-50/30 hover:border-teal-300 transition-all text-left flex items-start gap-3.5 cursor-pointer group"
+              className="p-4 rounded-2xl border border-slate-100 bg-slate-50/40 hover:bg-teal-50/30 hover:border-teal-300 transition-all text-left flex items-start gap-3.5 cursor-pointer group interactive-card interactive-tap"
             >
               <div className="w-10 h-10 rounded-xl bg-teal-100/80 text-teal-700 flex items-center justify-center shrink-0 group-hover:scale-110 transition-transform">
                 <Map size={20} />
@@ -429,7 +429,7 @@ export default function Dashboard({
             {/* Service 5 */}
             <button
               onClick={() => setActiveTab("finance")}
-              className="p-4 rounded-2xl border border-slate-100 bg-slate-50/40 hover:bg-amber-50/30 hover:border-amber-300 transition-all text-left flex items-start gap-3.5 cursor-pointer group"
+              className="p-4 rounded-2xl border border-slate-100 bg-slate-50/40 hover:bg-amber-50/30 hover:border-amber-300 transition-all text-left flex items-start gap-3.5 cursor-pointer group interactive-card interactive-tap"
             >
               <div className="w-10 h-10 rounded-xl bg-amber-100/80 text-amber-700 flex items-center justify-center shrink-0 group-hover:scale-110 transition-transform">
                 <Coins size={20} />
@@ -450,7 +450,7 @@ export default function Dashboard({
             {/* Service 6 */}
             <button
               onClick={() => setActiveTab("welfare")}
-              className="p-4 rounded-2xl border border-slate-100 bg-slate-50/40 hover:bg-rose-50/30 hover:border-rose-300 transition-all text-left flex items-start gap-3.5 cursor-pointer group"
+              className="p-4 rounded-2xl border border-slate-100 bg-slate-50/40 hover:bg-rose-50/30 hover:border-rose-300 transition-all text-left flex items-start gap-3.5 cursor-pointer group interactive-card interactive-tap"
             >
               <div className="w-10 h-10 rounded-xl bg-rose-100/80 text-rose-700 flex items-center justify-center shrink-0 group-hover:scale-110 transition-transform">
                 <Heart size={20} />
@@ -471,7 +471,7 @@ export default function Dashboard({
             {/* Service 7: Quản lý Chi hội */}
             <button
               onClick={() => setActiveTab("party")}
-              className="p-4 rounded-2xl border border-slate-100 bg-slate-50/40 hover:bg-emerald-50/30 hover:border-emerald-300 transition-all text-left flex items-start gap-3.5 cursor-pointer group"
+              className="p-4 rounded-2xl border border-slate-100 bg-slate-50/40 hover:bg-emerald-50/30 hover:border-emerald-300 transition-all text-left flex items-start gap-3.5 cursor-pointer group interactive-card interactive-tap"
             >
               <div className="w-10 h-10 rounded-xl bg-emerald-100/80 text-emerald-700 flex items-center justify-center shrink-0 group-hover:scale-110 transition-transform">
                 <ShieldAlert size={20} />
@@ -838,7 +838,7 @@ export default function Dashboard({
         {/* Card 1 */}
         <div 
           onClick={() => handleAdminCardClick("residents")}
-          className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-100 hover:border-emerald-500 hover:shadow-lg transition-all duration-300 cursor-pointer shadow-sm group"
+          className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-100 hover:border-emerald-500 hover:shadow-lg transition-all duration-300 cursor-pointer shadow-sm group interactive-card interactive-tap"
         >
           <div className="flex justify-between items-start">
             <div className="space-y-1.5">
@@ -863,7 +863,7 @@ export default function Dashboard({
         {/* Card 2 */}
         <div 
           onClick={() => setActiveTab("households")}
-          className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-100 hover:border-emerald-500 hover:shadow-lg transition-all duration-300 cursor-pointer shadow-sm group"
+          className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-100 hover:border-emerald-500 hover:shadow-lg transition-all duration-300 cursor-pointer shadow-sm group interactive-card interactive-tap"
         >
           <div className="flex justify-between items-start">
             <div className="space-y-1.5">
@@ -886,7 +886,7 @@ export default function Dashboard({
         {/* Card 3: Doanh nghiệp (DNNVV) */}
         <div 
           onClick={() => setActiveTab("enterprises")}
-          className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-100 hover:border-indigo-500 hover:shadow-lg transition-all duration-300 cursor-pointer shadow-sm group"
+          className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-100 hover:border-indigo-500 hover:shadow-lg transition-all duration-300 cursor-pointer shadow-sm group interactive-card interactive-tap"
         >
           <div className="flex justify-between items-start">
             <div className="space-y-1.5">
@@ -911,7 +911,7 @@ export default function Dashboard({
         {/* Card 4: Cơ sở Kinh doanh & Hộ cá thể */}
         <div 
           onClick={() => setActiveTab("businesses")}
-          className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-100 hover:border-amber-500 hover:shadow-lg transition-all duration-300 cursor-pointer shadow-sm group"
+          className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-100 hover:border-amber-500 hover:shadow-lg transition-all duration-300 cursor-pointer shadow-sm group interactive-card interactive-tap"
         >
           <div className="flex justify-between items-start">
             <div className="space-y-1.5">
@@ -936,7 +936,7 @@ export default function Dashboard({
         {/* Card 5: Phản ánh chưa xử lý */}
         <div 
           onClick={() => setActiveTab("reports")}
-          className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-100 hover:border-rose-500 hover:shadow-lg transition-all duration-300 cursor-pointer shadow-sm group"
+          className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-100 hover:border-rose-500 hover:shadow-lg transition-all duration-300 cursor-pointer shadow-sm group interactive-card interactive-tap"
         >
           <div className="flex justify-between items-start">
             <div className="space-y-1.5">

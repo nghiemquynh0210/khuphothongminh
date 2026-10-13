@@ -166,6 +166,7 @@ export default function Sidebar({
               <button
                 key={item.id}
                 id={`nav-${item.id}`}
+                aria-current={isActive ? "page" : undefined}
                 onClick={() => {
                   setActiveTab(item.id as ActiveTab);
                   // Auto-close on mobile
@@ -173,9 +174,9 @@ export default function Sidebar({
                     setIsOpen(false);
                   }
                 }}
-                className={`w-full flex items-center gap-3 px-3 py-2 lg:py-2.5 rounded-lg text-sm font-medium transition-all cursor-pointer group relative
+                className={`w-full flex items-center gap-3 px-3 py-2 lg:py-2.5 rounded-lg text-sm font-medium transition-all cursor-pointer group relative interactive-tap
                   ${isActive 
-                    ? "bg-emerald-600/20 text-emerald-400 border-l-4 border-emerald-500 font-semibold" 
+                    ? "bg-emerald-600/20 text-emerald-400 border-l-4 border-emerald-500 font-semibold shadow-inner" 
                     : "text-slate-400 hover:bg-slate-800 hover:text-slate-100"
                   }
                 `}
