@@ -352,7 +352,7 @@ export default function Dashboard({
               </div>
               <div className="space-y-1 min-w-0">
                 <div className="flex items-center justify-between">
-                  <h4 className="font-bold text-slate-900 text-sm group-hover:text-emerald-800 transition-colors truncate">
+                  <h4 className="font-bold text-slate-900 text-sm group-hover:text-emerald-800 transition-colors">
                     Tải Biểu Mẫu Hành Chính
                   </h4>
                   <ChevronRight size={14} className="text-emerald-600 transition-colors shrink-0" />
@@ -373,7 +373,7 @@ export default function Dashboard({
               </div>
               <div className="space-y-1 min-w-0">
                 <div className="flex items-center justify-between">
-                  <h4 className="font-bold text-slate-800 text-sm group-hover:text-emerald-800 transition-colors truncate">
+                  <h4 className="font-bold text-slate-800 text-sm group-hover:text-emerald-800 transition-colors">
                     Gửi Phản Ánh Hiện Trường 1022
                   </h4>
                   <ChevronRight size={14} className="text-slate-400 group-hover:text-emerald-600 transition-colors shrink-0" />
@@ -394,7 +394,7 @@ export default function Dashboard({
               </div>
               <div className="space-y-1 min-w-0">
                 <div className="flex items-center justify-between">
-                  <h4 className="font-bold text-slate-800 text-sm group-hover:text-indigo-800 transition-colors truncate">
+                  <h4 className="font-bold text-slate-800 text-sm group-hover:text-indigo-800 transition-colors">
                     Hỏi Đáp Trợ Lý AI Khu Phố
                   </h4>
                   <ChevronRight size={14} className="text-slate-400 group-hover:text-indigo-600 transition-colors shrink-0" />
@@ -415,7 +415,7 @@ export default function Dashboard({
               </div>
               <div className="space-y-1 min-w-0">
                 <div className="flex items-center justify-between">
-                  <h4 className="font-bold text-slate-800 text-sm group-hover:text-teal-800 transition-colors truncate">
+                  <h4 className="font-bold text-slate-800 text-sm group-hover:text-teal-800 transition-colors">
                     Bản Đồ Số Không Gian GIS
                   </h4>
                   <ChevronRight size={14} className="text-slate-400 group-hover:text-teal-600 transition-colors shrink-0" />
@@ -436,7 +436,7 @@ export default function Dashboard({
               </div>
               <div className="space-y-1 min-w-0">
                 <div className="flex items-center justify-between">
-                  <h4 className="font-bold text-slate-800 text-sm group-hover:text-amber-800 transition-colors truncate">
+                  <h4 className="font-bold text-slate-800 text-sm group-hover:text-amber-800 transition-colors">
                     Quỹ Tự Quản & Đóng Góp
                   </h4>
                   <ChevronRight size={14} className="text-slate-400 group-hover:text-amber-600 transition-colors shrink-0" />
@@ -457,7 +457,7 @@ export default function Dashboard({
               </div>
               <div className="space-y-1 min-w-0">
                 <div className="flex items-center justify-between">
-                  <h4 className="font-bold text-slate-800 text-sm group-hover:text-rose-800 transition-colors truncate">
+                  <h4 className="font-bold text-slate-800 text-sm group-hover:text-rose-800 transition-colors">
                     An Sinh Xã Hội & Trợ Cấp
                   </h4>
                   <ChevronRight size={14} className="text-slate-400 group-hover:text-rose-600 transition-colors shrink-0" />
@@ -478,7 +478,7 @@ export default function Dashboard({
               </div>
               <div className="space-y-1 min-w-0">
                 <div className="flex items-center justify-between">
-                  <h4 className="font-bold text-slate-800 text-sm group-hover:text-emerald-800 transition-colors truncate">
+                  <h4 className="font-bold text-slate-800 text-sm group-hover:text-emerald-800 transition-colors">
                     Chi Hội & Đoàn Thể Cơ Sở
                   </h4>
                   <ChevronRight size={14} className="text-slate-400 group-hover:text-emerald-600 transition-colors shrink-0" />
@@ -521,6 +521,8 @@ export default function Dashboard({
             <div className="relative flex-1">
               <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
               <input
+                id="dashboard-form-search-input"
+                name="dashboardFormSearch"
                 type="text"
                 placeholder="Tìm nhanh biểu mẫu (ví dụ: cấp số nhà, CT01, hộ kinh doanh, sửa chữa, kết hôn)..."
                 value={dashboardFormSearch}
@@ -1098,6 +1100,8 @@ export default function Dashboard({
             <div className="relative flex-1">
               <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" size={17} />
               <input
+                id="dashboard-household-search-input"
+                name="householdSearchQuery"
                 type="text"
                 placeholder="Nhập Mã hộ khẩu (ví dụ: HK-301) hoặc số CCCD cán bộ cần kiểm tra..."
                 value={householdSearchQuery}

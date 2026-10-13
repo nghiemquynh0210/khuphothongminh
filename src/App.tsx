@@ -504,14 +504,14 @@ export default function App() {
         
         {/* Top Header Bar */}
         <header className="h-16 border-b border-slate-200 bg-white flex items-center justify-between px-3 sm:px-6 sticky top-0 z-30 shrink-0 shadow-sm">
-          <div className="flex items-center gap-3 pl-12 md:pl-0 min-w-0">
-            <h2 className="font-extrabold text-slate-800 text-sm sm:text-base md:text-lg tracking-tight truncate">
+          <div className="flex items-center gap-2 sm:gap-3 pl-12 md:pl-0 flex-1 min-w-0 mr-2 sm:mr-4">
+            <h2 className="font-extrabold text-slate-800 text-sm sm:text-base lg:text-lg tracking-tight whitespace-nowrap overflow-hidden text-ellipsis max-w-[240px] sm:max-w-md lg:max-w-xl">
               {currentUser.role === "nguoidan" && activeTab === "dashboard" ? "Cổng Dịch Vụ Cư Dân Số" : getTabTitle()}
             </h2>
           </div>
 
           {/* Right Header items */}
-          <div className="flex items-center gap-2 sm:gap-4 shrink-0">
+          <div className="flex items-center gap-2 sm:gap-3 shrink-0">
             
             {/* Info button for Plan & Database design */}
             <button
@@ -567,11 +567,10 @@ export default function App() {
 
             {/* Role Indicator & Quick Switch */}
             {currentUser.role === "nguoidan" ? (
-              <div className="flex items-center gap-1.5 sm:gap-2">
-                <div className="hidden lg:flex items-center gap-1.5 px-2.5 py-1 bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-xl text-xs font-bold">
+              <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+                <div className="hidden xl:flex items-center gap-1.5 px-2.5 py-1 bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-xl text-xs font-bold">
                   <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
                   <span>Cổng Cư dân</span>
-                  <span className="text-[10px] font-normal text-emerald-600 border-l border-emerald-200 pl-1.5 ml-0.5">Không cần đăng nhập</span>
                 </div>
                 <button
                   id="header-login-canbo"
@@ -584,12 +583,20 @@ export default function App() {
                 >
                   <span className="hidden sm:inline">Đăng nhập </span><span>Cán bộ</span>
                 </button>
+                <button
+                  id="header-open-auth"
+                  onClick={() => setCurrentUser(null)}
+                  className="hidden md:flex items-center gap-1 px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-semibold transition-all cursor-pointer shrink-0"
+                  title="Đăng nhập tài khoản cá nhân / Đăng ký nhân khẩu mới"
+                >
+                  <span>Tài khoản</span>
+                </button>
               </div>
             ) : (
-              <div className="flex items-center gap-1.5 sm:gap-2">
-                <div className="hidden lg:flex items-center gap-1.5 px-2.5 py-1 bg-indigo-50 border border-indigo-200 text-indigo-800 rounded-xl text-xs font-bold">
+              <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+                <div className="hidden xl:flex items-center gap-1.5 px-2.5 py-1 bg-indigo-50 border border-indigo-200 text-indigo-800 rounded-xl text-xs font-bold">
                   <span className="w-2 h-2 rounded-full bg-indigo-500 animate-pulse"></span>
-                  <span>Cán bộ quản lý</span>
+                  <span>Cán bộ</span>
                 </div>
                 <button
                   id="header-back-cudan"
@@ -601,6 +608,14 @@ export default function App() {
                   title="Quay lại Cổng Cư dân số"
                 >
                   <span className="hidden sm:inline">Về Cổng </span><span>Cư dân</span>
+                </button>
+                <button
+                  id="header-logout-auth"
+                  onClick={() => setCurrentUser(null)}
+                  className="hidden md:flex items-center gap-1 px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-semibold transition-all cursor-pointer shrink-0"
+                  title="Mở màn hình đăng nhập tài khoản / đăng ký nhân khẩu mới"
+                >
+                  <span>Đăng xuất</span>
                 </button>
               </div>
             )}
@@ -832,6 +847,7 @@ export default function App() {
 
           {activeTab === "settings" && (
             <SettingsAndPermissions
+              defaultSubTab="approvals"
               pendingRegistrations={pendingRegistrations}
               onApproveRegistration={handleApproveRegistration}
               onRejectRegistration={handleRejectRegistration}

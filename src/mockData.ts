@@ -1814,66 +1814,310 @@ export const initialCommunityEvents: CommunityEvent[] = [
 ];
 
 export const initialFundContributions: FundContribution[] = [
+  // Quỹ Khuyến học (Thu: 4.500.000đ)
   {
     id: "FD001",
     householdCode: "HK-301",
     ownerName: "Nguyễn Văn Hùng",
     fundName: "Quỹ Khuyến học",
-    amount: 150000,
+    amount: 500000,
     status: "Đã nộp",
     paidAt: "10/06/2026"
   },
   {
     id: "FD002",
-    householdCode: "HK-301",
-    ownerName: "Nguyễn Văn Hùng",
-    fundName: "Quỹ Vì người nghèo",
-    amount: 200000,
-    status: "Đã nộp",
-    paidAt: "10/06/2026"
-  },
-  {
-    id: "FD003",
     householdCode: "HK-302",
     ownerName: "Nguyễn Hoàng Nam",
     fundName: "Quỹ Khuyến học",
-    amount: 150000,
+    amount: 500000,
     status: "Đã nộp",
     paidAt: "12/06/2026"
   },
   {
+    id: "FD003",
+    householdCode: "HK-303",
+    ownerName: "Lê Thị Mai",
+    fundName: "Quỹ Khuyến học",
+    amount: 500000,
+    status: "Đã nộp",
+    paidAt: "15/06/2026"
+  },
+  {
     id: "FD004",
+    householdCode: "HK-304",
+    ownerName: "Lê Văn Sơn",
+    fundName: "Quỹ Khuyến học",
+    amount: 1000000,
+    status: "Đã nộp",
+    paidAt: "11/06/2026"
+  },
+  {
+    id: "FD005",
+    householdCode: "HK-305",
+    ownerName: "Phạm Thị Hồng Loan",
+    fundName: "Quỹ Khuyến học",
+    amount: 1000000,
+    status: "Đã nộp",
+    paidAt: "14/06/2026"
+  },
+  {
+    id: "FD006",
+    householdCode: "HK-306",
+    ownerName: "Nguyễn Văn Tuấn",
+    fundName: "Quỹ Khuyến học",
+    amount: 500000,
+    status: "Đã nộp",
+    paidAt: "18/06/2026"
+  },
+  {
+    id: "FD007",
+    householdCode: "HK-307",
+    ownerName: "Nguyễn Thị Đào",
+    fundName: "Quỹ Khuyến học",
+    amount: 500000,
+    status: "Đã nộp",
+    paidAt: "19/06/2026"
+  },
+
+  // Quỹ Vì người nghèo (Thu: 4.500.000đ)
+  {
+    id: "FD008",
+    householdCode: "HK-301",
+    ownerName: "Nguyễn Văn Hùng",
+    fundName: "Quỹ Vì người nghèo",
+    amount: 1000000,
+    status: "Đã nộp",
+    paidAt: "10/06/2026"
+  },
+  {
+    id: "FD009",
+    householdCode: "HK-302",
+    ownerName: "Nguyễn Hoàng Nam",
+    fundName: "Quỹ Vì người nghèo",
+    amount: 500000,
+    status: "Đã nộp",
+    paidAt: "12/06/2026"
+  },
+  {
+    id: "FD010",
+    householdCode: "HK-303",
+    ownerName: "Lê Thị Mai",
+    fundName: "Quỹ Vì người nghèo",
+    amount: 500000,
+    status: "Đã nộp",
+    paidAt: "15/06/2026"
+  },
+  {
+    id: "FD011",
+    householdCode: "HK-304",
+    ownerName: "Lê Văn Sơn",
+    fundName: "Quỹ Vì người nghèo",
+    amount: 1000000,
+    status: "Đã nộp",
+    paidAt: "11/06/2026"
+  },
+  {
+    id: "FD012",
+    householdCode: "HK-305",
+    ownerName: "Phạm Thị Hồng Loan",
+    fundName: "Quỹ Vì người nghèo",
+    amount: 1000000,
+    status: "Đã nộp",
+    paidAt: "14/06/2026"
+  },
+  {
+    id: "FD013",
+    householdCode: "HK-307",
+    ownerName: "Nguyễn Thị Đào",
+    fundName: "Quỹ Vì người nghèo",
+    amount: 500000,
+    status: "Đã nộp",
+    paidAt: "19/06/2026"
+  },
+
+  // Quỹ Quốc phòng an ninh (Thu: 2.200.000đ)
+  {
+    id: "FD014",
+    householdCode: "HK-301",
+    ownerName: "Nguyễn Văn Hùng",
+    fundName: "Quỹ Quốc phòng an ninh",
+    amount: 300000,
+    status: "Đã nộp",
+    paidAt: "10/06/2026"
+  },
+  {
+    id: "FD015",
+    householdCode: "HK-302",
+    ownerName: "Nguyễn Hoàng Nam",
+    fundName: "Quỹ Quốc phòng an ninh",
+    amount: 300000,
+    status: "Đã nộp",
+    paidAt: "12/06/2026"
+  },
+  {
+    id: "FD016",
+    householdCode: "HK-303",
+    ownerName: "Lê Thị Mai",
+    fundName: "Quỹ Quốc phòng an ninh",
+    amount: 300000,
+    status: "Đã nộp",
+    paidAt: "15/06/2026"
+  },
+  {
+    id: "FD017",
+    householdCode: "HK-304",
+    ownerName: "Lê Văn Sơn",
+    fundName: "Quỹ Quốc phòng an ninh",
+    amount: 500000,
+    status: "Đã nộp",
+    paidAt: "11/06/2026"
+  },
+  {
+    id: "FD018",
+    householdCode: "HK-305",
+    ownerName: "Phạm Thị Hồng Loan",
+    fundName: "Quỹ Quốc phòng an ninh",
+    amount: 500000,
+    status: "Đã nộp",
+    paidAt: "14/06/2026"
+  },
+  {
+    id: "FD019",
+    householdCode: "HK-306",
+    ownerName: "Nguyễn Văn Tuấn",
+    fundName: "Quỹ Quốc phòng an ninh",
+    amount: 300000,
+    status: "Đã nộp",
+    paidAt: "18/06/2026"
+  },
+
+  // Quỹ Bảo trì hẻm (Thu: 9.000.000đ)
+  {
+    id: "FD020",
+    householdCode: "HK-301",
+    ownerName: "Nguyễn Văn Hùng",
+    fundName: "Quỹ Bảo trì hẻm",
+    amount: 2000000,
+    status: "Đã nộp",
+    paidAt: "10/06/2026"
+  },
+  {
+    id: "FD021",
     householdCode: "HK-302",
     ownerName: "Nguyễn Hoàng Nam",
     fundName: "Quỹ Bảo trì hẻm",
+    amount: 1000000,
+    status: "Đã nộp",
+    paidAt: "12/06/2026"
+  },
+  {
+    id: "FD022",
+    householdCode: "HK-303",
+    ownerName: "Lê Thị Mai",
+    fundName: "Quỹ Bảo trì hẻm",
+    amount: 1500000,
+    status: "Đã nộp",
+    paidAt: "15/06/2026"
+  },
+  {
+    id: "FD023",
+    householdCode: "HK-304",
+    ownerName: "Lê Văn Sơn",
+    fundName: "Quỹ Bảo trì hẻm",
+    amount: 2000000,
+    status: "Đã nộp",
+    paidAt: "11/06/2026"
+  },
+  {
+    id: "FD024",
+    householdCode: "HK-305",
+    ownerName: "Phạm Thị Hồng Loan",
+    fundName: "Quỹ Bảo trì hẻm",
+    amount: 1500000,
+    status: "Đã nộp",
+    paidAt: "14/06/2026"
+  },
+  {
+    id: "FD025",
+    householdCode: "HK-307",
+    ownerName: "Nguyễn Thị Đào",
+    fundName: "Quỹ Bảo trì hẻm",
+    amount: 1000000,
+    status: "Đã nộp",
+    paidAt: "19/06/2026"
+  },
+
+  // Quỹ Phòng chống thiên tai (Thu: 3.500.000đ)
+  {
+    id: "FD026",
+    householdCode: "HK-301",
+    ownerName: "Nguyễn Văn Hùng",
+    fundName: "Quỹ Phòng chống thiên tai",
+    amount: 500000,
+    status: "Đã nộp",
+    paidAt: "10/06/2026"
+  },
+  {
+    id: "FD027",
+    householdCode: "HK-302",
+    ownerName: "Nguyễn Hoàng Nam",
+    fundName: "Quỹ Phòng chống thiên tai",
+    amount: 500000,
+    status: "Đã nộp",
+    paidAt: "12/06/2026"
+  },
+  {
+    id: "FD028",
+    householdCode: "HK-303",
+    ownerName: "Lê Thị Mai",
+    fundName: "Quỹ Phòng chống thiên tai",
+    amount: 500000,
+    status: "Đã nộp",
+    paidAt: "15/06/2026"
+  },
+  {
+    id: "FD029",
+    householdCode: "HK-304",
+    ownerName: "Lê Văn Sơn",
+    fundName: "Quỹ Phòng chống thiên tai",
+    amount: 500000,
+    status: "Đã nộp",
+    paidAt: "11/06/2026"
+  },
+  {
+    id: "FD030",
+    householdCode: "HK-305",
+    ownerName: "Phạm Thị Hồng Loan",
+    fundName: "Quỹ Phòng chống thiên tai",
+    amount: 1000000,
+    status: "Đã nộp",
+    paidAt: "14/06/2026"
+  },
+  {
+    id: "FD031",
+    householdCode: "HK-306",
+    ownerName: "Nguyễn Văn Tuấn",
+    fundName: "Quỹ Phòng chống thiên tai",
+    amount: 500000,
+    status: "Đã nộp",
+    paidAt: "18/06/2026"
+  },
+
+  // Danh sách các khoản vận động đang chờ nộp (Chưa nộp)
+  {
+    id: "FD032",
+    householdCode: "HK-306",
+    ownerName: "Nguyễn Văn Tuấn",
+    fundName: "Quỹ Vì người nghèo",
     amount: 500000,
     status: "Chưa nộp"
   },
   {
-    id: "FD005",
-    householdCode: "HK-303",
-    ownerName: "Lê Thị Mai",
+    id: "FD033",
+    householdCode: "HK-307",
+    ownerName: "Nguyễn Thị Đào",
     fundName: "Quỹ Quốc phòng an ninh",
-    amount: 100000,
-    status: "Đã nộp",
-    paidAt: "15/06/2026"
-  },
-  {
-    id: "FD006",
-    householdCode: "HK-303",
-    ownerName: "Lê Thị Mai",
-    fundName: "Quỹ Phòng chống thiên tai",
-    amount: 100000,
-    status: "Đã nộp",
-    paidAt: "15/06/2026"
-  },
-  {
-    id: "FD007",
-    householdCode: "HK-304",
-    ownerName: "Lê Văn Sơn",
-    fundName: "Quỹ Bảo trì hẻm",
-    amount: 500000,
-    status: "Đã nộp",
-    paidAt: "11/06/2026"
+    amount: 300000,
+    status: "Chưa nộp"
   }
 ];

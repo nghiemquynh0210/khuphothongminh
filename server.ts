@@ -64,7 +64,7 @@ Hãy trả lời bằng tiếng Việt lịch sự, thân thiện, rõ ràng, gi
       }));
 
       const response = await ai.models.generateContent({
-        model: "gemini-3.5-flash",
+        model: "gemini-2.5-flash",
         contents,
         config: {
           systemInstruction,

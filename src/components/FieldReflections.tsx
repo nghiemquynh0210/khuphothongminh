@@ -28,7 +28,7 @@ import Pagination from "./Pagination";
 interface FieldReflectionsProps {
   reports: FieldReport[];
   onAddReport: (newReport: FieldReport) => void;
-  onUpdateReportStatus: (id: string, status: "Đang nhận trợ cấp" | "Chờ duyệt hồ sơ" | "Đã tạm ngưng" | "Đã tiếp nhận" | "Đang xử lý" | "Đã giải quyết", actorName?: string, actionDetail?: string) => void;
+  onUpdateReportStatus: (id: string, status: "Đã tiếp nhận" | "Đang xử lý" | "Đã giải quyết", actorName?: string, actionDetail?: string) => void;
   onUpdateReports?: (reports: FieldReport[]) => void;
   currentUser?: {
     username: string;
@@ -445,6 +445,8 @@ export default function FieldReflections({ reports, onAddReport, onUpdateReportS
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
           <input 
+            id="field-report-search-input"
+            name="fieldReportSearch"
             type="text" 
             placeholder="Tìm theo nội dung phản ánh, người báo, địa chỉ..."
             value={searchTerm}

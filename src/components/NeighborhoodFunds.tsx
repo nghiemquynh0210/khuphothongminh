@@ -470,10 +470,14 @@ export default function NeighborhoodFunds({
         <div className="bg-white p-4 rounded-xl border border-slate-100 shadow-sm flex items-center justify-between">
           <div>
             <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block">Tồn quỹ hiện tại</span>
-            <span className="text-lg font-black text-slate-800 mt-1 block">
+            <span className={`text-lg font-black mt-1 block ${balanceFund >= 0 ? "text-slate-800" : "text-rose-600"}`}>
               {balanceFund.toLocaleString("vi-VN")}đ
             </span>
-            <span className="text-[9px] text-emerald-600 font-semibold bg-emerald-50 px-2 py-0.5 rounded-full inline-block mt-1">An toàn ngân sách</span>
+            {balanceFund >= 0 ? (
+              <span className="text-[9px] text-emerald-600 font-semibold bg-emerald-50 px-2 py-0.5 rounded-full inline-block mt-1">An toàn ngân sách</span>
+            ) : (
+              <span className="text-[9px] text-rose-600 font-semibold bg-rose-50 px-2 py-0.5 rounded-full inline-block mt-1">Thâm hụt - Cần cân đối</span>
+            )}
           </div>
           <span className="p-3 bg-indigo-50 text-indigo-600 rounded-xl"><Coins size={22} /></span>
         </div>
@@ -564,6 +568,8 @@ export default function NeighborhoodFunds({
           <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
             <input 
+              id="funds-search-input"
+              name="fundsSearch"
               type="text" 
               placeholder={activeSubTab === "thu" ? "Tìm kiếm phiếu thu theo tên chủ hộ, mã hộ khẩu..." : "Tìm kiếm phiếu chi theo nội dung chi tiêu, người thụ hưởng..."}
               value={searchTerm}

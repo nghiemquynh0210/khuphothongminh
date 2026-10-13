@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { 
   Shield, 
   ShieldAlert, 
@@ -82,6 +82,12 @@ export default function SettingsAndPermissions({
   defaultSubTab = "approvals"
 }: SettingsAndPermissionsProps) {
   const [activeSubTab, setActiveSubTab] = useState<"approvals" | "forms" | "permissions" | "plan">(defaultSubTab);
+
+  useEffect(() => {
+    if (defaultSubTab) {
+      setActiveSubTab(defaultSubTab);
+    }
+  }, [defaultSubTab]);
 
   // Mock data for Roadmap / Kế hoạch triển khai
   const planningSteps = [

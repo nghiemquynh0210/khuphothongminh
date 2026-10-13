@@ -24,7 +24,7 @@ export default function AiAssistant() {
   ]);
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
-  const chatEndRef = useRef<HTMLDivElement>(null);
+  const chatContainerRef = useRef<HTMLDivElement>(null);
 
   const sampleQuestions = [
     "Thủ tục đăng ký tạm trú tại khu phố?",
@@ -33,8 +33,10 @@ export default function AiAssistant() {
   ];
 
   useEffect(() => {
-    chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages]);
+    if (chatContainerRef.current) {
+      chatContainerRef.current.scrollTop = chatContainerRef.current.scrollHeight;
+    }
+  }, [messages, isLoading]);
 
   const handleSend = async (textToSend: string) => {
     if (!textToSend.trim()) return;
@@ -121,7 +123,7 @@ export default function AiAssistant() {
         </div>
         <div className="flex items-center gap-2 text-xs bg-indigo-50 border border-indigo-100 text-indigo-700 px-3 py-1.5 rounded-lg">
           <Sparkles size={14} className="text-indigo-600 animate-pulse" />
-          <span>Vận hành bởi Gemini 3.5 Flash</span>
+          <span>Vận hành bởi Gemini 2.5 Flash</span>
         </div>
       </div>
 
@@ -156,7 +158,7 @@ export default function AiAssistant() {
           </div>
 
           {/* Messages list container */}
-          <div className="flex-1 p-5 overflow-y-auto space-y-4 bg-slate-950/20">
+          <div ref={chatContainerRef} className="flex-1 p-5 overflow-y-auto space-y-4 bg-slate-950/20">
             {messages.map((m, idx) => {
               const isUser = m.role === "user";
               return (
@@ -204,7 +206,6 @@ export default function AiAssistant() {
                 </div>
               </div>
             )}
-            <div ref={chatEndRef} />
           </div>
 
           {/* Form input and submit */}
@@ -217,6 +218,8 @@ export default function AiAssistant() {
               className="flex gap-2.5"
             >
               <input 
+                id="ai-assistant-question-input"
+                name="aiQuestion"
                 type="text" 
                 placeholder="Nhập câu hỏi của bạn tại đây (ví dụ: Làm sao đăng ký tạm trú)..."
                 value={input}

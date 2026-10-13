@@ -2365,6 +2365,8 @@ export default function PartyBranch({ partyMembers, residents = [] }: PartyBranc
                 <div className="relative">
                   <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" size={14} />
                   <input 
+                    id="party-search-input"
+                    name="partySearch"
                     type="text" 
                     placeholder="Tìm chi hội theo tên..."
                     value={searchTerm}
