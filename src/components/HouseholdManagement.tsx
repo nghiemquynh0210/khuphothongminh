@@ -846,6 +846,8 @@ export default function HouseholdManagement({
             <div className="relative flex-1">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
               <input 
+                id="household-search-input"
+                name="householdSearchTerm"
                 type="text"
                 placeholder="Tìm kiếm theo chủ hộ, mã số sổ, địa chỉ, CCCD..."
                 value={searchTerm}

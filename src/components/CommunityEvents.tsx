@@ -267,6 +267,8 @@ export default function CommunityEvents({ events, onAddEvent, onUpdateEventStatu
             <div className="relative flex-1">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
               <input 
+                id="news-search-input"
+                name="newsSearch"
                 type="text" 
                 placeholder="Tìm bản tin, thông báo hành chính, lịch tiêm ngừa..."
                 value={newsSearch}

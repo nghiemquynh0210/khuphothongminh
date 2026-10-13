@@ -372,6 +372,8 @@ export default function AdministrativeForms({
 
       {/* Hidden File Input for Direct Upload */}
       <input
+        id="admin-forms-direct-file-input"
+        name="directFileInput"
         type="file"
         ref={directFileInputRef}
         accept=".doc,.docx,.pdf,.txt"
@@ -459,6 +461,8 @@ export default function AdministrativeForms({
           <div className="relative flex-1">
             <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" size={17} />
             <input
+              id="admin-forms-search-input"
+              name="adminFormsSearch"
               type="text"
               placeholder="Tìm theo tên đơn (ví dụ: cấp số nhà, CT01, đăng ký kinh doanh, cư trú, hôn nhân)..."
               value={searchTerm}

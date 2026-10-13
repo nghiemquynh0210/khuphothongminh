@@ -26,10 +26,14 @@ import {
   ChevronRight,
   FileUp,
   LayoutGrid,
-  List
+  List,
+  QrCode,
+  Sparkles
 } from "lucide-react";
 import { FundContribution } from "../types";
 import Pagination from "./Pagination";
+import VietQrModal from "./funds/VietQrModal";
+import HouseholdFundLookup from "./funds/HouseholdFundLookup";
 
 // Kiểu dữ liệu cho Khoản Chi (Expenditure)
 interface Expenditure {
@@ -108,8 +112,9 @@ export default function NeighborhoodFunds({
   onUpdateContributionStatus,
   households = []
 }: NeighborhoodFundsProps) {
-  // Sub-tabs: "thu" (Phiếu thu), "chi" (Phiếu chi), "baocao" (Tổng hợp báo cáo)
-  const [activeSubTab, setActiveSubTab] = useState<"thu" | "chi" | "baocao">("thu");
+  // Sub-tabs: "thu" (Phiếu thu), "chi" (Phiếu chi), "baocao" (Tổng hợp báo cáo), "qr_portal" (Cổng tra cứu & VietQR)
+  const [activeSubTab, setActiveSubTab] = useState<"thu" | "chi" | "baocao" | "qr_portal">("thu");
+  const [activeVietQrContribution, setActiveVietQrContribution] = useState<FundContribution | null>(null);
 
   // State quản lý danh sách các khoản chi (Expenditures)
   const [expenditures, setExpenditures] = useState<Expenditure[]>([
@@ -560,16 +565,29 @@ export default function NeighborhoodFunds({
             <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-indigo-500 rounded-full" />
           )}
         </button>
+        <button
+          id="btn-subtab-vietqr"
+          onClick={() => setActiveSubTab("qr_portal")}
+          className={`pb-3 text-sm font-semibold transition-all relative flex items-center gap-2 cursor-pointer
+            ${activeSubTab === "qr_portal" ? "text-emerald-600 font-black" : "text-slate-400 hover:text-slate-600"}
+          `}
+        >
+          <QrCode size={16} className="text-emerald-500" /> Cổng Tra Cứu & Đóng Quỹ VietQR
+          {activeSubTab === "qr_portal" && (
+            <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-emerald-500 rounded-full" />
+          )}
+        </button>
       </div>
 
       {/* SEARCH AND FILTERS (Only show on 'thu' and 'chi' tabs) */}
-      {activeSubTab !== "baocao" && (
+      {(activeSubTab === "thu" || activeSubTab === "chi") && (
         <div className="bg-white p-4 rounded-xl border border-slate-100 shadow-sm flex flex-col md:flex-row gap-3">
           <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
             <input 
               id="funds-search-input"
               name="fundsSearch"
+              aria-label="Tìm kiếm phiếu quỹ khu phố"
               type="text" 
               placeholder={activeSubTab === "thu" ? "Tìm kiếm phiếu thu theo tên chủ hộ, mã hộ khẩu..." : "Tìm kiếm phiếu chi theo nội dung chi tiêu, người thụ hưởng..."}
               value={searchTerm}
@@ -582,6 +600,9 @@ export default function NeighborhoodFunds({
             <div className="flex items-center gap-2">
               <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1"><Filter size={11} /> Loại quỹ:</span>
               <select 
+                id="funds-type-filter"
+                name="fundFilter"
+                aria-label="Lọc theo loại quỹ khu phố"
                 value={fundFilter}
                 onChange={(e) => handleFundFilterChange(e.target.value)}
                 className="px-2.5 py-1.5 border border-slate-200 rounded-lg text-xs bg-white focus:outline-none focus:border-indigo-500"
@@ -599,6 +620,9 @@ export default function NeighborhoodFunds({
               <div className="flex items-center gap-2">
                 <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1"><Filter size={11} /> Trạng thái:</span>
                 <select 
+                  id="funds-status-filter"
+                  name="statusFilter"
+                  aria-label="Lọc theo trạng thái đóng nộp"
                   value={statusFilter}
                   onChange={(e) => handleStatusFilterChange(e.target.value)}
                   className="px-2.5 py-1.5 border border-slate-200 rounded-lg text-xs bg-white focus:outline-none focus:border-indigo-500"
@@ -715,15 +739,24 @@ export default function NeighborhoodFunds({
                                 Hủy thu
                               </button>
                             ) : (
-                              <button
-                                onClick={() => {
-                                  const todayStr = new Date().toLocaleDateString("vi-VN");
-                                  onUpdateContributionStatus(cont.id, "Đã nộp", todayStr);
-                                }}
-                                className="text-[10px] font-bold text-emerald-600 bg-emerald-50 hover:bg-emerald-100 px-2 py-1 rounded-md transition-colors cursor-pointer"
-                              >
-                                Thu tiền
-                              </button>
+                              <div className="flex items-center gap-1">
+                                <button
+                                  onClick={() => setActiveVietQrContribution(cont)}
+                                  className="text-[10px] font-bold text-white bg-emerald-600 hover:bg-emerald-500 px-2 py-1 rounded-md transition-colors cursor-pointer flex items-center gap-1 shadow-xs"
+                                  title="Mở mã VietQR nộp tiền tự động"
+                                >
+                                  <QrCode size={11} /> VietQR
+                                </button>
+                                <button
+                                  onClick={() => {
+                                    const todayStr = new Date().toLocaleDateString("vi-VN");
+                                    onUpdateContributionStatus(cont.id, "Đã nộp", todayStr);
+                                  }}
+                                  className="text-[10px] font-bold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 px-2 py-1 rounded-md transition-colors cursor-pointer"
+                                >
+                                  Thu tiền
+                                </button>
+                              </div>
                             )}
                           </td>
                         </tr>
@@ -1023,6 +1056,16 @@ export default function NeighborhoodFunds({
             </div>
           </div>
         </div>
+      )}
+
+      {/* CỔNG TRA CỨU & ĐÓNG QUỸ VIETQR (DÀNH CHO TOÀN DÂN) */}
+      {activeSubTab === "qr_portal" && (
+        <HouseholdFundLookup
+          contributions={contributions}
+          households={households}
+          onOpenReceipt={handleOpenReceipt}
+          onUpdateContributionStatus={onUpdateContributionStatus}
+        />
       )}
 
       {/* MODAL 1: GHI NHẬN PHIẾU THU */}
@@ -1394,14 +1437,40 @@ export default function NeighborhoodFunds({
                 </div>
               </div>
 
-              <div className="mt-12 text-center text-[9px] text-slate-400 font-mono tracking-tight pt-4 border-t border-slate-100">
-                Cảm ơn sự đóng góp tự quản và đồng lòng của cư dân để xây dựng Khu phố 3 văn minh, nghĩa tình!
+              <div className="mt-8 pt-4 border-t border-slate-100 flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <img
+                    src={`https://api.qrserver.com/v1/create-qr-code/?size=80x80&data=${encodeURIComponent(`XAC THUC BIEN LAI KP3: ${selectedReceipt.id} - ${selectedReceipt.subject} - ${selectedReceipt.amount} VND`)}`}
+                    alt="Mã QR Xác Thực Biên Lai"
+                    className="w-16 h-16 border p-0.5 border-slate-200 rounded"
+                  />
+                  <div className="text-[9px] text-slate-500 font-mono text-left">
+                    <p className="font-bold text-slate-700">MÃ XÁC THỰC SỐ HOÁ KP3</p>
+                    <p>Tra cứu tại Cổng Cư dân số KP3</p>
+                    <p>Mã: {selectedReceipt.id}</p>
+                  </div>
+                </div>
+                <div className="text-right text-[9px] text-slate-400 font-mono">
+                  Cảm ơn sự đóng góp tự quản và đồng lòng của cư dân<br />để xây dựng Khu phố 3 văn minh, nghĩa tình!
+                </div>
               </div>
 
             </div>
 
           </div>
         </div>
+      )}
+
+      {/* MODAL 4: VIETQR STANDALONE CHO TỪNG DÒNG THU */}
+      {activeVietQrContribution && (
+        <VietQrModal
+          contribution={activeVietQrContribution}
+          onClose={() => setActiveVietQrContribution(null)}
+          onConfirmPaid={(id) => {
+            const todayStr = new Date().toLocaleDateString("vi-VN");
+            onUpdateContributionStatus(id, "Đã nộp", todayStr);
+          }}
+        />
       )}
 
     </div>

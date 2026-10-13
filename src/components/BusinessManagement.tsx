@@ -1698,6 +1698,8 @@ export default function BusinessManagement({
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
           <input 
+            id="business-search-input"
+            name="businessSearchTerm"
             type="text" 
             placeholder="Tìm theo tên cơ sở, chủ hộ, số GPKD, địa chỉ, ngành nghề, Tờ BĐ, số Thửa..."
             value={searchTerm}
@@ -1713,6 +1715,8 @@ export default function BusinessManagement({
               <Filter size={13} /> Ngành:
             </span>
             <select 
+              id="business-category-filter"
+              name="businessCategoryFilter"
               value={categoryFilter}
               onChange={(e) => handleCategoryFilterChange(e.target.value)}
               className="px-2.5 py-1.5 border border-slate-200 rounded-xl text-xs bg-white focus:outline-none focus:border-indigo-500 font-medium max-w-[150px] truncate"
@@ -1733,6 +1737,8 @@ export default function BusinessManagement({
           <div className="flex items-center gap-1.5 shrink-0">
             <span className="text-xs font-semibold text-slate-500">PCCC:</span>
             <select 
+              id="business-pccc-filter"
+              name="businessPcccFilter"
               value={pcccFilter}
               onChange={(e) => { setPcccFilter(e.target.value); setCurrentPage(1); }}
               className="px-2.5 py-1.5 border border-slate-200 rounded-xl text-xs bg-white focus:outline-none focus:border-indigo-500 font-medium"
@@ -1747,6 +1753,8 @@ export default function BusinessManagement({
           <div className="flex items-center gap-1.5 shrink-0">
             <span className="text-xs font-semibold text-slate-500">Tuyến đường:</span>
             <select 
+              id="business-street-filter"
+              name="businessStreetFilter"
               value={streetFilter}
               onChange={(e) => { setStreetFilter(e.target.value); setCurrentPage(1); }}
               className="px-2.5 py-1.5 border border-slate-200 rounded-xl text-xs bg-white focus:outline-none focus:border-indigo-500 font-medium"
@@ -1761,6 +1769,8 @@ export default function BusinessManagement({
           {/* Status Filter */}
           <div className="flex items-center gap-1.5 shrink-0">
             <select 
+              id="business-status-filter"
+              name="businessStatusFilter"
               value={statusFilter}
               onChange={(e) => handleStatusFilterChange(e.target.value)}
               className="px-2.5 py-1.5 border border-slate-200 rounded-xl text-xs bg-white focus:outline-none focus:border-indigo-500 font-medium"

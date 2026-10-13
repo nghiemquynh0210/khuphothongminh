@@ -301,6 +301,7 @@ export type ActiveTab =
   | "enterprises"
   | "businesses"
   | "gis"
+  | "tasks"
   | "ai"
   | "reports"
   | "forms"
@@ -321,3 +322,42 @@ export interface TargetGisItem {
   lng?: number;
   navigateRoute?: boolean;
 }
+
+export interface TaskAssignee {
+  name: string;
+  role: string;
+  unit: string;
+  phone?: string;
+  avatar?: string;
+}
+
+export interface TaskItem {
+  id: string;
+  title: string;
+  description: string;
+  unit: "Tổ dân phố 11" | "Tổ dân phố 12" | "Tổ dân phố 13" | "Tổ dân phố 14" | "Tổ dân phố 15" | "Ban Điều hành KP" | "Chi bộ KP3" | "Chi đoàn Thanh niên" | "Hội Phụ nữ" | "Tổ Bảo vệ ANTT";
+  assignee: TaskAssignee;
+  creator: string;
+  priority: "Thấp" | "Trung bình" | "Cao" | "Khẩn cấp";
+  status: "Chờ xử lý" | "Đang thực hiện" | "Chờ nghiệm thu" | "Hoàn thành";
+  progressPercent: number;
+  startDate: string;
+  deadline: string;
+  completedAt?: string;
+  proofImages?: string[];
+  notes?: string;
+}
+
+export interface ScheduleEvent {
+  id: string;
+  title: string;
+  type: "Họp Chi bộ" | "Họp Tổ Dân Phố" | "Tuần tra ANTT" | "Chủ Nhật Xanh" | "Tiếp công dân" | "Hội nghị Khu phố" | "Khác";
+  date: string; // YYYY-MM-DD
+  time: string; // HH:mm - HH:mm
+  location: string;
+  host: string;
+  attendees: string;
+  status: "Sắp diễn ra" | "Đang diễn ra" | "Đã kết thúc" | "Đã hoãn";
+  notes?: string;
+}
+

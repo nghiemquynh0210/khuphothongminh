@@ -458,6 +458,8 @@ export default function FieldReflections({ reports, onAddReport, onUpdateReportS
           <div className="flex items-center gap-1.5 text-xs">
             <span className="text-xs font-semibold text-slate-500 flex items-center gap-1"><Filter size={14} /> Lọc trạng thái:</span>
             <select 
+              id="field-reflections-status-filter"
+              name="statusFilter"
               value={statusFilter}
               onChange={(e) => handleStatusFilterChange(e.target.value)}
               className="px-3 py-1.5 border border-slate-200 rounded-lg text-xs bg-white focus:outline-none focus:border-emerald-500"

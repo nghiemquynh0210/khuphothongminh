@@ -1161,6 +1161,8 @@ NGƯỜI NƯỚC NGOÀI KHAI BÁO       CHỦ CƠ SỞ LƯU TRÚ       XÁC NH�
 
           {/* Gender Filter */}
           <select 
+            id="citizen-gender-filter"
+            name="citizenGenderFilter"
             value={genderFilter}
             onChange={(e) => handleGenderFilterChange(e.target.value)}
             className="px-2.5 py-1.5 border border-slate-200 rounded-lg text-xs bg-white text-slate-700 focus:outline-none focus:border-emerald-500"
@@ -1172,6 +1174,8 @@ NGƯỜI NƯỚC NGOÀI KHAI BÁO       CHỦ CƠ SỞ LƯU TRÚ       XÁC NH�
 
           {/* Policy / Organization Filter */}
           <select 
+            id="citizen-policy-filter"
+            name="citizenPolicyFilter"
             value={policyFilter}
             onChange={(e) => handlePolicyFilterChange(e.target.value)}
             className="px-2.5 py-1.5 border border-slate-200 rounded-lg text-xs bg-white text-slate-700 focus:outline-none focus:border-emerald-500"

@@ -2641,6 +2641,8 @@ export default function PartyBranch({ partyMembers, residents = [] }: PartyBranc
                       <div className="relative flex-1 sm:w-48">
                         <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" size={13} />
                         <input
+                          id="party-member-search"
+                          name="memberSearchTerm"
                           type="text"
                           placeholder="Lọc tên, CCCD, QĐ..."
                           value={memberSearchTerm}
@@ -2651,6 +2653,8 @@ export default function PartyBranch({ partyMembers, residents = [] }: PartyBranc
 
                       {/* Filter by role pill */}
                       <select
+                        id="party-member-role-filter"
+                        name="memberRoleFilter"
                         value={memberRoleFilter}
                         onChange={(e) => setMemberRoleFilter(e.target.value)}
                         className="px-2 py-1.5 border border-slate-200 rounded-lg text-xs text-slate-600 bg-white focus:outline-none focus:border-emerald-500 shrink-0"

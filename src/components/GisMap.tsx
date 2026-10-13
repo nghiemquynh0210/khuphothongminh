@@ -53,6 +53,7 @@ import {
 } from "../utils/gisUtils";
 import { TargetGisItem } from "../types";
 import GisBoundaryManagerModal, { DEFAULT_KP3_BOUNDARY, BoundaryStyle, BOUNDARY_PRESETS } from "./gis/GisBoundaryManagerModal";
+import LeafletGisMap from "./gis/LeafletGisMap";
 
 // API Key retrieval from multiple possible sources
 const API_KEY =
@@ -1156,6 +1157,8 @@ export default function GisMap({
                     <Sliders size={12} />
                   </button>
                   <input 
+                    id="gis-layer-boundary"
+                    name="layerBoundary"
                     type="checkbox" 
                     checked={layers.boundary} 
                     onChange={() => toggleLayer("boundary")}
@@ -1171,6 +1174,8 @@ export default function GisMap({
                   <span>Sổ Hộ Khẩu Dân Cư ({counts.household})</span>
                 </div>
                 <input 
+                  id="gis-layer-household"
+                  name="layerHousehold"
                   type="checkbox" 
                   checked={layers.household} 
                   onChange={() => toggleLayer("household")}
@@ -1185,6 +1190,8 @@ export default function GisMap({
                   <span>Cơ sở Kinh doanh ({counts.business})</span>
                 </div>
                 <input 
+                  id="gis-layer-business"
+                  name="layerBusiness"
                   type="checkbox" 
                   checked={layers.business} 
                   onChange={() => toggleLayer("business")}
@@ -1199,6 +1206,8 @@ export default function GisMap({
                   <span>Camera An ninh ({counts.camera})</span>
                 </div>
                 <input 
+                  id="gis-layer-camera"
+                  name="layerCamera"
                   type="checkbox" 
                   checked={layers.camera} 
                   onChange={() => toggleLayer("camera")}
@@ -1213,6 +1222,8 @@ export default function GisMap({
                   <span>Thiết bị PCCC ({counts.fire})</span>
                 </div>
                 <input 
+                  id="gis-layer-fire"
+                  name="layerFire"
                   type="checkbox" 
                   checked={layers.fire} 
                   onChange={() => toggleLayer("fire")}
@@ -1227,6 +1238,8 @@ export default function GisMap({
                   <span>Đèn chiếu sáng Smart LED ({counts.light})</span>
                 </div>
                 <input 
+                  id="gis-layer-light"
+                  name="layerLight"
                   type="checkbox" 
                   checked={layers.light} 
                   onChange={() => toggleLayer("light")}
@@ -1256,6 +1269,8 @@ export default function GisMap({
               
               <div className="relative">
                 <input 
+                  id="gis-search-term"
+                  name="gisSearchTerm"
                   type="text"
                   placeholder="Hộ dân, doanh nghiệp, thiết bị..."
                   value={searchTerm}
@@ -1537,136 +1552,27 @@ export default function GisMap({
                   </Map>
                 </APIProvider>
               ) : (
-                /* Embed fallback with fully responsive controls and beautiful satellite view centered at coordinates */
-                <div className="w-full h-full relative">
-                  <iframe 
-                    title="Bản đồ Vệ tinh Khu phố 3"
-                    src={getEmbedMapUrl()}
-                    width="100%" 
-                    height="100%" 
-                    style={{ border: 0 }} 
-                    allowFullScreen 
-                    loading="lazy"
-                    referrerPolicy="no-referrer"
-                    className="absolute inset-0 w-full h-full"
-                  />
-
-                  {/* Live SVG Boundary Polygon drawn over satellite embed */}
-                  {layers.boundary && (boundaryCoords.length >= 2 || isBoundaryEditMode) && (
-                    <svg 
-                      className={`absolute inset-0 w-full h-full z-10 ${
-                        isBoundaryEditMode ? "pointer-events-auto cursor-crosshair" : "pointer-events-none"
-                      }`}
-                      viewBox="0 0 1000 1000"
-                      preserveAspectRatio="none"
-                      onClick={handleSvgClick}
-                    >
-                      {/* Polygon when >= 3 points exist */}
-                      {boundaryCoords.length >= 3 && (
-                        <polygon
-                          points={boundaryCoords.map(p => {
-                            const pt = projectToSvg(p.lat, p.lng);
-                            return `${pt.x},${pt.y}`;
-                          }).join(" ")}
-                          fill={boundaryStyle.fillColor}
-                          fillOpacity={boundaryStyle.fillOpacity}
-                          stroke={boundaryStyle.strokeColor}
-                          strokeWidth={boundaryStyle.strokeWeight * 1.5}
-                          strokeDasharray={isBoundaryEditMode ? "8,4" : undefined}
-                        />
-                      )}
-
-                      {/* Connecting line when only 2 points exist */}
-                      {boundaryCoords.length === 2 && (
-                        <line
-                          x1={projectToSvg(boundaryCoords[0].lat, boundaryCoords[0].lng).x}
-                          y1={projectToSvg(boundaryCoords[0].lat, boundaryCoords[0].lng).y}
-                          x2={projectToSvg(boundaryCoords[1].lat, boundaryCoords[1].lng).x}
-                          y2={projectToSvg(boundaryCoords[1].lat, boundaryCoords[1].lng).y}
-                          stroke={boundaryStyle.strokeColor}
-                          strokeWidth="3.5"
-                          strokeDasharray="6,3"
-                        />
-                      )}
-
-                      {/* Visual prompt when in edit mode with 0 points */}
-                      {isBoundaryEditMode && boundaryCoords.length === 0 && (
-                        <g>
-                          <rect x="220" y="440" width="560" height="110" rx="16" fill="#0f172a" opacity="0.92" stroke="#10b981" strokeWidth="2.5" />
-                          <text x="500" y="485" textAnchor="middle" fill="#34d399" fontSize="20" fontWeight="bold">📍 BẮT ĐẦU GHIM MỐC ĐỊA BÀN</text>
-                          <text x="500" y="520" textAnchor="middle" fill="#cbd5e1" fontSize="15">Nhấp bất kỳ điểm nào trên bản đồ để ghim Mốc giới số 1</text>
-                        </g>
-                      )}
-
-                      {/* Visually Numbered Milestone Markers with Badges and Drop Shadow */}
-                      {boundaryCoords.map((p, idx) => {
-                        const pt = projectToSvg(p.lat, p.lng);
-                        const isSelected = selectedMilestoneIndex === idx;
-                        return (
-                          <g 
-                            key={idx} 
-                            className="cursor-pointer group select-none"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setSelectedMilestoneIndex(isSelected ? null : idx);
-                            }}
-                          >
-                            {/* Outer pulsing/glow circle */}
-                            <circle
-                              cx={pt.x}
-                              cy={pt.y}
-                              r={isSelected ? "18" : "15"}
-                              fill={isSelected ? "#f59e0b" : boundaryStyle.strokeColor}
-                              opacity="0.95"
-                              filter="drop-shadow(0 3px 6px rgba(0,0,0,0.7))"
-                            />
-                            {/* Inner white circle */}
-                            <circle
-                              cx={pt.x}
-                              cy={pt.y}
-                              r={isSelected ? "13" : "11"}
-                              fill="#ffffff"
-                              stroke={isSelected ? "#f59e0b" : "#0f172a"}
-                              strokeWidth="1.5"
-                            />
-                            {/* Number text */}
-                            <text
-                              x={pt.x}
-                              y={pt.y + 4}
-                              textAnchor="middle"
-                              fontSize={isSelected ? "12" : "10"}
-                              fontWeight="bold"
-                              fill="#0f172a"
-                              fontFamily="monospace"
-                            >
-                              {idx + 1}
-                            </text>
-                            {/* Small name tag badge underneath */}
-                            <rect
-                              x={pt.x - 22}
-                              y={pt.y + 16}
-                              width="44"
-                              height="14"
-                              rx="3"
-                              fill="#0f172a"
-                              opacity="0.9"
-                            />
-                            <text
-                              x={pt.x}
-                              y={pt.y + 26}
-                              textAnchor="middle"
-                              fontSize="8"
-                              fontWeight="bold"
-                              fill="#ffffff"
-                            >
-                              Mốc {idx + 1}
-                            </text>
-                          </g>
-                        );
-                      })}
-                    </svg>
-                  )}
-                </div>
+                /* Pure WGS-84 GIS Map with Leaflet (True Geo-Pinned Polygons, No coordinate drifting on pan/zoom) */
+                <LeafletGisMap
+                  boundaryCoords={boundaryCoords}
+                  boundaryStyle={boundaryStyle}
+                  isBoundaryEditMode={isBoundaryEditMode}
+                  selectedMilestoneIndex={selectedMilestoneIndex}
+                  onSelectMilestone={setSelectedMilestoneIndex}
+                  onAddVertexFromMap={handleAddVertexFromMap}
+                  layers={layers}
+                  pins={filteredPins}
+                  selectedPin={selectedPin}
+                  onSelectPin={(pin) => {
+                    setSelectedPin(pin);
+                    setIsLiveActive(false);
+                  }}
+                  onLiveCameraClick={() => {
+                    if (selectedPin?.type === "camera") {
+                      setIsLiveActive(true);
+                    }
+                  }}
+                />
               )}
             </div>
 
@@ -2131,7 +2037,7 @@ export default function GisMap({
 
                 {/* Simulated street photo behind grid */}
                 <img 
-                  src="https://images.unsplash.com/photo-1545173168-9f19072f1027?w=1000" 
+                  src="https://images.unsplash.com/photo-1519501025264-65ba15a82390?w=1000" 
                   alt="Live Camera Footage feed"
                   className="w-full h-full object-cover opacity-45 blur-[0.5px]"
                   referrerPolicy="no-referrer"

@@ -228,6 +228,8 @@ export default function SocialWelfare({ recipients, onUpdateStatus, onAddRecipie
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
           <input 
+            id="social-welfare-search"
+            name="welfareSearch"
             type="text" 
             placeholder="Tìm theo tên công dân, số CCCD hoặc địa chỉ..."
             value={searchTerm}
@@ -239,6 +241,8 @@ export default function SocialWelfare({ recipients, onUpdateStatus, onAddRecipie
           <div className="flex items-center gap-1.5 text-xs">
             <span className="text-xs font-semibold text-slate-500 flex items-center gap-1"><Filter size={14} /> Phân loại:</span>
             <select 
+              id="social-welfare-category-filter"
+              name="categoryFilter"
               value={categoryFilter}
               onChange={(e) => handleCategoryFilterChange(e.target.value)}
               className="px-3 py-1.5 border border-slate-200 rounded-lg text-xs bg-white focus:outline-none focus:border-rose-500"

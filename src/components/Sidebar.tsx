@@ -18,7 +18,8 @@ import {
   FileText,
   LogOut,
   Building2,
-  Store
+  Store,
+  CalendarCheck
 } from "lucide-react";
 import { ActiveTab } from "../types";
 
@@ -96,6 +97,7 @@ export default function Sidebar({
     { id: "enterprises", label: "Quản lý Doanh nghiệp", icon: Building2 },
     { id: "businesses", label: "Cơ sở Kinh doanh", icon: Store },
     { id: "gis", label: "Bản đồ GIS", icon: Map },
+    { id: "tasks", label: "Lịch & Nhiệm vụ", icon: CalendarCheck },
     { id: "ai", label: "Trợ lý AI", icon: Bot },
     { id: "reports", label: "Phản ánh hiện trường", icon: MessageSquare },
     { id: "party", label: "Quản lý Chi hội", icon: ShieldAlert },

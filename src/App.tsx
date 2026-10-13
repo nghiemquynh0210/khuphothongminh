@@ -30,6 +30,7 @@ import HouseholdManagement from "./components/HouseholdManagement";
 import BusinessManagement from "./components/BusinessManagement";
 import EnterpriseManagement from "./components/EnterpriseManagement";
 import GisMap from "./components/GisMap";
+import TaskAndSchedule from "./components/TaskAndSchedule";
 import AiAssistant from "./components/AiAssistant";
 import FieldReflections from "./components/FieldReflections";
 import PartyBranch from "./components/PartyBranch";
@@ -175,6 +176,7 @@ export default function App() {
     enterprises: true,
     businesses: true,
     gis: true,
+    tasks: true,
     ai: true,
     reports: true,
     party: true,
@@ -764,6 +766,10 @@ export default function App() {
               targetGisItem={targetGisItem}
               onClearTargetGisItem={() => setTargetGisItem(null)}
             />
+          )}
+
+          {activeTab === "tasks" && (
+            <TaskAndSchedule />
           )}
 
           {activeTab === "ai" && (

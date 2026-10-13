@@ -926,6 +926,8 @@ export default function EnterpriseManagement({
               <div className="relative flex-1">
                 <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
                 <input
+                  id="enterprise-search-input"
+                  name="enterpriseSearchTerm"
                   type="text"
                   placeholder="Tìm theo tên doanh nghiệp, mã nội bộ, mã số thuế (MST), người đại diện, địa chỉ..."
                   value={searchTerm}
@@ -972,6 +974,8 @@ export default function EnterpriseManagement({
               <div>
                 <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">Loại hình DN</label>
                 <select
+                  id="enterprise-type-filter"
+                  name="enterpriseTypeFilter"
                   value={typeFilter}
                   onChange={(e) => setTypeFilter(e.target.value)}
                   className="w-full px-2.5 py-1.5 border border-slate-200 rounded-lg bg-white text-slate-700 font-medium focus:outline-none focus:border-indigo-500 text-xs"
@@ -987,6 +991,8 @@ export default function EnterpriseManagement({
               <div>
                 <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">Quy mô lao động (NĐ 80)</label>
                 <select
+                  id="enterprise-scale-filter"
+                  name="enterpriseScaleFilter"
                   value={scaleFilter}
                   onChange={(e) => setScaleFilter(e.target.value)}
                   className="w-full px-2.5 py-1.5 border border-slate-200 rounded-lg bg-white text-slate-700 font-medium focus:outline-none focus:border-indigo-500 text-xs"
@@ -1002,6 +1008,8 @@ export default function EnterpriseManagement({
               <div>
                 <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">Tuyến đường</label>
                 <select
+                  id="enterprise-street-filter"
+                  name="enterpriseStreetFilter"
                   value={streetFilter}
                   onChange={(e) => setStreetFilter(e.target.value)}
                   className="w-full px-2.5 py-1.5 border border-slate-200 rounded-lg bg-white text-slate-700 font-medium focus:outline-none focus:border-indigo-500 text-xs"
@@ -1017,6 +1025,8 @@ export default function EnterpriseManagement({
               <div>
                 <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">Trạng thái</label>
                 <select
+                  id="enterprise-status-filter"
+                  name="enterpriseStatusFilter"
                   value={statusFilter}
                   onChange={(e) => setStatusFilter(e.target.value)}
                   className="w-full px-2.5 py-1.5 border border-slate-200 rounded-lg bg-white text-slate-700 font-medium focus:outline-none focus:border-indigo-500 text-xs"

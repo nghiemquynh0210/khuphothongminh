@@ -976,7 +976,7 @@ export const initialBusinesses: Business[] = [
     temporaryWorkersCount: 1,
     foreignWorkersCount: 0,
     safetyCertified: true,
-    image: "https://images.unsplash.com/photo-1545173168-9f19072f1027?w=400",
+    image: "https://images.unsplash.com/photo-1582735689369-4fe89db7114c?w=400",
     coordinates: "10°56'10.2\"N 106°44'35.5\"E",
     toBanDo: "215",
     soThua: "42",
@@ -1163,9 +1163,9 @@ export const initialBusinesses: Business[] = [
     temporaryWorkersCount: 1,
     foreignWorkersCount: 0,
     safetyCertified: true,
-    image: "https://images.unsplash.com/photo-1586015555751-63c2999971d6?w=400",
+    image: "https://images.unsplash.com/photo-1631549916768-4119b2e5f926?w=500",
     images: [
-      "https://images.unsplash.com/photo-1586015555751-63c2999971d6?w=400",
+      "https://images.unsplash.com/photo-1631549916768-4119b2e5f926?w=500",
       "https://images.unsplash.com/photo-1631549916768-4119b2e5f926?w=500",
       "https://images.unsplash.com/photo-1587854692152-cbe660dbde88?w=500"
     ],

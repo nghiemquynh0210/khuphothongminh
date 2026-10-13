@@ -1,0 +1,26 @@
+{
+  "mcpServers": {
+    "supabase": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@supabase/mcp-server-supabase@latest",
+        "--project-ref",
+        "wjdgaobhipkgzveidtra"
+      ],
+      "env": {
+        "SUPABASE_ACCESS_TOKEN": "sbp_fc2b41fc33b4edc43b40e83dec70d6f54502c03e"
+      }
+    },
+    "vercel": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@modelcontextprotocol/server-vercel"
+      ],
+      "env": {
+        "VERCEL_API_TOKEN": "vcp_2E4YuC4RETScN01BRUIPtrVSTijX4JyB2EehKF8BMXqtuTWfFh2sIBhQ"
+      }
+    }
+  }
+}
