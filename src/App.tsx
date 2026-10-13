@@ -1,0 +1,857 @@
+import React, { useState, Component, type ReactNode, type ErrorInfo } from "react";
+import { 
+  initialResidents, 
+  initialHouseholds, 
+  initialBusinesses, 
+  initialReports, 
+  initialPartyMembers,
+  initialWelfareRecipients,
+  initialCommunityEvents,
+  initialFundContributions
+} from "./mockData";
+import { 
+  Resident, 
+  Household, 
+  Business, 
+  FieldReport, 
+  PartyMember, 
+  ActiveTab,
+  WelfareRecipient,
+  CommunityEvent,
+  FundContribution,
+  AdministrativeForm,
+  TargetGisItem
+} from "./types";
+import { initialAdministrativeForms } from "./mockForms";
+import Sidebar from "./components/Sidebar";
+import Dashboard from "./components/Dashboard";
+import CitizenManagement from "./components/CitizenManagement";
+import HouseholdManagement from "./components/HouseholdManagement";
+import BusinessManagement from "./components/BusinessManagement";
+import EnterpriseManagement from "./components/EnterpriseManagement";
+import GisMap from "./components/GisMap";
+import AiAssistant from "./components/AiAssistant";
+import FieldReflections from "./components/FieldReflections";
+import PartyBranch from "./components/PartyBranch";
+import SocialWelfare from "./components/SocialWelfare";
+import CommunityEvents from "./components/CommunityEvents";
+import NeighborhoodFunds from "./components/NeighborhoodFunds";
+import PlanArchitecture from "./components/PlanArchitecture";
+import LoginAndRegister from "./components/LoginAndRegister";
+import SettingsAndPermissions, { PendingRegistration } from "./components/SettingsAndPermissions";
+import AdministrativeForms from "./components/AdministrativeForms";
+import { 
+  Bell, 
+  Search, 
+  Menu, 
+  User, 
+  Users,
+  ShieldAlert,
+  ChevronDown,
+  Info
+} from "lucide-react";
+
+export const PUBLIC_CITIZEN_USER = {
+  username: "cudan",
+  fullName: "Cư dân Khu phố 3",
+  role: "nguoidan" as const,
+};
+
+export const CANBO_USER = {
+  username: "canbo",
+  fullName: "Nguyễn Văn Hùng",
+  role: "canbo" as const,
+  phone: "0901234567"
+};
+
+interface ErrorBoundaryProps {
+  children: ReactNode;
+  fallbackTab: string;
+  onReset: () => void;
+}
+
+interface ErrorBoundaryState {
+  hasError: boolean;
+  errorMessage: string;
+}
+
+class AppErrorBoundary extends (Component as any) {
+  constructor(props: any) {
+    super(props);
+    this.state = { hasError: false, errorMessage: "" };
+  }
+
+  static getDerivedStateFromError(error: Error): ErrorBoundaryState {
+    return { hasError: true, errorMessage: error?.message || "Đã xảy ra lỗi khi tải phân hệ" };
+  }
+
+  componentDidCatch(error: Error, errorInfo: ErrorInfo) {
+    console.error("AppErrorBoundary caught an error:", error, errorInfo);
+  }
+
+  componentDidUpdate(prevProps: ErrorBoundaryProps) {
+    if (prevProps.fallbackTab !== this.props.fallbackTab && this.state.hasError) {
+      this.setState({ hasError: false, errorMessage: "" });
+    }
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="bg-white rounded-3xl p-8 border border-rose-200 text-center space-y-4 max-w-lg mx-auto my-12 shadow-sm">
+          <div className="w-16 h-16 rounded-2xl bg-rose-50 text-rose-600 flex items-center justify-center mx-auto">
+            <ShieldAlert size={32} />
+          </div>
+          <h3 className="text-lg font-bold text-slate-900">Không thể tải phân hệ</h3>
+          <p className="text-xs text-slate-500 leading-relaxed">
+            Hệ thống phát hiện lỗi hiển thị tạm thời: {this.state.errorMessage}
+          </p>
+          <div className="flex justify-center gap-3 pt-2">
+            <button
+              onClick={() => {
+                this.setState({ hasError: false, errorMessage: "" });
+                this.props.onReset();
+              }}
+              className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition-all shadow-xs cursor-pointer"
+            >
+              Tải lại phân hệ
+            </button>
+          </div>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
+export default function App() {
+  const [currentUser, setCurrentUser] = useState<{
+    username: string;
+    fullName: string;
+    role: "canbo" | "nguoidan";
+    cccd?: string;
+    householdCode?: string;
+    phone?: string;
+  } | null>(PUBLIC_CITIZEN_USER);
+
+  const [pendingRegistrations, setPendingRegistrations] = useState<PendingRegistration[]>([
+    {
+      id: "REG-001",
+      fullName: "Trần Minh Tâm",
+      gender: "Nam",
+      birthDate: "14/05/1998",
+      cccd: "079200114567",
+      phone: "0934455667",
+      status: "Thường trú",
+      occupation: "Kỹ sư phần mềm",
+      address: "42 Lương Định Của, Phường An Phú",
+      householdId: "HK-301",
+      relationToOwner: "Con",
+      coordinates: "10°56'07.5\"N 106°44'38.0\"E",
+      avatar: "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=150"
+    },
+    {
+      id: "REG-002",
+      fullName: "Lê Thị Hồng Sâm",
+      gender: "Nữ",
+      birthDate: "20/11/1992",
+      cccd: "079305128912",
+      phone: "0886677889",
+      status: "Tạm trú",
+      occupation: "Nhân viên văn phòng",
+      address: "Hẻm 30 Lương Định Của",
+      householdId: "HK-302",
+      relationToOwner: "Vợ",
+      coordinates: "10°56'09.1\"N 106°44'36.5\"E",
+      avatar: "https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=150"
+    }
+  ]);
+
+  const [residentPermissions, setResidentPermissions] = useState<Record<string, boolean>>({
+    dashboard: true,
+    forms: true,
+    residents: false,
+    households: false,
+    enterprises: true,
+    businesses: true,
+    gis: true,
+    ai: true,
+    reports: true,
+    party: true,
+    welfare: true,
+    cultural: true,
+    finance: true,
+    plan: true,
+  });
+
+  const [activeTab, setActiveTab] = useState<ActiveTab>("dashboard");
+  const [residents, setResidents] = useState<Resident[]>(initialResidents);
+  const [households, setHouseholds] = useState<Household[]>(initialHouseholds);
+  const [businesses, setBusinesses] = useState<Business[]>(initialBusinesses);
+  const [reports, setReports] = useState<FieldReport[]>(initialReports);
+  const [partyMembers] = useState<PartyMember[]>(initialPartyMembers);
+  
+  // New State variables for the 3 additional views
+  const [welfareRecipients, setWelfareRecipients] = useState<WelfareRecipient[]>(initialWelfareRecipients);
+  const [communityEvents, setCommunityEvents] = useState<CommunityEvent[]>(initialCommunityEvents);
+  const [fundContributions, setFundContributions] = useState<FundContribution[]>(initialFundContributions);
+  const [administrativeForms, setAdministrativeForms] = useState<AdministrativeForm[]>(initialAdministrativeForms);
+
+  // Target item for GIS Map navigation & sync
+  const [targetGisItem, setTargetGisItem] = useState<TargetGisItem | null>(null);
+
+  const handleNavigateToGis = (item: TargetGisItem) => {
+    setTargetGisItem(item);
+    setActiveTab("gis");
+  };
+
+  // Notifications State Mock
+  const [notifications, setNotifications] = useState([
+    { id: 1, text: "Phản ánh mới hẻm 42 vừa được gửi", unread: true },
+    { id: 2, text: "Yêu cầu duyệt GPKD Cửa hàng 247", unread: true }
+  ]);
+
+  // Form Management Handlers
+  const handleAddForm = (newForm: AdministrativeForm) => {
+    setAdministrativeForms(prev => [newForm, ...prev]);
+    setNotifications(prev => [
+      { id: Date.now(), text: `Cán bộ đã thêm biểu mẫu: ${newForm.code} - ${newForm.title}`, unread: true },
+      ...prev
+    ]);
+  };
+
+  const handleUpdateForm = (updatedForm: AdministrativeForm) => {
+    setAdministrativeForms(prev => prev.map(f => f.id === updatedForm.id ? updatedForm : f));
+    setNotifications(prev => [
+      { id: Date.now(), text: `Cán bộ đã cập nhật biểu mẫu: ${updatedForm.code}`, unread: true },
+      ...prev
+    ]);
+  };
+
+  const handleDeleteForm = (formId: string) => {
+    const f = administrativeForms.find(form => form.id === formId);
+    setAdministrativeForms(prev => prev.filter(form => form.id !== formId));
+    if (f) {
+      setNotifications(prev => [
+        { id: Date.now(), text: `Cán bộ đã xóa biểu mẫu: ${f.code}`, unread: true },
+        ...prev
+      ]);
+    }
+  };
+
+  // Handlers for State Management
+  const handleAddResident = (newResident: Resident) => {
+    setResidents([newResident, ...residents]);
+    
+    // Auto-update household members if matched
+    const hhId = newResident.householdId;
+    setHouseholds(households.map(hh => {
+      if (hh.code === hhId) {
+        return {
+          ...hh,
+          memberCount: hh.memberCount + 1,
+          members: [...hh.members, {
+            name: newResident.fullName,
+            relation: newResident.relationToOwner,
+            cccd: newResident.cccd,
+            phone: newResident.phone,
+            birthYear: parseInt(newResident.birthDate.split("/")[2]) || 1990
+          }]
+        };
+      }
+      return hh;
+    }));
+  };
+
+  const handleDeleteResident = (id: string) => {
+    const resToDelete = residents.find(r => r.id === id);
+    setResidents(residents.filter(r => r.id !== id));
+
+    if (resToDelete) {
+      const hhId = resToDelete.householdId;
+      setHouseholds(households.map(hh => {
+        if (hh.code === hhId) {
+          const updatedMembers = hh.members.filter(m => m.cccd !== resToDelete.cccd);
+          return {
+            ...hh,
+            memberCount: updatedMembers.length,
+            members: updatedMembers
+          };
+        }
+        return hh;
+      }));
+    }
+  };
+
+  const handleAddHousehold = (newH: Household) => {
+    setHouseholds([newH, ...households]);
+    
+    // Add owner to residents roster
+    const ownerRes: Resident = {
+      id: "R" + (residents.length + 1).toString().padStart(3, "0"),
+      fullName: newH.ownerName,
+      gender: "Nam",
+      birthDate: "01/01/1975",
+      cccd: newH.members[0]?.cccd || "N/A",
+      phone: newH.members[0]?.phone || "N/A",
+      status: (newH.type === "Tạm trú" ? "Tạm trú" : "Thường trú") as "Thường trú" | "Tạm trú",
+      occupation: "Kinh doanh",
+      address: newH.address,
+      householdId: newH.code,
+      relationToOwner: "Chủ hộ",
+      avatar: "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150",
+      joinDate: new Date().toLocaleDateString("vi-VN")
+    };
+    setResidents([ownerRes, ...residents]);
+  };
+
+  const handleToggleBusinessCertification = (id: string) => {
+    setBusinesses(businesses.map(b => {
+      if (b.id === id) {
+        return { ...b, safetyCertified: !b.safetyCertified };
+      }
+      return b;
+    }));
+  };
+
+  const handleUpdateBusinessStatus = (id: string, status: "Đang hoạt động" | "Tạm ngưng" | "Chờ duyệt" | "Chuyển địa điểm" | "Chưa xác minh") => {
+    setBusinesses(businesses.map(b => {
+      if (b.id === id) {
+        return { ...b, status };
+      }
+      return b;
+    }));
+  };
+
+  const handleAddReport = (newReport: FieldReport) => {
+    setReports([newReport, ...reports]);
+    setNotifications([
+      { id: Date.now(), text: `Phản ánh mới: "${newReport.title}"`, unread: true },
+      ...notifications
+    ]);
+  };
+
+  const handleUpdateReportStatus = (
+    id: string, 
+    status: "Đã tiếp nhận" | "Đang xử lý" | "Đã giải quyết", 
+    actorName: string = "Cán bộ quản lý",
+    actionDetail: string = "Cập nhật tiến độ xử lý phản ánh."
+  ) => {
+    setReports(reports.map(r => {
+      if (r.id === id) {
+        const timeStr = new Date().toLocaleDateString("vi-VN") + " " + new Date().toLocaleTimeString("vi-VN", { hour12: false });
+        const beforeImg = r.beforeImage;
+        // If status is solved, add a mock beautiful afterImage
+        const afterImg = status === "Đã giải quyết" 
+          ? "https://images.unsplash.com/photo-1506744038136-46273834b3fb?w=300" 
+          : r.afterImage;
+
+        return {
+          ...r,
+          status,
+          afterImage: afterImg,
+          timeline: [
+            ...r.timeline,
+            {
+              time: timeStr,
+              title: status === "Đang xử lý" ? "Xác minh & Đang giải quyết" : "Đã xử lý hoàn thành",
+              description: actionDetail,
+              actor: actorName
+            }
+          ]
+        };
+      }
+      return r;
+    }));
+  };
+
+  const handleAddWelfareRecipient = (newRec: WelfareRecipient) => {
+    setWelfareRecipients([newRec, ...welfareRecipients]);
+  };
+
+  const handleUpdateWelfareStatus = (id: string, status: WelfareRecipient["status"]) => {
+    setWelfareRecipients(welfareRecipients.map(w => w.id === id ? { ...w, status } : w));
+  };
+
+  const handleDeleteWelfareRecipient = (id: string) => {
+    setWelfareRecipients(welfareRecipients.filter(w => w.id !== id));
+  };
+
+  const handleAddCommunityEvent = (newEvent: CommunityEvent) => {
+    setCommunityEvents([newEvent, ...communityEvents]);
+  };
+
+  const handleUpdateEventStatus = (id: string, status: CommunityEvent["status"]) => {
+    setCommunityEvents(communityEvents.map(e => e.id === id ? { ...e, status } : e));
+  };
+
+  const handleAddFundContribution = (newCont: FundContribution) => {
+    setFundContributions([newCont, ...fundContributions]);
+  };
+
+  const handleUpdateContributionStatus = (id: string, status: FundContribution["status"], paidAt?: string) => {
+    setFundContributions(fundContributions.map(c => c.id === id ? { ...c, status, paidAt } : c));
+  };
+
+  const handleApproveRegistration = (reg: PendingRegistration) => {
+    const newRes: Resident = {
+      id: "R" + (residents.length + 1).toString().padStart(3, "0"),
+      fullName: reg.fullName,
+      gender: reg.gender,
+      birthDate: reg.birthDate,
+      cccd: reg.cccd,
+      phone: reg.phone,
+      status: reg.status as "Thường trú" | "Tạm trú",
+      occupation: reg.occupation,
+      address: reg.address,
+      householdId: reg.householdId,
+      relationToOwner: reg.relationToOwner,
+      avatar: reg.avatar || "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150",
+      joinDate: new Date().toLocaleDateString("vi-VN")
+    };
+
+    setResidents([newRes, ...residents]);
+
+    setHouseholds(households.map(hh => {
+      if (hh.code === reg.householdId) {
+        return {
+          ...hh,
+          memberCount: hh.memberCount + 1,
+          members: [...hh.members, {
+            name: reg.fullName,
+            relation: reg.relationToOwner,
+            cccd: reg.cccd,
+            phone: reg.phone,
+            birthYear: parseInt(reg.birthDate.split("/")[2]) || 1995
+          }]
+        };
+      }
+      return hh;
+    }));
+
+    setPendingRegistrations(pendingRegistrations.filter(r => r.id !== reg.id));
+
+    setNotifications([
+      { id: Date.now(), text: `Đã duyệt nhập khẩu thành công cho ${reg.fullName} vào hộ ${reg.householdId}`, unread: true },
+      ...notifications
+    ]);
+  };
+
+  const handleRejectRegistration = (id: string) => {
+    setPendingRegistrations(pendingRegistrations.filter(r => r.id !== id));
+  };
+
+  // Tab Title helper
+  const getTabTitle = () => {
+    switch (activeTab) {
+      case "dashboard": return "Bảng Điều Hành Tổng Quan";
+      case "residents": return "Quản lý Nhân Khẩu & Dân cư";
+      case "households": return "Hệ thống Quản lý Sổ Hộ khẩu";
+      case "enterprises": return "Quản lý Doanh nghiệp Vừa & Nhỏ (DNNVV)";
+      case "businesses": return "Quản lý Cơ sở Kinh doanh KP3";
+      case "gis": return "Bản đồ số không gian GIS";
+      case "ai": return "Hỏi đáp tự động Trợ lý AI";
+      case "reports": return "Tiếp nhận Phản ánh Hiện trường 1022";
+      case "party": return "Công tác Đảng & Dân vận mặt trận";
+      case "welfare": return "An sinh Xã hội & Trợ cấp";
+      case "cultural": return "Tin tức & Sự kiện";
+      case "finance": return "Quỹ Tự quản & Đóng góp Khu phố";
+      case "plan": return "Đề án & Thiết kế Kiến trúc Cơ sở dữ liệu";
+      case "settings": return "Cấu hình Hệ thống & Duyệt hồ sơ";
+      default: return "Hệ thống Quản lý";
+    }
+  };
+
+  if (!currentUser) {
+    return (
+      <LoginAndRegister
+        onLoginSuccess={(user) => {
+          setCurrentUser(user);
+          setActiveTab("dashboard");
+        }}
+        onRegisterSubmit={(newReg) => {
+          setPendingRegistrations([newReg, ...pendingRegistrations]);
+        }}
+        householdCodes={households.map(h => h.code)}
+      />
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-slate-50 flex font-sans">
+      {/* Sidebar Navigation */}
+      <Sidebar 
+        activeTab={activeTab} 
+        setActiveTab={setActiveTab} 
+        currentUser={currentUser}
+        onLogout={() => {
+          setCurrentUser(PUBLIC_CITIZEN_USER);
+          setActiveTab("dashboard");
+        }}
+        onSwitchRole={() => {
+          if (currentUser.role === "nguoidan") {
+            setCurrentUser(CANBO_USER);
+          } else {
+            setCurrentUser(PUBLIC_CITIZEN_USER);
+          }
+          setActiveTab("dashboard");
+        }}
+        residentPermissions={residentPermissions}
+      />
+
+      {/* Main Content Area */}
+      <div className="flex-1 flex flex-col md:pl-20 lg:pl-64 min-w-0 transition-all duration-300">
+        
+        {/* Top Header Bar */}
+        <header className="h-16 border-b border-slate-200 bg-white flex items-center justify-between px-3 sm:px-6 sticky top-0 z-30 shrink-0 shadow-sm">
+          <div className="flex items-center gap-3 pl-12 md:pl-0 min-w-0">
+            <h2 className="font-extrabold text-slate-800 text-sm sm:text-base md:text-lg tracking-tight truncate">
+              {currentUser.role === "nguoidan" && activeTab === "dashboard" ? "Cổng Dịch Vụ Cư Dân Số" : getTabTitle()}
+            </h2>
+          </div>
+
+          {/* Right Header items */}
+          <div className="flex items-center gap-2 sm:gap-4 shrink-0">
+            
+            {/* Info button for Plan & Database design */}
+            <button
+              id="header-info-plan"
+              onClick={() => setActiveTab("plan")}
+              className={`p-1.5 rounded-lg transition-all duration-200 cursor-pointer relative group ${
+                activeTab === "plan" 
+                  ? "bg-emerald-100 text-emerald-800" 
+                  : "text-slate-500 hover:text-slate-800 hover:bg-slate-100"
+              }`}
+              title="Đề án & Thiết kế Kiến trúc Cơ sở dữ liệu"
+            >
+              <Info size={18} className="sm:w-5 sm:h-5" />
+              {/* Tooltip */}
+              <span className="absolute top-10 right-0 bg-slate-900 text-white text-[10px] rounded px-2 py-1 opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none z-50 shadow-md">
+                Đề án & Thiết kế Kiến trúc Cơ sở dữ liệu
+              </span>
+            </button>
+
+            {/* Notifications panel toggle button */}
+            <div className="relative group">
+              <button 
+                id="header-notifications"
+                className="p-1.5 text-slate-500 hover:text-slate-800 hover:bg-slate-100 rounded-lg transition-colors cursor-pointer relative"
+              >
+                <Bell size={18} className="sm:w-5 sm:h-5" />
+                {notifications.some(n => n.unread) && (
+                  <span className="absolute top-1 right-1 w-2.5 h-2.5 bg-rose-600 rounded-full ring-2 ring-white animate-pulse"></span>
+                )}
+              </button>
+
+              {/* Notifications Dropdown on hover */}
+              <div className="absolute right-0 mt-2 w-72 bg-white rounded-xl shadow-xl border border-slate-100 p-2 opacity-0 scale-95 pointer-events-none group-hover:opacity-100 group-hover:scale-100 group-hover:pointer-events-auto transition-all duration-200 z-50">
+                <div className="px-3 py-2 border-b border-slate-50 flex justify-between items-center bg-slate-50/50 rounded-t-lg">
+                  <span className="font-bold text-xs text-slate-700">Thông báo mới nhận</span>
+                  <button 
+                    onClick={() => setNotifications(notifications.map(n => ({ ...n, unread: false })))}
+                    className="text-[10px] text-emerald-600 hover:text-emerald-700 font-bold"
+                  >
+                    Đánh dấu đã đọc
+                  </button>
+                </div>
+                <div className="py-1 divide-y divide-slate-50 max-h-48 overflow-y-auto">
+                  {notifications.map((n) => (
+                    <div key={n.id} className="p-2.5 text-xs text-slate-600 hover:bg-slate-50 rounded-lg flex items-start gap-2">
+                      <span className={`w-1.5 h-1.5 rounded-full shrink-0 mt-1.5 ${n.unread ? "bg-rose-500" : "bg-slate-300"}`}></span>
+                      <span>{n.text}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            {/* Role Indicator & Quick Switch */}
+            {currentUser.role === "nguoidan" ? (
+              <div className="flex items-center gap-1.5 sm:gap-2">
+                <div className="hidden lg:flex items-center gap-1.5 px-2.5 py-1 bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-xl text-xs font-bold">
+                  <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                  <span>Cổng Cư dân</span>
+                  <span className="text-[10px] font-normal text-emerald-600 border-l border-emerald-200 pl-1.5 ml-0.5">Không cần đăng nhập</span>
+                </div>
+                <button
+                  id="header-login-canbo"
+                  onClick={() => {
+                    setCurrentUser(CANBO_USER);
+                    setActiveTab("dashboard");
+                  }}
+                  className="flex items-center gap-1 sm:gap-1.5 px-2.5 sm:px-3 py-1.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold transition-all shadow-xs cursor-pointer shrink-0"
+                  title="Chuyển sang Bàn làm việc Cán bộ quản lý"
+                >
+                  <span className="hidden sm:inline">Đăng nhập </span><span>Cán bộ</span>
+                </button>
+              </div>
+            ) : (
+              <div className="flex items-center gap-1.5 sm:gap-2">
+                <div className="hidden lg:flex items-center gap-1.5 px-2.5 py-1 bg-indigo-50 border border-indigo-200 text-indigo-800 rounded-xl text-xs font-bold">
+                  <span className="w-2 h-2 rounded-full bg-indigo-500 animate-pulse"></span>
+                  <span>Cán bộ quản lý</span>
+                </div>
+                <button
+                  id="header-back-cudan"
+                  onClick={() => {
+                    setCurrentUser(PUBLIC_CITIZEN_USER);
+                    setActiveTab("dashboard");
+                  }}
+                  className="flex items-center gap-1 sm:gap-1.5 px-2.5 sm:px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition-all shadow-xs cursor-pointer shrink-0"
+                  title="Quay lại Cổng Cư dân số"
+                >
+                  <span className="hidden sm:inline">Về Cổng </span><span>Cư dân</span>
+                </button>
+              </div>
+            )}
+
+            {/* User identity display */}
+            <div className="flex items-center gap-2 border-l border-slate-200 pl-2 sm:pl-3">
+              {currentUser.role === "canbo" ? (
+                <>
+                  <div className="text-right hidden sm:block">
+                    <span className="text-xs font-bold text-slate-800 block">{currentUser.fullName}</span>
+                    <span className="text-[10px] text-slate-400 font-mono uppercase tracking-wider block">Bí thư Chi bộ KP3</span>
+                  </div>
+                  <img 
+                    src="https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150"
+                    alt={currentUser.fullName}
+                    className="w-8 h-8 rounded-full border border-slate-200 object-cover shadow-xs shrink-0"
+                    referrerPolicy="no-referrer"
+                  />
+                </>
+              ) : (
+                <>
+                  <div className="text-right hidden sm:block">
+                    <span className="text-xs font-bold text-slate-800 block">Cư dân Khu phố 3</span>
+                    <span className="text-[10px] text-emerald-600 font-mono uppercase tracking-wider block">Cổng mở toàn dân</span>
+                  </div>
+                  <div className="w-8 h-8 rounded-full bg-emerald-600 text-white flex items-center justify-center font-bold text-xs shadow-xs shrink-0">
+                    <Users size={16} />
+                  </div>
+                </>
+              )}
+            </div>
+
+          </div>
+        </header>
+
+        {/* Dynamic view routing based on tab state */}
+        <main className="flex-1 p-3.5 sm:p-5 lg:p-6 overflow-y-auto max-w-7xl w-full mx-auto min-w-0">
+          <AppErrorBoundary fallbackTab={activeTab} onReset={() => setActiveTab(activeTab)}>
+          {activeTab === "dashboard" && (
+            <Dashboard 
+              residents={residents} 
+              households={households} 
+              businesses={businesses} 
+              reports={reports} 
+              forms={administrativeForms}
+              setActiveTab={setActiveTab} 
+              currentUser={currentUser}
+            />
+          )}
+
+          {activeTab === "residents" && (
+            currentUser?.role === "nguoidan" && !residentPermissions.residents ? (
+              <div className="bg-white rounded-3xl p-8 border border-slate-200 text-center space-y-4 max-w-lg mx-auto my-12 shadow-sm">
+                <div className="w-16 h-16 rounded-2xl bg-amber-50 text-amber-600 flex items-center justify-center mx-auto">
+                  <ShieldAlert size={32} />
+                </div>
+                <h3 className="text-lg font-bold text-slate-900">Không có quyền truy cập Nhân khẩu</h3>
+                <p className="text-xs text-slate-500 leading-relaxed">
+                  Theo quy định bảo vệ dữ liệu cư dân, vai trò Cư dân không được phép tra cứu danh bạ nhân khẩu. Quyền này chỉ dành riêng cho Cán bộ Quản lý địa bàn.
+                </p>
+                <button
+                  onClick={() => setActiveTab("dashboard")}
+                  className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition-colors cursor-pointer"
+                >
+                  Quay về Cổng cư dân
+                </button>
+              </div>
+            ) : (
+              <CitizenManagement 
+                residents={residents} 
+                onAddResident={handleAddResident} 
+                onDeleteResident={handleDeleteResident} 
+                onUpdateResidents={setResidents}
+                onUpdateHouseholds={setHouseholds}
+                households={households}
+                onNavigateToGis={handleNavigateToGis}
+              />
+            )
+          )}
+
+          {activeTab === "households" && (
+            currentUser?.role === "nguoidan" && !residentPermissions.households ? (
+              <div className="bg-white rounded-3xl p-8 border border-slate-200 text-center space-y-4 max-w-lg mx-auto my-12 shadow-sm">
+                <div className="w-16 h-16 rounded-2xl bg-amber-50 text-amber-600 flex items-center justify-center mx-auto">
+                  <ShieldAlert size={32} />
+                </div>
+                <h3 className="text-lg font-bold text-slate-900">Không có quyền tra cứu Sổ Hộ Khẩu</h3>
+                <p className="text-xs text-slate-500 leading-relaxed">
+                  Theo quy định bảo vệ thông tin cá nhân và an ninh dữ liệu, vai trò Cư dân không được phép tra cứu Sổ hộ khẩu điện tử & thông tin nhân khẩu của các hộ gia đình. Chức năng này chỉ dành riêng cho Cán bộ Quản lý.
+                </p>
+                <button
+                  onClick={() => setActiveTab("dashboard")}
+                  className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition-colors cursor-pointer"
+                >
+                  Quay về Cổng cư dân
+                </button>
+              </div>
+            ) : (
+              <HouseholdManagement 
+                households={households} 
+                onAddHousehold={handleAddHousehold} 
+                residents={residents}
+                onUpdateHouseholds={setHouseholds}
+                onUpdateResidents={setResidents}
+                onNavigateToGis={handleNavigateToGis}
+              />
+            )
+          )}
+
+          {activeTab === "enterprises" && (
+            <EnterpriseManagement 
+              businesses={businesses} 
+              residents={residents}
+              households={households}
+              onToggleCertification={handleToggleBusinessCertification} 
+              onUpdateStatus={handleUpdateBusinessStatus} 
+              onUpdateBusinesses={setBusinesses}
+              onNavigateToGis={handleNavigateToGis}
+            />
+          )}
+
+          {activeTab === "businesses" && (
+            <BusinessManagement 
+              businesses={businesses} 
+              residents={residents}
+              households={households}
+              onToggleCertification={handleToggleBusinessCertification} 
+              onUpdateStatus={handleUpdateBusinessStatus} 
+              onUpdateBusinesses={setBusinesses}
+              onNavigateToGis={handleNavigateToGis}
+            />
+          )}
+
+          {activeTab === "gis" && (
+            <GisMap 
+              households={households}
+              onUpdateHouseholds={setHouseholds}
+              residents={residents}
+              onUpdateResidents={setResidents}
+              businesses={businesses}
+              onUpdateBusinesses={setBusinesses}
+              targetGisItem={targetGisItem}
+              onClearTargetGisItem={() => setTargetGisItem(null)}
+            />
+          )}
+
+          {activeTab === "ai" && (
+            <AiAssistant />
+          )}
+
+          {activeTab === "reports" && (
+            <FieldReflections 
+              reports={reports} 
+              onAddReport={handleAddReport} 
+              onUpdateReportStatus={handleUpdateReportStatus} 
+              onUpdateReports={setReports}
+              currentUser={currentUser}
+            />
+          )}
+
+          {activeTab === "forms" && (
+            currentUser?.role === "canbo" ? (
+              <SettingsAndPermissions
+                defaultSubTab="forms"
+                pendingRegistrations={pendingRegistrations}
+                onApproveRegistration={handleApproveRegistration}
+                onRejectRegistration={handleRejectRegistration}
+                residentPermissions={residentPermissions}
+                onTogglePermission={(key) => {
+                  setResidentPermissions(prev => ({
+                    ...prev,
+                    [key]: !prev[key]
+                  }));
+                }}
+                forms={administrativeForms}
+                onAddForm={handleAddForm}
+                onUpdateForm={handleUpdateForm}
+                onDeleteForm={handleDeleteForm}
+                currentUser={currentUser}
+              />
+            ) : (
+              <AdministrativeForms 
+                forms={administrativeForms}
+                onAddForm={handleAddForm}
+                onUpdateForm={handleUpdateForm}
+                onDeleteForm={handleDeleteForm}
+                currentUser={currentUser} 
+              />
+            )
+          )}
+
+          {activeTab === "party" && (
+            <PartyBranch 
+              partyMembers={partyMembers} 
+              residents={residents}
+            />
+          )}
+
+          {activeTab === "welfare" && (
+            <SocialWelfare 
+              recipients={welfareRecipients}
+              onUpdateStatus={handleUpdateWelfareStatus}
+              onAddRecipient={handleAddWelfareRecipient}
+              onDeleteRecipient={handleDeleteWelfareRecipient}
+              residents={residents}
+            />
+          )}
+
+          {activeTab === "cultural" && (
+            <CommunityEvents 
+              events={communityEvents}
+              onAddEvent={handleAddCommunityEvent}
+              onUpdateEventStatus={handleUpdateEventStatus}
+            />
+          )}
+
+          {activeTab === "finance" && (
+            <NeighborhoodFunds 
+              contributions={fundContributions}
+              onAddContribution={handleAddFundContribution}
+              onUpdateContributionStatus={handleUpdateContributionStatus}
+              households={households}
+            />
+          )}
+
+          {activeTab === "plan" && (
+            <PlanArchitecture />
+          )}
+
+          {activeTab === "settings" && (
+            <SettingsAndPermissions
+              pendingRegistrations={pendingRegistrations}
+              onApproveRegistration={handleApproveRegistration}
+              onRejectRegistration={handleRejectRegistration}
+              residentPermissions={residentPermissions}
+              onTogglePermission={(key) => {
+                setResidentPermissions(prev => ({
+                  ...prev,
+                  [key]: !prev[key]
+                }));
+              }}
+              forms={administrativeForms}
+              onAddForm={handleAddForm}
+              onUpdateForm={handleUpdateForm}
+              onDeleteForm={handleDeleteForm}
+              currentUser={currentUser}
+            />
+          )}
+          </AppErrorBoundary>
+        </main>
+      </div>
+    </div>
+  );
+}
