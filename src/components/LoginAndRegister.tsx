@@ -29,12 +29,14 @@ interface LoginAndRegisterProps {
   }) => void;
   onRegisterSubmit: (registration: PendingRegistration) => void;
   householdCodes: string[];
+  onBackToLanding?: () => void;
 }
 
 export default function LoginAndRegister({ 
   onLoginSuccess, 
   onRegisterSubmit,
-  householdCodes 
+  householdCodes,
+  onBackToLanding
 }: LoginAndRegisterProps) {
   const [isRegisterMode, setIsRegisterMode] = useState(false);
   const [error, setError] = useState("");
@@ -161,6 +163,17 @@ export default function LoginAndRegister({
 
       {/* Main Container */}
       <div className="w-full max-w-lg relative z-10 my-8">
+        {onBackToLanding && (
+          <div className="flex justify-start mb-6">
+            <button
+              type="button"
+              onClick={onBackToLanding}
+              className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-xl bg-slate-900/80 border border-slate-800 text-slate-300 hover:text-white hover:border-slate-700 hover:bg-slate-800 text-xs font-semibold transition-all cursor-pointer backdrop-blur-sm shadow-sm"
+            >
+              <span>← Về Cổng thông tin Cư dân</span>
+            </button>
+          </div>
+        )}
         
         {/* Logo and App Title */}
         <div className="text-center mb-8">

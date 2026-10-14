@@ -41,6 +41,7 @@ import PlanArchitecture from "./components/PlanArchitecture";
 import LoginAndRegister from "./components/LoginAndRegister";
 import SettingsAndPermissions, { PendingRegistration } from "./components/SettingsAndPermissions";
 import AdministrativeForms from "./components/AdministrativeForms";
+import CitizenLandingPage from "./components/CitizenLandingPage";
 import { 
   Bell, 
   Search, 
@@ -49,7 +50,8 @@ import {
   Users,
   ShieldAlert,
   ChevronDown,
-  Info
+  Info,
+  LockKeyhole
 } from "lucide-react";
 
 export const PUBLIC_CITIZEN_USER = {
@@ -187,6 +189,7 @@ export default function App() {
   });
 
   const [activeTab, setActiveTab] = useState<ActiveTab>("dashboard");
+  const [citizenSubView, setCitizenSubView] = useState<ActiveTab | null>(null);
   const [residents, setResidents] = useState<Resident[]>(initialResidents);
   const [households, setHouseholds] = useState<Household[]>(initialHouseholds);
   const [businesses, setBusinesses] = useState<Business[]>(initialBusinesses);
@@ -475,10 +478,161 @@ export default function App() {
           setPendingRegistrations([newReg, ...pendingRegistrations]);
         }}
         householdCodes={households.map(h => h.code)}
+        onBackToLanding={() => {
+          setCurrentUser(PUBLIC_CITIZEN_USER);
+          setCitizenSubView(null);
+        }}
       />
     );
   }
 
+  // 1. CỔNG NGƯỜI DÂN (LANDING PAGE) LÀ TRANG CHỦ MẶC ĐỊNH
+  if (currentUser.role === "nguoidan" && !citizenSubView) {
+    return (
+      <CitizenLandingPage
+        residents={residents}
+        households={households}
+        businesses={businesses}
+        reports={reports}
+        forms={administrativeForms}
+        events={communityEvents}
+        onAddReport={handleAddReport}
+        onOpenStaffLogin={() => {
+          setCurrentUser(null);
+        }}
+        onSwitchToCanBo={() => {
+          setCurrentUser(CANBO_USER);
+          setActiveTab("dashboard");
+          setCitizenSubView(null);
+        }}
+        onNavigateToTab={(tab) => {
+          setCitizenSubView(tab);
+          setActiveTab(tab);
+        }}
+      />
+    );
+  }
+
+  // 2. KHI CƯ DÂN ĐANG XEM TIỆN ÍCH CHI TIẾT (GIS, AI, QUỸ, BIỂU MẪU...)
+  if (currentUser.role === "nguoidan" && citizenSubView) {
+    return (
+      <div className="min-h-screen bg-slate-50 flex flex-col font-sans">
+        {/* Citizen Subview Top Header */}
+        <header className="h-16 border-b border-slate-200 bg-white/95 backdrop-blur-md sticky top-0 z-40 px-4 sm:px-6 flex items-center justify-between shadow-2xs">
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => {
+                setCitizenSubView(null);
+                setActiveTab("dashboard");
+              }}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-bold transition-all cursor-pointer shadow-2xs hover:shadow-xs"
+              title="Quay lại Cổng Thông Tin Cư Dân"
+            >
+              <span>← Trang Chủ Cổng Cư Dân</span>
+            </button>
+            <span className="text-slate-300 hidden sm:inline">|</span>
+            <div className="flex items-center gap-2">
+              <h2 className="text-sm sm:text-base font-extrabold text-[#073B72] truncate max-w-[200px] sm:max-w-md">
+                {getTabTitle()}
+              </h2>
+              <span className="text-[11px] font-medium text-slate-400 hidden md:inline">
+                • KP3, An Phú
+              </span>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => {
+                setCurrentUser(CANBO_USER);
+                setActiveTab("dashboard");
+                setCitizenSubView(null);
+              }}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#073B72] hover:bg-[#005BAC] text-white text-xs font-bold transition-colors cursor-pointer shadow-xs"
+              title="Vào Cổng dành cho cán bộ quản lý"
+            >
+              <LockKeyhole size={13} className="text-blue-300" />
+              <span>Cổng cán bộ</span>
+            </button>
+          </div>
+        </header>
+
+        {/* Subview Content */}
+        <main className="flex-1 p-3.5 sm:p-5 lg:p-6 overflow-y-auto max-w-7xl w-full mx-auto min-w-0">
+          <AppErrorBoundary fallbackTab={citizenSubView} onReset={() => setActiveTab(citizenSubView)}>
+            {citizenSubView === "gis" && (
+              <GisMap 
+                households={households}
+                onUpdateHouseholds={setHouseholds}
+                residents={residents}
+                onUpdateResidents={setResidents}
+                businesses={businesses}
+                onUpdateBusinesses={setBusinesses}
+                targetGisItem={targetGisItem}
+                onClearTargetGisItem={() => setTargetGisItem(null)}
+              />
+            )}
+            {citizenSubView === "ai" && (
+              <AiAssistant />
+            )}
+            {citizenSubView === "finance" && (
+              <NeighborhoodFunds 
+                contributions={fundContributions}
+                onAddContribution={handleAddFundContribution}
+                onUpdateContributionStatus={handleUpdateContributionStatus}
+                households={households}
+              />
+            )}
+            {citizenSubView === "forms" && (
+              <AdministrativeForms 
+                forms={administrativeForms}
+                onAddForm={handleAddForm}
+                onUpdateForm={handleUpdateForm}
+                onDeleteForm={handleDeleteForm}
+                currentUser={currentUser} 
+              />
+            )}
+            {citizenSubView === "reports" && (
+              <FieldReflections 
+                reports={reports} 
+                onAddReport={handleAddReport} 
+                onUpdateReportStatus={handleUpdateReportStatus} 
+                onUpdateReports={setReports}
+                currentUser={currentUser}
+              />
+            )}
+            {citizenSubView === "party" && (
+              <PartyBranch 
+                partyMembers={partyMembers} 
+                residents={residents}
+              />
+            )}
+            {citizenSubView === "welfare" && (
+              <SocialWelfare 
+                recipients={welfareRecipients}
+                onUpdateStatus={handleUpdateWelfareStatus}
+                onAddRecipient={handleAddWelfareRecipient}
+                onDeleteRecipient={handleDeleteWelfareRecipient}
+                residents={residents}
+              />
+            )}
+            {citizenSubView === "cultural" && (
+              <CommunityEvents 
+                events={communityEvents}
+                onAddEvent={handleAddCommunityEvent}
+                onUpdateEventStatus={handleUpdateEventStatus}
+              />
+            )}
+            {citizenSubView === "plan" && (
+              <PlanArchitecture />
+            )}
+          </AppErrorBoundary>
+        </main>
+      </div>
+    );
+  }
+
+  // 3. CỔNG CÁN BỘ QUẢN LÝ (KHU VỰC NGHIỆP VỤ RIÊNG)
   return (
     <div className="min-h-screen bg-slate-50 flex font-sans">
       {/* Sidebar Navigation */}
@@ -608,10 +762,11 @@ export default function App() {
                   id="header-back-cudan"
                   onClick={() => {
                     setCurrentUser(PUBLIC_CITIZEN_USER);
+                    setCitizenSubView(null);
                     setActiveTab("dashboard");
                   }}
                   className="flex items-center gap-1 sm:gap-1.5 px-2.5 sm:px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition-all shadow-xs cursor-pointer shrink-0"
-                  title="Quay lại Cổng Cư dân số"
+                  title="Quay lại Cổng Cư dân số (Trang chủ Landing Page)"
                 >
                   <span className="hidden sm:inline">Về Cổng </span><span>Cư dân</span>
                 </button>

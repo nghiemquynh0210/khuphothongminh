@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useRef } from "react";
 import { 
   ShieldCheck, 
   Users, 
@@ -46,7 +46,9 @@ import {
   Phone,
   Home,
   CreditCard,
-  Settings
+  Settings,
+  ChevronLeft,
+  ChevronRight
 } from "lucide-react";
 import { Resident, PartyMember, Association, AssociationMember } from "../types";
 import Pagination from "./Pagination";
@@ -1203,6 +1205,16 @@ export default function PartyBranch({ partyMembers, residents = [] }: PartyBranc
     setCurrentPage(1);
   };
 
+  // Horizontal scroll container reference for associations
+  const assocScrollRef = useRef<HTMLDivElement>(null);
+
+  const scrollAssocList = (direction: "left" | "right") => {
+    if (assocScrollRef.current) {
+      const scrollAmount = direction === "left" ? -320 : 320;
+      assocScrollRef.current.scrollBy({ left: scrollAmount, behavior: "smooth" });
+    }
+  };
+
   // State for creating new Association
   const [showAddAssocModal, setShowAddAssocModal] = useState(false);
   const [newAssocName, setNewAssocName] = useState("");
@@ -2337,78 +2349,116 @@ export default function PartyBranch({ partyMembers, residents = [] }: PartyBranc
 
       {activeViewMode === "associations" ? (
         <>
-          {/* Main 2-Column Responsive Layout */}
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
+          {/* Main Vertical Stacked Layout: Horizontal Associations Carousel On Top + Full Width Members Below */}
+          <div className="space-y-6">
             
-            {/* Left column (col-span-12 lg:col-span-4): Association List & Filters */}
-            <div className="lg:col-span-4 space-y-3">
-              <div className="bg-white rounded-xl border border-slate-200/80 shadow-2xs p-3.5 space-y-3">
-                {/* Header with count and add button */}
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-1.5">
-                    <span className="text-xs font-bold text-slate-800 uppercase tracking-wider">Chi hội</span>
-                    <span className="px-2 py-0.5 rounded-full text-[11px] font-bold bg-slate-100 text-slate-600">
-                      {filteredAssociations.length}
-                    </span>
+            {/* TOP SECTION: Danh sách chi hội hiển thị ngang */}
+            <div className="bg-white rounded-2xl border border-slate-200/80 shadow-2xs p-4 md:p-5 space-y-3.5">
+              {/* Header with Title, Search, Navigation arrows, and Add button */}
+              <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3">
+                <div className="flex items-center gap-2.5">
+                  <div className="p-2 bg-emerald-50 text-emerald-700 rounded-xl">
+                    <Award size={18} />
                   </div>
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <h2 className="text-sm md:text-base font-bold text-slate-900 tracking-tight">
+                        Danh sách Chi hội & Đoàn thể
+                      </h2>
+                      <span className="px-2 py-0.5 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800">
+                        {filteredAssociations.length} chi hội
+                      </span>
+                    </div>
+                    <p className="text-slate-400 text-xs hidden sm:block">
+                      Bấm chọn chi hội để quản lý thông tin và danh sách thành viên ở khu vực bên dưới
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  {/* Search Box */}
+                  <div className="relative flex-1 sm:w-60">
+                    <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" size={14} />
+                    <input 
+                      id="party-search-input"
+                      name="partySearch"
+                      type="text" 
+                      placeholder="Tìm chi hội theo tên..."
+                      value={searchTerm}
+                      onChange={(e) => handleSearchChange(e.target.value)}
+                      className="w-full pl-8 pr-7 py-1.5 border border-slate-200 rounded-lg text-xs focus:outline-none focus:border-emerald-500 bg-slate-50/50"
+                    />
+                    {searchTerm && (
+                      <button
+                        onClick={() => handleSearchChange("")}
+                        className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 cursor-pointer"
+                      >
+                        <X size={12} />
+                      </button>
+                    )}
+                  </div>
+
+                  {/* Horizontal Scroll Controls */}
+                  <div className="hidden sm:flex items-center gap-1 border border-slate-200 rounded-lg p-0.5 bg-slate-50">
+                    <button
+                      type="button"
+                      onClick={() => scrollAssocList("left")}
+                      className="p-1 text-slate-500 hover:text-slate-800 hover:bg-white rounded transition-colors cursor-pointer"
+                      title="Cuộn sang trái"
+                    >
+                      <ChevronLeft size={16} />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => scrollAssocList("right")}
+                      className="p-1 text-slate-500 hover:text-slate-800 hover:bg-white rounded transition-colors cursor-pointer"
+                      title="Cuộn sang phải"
+                    >
+                      <ChevronRight size={16} />
+                    </button>
+                  </div>
+
+                  {/* Add Association Button */}
                   <button
                     onClick={() => setShowAddAssocModal(true)}
-                    className="text-emerald-700 hover:text-emerald-800 hover:bg-emerald-50 px-2 py-1 rounded-md text-xs font-semibold transition-colors flex items-center gap-1 cursor-pointer"
+                    className="flex items-center justify-center gap-1 bg-emerald-700 hover:bg-emerald-800 text-white px-3 py-1.5 rounded-lg text-xs font-semibold shadow-2xs transition-colors shrink-0 cursor-pointer"
                     title="Thêm chi hội mới"
                   >
-                    <Plus size={13} />
-                    <span>Thêm</span>
+                    <Plus size={14} />
+                    <span>Thêm Chi hội</span>
                   </button>
-                </div>
-
-                {/* Search Box */}
-                <div className="relative">
-                  <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" size={14} />
-                  <input 
-                    id="party-search-input"
-                    name="partySearch"
-                    type="text" 
-                    placeholder="Tìm chi hội theo tên..."
-                    value={searchTerm}
-                    onChange={(e) => handleSearchChange(e.target.value)}
-                    className="w-full pl-8 pr-3 py-1.5 border border-slate-200 rounded-lg text-xs focus:outline-none focus:border-emerald-500 bg-slate-50/50"
-                  />
-                  {searchTerm && (
-                    <button
-                      onClick={() => handleSearchChange("")}
-                      className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 cursor-pointer"
-                    >
-                      <X size={12} />
-                    </button>
-                  )}
-                </div>
-
-                {/* Category Pills Filter */}
-                <div className="flex flex-wrap gap-1 pt-1">
-                  {["Tất cả", "Chính trị - Xã hội", "Chính quyền cơ sở", "An ninh - Quốc phòng", "Đoàn thể nhân dân", "Hội quần chúng", "Chính sách xã hội"].map(cat => (
-                    <button
-                      key={cat}
-                      onClick={() => handleCategoryFilterChange(cat)}
-                      className={`px-2 py-1 rounded-md text-[11px] font-medium transition-all cursor-pointer ${
-                        categoryFilter === cat 
-                          ? "bg-emerald-700 text-white font-semibold shadow-2xs" 
-                          : "bg-slate-100 text-slate-600 hover:bg-slate-200/70"
-                      }`}
-                    >
-                      {cat}
-                    </button>
-                  ))}
                 </div>
               </div>
 
-              {/* Scrollable Association Cards List */}
-              <div className="space-y-2 max-h-[600px] overflow-y-auto pr-1">
+              {/* Category Pills Filter */}
+              <div className="flex items-center gap-1.5 overflow-x-auto pb-1 pt-0.5 no-scrollbar border-t border-slate-100">
+                <span className="text-[11px] font-medium text-slate-400 shrink-0 mr-1 hidden sm:inline">Khối:</span>
+                {["Tất cả", "Chính trị - Xã hội", "Chính quyền cơ sở", "An ninh - Quốc phòng", "Đoàn thể nhân dân", "Hội quần chúng", "Chính sách xã hội"].map(cat => (
+                  <button
+                    key={cat}
+                    onClick={() => handleCategoryFilterChange(cat)}
+                    className={`px-2.5 py-1 rounded-lg text-xs font-medium whitespace-nowrap transition-all shrink-0 cursor-pointer ${
+                      categoryFilter === cat 
+                        ? "bg-emerald-700 text-white font-semibold shadow-2xs" 
+                        : "bg-slate-100 text-slate-600 hover:bg-slate-200/80"
+                    }`}
+                  >
+                    {cat}
+                  </button>
+                ))}
+              </div>
+
+              {/* Horizontal Scrollable Association Cards Strip */}
+              <div 
+                ref={assocScrollRef}
+                className="flex gap-3 overflow-x-auto pb-2 pt-1 scroll-smooth snap-x scrollbar-thin"
+              >
                 {filteredAssociations.length === 0 ? (
-                  <div className="bg-white p-8 rounded-xl border border-slate-200/80 shadow-2xs text-center text-slate-400 text-xs">
+                  <div className="w-full bg-slate-50 p-6 rounded-xl border border-dashed border-slate-200 text-center text-slate-400 text-xs">
                     Không tìm thấy chi hội phù hợp bộ lọc
                   </div>
                 ) : (
-                  paginatedAssociations.map((assoc) => {
+                  filteredAssociations.map((assoc) => {
                     const isSelected = selectedAssociation.id === assoc.id;
                     const catBadgeColor = 
                       assoc.category === "Chính trị - Xã hội" ? "bg-rose-50 text-rose-700 border-rose-200" :
@@ -2422,57 +2472,66 @@ export default function PartyBranch({ partyMembers, residents = [] }: PartyBranc
                       <div 
                         key={assoc.id}
                         onClick={() => setSelectedAssociationId(assoc.id)}
-                        className={`p-3 rounded-xl border transition-all cursor-pointer text-left relative overflow-hidden group ${
+                        className={`w-[260px] sm:w-[280px] shrink-0 snap-start p-3.5 rounded-xl border transition-all cursor-pointer text-left relative overflow-hidden group flex flex-col justify-between ${
                           isSelected 
-                            ? "bg-emerald-50/50 border-emerald-500 shadow-xs ring-1 ring-emerald-500/30" 
-                            : "bg-white border-slate-200/80 hover:border-slate-300 hover:shadow-2xs"
+                            ? "bg-emerald-50/70 border-emerald-500 shadow-sm ring-2 ring-emerald-500/25" 
+                            : "bg-white border-slate-200/90 hover:border-emerald-300 hover:shadow-2xs"
                         }`}
                       >
                         {isSelected && (
-                          <div className="absolute top-0 left-0 w-1 h-full bg-emerald-600"></div>
+                          <div className="absolute top-0 left-0 right-0 h-1 bg-emerald-600"></div>
                         )}
-                        <div className="flex items-center justify-between gap-1 pl-1">
-                          <span className={`text-[10px] font-semibold px-2 py-0.5 rounded border ${catBadgeColor}`}>
-                            {assoc.category}
-                          </span>
-                          <div className="flex items-center gap-0.5 opacity-80 group-hover:opacity-100 transition-opacity">
-                            <button
-                              type="button"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleOpenEditAssoc(assoc);
-                              }}
-                              className="p-1 text-slate-400 hover:text-indigo-600 hover:bg-white rounded transition-colors cursor-pointer"
-                              title="Sửa thông tin"
-                            >
-                              <Pencil size={12} />
-                            </button>
-                            <button
-                              type="button"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleOpenDeleteAssoc(assoc);
-                              }}
-                              className="p-1 text-slate-400 hover:text-rose-600 hover:bg-white rounded transition-colors cursor-pointer"
-                              title="Giải thể chi hội"
-                            >
-                              <Trash2 size={12} />
-                            </button>
+                        <div>
+                          <div className="flex items-center justify-between gap-1">
+                            <span className={`text-[10px] font-semibold px-2 py-0.5 rounded border ${catBadgeColor}`}>
+                              {assoc.category}
+                            </span>
+                            <div className="flex items-center gap-0.5 opacity-80 group-hover:opacity-100 transition-opacity">
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleOpenEditAssoc(assoc);
+                                }}
+                                className="p-1 text-slate-400 hover:text-indigo-600 hover:bg-slate-100 rounded transition-colors cursor-pointer"
+                                title="Sửa thông tin"
+                              >
+                                <Pencil size={12} />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleOpenDeleteAssoc(assoc);
+                                }}
+                                className="p-1 text-slate-400 hover:text-rose-600 hover:bg-slate-100 rounded transition-colors cursor-pointer"
+                                title="Giải thể chi hội"
+                              >
+                                <Trash2 size={12} />
+                              </button>
+                            </div>
+                          </div>
+
+                          <div className="mt-2">
+                            <div className="flex items-center gap-1.5">
+                              <h3 className={`font-bold text-xs sm:text-sm leading-snug transition-colors line-clamp-1 ${
+                                isSelected ? "text-emerald-950 font-extrabold" : "text-slate-800 group-hover:text-emerald-700"
+                              }`}>
+                                {assoc.name}
+                              </h3>
+                              {isSelected && (
+                                <span className="inline-flex shrink-0 text-emerald-600">
+                                  <CheckCircle2 size={13} />
+                                </span>
+                              )}
+                            </div>
+                            <p className="text-slate-500 text-[11px] mt-1 line-clamp-1 leading-normal font-sans">
+                              {assoc.description}
+                            </p>
                           </div>
                         </div>
 
-                        <div className="pl-1 mt-1.5">
-                          <h3 className={`font-bold text-xs leading-snug transition-colors ${
-                            isSelected ? "text-emerald-900" : "text-slate-800 group-hover:text-emerald-700"
-                          }`}>
-                            {assoc.name}
-                          </h3>
-                          <p className="text-slate-500 text-[11px] mt-1 line-clamp-1 leading-normal font-sans">
-                            {assoc.description}
-                          </p>
-                        </div>
-
-                        <div className="mt-2.5 flex items-center justify-between text-[11px] pt-2 border-t border-slate-100 pl-1">
+                        <div className="mt-3 flex items-center justify-between text-[11px] pt-2 border-t border-slate-100">
                           <span className="text-slate-500 truncate max-w-[170px]">
                             Trưởng: <strong className="text-slate-700 font-semibold">{assoc.leaderName}</strong>
                           </span>
@@ -2487,23 +2546,10 @@ export default function PartyBranch({ partyMembers, residents = [] }: PartyBranc
                   })
                 )}
               </div>
-
-              {/* Compact Pagination */}
-              {totalPages > 1 && (
-                <div className="bg-white p-2 rounded-xl border border-slate-200/80 shadow-2xs">
-                  <Pagination
-                    id="association-pagination"
-                    currentPage={activePage}
-                    totalItems={totalItems}
-                    itemsPerPage={itemsPerPage}
-                    onPageChange={setCurrentPage}
-                  />
-                </div>
-              )}
             </div>
 
-            {/* Right column (col-span-12 lg:col-span-8): Selected Association Workspace */}
-            <div className="lg:col-span-8 space-y-4">
+            {/* BOTTOM SECTION: Selected Association Workspace (Full Width) */}
+            <div className="w-full space-y-4">
               <div className="bg-white rounded-xl border border-slate-200/80 shadow-2xs p-5 md:p-6 space-y-5">
                 
                 {/* Association Title & Main Actions */}
@@ -2686,7 +2732,7 @@ export default function PartyBranch({ partyMembers, residents = [] }: PartyBranc
                     </div>
                   ) : memberViewMode === "card" ? (
                     /* CARD VIEW */
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3.5">
                       {filteredMembers.map((member) => {
                         const matchedRes = residents.find(r => r.cccd === member.cccd);
                         const isLeader = ["Bí thư Chi bộ", "Chi hội trưởng", "Tổ trưởng", "Chỉ huy trưởng DQTV", "Phó Bí thư", "Chi hội phó"].includes(member.role);

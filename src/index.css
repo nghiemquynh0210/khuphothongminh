@@ -5,6 +5,13 @@
 @theme {
   --font-sans: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
   --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+
+  /* Government Premium Palette */
+  --color-gov-navy: #073B72;
+  --color-gov-blue: #005BAC;
+  --color-gov-light: #F5F7FA;
+  --color-gov-text: #172B4D;
+  --color-gov-danger: #B4232D;
 }
 
 /* ==========================================================================
