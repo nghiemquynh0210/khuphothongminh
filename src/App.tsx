@@ -7,7 +7,8 @@ import {
   initialPartyMembers,
   initialWelfareRecipients,
   initialCommunityEvents,
-  initialFundContributions
+  initialFundContributions,
+  initialNewsList
 } from "./mockData";
 import { 
   Resident, 
@@ -20,7 +21,8 @@ import {
   CommunityEvent,
   FundContribution,
   AdministrativeForm,
-  TargetGisItem
+  TargetGisItem,
+  LocalNews
 } from "./types";
 import { initialAdministrativeForms } from "./mockForms";
 import Sidebar from "./components/Sidebar";
@@ -201,6 +203,58 @@ export default function App() {
   const [communityEvents, setCommunityEvents] = useState<CommunityEvent[]>(initialCommunityEvents);
   const [fundContributions, setFundContributions] = useState<FundContribution[]>(initialFundContributions);
   const [administrativeForms, setAdministrativeForms] = useState<AdministrativeForm[]>(initialAdministrativeForms);
+  const [newsList, setNewsList] = useState<LocalNews[]>(() => {
+    try {
+      const saved = localStorage.getItem("kp3_local_news");
+      return saved ? JSON.parse(saved) : initialNewsList;
+    } catch {
+      return initialNewsList;
+    }
+  });
+
+  const handleAddNews = (newNews: LocalNews) => {
+    setNewsList(prev => {
+      const updated = [newNews, ...prev];
+      try {
+        localStorage.setItem("kp3_local_news", JSON.stringify(updated));
+      } catch (e) {
+        console.error("Error saving news to localStorage:", e);
+      }
+      return updated;
+    });
+    setNotifications(prev => [
+      { id: Date.now(), text: `Đã công bố bản tin mới: ${newNews.title}`, unread: true },
+      ...prev
+    ]);
+  };
+
+  const handleUpdateNews = (updatedNews: LocalNews) => {
+    setNewsList(prev => {
+      const updated = prev.map(n => n.id === updatedNews.id ? updatedNews : n);
+      try {
+        localStorage.setItem("kp3_local_news", JSON.stringify(updated));
+      } catch (e) {
+        console.error("Error saving news to localStorage:", e);
+      }
+      return updated;
+    });
+    setNotifications(prev => [
+      { id: Date.now(), text: `Đã cập nhật bài viết: ${updatedNews.title}`, unread: true },
+      ...prev
+    ]);
+  };
+
+  const handleDeleteNews = (newsId: string) => {
+    setNewsList(prev => {
+      const updated = prev.filter(n => n.id !== newsId);
+      try {
+        localStorage.setItem("kp3_local_news", JSON.stringify(updated));
+      } catch (e) {
+        console.error("Error saving news to localStorage:", e);
+      }
+      return updated;
+    });
+  };
 
   // Target item for GIS Map navigation & sync
   const [targetGisItem, setTargetGisItem] = useState<TargetGisItem | null>(null);
@@ -496,9 +550,12 @@ export default function App() {
         reports={reports}
         forms={administrativeForms}
         events={communityEvents}
+        news={newsList}
         onAddReport={handleAddReport}
         onOpenStaffLogin={() => {
-          setCurrentUser(null);
+          setCurrentUser(CANBO_USER);
+          setActiveTab("dashboard");
+          setCitizenSubView(null);
         }}
         onSwitchToCanBo={() => {
           setCurrentUser(CANBO_USER);
@@ -621,6 +678,10 @@ export default function App() {
                 events={communityEvents}
                 onAddEvent={handleAddCommunityEvent}
                 onUpdateEventStatus={handleUpdateEventStatus}
+                newsList={newsList}
+                onAddNews={handleAddNews}
+                onUpdateNews={handleUpdateNews}
+                onDeleteNews={handleDeleteNews}
               />
             )}
             {citizenSubView === "plan" && (
@@ -959,6 +1020,10 @@ export default function App() {
                 onAddForm={handleAddForm}
                 onUpdateForm={handleUpdateForm}
                 onDeleteForm={handleDeleteForm}
+                newsList={newsList}
+                onAddNews={handleAddNews}
+                onUpdateNews={handleUpdateNews}
+                onDeleteNews={handleDeleteNews}
                 currentUser={currentUser}
               />
             ) : (
@@ -994,6 +1059,10 @@ export default function App() {
               events={communityEvents}
               onAddEvent={handleAddCommunityEvent}
               onUpdateEventStatus={handleUpdateEventStatus}
+              newsList={newsList}
+              onAddNews={handleAddNews}
+              onUpdateNews={handleUpdateNews}
+              onDeleteNews={handleDeleteNews}
             />
           )}
 
@@ -1012,7 +1081,7 @@ export default function App() {
 
           {activeTab === "settings" && (
             <SettingsAndPermissions
-              defaultSubTab="approvals"
+              defaultSubTab="news"
               pendingRegistrations={pendingRegistrations}
               onApproveRegistration={handleApproveRegistration}
               onRejectRegistration={handleRejectRegistration}
@@ -1027,6 +1096,10 @@ export default function App() {
               onAddForm={handleAddForm}
               onUpdateForm={handleUpdateForm}
               onDeleteForm={handleDeleteForm}
+              newsList={newsList}
+              onAddNews={handleAddNews}
+              onUpdateNews={handleUpdateNews}
+              onDeleteNews={handleDeleteNews}
               currentUser={currentUser}
             />
           )}

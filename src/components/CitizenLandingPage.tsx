@@ -30,20 +30,20 @@ import {
   Briefcase,
   Coins
 } from "lucide-react";
-import { AdministrativeForm, CommunityEvent, FieldReport } from "../types";
+import { AdministrativeForm, CommunityEvent, FieldReport, LocalNews } from "../types";
 
 /* ==========================================================================
    CỔNG NGƯỜI DÂN — LANDING PAGE KHU PHỐ 3, PHƯỜNG AN PHÚ
    Nguyên tắc dữ liệu:
-   - Chỉ hiển thị dữ liệu đang có trong hệ thống (props) hoặc đã xác minh trong
-     tài liệu dự án (AGENTS.md). Không tự sinh thông báo / tin tức / cán bộ.
-   - Thiếu dữ liệu => hiển thị empty state.
+   - Hiển thị dữ liệu trực tiếp từ hệ thống quản lý Khu phố 3 (props).
+   - Tự động đồng bộ các bài viết tin tức, thông báo khẩn do Cán bộ ban hành.
    ========================================================================== */
 
 export interface CitizenLandingPageProps {
   reports: FieldReport[];
   forms: AdministrativeForm[];
   events: CommunityEvent[];
+  news?: LocalNews[];
   residents?: any[];
   households?: any[];
   businesses?: any[];
@@ -187,6 +187,7 @@ export default function CitizenLandingPage({
   reports,
   forms,
   events,
+  news = [],
   residents,
   households,
   businesses,
@@ -195,7 +196,13 @@ export default function CitizenLandingPage({
   onSwitchToCanBo,
   onNavigateToTab
 }: CitizenLandingPageProps) {
-  const handleOpenStaff = onOpenStaffLogin || onSwitchToCanBo || (() => {});
+  const handleOpenStaff = () => {
+    if (onSwitchToCanBo) {
+      onSwitchToCanBo();
+    } else if (onOpenStaffLogin) {
+      onOpenStaffLogin();
+    }
+  };
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [toast, setToast] = useState<{ msg: string; type: "success" | "error" } | null>(null);
 
@@ -209,6 +216,7 @@ export default function CitizenLandingPage({
 
   // Detail modals
   const [eventDetail, setEventDetail] = useState<CommunityEvent | null>(null);
+  const [newsDetail, setNewsDetail] = useState<LocalNews | null>(null);
 
   // Report form
   const [repCategory, setRepCategory] = useState<FieldReport["category"]>("Rác thải");
@@ -250,6 +258,21 @@ export default function CitizenLandingPage({
   const upcomingEvents = events.filter(e => e.status === "Sắp diễn ra" || e.status === "Đang diễn ra");
   const pastEvents = events.filter(e => e.status === "Đã kết thúc");
   const recentReports = reports.slice(0, 3);
+
+  // Thông báo chính thức & tin khẩn: lấy từ danh sách news có isPinned hoặc Thông báo khẩn / Hành chính
+  const displayNotices = useMemo(() => {
+    if (news && news.length > 0) {
+      const pinnedOrUrgent = news.filter(n => n.isPinned || n.category === "Thông báo khẩn" || n.category === "Hành chính");
+      return pinnedOrUrgent.length > 0 ? pinnedOrUrgent : news.slice(0, 4);
+    }
+    return [];
+  }, [news]);
+
+  // Tin tức cộng đồng: toàn bộ bài viết mới nhất do cán bộ đăng
+  const displayNews = useMemo(() => {
+    if (news && news.length > 0) return news;
+    return [];
+  }, [news]);
 
   const searchResults = useMemo(() => {
     const q = portalSearch.trim().toLowerCase();
@@ -801,8 +824,12 @@ export default function CitizenLandingPage({
         {/* ------------------------------ NOTICES ------------------------------ */}
         <section id="notices" tabIndex={-1} className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-12 scroll-mt-24 outline-none">
           <div className="bg-white rounded-3xl border border-slate-200 p-5 sm:p-8 shadow-sm space-y-5">
-            <SectionHeader icon={<Bell size={20} />} title="Thông báo" subtitle="Thông báo đã được Ban Điều hành duyệt và còn hiệu lực." />
-            {APPROVED_NOTICES.length === 0 ? (
+            <SectionHeader 
+              icon={<Bell size={20} />} 
+              title="Thông báo Khu phố" 
+              subtitle="Thông báo chỉ đạo, lịch tiếp dân và cảnh báo khẩn đã được Ban Điều hành phê duyệt." 
+            />
+            {displayNotices.length === 0 ? (
               <EmptyState
                 icon={<Bell size={22} />}
                 title="Chưa có thông báo được công bố"
@@ -811,14 +838,39 @@ export default function CitizenLandingPage({
               />
             ) : (
               <ul className="grid md:grid-cols-2 gap-4">
-                {[...APPROVED_NOTICES].sort((a, b) => Number(!!b.pinned) - Number(!!a.pinned)).map(n => (
-                  <li key={n.id} className={`p-4 rounded-2xl border ${n.pinned ? "border-gov-danger/40 bg-red-50/40" : "border-slate-200"}`}>
-                    <div className="flex justify-between text-xs mb-2">
-                      <span className="font-semibold">{n.pinned ? "📌 Ưu tiên" : n.category}</span>
-                      <span className="text-slate-500">{n.date}</span>
-                    </div>
-                    <h3 className="font-bold text-sm">{n.title}</h3>
-                    <p className="text-xs text-slate-500 mt-2">Nguồn: {n.source}</p>
+                {[...displayNotices].sort((a, b) => Number(!!b.isPinned) - Number(!!a.isPinned)).map(n => (
+                  <li key={n.id}>
+                    <button
+                      onClick={() => setNewsDetail(n)}
+                      className={`w-full text-left p-5 rounded-2xl border transition-all cursor-pointer flex flex-col justify-between gap-3 h-full hover:shadow-md ${
+                        n.isPinned 
+                          ? "border-gov-danger/40 bg-red-50/30 hover:border-gov-danger" 
+                          : "border-slate-200 hover:border-gov-blue"
+                      }`}
+                    >
+                      <div className="space-y-2">
+                        <div className="flex justify-between items-center text-xs">
+                          <span className={`font-semibold px-2 py-0.5 rounded text-[11px] ${
+                            n.isPinned ? "bg-red-100 text-gov-danger font-bold" : "bg-blue-100 text-gov-navy"
+                          }`}>
+                            {n.isPinned ? "📌 Ưu tiên" : n.category}
+                          </span>
+                          <span className="text-slate-500 flex items-center gap-1 font-mono text-[11px]">
+                            <Clock size={11} /> {n.date}
+                          </span>
+                        </div>
+                        <h3 className="font-bold text-sm text-slate-900 line-clamp-2 leading-snug">
+                          {n.title}
+                        </h3>
+                        <p className="text-xs text-slate-600 line-clamp-2 leading-relaxed">
+                          {n.content}
+                        </p>
+                      </div>
+                      <div className="flex items-center justify-between text-xs pt-2 border-t border-slate-100 text-slate-500">
+                        <span className="truncate max-w-[200px]">Nguồn: <strong className="text-slate-700">{n.author}</strong></span>
+                        <span className="text-gov-blue font-bold flex items-center gap-0.5">Chi tiết →</span>
+                      </div>
+                    </button>
                   </li>
                 ))}
               </ul>
@@ -831,25 +883,57 @@ export default function CitizenLandingPage({
           <div className="bg-white rounded-3xl border border-slate-200 p-5 sm:p-8 shadow-sm space-y-5">
             <SectionHeader
               icon={<Compass size={20} />}
-              title="Tin hoạt động cộng đồng"
-              subtitle="Các hoạt động đã diễn ra, lấy từ phân hệ Tin tức & Sự kiện của hệ thống."
-              action={<button onClick={() => onNavigateToTab("cultural")} className={btnGhost}>Xem tất cả <ChevronRight size={16} aria-hidden="true" /></button>}
+              title="Tin tức & Đời sống Khu phố"
+              subtitle="Cập nhật tin tức chính sách, phong trào thi đua và hoạt động cộng đồng Khu phố 3."
+              action={
+                <button onClick={() => onNavigateToTab("cultural")} className={btnGhost}>
+                  Xem sự kiện <ChevronRight size={16} aria-hidden="true" />
+                </button>
+              }
             />
-            {pastEvents.length === 0 ? (
-              <EmptyState icon={<Compass size={22} />} title="Chưa có tin hoạt động" description="Tin tức sẽ được cập nhật khi Ban Điều hành ghi nhận hoạt động đã diễn ra." />
+            {displayNews.length === 0 ? (
+              <EmptyState 
+                icon={<Compass size={22} />} 
+                title="Chưa có tin hoạt động" 
+                description="Tin tức sẽ được cập nhật khi Ban Điều hành ghi nhận hoạt động đã diễn ra." 
+              />
             ) : (
               <ul className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {pastEvents.map(ev => (
-                  <li key={ev.id}>
-                    <button onClick={() => setEventDetail(ev)} className="w-full h-full text-left rounded-2xl border border-slate-200 overflow-hidden hover:border-gov-blue hover:shadow-md transition-all cursor-pointer flex flex-col">
-                      <div className="h-28 bg-gradient-to-br from-gov-navy to-gov-blue flex items-center justify-center text-white/80" aria-hidden="true">
-                        <Users size={36} />
+                {displayNews.map(item => (
+                  <li key={item.id}>
+                    <button 
+                      onClick={() => setNewsDetail(item)} 
+                      className="w-full h-full text-left rounded-2xl border border-slate-200 overflow-hidden hover:border-gov-blue hover:shadow-md transition-all cursor-pointer flex flex-col justify-between"
+                    >
+                      <div>
+                        <div className="h-28 bg-gradient-to-br from-gov-navy to-gov-blue flex items-center justify-center text-white/80 relative" aria-hidden="true">
+                          <Users size={36} />
+                          {item.isPinned && (
+                            <span className="absolute top-2.5 right-2.5 px-2 py-0.5 rounded-full bg-amber-400 text-slate-900 font-bold text-[10px] shadow">
+                              Ghim
+                            </span>
+                          )}
+                        </div>
+                        <div className="p-4 space-y-2">
+                          <div className="flex items-center justify-between gap-1 text-[11px] text-slate-500">
+                            <span className="font-semibold text-gov-navy bg-slate-100 px-2 py-0.5 rounded">
+                              {item.category}
+                            </span>
+                            <span className="flex items-center gap-1">
+                              <Clock size={11} /> {item.date}
+                            </span>
+                          </div>
+                          <h3 className="font-bold text-sm text-gov-text line-clamp-2 leading-snug">
+                            {item.title}
+                          </h3>
+                          <p className="text-xs text-slate-600 line-clamp-3 leading-relaxed">
+                            {item.content}
+                          </p>
+                        </div>
                       </div>
-                      <div className="p-4 space-y-2 flex-1">
-                        <p className="text-xs text-slate-500 flex items-center gap-1"><Clock size={12} aria-hidden="true" /> {ev.dateTime}</p>
-                        <h3 className="font-bold text-sm text-gov-navy line-clamp-2">{ev.title}</h3>
-                        <p className="text-xs text-slate-600 line-clamp-2">{ev.description}</p>
-                        <p className="text-xs text-slate-500">Nguồn: {ev.organizer}</p>
+                      <div className="p-4 pt-0 text-xs text-slate-500 flex items-center justify-between border-t border-slate-100 mt-2">
+                        <span className="truncate max-w-[180px]">Tác giả: {item.author}</span>
+                        <span className="text-gov-blue font-bold">Đọc tiếp →</span>
                       </div>
                     </button>
                   </li>
@@ -976,6 +1060,24 @@ export default function CitizenLandingPage({
             <div><dt className="text-xs text-slate-500">Đơn vị phụ trách</dt><dd className="font-semibold">{eventDetail.organizer}</dd></div>
           </dl>
           <p className="leading-relaxed">{eventDetail.description}</p>
+        </Modal>
+      )}
+
+      {newsDetail && (
+        <Modal 
+          title={newsDetail.title} 
+          onClose={() => setNewsDetail(null)} 
+          footer={<button onClick={() => setNewsDetail(null)} className={btnPrimary}>Đóng</button>}
+        >
+          <dl className="grid sm:grid-cols-2 gap-3 p-4 rounded-2xl bg-gov-light text-xs">
+            <div><dt className="text-slate-500">Chuyên mục</dt><dd className="font-semibold text-gov-navy">{newsDetail.category}</dd></div>
+            <div><dt className="text-slate-500">Ngày công bố</dt><dd className="font-semibold">{newsDetail.date}</dd></div>
+            <div><dt className="text-slate-500">Cơ quan ban hành / Tác giả</dt><dd className="font-semibold text-gov-navy">{newsDetail.author}</dd></div>
+            <div><dt className="text-slate-500">Tình trạng</dt><dd className="font-semibold text-emerald-700">{newsDetail.isPinned ? "📌 Thông báo ưu tiên" : "Bản tin chính thức"}</dd></div>
+          </dl>
+          <div className="text-sm text-slate-700 leading-relaxed whitespace-pre-line p-4 rounded-2xl bg-white border border-slate-200">
+            {newsDetail.content}
+          </div>
         </Modal>
       )}
 

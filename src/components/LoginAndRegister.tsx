@@ -217,30 +217,45 @@ export default function LoginAndRegister({
             /* Login Form */
             <form onSubmit={handleLoginSubmit} className="space-y-4">
               {/* Bypass Button: Enter directly as Resident */}
-              <div className="p-3 bg-gradient-to-r from-emerald-950/70 to-slate-900 border border-emerald-500/30 rounded-2xl flex flex-col gap-2">
+              <div className="p-3.5 bg-gradient-to-r from-slate-900 via-indigo-950/40 to-slate-900 border border-slate-800 rounded-2xl flex flex-col gap-2.5 shadow-sm">
                 <div className="flex items-center justify-between">
-                  <span className="text-[11px] font-bold text-emerald-400 flex items-center gap-1.5">
-                    <Sparkles size={14} /> Chế độ mặc định
+                  <span className="text-[11px] font-bold text-blue-400 flex items-center gap-1.5">
+                    <Sparkles size={14} /> Truy cập nhanh 1-chạm
                   </span>
-                  <span className="text-[9px] bg-emerald-500/20 text-emerald-300 px-2 py-0.5 rounded-full font-bold">
-                    BỎ QUA ĐĂNG NHẬP
+                  <span className="text-[9px] bg-blue-500/20 text-blue-300 px-2 py-0.5 rounded-full font-bold">
+                    MIỄN ĐĂNG NHẬP
                   </span>
                 </div>
-                <button
-                  type="button"
-                  onClick={() => onLoginSuccess({
-                    username: "nguoidan",
-                    fullName: "Nguyễn Thị Mai",
-                    role: "nguoidan",
-                    cccd: "079195000456",
-                    householdCode: "HK-301",
-                    phone: "0918765432"
-                  })}
-                  className="w-full py-2 px-3 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl text-xs flex items-center justify-center gap-2 transition-all shadow-md shadow-emerald-900/30 cursor-pointer"
-                >
-                  <span>Truy cập nhanh Cổng Cư dân</span>
-                  <ArrowRight size={14} />
-                </button>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => onLoginSuccess({
+                      username: "canbo",
+                      fullName: "Nguyễn Văn Hùng",
+                      role: "canbo",
+                      phone: "0901234567"
+                    })}
+                    className="py-2.5 px-3 bg-[#073B72] hover:bg-[#005BAC] text-white font-bold rounded-xl text-xs flex items-center justify-center gap-1.5 transition-all shadow-md shadow-blue-950/40 cursor-pointer"
+                  >
+                    <span>Vào Cổng Cán bộ</span>
+                    <ArrowRight size={13} />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => onLoginSuccess({
+                      username: "nguoidan",
+                      fullName: "Nguyễn Thị Mai",
+                      role: "nguoidan",
+                      cccd: "079195000456",
+                      householdCode: "HK-301",
+                      phone: "0918765432"
+                    })}
+                    className="py-2.5 px-3 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl text-xs flex items-center justify-center gap-1.5 transition-all shadow-md shadow-emerald-950/40 cursor-pointer"
+                  >
+                    <span>Vào Cổng Cư dân</span>
+                    <ArrowRight size={13} />
+                  </button>
+                </div>
               </div>
 
               <div className="border-b border-slate-800 pb-3 mb-2 flex items-center justify-between">

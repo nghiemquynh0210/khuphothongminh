@@ -1,4 +1,4 @@
-import { Resident, Household, Business, FieldReport, PartyMember, WelfareRecipient, CommunityEvent, FundContribution } from "./types";
+import { Resident, Household, Business, FieldReport, PartyMember, WelfareRecipient, CommunityEvent, FundContribution, LocalNews } from "./types";
 
 export const initialResidents: Resident[] = [
   {
@@ -2121,3 +2121,52 @@ export const initialFundContributions: FundContribution[] = [
     status: "Chưa nộp"
   }
 ];
+
+export const initialNewsList: LocalNews[] = [
+  {
+    id: "NEWS001",
+    title: "Thông báo khẩn: Triển khai chiến dịch phun hóa chất diệt muỗi phòng sốt xuất huyết diện rộng",
+    category: "Thông báo khẩn",
+    date: "14/10/2026",
+    author: "Trạm Y tế Phường & Ban Điều hành KP3",
+    content: "Do xuất hiện 02 ca nhiễm sốt xuất huyết tại tuyến hẻm 42 Lương Định Của, Trạm Y tế phường sẽ phối hợp Ban Điều hành tổ chức phun hóa chất diệt muỗi vào lúc 08h00 ngày 16/10/2026. Đề nghị người dân mở cửa nhà, che đậy thức ăn nước uống và tạm sơ tán vật nuôi trong thời gian phun thuốc.",
+    isPinned: true
+  },
+  {
+    id: "NEWS002",
+    title: "Kế hoạch cấp đổi thẻ Căn cước mẫu mới cho công dân dưới 14 tuổi và kích hoạt VNeID",
+    category: "Hành chính",
+    date: "12/10/2026",
+    author: "Công an Phường An Phú (Đại úy Trần Quốc Hải)",
+    content: "Thực hiện Luật Căn cước mới, Công an phường tổ chức thu nhận thông tin cấp Căn cước cho trẻ em từ 0-6 tuổi và từ 6 đến dưới 14 tuổi trực tiếp tại trụ sở Công an phường từ thứ Hai đến thứ Bảy hằng tuần. Phụ huynh chuẩn bị giấy khai sinh và mang điện thoại thông minh để đồng bộ tài khoản định danh VNeID mức 2.",
+    isPinned: true
+  },
+  {
+    id: "NEWS003",
+    title: "Lịch tiếp công dân định kỳ của Thường trực Chi bộ và Ban Điều hành Khu phố 3",
+    category: "Hành chính",
+    date: "10/10/2026",
+    author: "Nguyễn Văn Hùng - Bí thư Chi bộ",
+    content: "Ban Điều hành Khu phố 3 thông báo lịch tiếp dân vào sáng thứ Bảy hàng tuần từ 8h00 đến 11h00 tại Nhà Văn hóa Khu phố 3. Mọi kiến nghị, phản ánh về thủ tục hành chính, an ninh trật tự, vệ sinh môi trường sẽ được trực tiếp ghi nhận và xử lý nhanh chóng.",
+    isPinned: true
+  },
+  {
+    id: "NEWS004",
+    title: "Vận động đóng góp Quỹ Vì người nghèo và Quỹ Đền ơn đáp nghĩa năm 2026",
+    category: "An sinh xã hội",
+    date: "08/10/2026",
+    author: "Ban Vận động Khu phố 3",
+    content: "Kỷ niệm các ngày lễ lớn trong năm, Ban vận động khu phố kêu gọi các hộ gia đình, cơ sở kinh doanh phát huy truyền thống tương thân tương ái, tự nguyện đóng góp xây dựng quỹ tình nghĩa nhằm chăm lo cho gia đình chính sách và các hoàn cảnh khó khăn trên địa bàn.",
+    isPinned: false
+  },
+  {
+    id: "NEWS005",
+    title: "Khai mạc Ngày hội thể thao cộng đồng và Hội thi Tiếng hát Khu phố 3",
+    category: "Phong trào",
+    date: "05/10/2026",
+    author: "Chi đoàn Thanh niên & Hội Phụ nữ KP3",
+    content: "Chào mừng kỷ niệm thành lập khu phố, Hội thao cộng đồng và Hội thi tiếng hát chính thức khai mạc tại Nhà Văn hóa Khu phố 3 với các môn kéo co, cờ tướng, bóng bàn và văn nghệ quần chúng.",
+    isPinned: false
+  }
+];
+

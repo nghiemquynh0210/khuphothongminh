@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { 
   Shield, 
   ShieldAlert, 
@@ -27,11 +27,24 @@ import {
   User,
   Fingerprint,
   Building2,
-  Store
+  Store,
+  Newspaper,
+  Pin,
+  Edit3,
+  Trash2,
+  Plus,
+  Search,
+  Eye,
+  Filter,
+  Tag,
+  Megaphone,
+  Send,
+  Sparkles
 } from "lucide-react";
-import { Resident, ActiveTab, AdministrativeForm } from "../types";
+import { Resident, ActiveTab, AdministrativeForm, LocalNews } from "../types";
 import AdministrativeForms from "./AdministrativeForms";
 import { initialAdministrativeForms } from "../mockForms";
+import { initialNewsList } from "../mockData";
 
 export interface PendingRegistration {
   id: string;
@@ -60,12 +73,17 @@ interface SettingsAndPermissionsProps {
   onAddForm?: (newForm: AdministrativeForm) => void;
   onUpdateForm?: (updatedForm: AdministrativeForm) => void;
   onDeleteForm?: (formId: string) => void;
+  // News & Announcement Management
+  newsList?: LocalNews[];
+  onAddNews?: (newNews: LocalNews) => void;
+  onUpdateNews?: (updatedNews: LocalNews) => void;
+  onDeleteNews?: (newsId: string) => void;
   currentUser?: {
     role: "canbo" | "nguoidan";
     fullName?: string;
     phone?: string;
   } | null;
-  defaultSubTab?: "approvals" | "forms" | "permissions" | "plan";
+  defaultSubTab?: "approvals" | "forms" | "news" | "permissions" | "plan";
 }
 
 export default function SettingsAndPermissions({
@@ -78,16 +96,133 @@ export default function SettingsAndPermissions({
   onAddForm,
   onUpdateForm,
   onDeleteForm,
+  newsList = initialNewsList,
+  onAddNews,
+  onUpdateNews,
+  onDeleteNews,
   currentUser,
   defaultSubTab = "approvals"
 }: SettingsAndPermissionsProps) {
-  const [activeSubTab, setActiveSubTab] = useState<"approvals" | "forms" | "permissions" | "plan">(defaultSubTab);
+  const [activeSubTab, setActiveSubTab] = useState<"approvals" | "forms" | "news" | "permissions" | "plan">(defaultSubTab);
 
   useEffect(() => {
     if (defaultSubTab) {
       setActiveSubTab(defaultSubTab);
     }
   }, [defaultSubTab]);
+
+  // News editing state
+  const [newsSearch, setNewsSearch] = useState("");
+  const [newsCategoryFilter, setNewsCategoryFilter] = useState<string>("Tất cả");
+  const [isWritingNews, setIsWritingNews] = useState(false);
+  const [editingNewsId, setEditingNewsId] = useState<string | null>(null);
+  const [previewNewsItem, setPreviewNewsItem] = useState<LocalNews | null>(null);
+  const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
+  const [newsActionToast, setNewsActionToast] = useState<string | null>(null);
+
+  // News form fields
+  const [formNewsTitle, setFormNewsTitle] = useState("");
+  const [formNewsCategory, setFormNewsCategory] = useState<LocalNews["category"]>("Hành chính");
+  const [formNewsAuthor, setFormNewsAuthor] = useState("Ban Điều hành Khu phố 3");
+  const [formNewsDate, setFormNewsDate] = useState("");
+  const [formNewsContent, setFormNewsContent] = useState("");
+  const [formNewsIsPinned, setFormNewsIsPinned] = useState(false);
+
+  const showNewsToast = (msg: string) => {
+    setNewsActionToast(msg);
+    setTimeout(() => setNewsActionToast(null), 3000);
+  };
+
+  const handleOpenCreateNews = () => {
+    const todayStr = new Date().toLocaleDateString("vi-VN");
+    setEditingNewsId(null);
+    setFormNewsTitle("");
+    setFormNewsCategory("Hành chính");
+    setFormNewsAuthor(currentUser?.fullName ? `${currentUser.fullName} - Cán bộ KP3` : "Ban Điều hành Khu phố 3");
+    setFormNewsDate(todayStr);
+    setFormNewsContent("");
+    setFormNewsIsPinned(false);
+    setIsWritingNews(true);
+  };
+
+  const handleOpenEditNews = (newsItem: LocalNews) => {
+    setEditingNewsId(newsItem.id);
+    setFormNewsTitle(newsItem.title);
+    setFormNewsCategory(newsItem.category);
+    setFormNewsAuthor(newsItem.author);
+    setFormNewsDate(newsItem.date);
+    setFormNewsContent(newsItem.content);
+    setFormNewsIsPinned(!!newsItem.isPinned);
+    setIsWritingNews(true);
+  };
+
+  const handleSaveNewsSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!formNewsTitle.trim() || !formNewsContent.trim()) {
+      alert("Vui lòng nhập đầy đủ tiêu đề và nội dung bài viết!");
+      return;
+    }
+
+    const todayStr = formNewsDate.trim() || new Date().toLocaleDateString("vi-VN");
+
+    if (editingNewsId) {
+      const updated: LocalNews = {
+        id: editingNewsId,
+        title: formNewsTitle.trim(),
+        category: formNewsCategory,
+        author: formNewsAuthor.trim() || "Ban Điều hành Khu phố 3",
+        date: todayStr,
+        content: formNewsContent.trim(),
+        isPinned: formNewsIsPinned
+      };
+      if (onUpdateNews) {
+        onUpdateNews(updated);
+      }
+      showNewsToast("Đã cập nhật bài viết thành công!");
+    } else {
+      const newId = `NEWS-${Date.now().toString().slice(-6)}`;
+      const created: LocalNews = {
+        id: newId,
+        title: formNewsTitle.trim(),
+        category: formNewsCategory,
+        author: formNewsAuthor.trim() || "Ban Điều hành Khu phố 3",
+        date: todayStr,
+        content: formNewsContent.trim(),
+        isPinned: formNewsIsPinned
+      };
+      if (onAddNews) {
+        onAddNews(created);
+      }
+      showNewsToast("Đã xuất bản bài viết mới lên Cổng Cư dân!");
+    }
+
+    setIsWritingNews(false);
+    setEditingNewsId(null);
+  };
+
+  const handleTogglePinNews = (item: LocalNews) => {
+    if (onUpdateNews) {
+      onUpdateNews({ ...item, isPinned: !item.isPinned });
+      showNewsToast(item.isPinned ? "Đã bỏ ghim bài viết" : "Đã ghim bài viết lên đầu trang Cổng Cư dân");
+    }
+  };
+
+  const handleDeleteNewsConfirm = (id: string) => {
+    if (onDeleteNews) {
+      onDeleteNews(id);
+      showNewsToast("Đã xóa bài viết thành công!");
+    }
+    setDeleteConfirmId(null);
+  };
+
+  const filteredNews = useMemo(() => {
+    const q = newsSearch.trim().toLowerCase();
+    return (newsList || []).filter(item => {
+      const matchCat = newsCategoryFilter === "Tất cả" || item.category === newsCategoryFilter;
+      const matchQuery = !q || item.title.toLowerCase().includes(q) || item.content.toLowerCase().includes(q) || item.author.toLowerCase().includes(q);
+      return matchCat && matchQuery;
+    });
+  }, [newsList, newsSearch, newsCategoryFilter]);
 
   // Mock data for Roadmap / Kế hoạch triển khai
   const planningSteps = [
@@ -175,6 +310,17 @@ export default function SettingsAndPermissions({
               `}
             >
               <FileText size={14} /> Biểu mẫu Hành chính ({forms.length})
+            </button>
+            <button
+              onClick={() => setActiveSubTab("news")}
+              className={`px-4 py-2 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5
+                ${activeSubTab === "news" 
+                  ? "bg-white text-indigo-950 shadow" 
+                  : "text-indigo-200 hover:bg-white/10"
+                }
+              `}
+            >
+              <Newspaper size={14} /> Quản lý & Viết Tin tức ({newsList.length})
             </button>
             <button
               onClick={() => setActiveSubTab("permissions")}
@@ -323,6 +469,445 @@ export default function SettingsAndPermissions({
             onDeleteForm={onDeleteForm}
             currentUser={currentUser}
           />
+        </div>
+      )}
+
+      {/* News & Announcement Editor tab */}
+      {activeSubTab === "news" && (
+        <div className="space-y-5">
+          {newsActionToast && (
+            <div className="bg-emerald-600 text-white text-xs font-bold px-4 py-3 rounded-xl shadow-md flex items-center justify-between animate-fadeIn">
+              <span className="flex items-center gap-2">
+                <CheckCircle2 size={16} /> {newsActionToast}
+              </span>
+              <button onClick={() => setNewsActionToast(null)} className="opacity-80 hover:opacity-100 cursor-pointer">
+                <X size={14} />
+              </button>
+            </div>
+          )}
+
+          {/* Quick Stats */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3.5">
+            <div className="bg-white border border-slate-200/80 rounded-2xl p-4 shadow-2xs">
+              <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block">Tổng số bài viết</span>
+              <span className="text-2xl font-black text-slate-900 mt-1 block">{(newsList || []).length}</span>
+              <span className="text-[11px] text-slate-400 mt-0.5 block">Đã lưu & phát hành</span>
+            </div>
+            <div className="bg-white border border-amber-200/80 rounded-2xl p-4 shadow-2xs">
+              <span className="text-[11px] font-bold text-amber-700 uppercase tracking-wider block">Đang ghim trang chủ</span>
+              <span className="text-2xl font-black text-amber-600 mt-1 block">{(newsList || []).filter(n => n.isPinned).length}</span>
+              <span className="text-[11px] text-amber-600/80 mt-0.5 block">Ưu tiên trên Cổng Cư dân</span>
+            </div>
+            <div className="bg-white border border-rose-200/80 rounded-2xl p-4 shadow-2xs">
+              <span className="text-[11px] font-bold text-rose-700 uppercase tracking-wider block">Thông báo khẩn</span>
+              <span className="text-2xl font-black text-rose-600 mt-1 block">{(newsList || []).filter(n => n.category === "Thông báo khẩn").length}</span>
+              <span className="text-[11px] text-rose-600/80 mt-0.5 block">An ninh & Y tế cấp bách</span>
+            </div>
+            <div className="bg-white border border-blue-200/80 rounded-2xl p-4 shadow-2xs">
+              <span className="text-[11px] font-bold text-blue-700 uppercase tracking-wider block">Tin hành chính</span>
+              <span className="text-2xl font-black text-blue-600 mt-1 block">{(newsList || []).filter(n => n.category === "Hành chính").length}</span>
+              <span className="text-[11px] text-blue-600/80 mt-0.5 block">Thủ tục & Lịch tiếp dân</span>
+            </div>
+          </div>
+
+          {/* Action Bar & Header */}
+          <div className="bg-white border border-slate-200/80 rounded-2xl p-5 shadow-2xs flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="p-1.5 rounded-lg bg-indigo-50 text-indigo-700 font-bold">
+                  <Megaphone size={18} />
+                </span>
+                <h4 className="text-base font-black text-slate-900 tracking-tight">
+                  Biên tập & Công bố Tin tức, Thông báo Khu phố 3
+                </h4>
+              </div>
+              <p className="text-xs text-slate-500 mt-1">
+                Các bài viết và thông báo soạn thảo tại đây sẽ lập tức hiển thị đồng bộ trên Cổng Dịch vụ Cư Dân của Khu phố.
+              </p>
+            </div>
+            <button
+              onClick={handleOpenCreateNews}
+              className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-[#073B72] hover:bg-[#005BAC] text-white text-xs font-bold transition-all shadow-xs hover:shadow-sm cursor-pointer shrink-0"
+            >
+              <Plus size={15} />
+              <span>Viết bài / Soạn thông báo mới</span>
+            </button>
+          </div>
+
+          {/* Filter & Search */}
+          <div className="flex flex-col sm:flex-row gap-3 items-stretch sm:items-center justify-between">
+            <div className="relative flex-1 max-w-md">
+              <Search size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+              <input
+                type="text"
+                value={newsSearch}
+                onChange={(e) => setNewsSearch(e.target.value)}
+                placeholder="Tìm bài viết theo tiêu đề, nội dung, tác giả..."
+                className="w-full pl-9 pr-8 py-2 bg-white border border-slate-200 rounded-xl text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:border-indigo-500 shadow-2xs"
+              />
+              {newsSearch && (
+                <button
+                  onClick={() => setNewsSearch("")}
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 text-xs"
+                >
+                  ✕
+                </button>
+              )}
+            </div>
+
+            <div className="flex flex-wrap gap-1.5 items-center">
+              {(["Tất cả", "Thông báo khẩn", "Hành chính", "Y tế & Đời sống", "Phong trào", "An sinh xã hội"] as const).map((cat) => (
+                <button
+                  key={cat}
+                  onClick={() => setNewsCategoryFilter(cat)}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+                    newsCategoryFilter === cat
+                      ? "bg-slate-900 text-white shadow-2xs"
+                      : "bg-white border border-slate-200 text-slate-600 hover:bg-slate-50"
+                  }`}
+                >
+                  {cat}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* News List */}
+          {filteredNews.length === 0 ? (
+            <div className="bg-white border border-dashed border-slate-300 rounded-2xl p-10 text-center space-y-3">
+              <div className="w-12 h-12 bg-slate-50 text-slate-400 rounded-2xl flex items-center justify-center mx-auto">
+                <Newspaper size={24} />
+              </div>
+              <h5 className="font-bold text-slate-800 text-sm">Chưa tìm thấy bài viết nào phù hợp</h5>
+              <p className="text-xs text-slate-500 max-w-sm mx-auto">
+                {newsSearch || newsCategoryFilter !== "Tất cả" 
+                  ? "Hãy thử tìm kiếm với từ khóa khác hoặc xóa bộ lọc chuyên mục." 
+                  : "Chưa có bài viết nào trong hệ thống. Hãy bấm nút phía trên để soạn thảo bản tin đầu tiên."}
+              </p>
+              <button
+                onClick={handleOpenCreateNews}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-indigo-50 text-indigo-700 hover:bg-indigo-100 text-xs font-bold transition-colors cursor-pointer"
+              >
+                <Plus size={14} /> Viết bài ngay
+              </button>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {filteredNews.map((item) => {
+                const badgeColor = 
+                  item.category === "Thông báo khẩn" ? "bg-rose-50 text-rose-700 border-rose-200" :
+                  item.category === "Hành chính" ? "bg-blue-50 text-blue-700 border-blue-200" :
+                  item.category === "Y tế & Đời sống" ? "bg-emerald-50 text-emerald-700 border-emerald-200" :
+                  item.category === "Phong trào" ? "bg-amber-50 text-amber-700 border-amber-200" :
+                  "bg-purple-50 text-purple-700 border-purple-200";
+
+                return (
+                  <div
+                    key={item.id}
+                    className={`bg-white rounded-2xl border transition-all p-5 flex flex-col justify-between gap-4 shadow-2xs hover:shadow-sm ${
+                      item.isPinned ? "border-amber-300 bg-amber-50/20 ring-1 ring-amber-300/40" : "border-slate-200/80"
+                    }`}
+                  >
+                    <div className="space-y-2.5">
+                      <div className="flex items-center justify-between gap-2 flex-wrap">
+                        <div className="flex items-center gap-1.5">
+                          <span className={`text-[10px] font-bold px-2 py-0.5 rounded-md border ${badgeColor}`}>
+                            {item.category}
+                          </span>
+                          {item.isPinned && (
+                            <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-md bg-amber-100 text-amber-800 border border-amber-200">
+                              <Pin size={10} className="fill-amber-700" /> Ghim trang chủ
+                            </span>
+                          )}
+                        </div>
+                        <span className="text-[11px] font-medium text-slate-400 flex items-center gap-1">
+                          <Clock size={11} /> {item.date}
+                        </span>
+                      </div>
+
+                      <h4 className="font-bold text-sm text-slate-900 leading-snug line-clamp-2">
+                        {item.title}
+                      </h4>
+
+                      <p className="text-xs text-slate-600 line-clamp-3 leading-relaxed">
+                        {item.content}
+                      </p>
+
+                      <div className="text-[11px] text-slate-500 pt-1 flex items-center gap-1 font-medium">
+                        <span>Tác giả:</span>
+                        <strong className="text-slate-700">{item.author}</strong>
+                      </div>
+                    </div>
+
+                    {/* Card Actions */}
+                    <div className="flex items-center justify-between gap-2 pt-3 border-t border-slate-100 text-xs">
+                      <button
+                        onClick={() => handleTogglePinNews(item)}
+                        className={`flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-colors cursor-pointer ${
+                          item.isPinned 
+                            ? "bg-amber-100 text-amber-800 hover:bg-amber-200" 
+                            : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                        }`}
+                        title={item.isPinned ? "Bỏ ghim khỏi đầu trang" : "Ghim lên đầu trang chủ Cổng Cư dân"}
+                      >
+                        <Pin size={12} className={item.isPinned ? "fill-amber-800" : ""} />
+                        <span>{item.isPinned ? "Bỏ ghim" : "Ghim tin"}</span>
+                      </button>
+
+                      <div className="flex items-center gap-1.5">
+                        <button
+                          onClick={() => setPreviewNewsItem(item)}
+                          className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold transition-colors cursor-pointer"
+                          title="Xem trước hiển thị"
+                        >
+                          <Eye size={12} />
+                          <span>Xem</span>
+                        </button>
+                        <button
+                          onClick={() => handleOpenEditNews(item)}
+                          className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-semibold transition-colors cursor-pointer"
+                          title="Chỉnh sửa nội dung bài viết"
+                        >
+                          <Edit3 size={12} />
+                          <span>Sửa</span>
+                        </button>
+                        <button
+                          onClick={() => setDeleteConfirmId(item.id)}
+                          className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-600 font-semibold transition-colors cursor-pointer"
+                          title="Xóa bài viết"
+                        >
+                          <Trash2 size={12} />
+                          <span>Xóa</span>
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
+          {/* Modal Writing / Editing News */}
+          {isWritingNews && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-fadeIn">
+              <div className="bg-white rounded-3xl max-w-2xl w-full max-h-[90vh] flex flex-col shadow-2xl overflow-hidden border border-slate-200">
+                <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
+                  <div className="flex items-center gap-2">
+                    <span className="p-2 rounded-xl bg-indigo-100 text-indigo-800">
+                      <Edit3 size={16} />
+                    </span>
+                    <div>
+                      <h3 className="font-black text-sm sm:text-base text-slate-900">
+                        {editingNewsId ? "Chỉnh sửa Bản tin / Thông báo Khu phố" : "Soạn thảo Bản tin / Thông báo mới"}
+                      </h3>
+                      <p className="text-[11px] text-slate-500">
+                        Xuất bản trực tiếp lên Cổng thông tin Cư dân số Khu phố 3
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => setIsWritingNews(false)}
+                    className="p-1.5 text-slate-400 hover:text-slate-600 rounded-lg hover:bg-slate-200/50 cursor-pointer"
+                  >
+                    <X size={18} />
+                  </button>
+                </div>
+
+                <form onSubmit={handleSaveNewsSubmit} className="p-6 space-y-4 overflow-y-auto flex-1">
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 mb-1">
+                      Tiêu đề bản tin / thông báo <span className="text-rose-500">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      value={formNewsTitle}
+                      onChange={(e) => setFormNewsTitle(e.target.value)}
+                      placeholder="Ví dụ: Kế hoạch tiêm phòng vắc-xin mở rộng cho trẻ em tại Trạm y tế..."
+                      className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs sm:text-sm focus:outline-none focus:border-indigo-500"
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 mb-1">
+                        Chuyên mục phân loại
+                      </label>
+                      <select
+                        value={formNewsCategory}
+                        onChange={(e) => setFormNewsCategory(e.target.value as any)}
+                        className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs sm:text-sm bg-white focus:outline-none focus:border-indigo-500"
+                      >
+                        <option value="Thông báo khẩn">Thông báo khẩn (Ưu tiên đỏ)</option>
+                        <option value="Hành chính">Hành chính (Thủ tục, tiếp dân)</option>
+                        <option value="Y tế & Đời sống">Y tế & Đời sống</option>
+                        <option value="Phong trào">Phong trào (Văn hóa, thể thao)</option>
+                        <option value="An sinh xã hội">An sinh xã hội (Quỹ, bảo trợ)</option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 mb-1">
+                        Ngày công bố
+                      </label>
+                      <input
+                        type="text"
+                        value={formNewsDate}
+                        onChange={(e) => setFormNewsDate(e.target.value)}
+                        placeholder="DD/MM/YYYY"
+                        className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs sm:text-sm focus:outline-none focus:border-indigo-500"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 mb-1">
+                      Tác giả / Cơ quan ban hành
+                    </label>
+                    <input
+                      type="text"
+                      value={formNewsAuthor}
+                      onChange={(e) => setFormNewsAuthor(e.target.value)}
+                      placeholder="Ban Điều hành Khu phố 3, Chi bộ KP3, CSKV..."
+                      className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs sm:text-sm focus:outline-none focus:border-indigo-500"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 mb-1">
+                      Nội dung bài viết chi tiết <span className="text-rose-500">*</span>
+                    </label>
+                    <textarea
+                      required
+                      rows={6}
+                      value={formNewsContent}
+                      onChange={(e) => setFormNewsContent(e.target.value)}
+                      placeholder="Nhập nội dung đầy đủ của thông báo, thời gian, địa điểm, yêu cầu chuẩn bị hồ sơ hoặc chỉ đạo..."
+                      className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs sm:text-sm focus:outline-none focus:border-indigo-500 font-sans leading-relaxed"
+                    />
+                  </div>
+
+                  <div className="p-3.5 rounded-xl bg-amber-50/70 border border-amber-200/80 flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Pin size={16} className="text-amber-700" />
+                      <div>
+                        <span className="text-xs font-bold text-amber-900 block">Ghim nổi bật lên đầu Cổng Cư Dân</span>
+                        <span className="text-[11px] text-amber-700">Bài viết sẽ được đưa vào khung Thông báo quan trọng trên trang chủ người dân</span>
+                      </div>
+                    </div>
+                    <input
+                      type="checkbox"
+                      checked={formNewsIsPinned}
+                      onChange={(e) => setFormNewsIsPinned(e.target.checked)}
+                      className="w-4 h-4 text-amber-600 rounded cursor-pointer"
+                    />
+                  </div>
+
+                  <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-slate-100">
+                    <button
+                      type="button"
+                      onClick={() => setIsWritingNews(false)}
+                      className="px-4 py-2 rounded-xl border border-slate-200 text-slate-600 text-xs font-semibold hover:bg-slate-100 transition-colors cursor-pointer"
+                    >
+                      Hủy bỏ
+                    </button>
+                    <button
+                      type="submit"
+                      className="inline-flex items-center gap-1.5 px-5 py-2 rounded-xl bg-[#073B72] hover:bg-[#005BAC] text-white text-xs font-bold transition-colors cursor-pointer shadow-xs"
+                    >
+                      <Send size={14} />
+                      <span>{editingNewsId ? "Lưu thay đổi" : "Xuất bản ngay"}</span>
+                    </button>
+                  </div>
+                </form>
+              </div>
+            </div>
+          )}
+
+          {/* Modal Preview News */}
+          {previewNewsItem && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-fadeIn">
+              <div className="bg-white rounded-3xl max-w-xl w-full max-h-[85vh] flex flex-col shadow-2xl overflow-hidden border border-slate-200">
+                <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50">
+                  <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">
+                    Giao diện hiển thị cho cư dân
+                  </span>
+                  <button
+                    onClick={() => setPreviewNewsItem(null)}
+                    className="p-1.5 text-slate-400 hover:text-slate-600 rounded-lg hover:bg-slate-200/50 cursor-pointer"
+                  >
+                    <X size={18} />
+                  </button>
+                </div>
+                <div className="p-6 overflow-y-auto space-y-4">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="text-xs font-bold px-2.5 py-1 rounded-md bg-blue-100 text-blue-800">
+                      {previewNewsItem.category}
+                    </span>
+                    {previewNewsItem.isPinned && (
+                      <span className="text-xs font-bold px-2.5 py-1 rounded-md bg-amber-100 text-amber-800 flex items-center gap-1">
+                        <Pin size={11} className="fill-amber-800" /> Ghim ưu tiên
+                      </span>
+                    )}
+                    <span className="text-xs text-slate-400 flex items-center gap-1">
+                      <Clock size={12} /> {previewNewsItem.date}
+                    </span>
+                  </div>
+
+                  <h3 className="text-lg font-black text-slate-900 leading-snug">
+                    {previewNewsItem.title}
+                  </h3>
+
+                  <div className="text-xs text-slate-500 pb-2 border-b border-slate-100">
+                    Nguồn thông tin: <strong className="text-slate-800">{previewNewsItem.author}</strong>
+                  </div>
+
+                  <div className="text-sm text-slate-700 leading-relaxed whitespace-pre-line bg-slate-50 p-4 rounded-2xl border border-slate-100">
+                    {previewNewsItem.content}
+                  </div>
+                </div>
+                <div className="p-4 border-t border-slate-100 flex justify-end bg-slate-50/50">
+                  <button
+                    onClick={() => setPreviewNewsItem(null)}
+                    className="px-4 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold cursor-pointer"
+                  >
+                    Đóng xem trước
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Delete Confirm Modal */}
+          {deleteConfirmId && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-fadeIn">
+              <div className="bg-white rounded-2xl max-w-sm w-full p-6 text-center space-y-4 shadow-xl">
+                <div className="w-12 h-12 bg-rose-50 text-rose-600 rounded-full flex items-center justify-center mx-auto">
+                  <Trash2 size={22} />
+                </div>
+                <div>
+                  <h4 className="font-bold text-slate-900 text-base">Xác nhận xóa bài viết?</h4>
+                  <p className="text-xs text-slate-500 mt-1">
+                    Bài viết sẽ bị gỡ bỏ hoàn toàn khỏi Cổng thông tin Cư dân số và không thể khôi phục.
+                  </p>
+                </div>
+                <div className="flex gap-2 pt-2">
+                  <button
+                    onClick={() => setDeleteConfirmId(null)}
+                    className="flex-1 py-2 rounded-xl border border-slate-200 text-slate-600 text-xs font-semibold hover:bg-slate-100 cursor-pointer"
+                  >
+                    Hủy bỏ
+                  </button>
+                  <button
+                    onClick={() => handleDeleteNewsConfirm(deleteConfirmId)}
+                    className="flex-1 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold cursor-pointer"
+                  >
+                    Xác nhận xóa
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       )}
 

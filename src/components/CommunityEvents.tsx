@@ -26,6 +26,10 @@ interface CommunityEventsProps {
   events: CommunityEvent[];
   onAddEvent: (newEvent: CommunityEvent) => void;
   onUpdateEventStatus: (id: string, status: CommunityEvent["status"]) => void;
+  newsList?: LocalNews[];
+  onAddNews?: (newNews: LocalNews) => void;
+  onUpdateNews?: (updatedNews: LocalNews) => void;
+  onDeleteNews?: (newsId: string) => void;
 }
 
 interface LocalNews {
@@ -38,7 +42,15 @@ interface LocalNews {
   isPinned?: boolean;
 }
 
-export default function CommunityEvents({ events, onAddEvent, onUpdateEventStatus }: CommunityEventsProps) {
+export default function CommunityEvents({ 
+  events, 
+  onAddEvent, 
+  onUpdateEventStatus,
+  newsList: propNewsList,
+  onAddNews,
+  onUpdateNews,
+  onDeleteNews
+}: CommunityEventsProps) {
   const [activeSubTab, setActiveSubTab] = useState<"news" | "events">("news");
   
   // Pagination states
@@ -129,8 +141,9 @@ export default function CommunityEvents({ events, onAddEvent, onUpdateEventStatu
     }
 
     const todayStr = new Date().toLocaleDateString("vi-VN");
+    const currentNewsList = propNewsList || newsList;
     const newNews: LocalNews = {
-      id: "NEWS" + (newsList.length + 1).toString().padStart(3, "0"),
+      id: "NEWS" + (currentNewsList.length + 1).toString().padStart(3, "0"),
       title: newNewsTitle,
       category: newNewsCategory,
       date: todayStr,
@@ -139,7 +152,11 @@ export default function CommunityEvents({ events, onAddEvent, onUpdateEventStatu
       isPinned: false
     };
 
-    setNewsList([newNews, ...newsList]);
+    if (onAddNews) {
+      onAddNews(newNews);
+    } else {
+      setNewsList([newNews, ...newsList]);
+    }
     setShowNewsModal(false);
     
     // Reset news form
@@ -181,7 +198,8 @@ export default function CommunityEvents({ events, onAddEvent, onUpdateEventStatu
     return ev.status === eventFilter;
   });
 
-  const filteredNews = newsList.filter(news => {
+  const currentNewsList = propNewsList || newsList;
+  const filteredNews = currentNewsList.filter(news => {
     const matchesSearch = news.title.toLowerCase().includes(newsSearch.toLowerCase()) || 
                           news.content.toLowerCase().includes(newsSearch.toLowerCase());
     const matchesCategory = newsFilter === "Tất cả" || news.category === newsFilter;

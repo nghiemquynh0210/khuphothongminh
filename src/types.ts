@@ -238,6 +238,17 @@ export interface CommunityEvent {
   description: string;
 }
 
+export interface LocalNews {
+  id: string;
+  title: string;
+  category: "Thông báo khẩn" | "Hành chính" | "Y tế & Đời sống" | "Phong trào" | "An sinh xã hội";
+  date: string;
+  author: string;
+  content: string;
+  isPinned?: boolean;
+  image?: string;
+}
+
 export interface FundContribution {
   id: string;
   householdCode: string;
