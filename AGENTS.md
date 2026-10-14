@@ -77,8 +77,32 @@ Dự án đã thiết lập 2 MCP Servers hoạt động:
 3. **Quỹ Khu phố & VietQR Động (`src/components/NeighborhoodFunds.tsx`, `VietQrModal.tsx`, `HouseholdFundLookup.tsx`):**
    - Tạo mã QR thanh toán chuẩn VietQR (ngân hàng, số tài khoản, số tiền và cú pháp đóng nộp theo hộ).
    - Tra cứu đóng nộp minh bạch theo từng tổ và từng hộ dân.
-4. **Cổng Dịch vụ Cư Dân Số (`src/components/CitizenManagement.tsx`):**
-   - Đầy đủ tính năng tra cứu, thêm/sửa/xóa công dân, hộ gia đình, kinh doanh.
-   - Tải biểu mẫu hành chính CT01, cấp số nhà, đăng ký tạm trú.
-5. **Trợ lý AI Thông minh:**
-   - Trả lời 24/7 thắc mắc thủ tục hành chính và hướng dẫn xử lý phản ánh.
+4. **Cổng Dịch vụ Cư Dân Số & Trang chủ Công cộng (`src/components/CitizenLandingPage.tsx`):**
+   - Đóng vai trò là Cổng thông tin & Trang chủ mặc định cho người dân và du khách khi truy cập ứng dụng.
+   - Tiện ích trực tuyến: Gửi phản ánh hiện trường 1022 (kèm tọa độ GPS, ảnh thực tế, cơ chế chống spam/rate limit), tra cứu và tải về 11 biểu mẫu hành chính chuẩn (CT01, cấp số nhà, tạm trú người nước ngoài, PCCC...).
+   - Hiển thị danh sách thông báo khẩn cấp (Ưu tiên đỏ), tin tức đời sống cộng đồng, lịch sự kiện sắp diễn ra và danh bạ thường trực Ban Điều hành KP3.
+   - Điều hướng mượt mà 1-chạm giữa Cổng Cư dân và Trung tâm Nghiệp vụ Cán bộ.
+5. **Phân hệ Biên tập & Quản lý Tin tức, Thông báo Khu phố (`src/components/SettingsAndPermissions.tsx`, `CommunityEvents.tsx`):**
+   - Quản trị viên và Cán bộ có thể trực tiếp soạn thảo bản tin/thông báo mới, chọn chuyên mục (*Thông báo khẩn*, *Hành chính*, *Y tế & Đời sống*, *Phong trào*, *An sinh xã hội*).
+   - Tùy chọn ghim tin nổi bật (`isPinned`) lên đầu Cổng Cư Dân.
+   - Hỗ trợ đầy đủ thao tác: Chỉnh sửa nội dung, ghim/bỏ ghim nhanh, xem trước bài viết (Live Preview theo giao diện cư dân), xóa bài viết và tìm kiếm/lọc chuyên mục.
+   - Tự động đồng bộ dữ liệu thời gian thực giữa Cổng Cán bộ và Cổng Người dân.
+6. **Cơ chế Xác thực & Đăng nhập 1-Chạm (`src/components/LoginAndRegister.tsx`, `App.tsx`):**
+   - Nút "Cổng dành cho cán bộ" tại Header/Menu/Footer tự động cấp quyền và đăng nhập trực tiếp tài khoản Cán bộ Quản trị (`CANBO_USER` - Bí thư Nguyễn Văn Hùng).
+   - Màn hình đăng nhập tích hợp sẵn 2 nút truy cập nhanh 1-chạm cho Cán bộ và Cư dân, không lo quên mật khẩu khi giám sát hay nghiệm thu.
+7. **Trợ lý AI Thông minh & Cơ sở dữ liệu Cư dân:**
+   - Trả lời 24/7 thắc mắc thủ tục hành chính, quy định pháp luật và hướng dẫn gửi phản ánh.
+   - Quản lý chi tiết danh sách cư dân, hộ gia đình, doanh nghiệp, cơ sở kinh doanh, an sinh xã hội, chi bộ Đảng và sổ thu/chi quỹ khu phố.
+
+---
+
+## 7. TRẠNG THÁI HỆ THỐNG & ĐỊNH HƯỚNG PHIÊN TIẾP THEO
+- **Trạng thái Build:** ✅ TypeScript không lỗi (`npx tsc --noEmit` pass 100%), Vite build thành công sạch sẽ.
+- **Trạng thái Console DevTools:** ✅ Đã kiểm tra qua Chrome DevTools MCP, 0 lỗi runtime/console error.
+- **Trạng thái Deployment:**
+  - Production Vercel: 👉 **[https://bdhkp3.vercel.app](https://bdhkp3.vercel.app)**
+  - Local Dev Server: `http://localhost:3000`
+- **Tài liệu & Kế hoạch phiên tiếp theo:**
+  - Tích hợp thêm kênh gửi phản ánh kèm gửi email / webhook thông báo tức thì đến cán bộ phụ trách.
+  - Kết nối Supabase Database bảng `community_news` để đồng bộ tin tức đa thiết bị khi có kết nối mạng.
+
