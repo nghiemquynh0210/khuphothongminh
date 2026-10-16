@@ -640,7 +640,17 @@ export default function CitizenLandingPage({
               ) : (
                 <form onSubmit={handleSubmitReport} noValidate className="space-y-6">
                   {/* honeypot */}
-                  <input type="text" tabIndex={-1} autoComplete="off" value={repHoneypot} onChange={e => setRepHoneypot(e.target.value)} className="hidden" aria-hidden="true" />
+                  <input 
+                    id="rep-honeypot"
+                    name="honeypot"
+                    type="text" 
+                    tabIndex={-1} 
+                    autoComplete="off" 
+                    value={repHoneypot} 
+                    onChange={e => setRepHoneypot(e.target.value)} 
+                    className="hidden" 
+                    aria-hidden="true" 
+                  />
 
                   <fieldset>
                     <legend className="text-sm font-bold text-gov-text mb-2">1. Nhóm vấn đề <span className="text-gov-danger">*</span></legend>
@@ -684,9 +694,18 @@ export default function CitizenLandingPage({
                   <div className="space-y-1.5">
                     <span className="text-sm font-bold block">5. Ảnh hiện trường (tuỳ chọn · JPG/PNG/WebP · tối đa 5 MB)</span>
                     <div className="flex flex-wrap items-center gap-3">
-                      <label className={`${btnGhost} border-dashed`}>
+                      <label htmlFor="rep-image-file" className={`${btnGhost} border-dashed cursor-pointer`}>
                         <Camera size={18} aria-hidden="true" /> Chọn ảnh
-                        <input type="file" accept={ALLOWED_IMAGE_TYPES.join(",")} capture="environment" className="sr-only" onChange={e => handleImageChange(e.target.files?.[0])} />
+                        <input 
+                          id="rep-image-file"
+                          name="repImageFile"
+                          type="file" 
+                          accept={ALLOWED_IMAGE_TYPES.join(",")} 
+                          capture="environment" 
+                          className="sr-only" 
+                          aria-label="Chọn hoặc chụp ảnh hiện trường"
+                          onChange={e => handleImageChange(e.target.files?.[0])} 
+                        />
                       </label>
                       {repImage && (
                         <div className="flex items-center gap-2 p-1.5 bg-gov-light rounded-xl border border-slate-200">
@@ -733,7 +752,16 @@ export default function CitizenLandingPage({
                       <li>Không chụp rõ mặt người khác hoặc giấy tờ cá nhân trong ảnh gửi kèm.</li>
                     </ul>
                     <label className="flex items-start gap-2 pt-1 text-sm cursor-pointer min-h-11">
-                      <input type="checkbox" checked={repConsent} onChange={e => setRepConsent(e.target.checked)} className="mt-1 w-5 h-5 accent-gov-blue" aria-invalid={!!repErrors.consent} />
+                      <input 
+                        id="rep-consent"
+                        name="repConsent"
+                        type="checkbox" 
+                        checked={repConsent} 
+                        onChange={e => setRepConsent(e.target.checked)} 
+                        className="mt-1 w-5 h-5 accent-gov-blue" 
+                        aria-invalid={!!repErrors.consent} 
+                        aria-label="Tôi đã đọc và đồng ý với điều khoản sử dụng thông tin phản ánh"
+                      />
                       <span>Tôi đã đọc và đồng ý với cách sử dụng thông tin nêu trên. <span className="text-gov-danger">*</span></span>
                     </label>
                     {repErrors.consent && <p className="text-xs text-gov-danger">{repErrors.consent}</p>}

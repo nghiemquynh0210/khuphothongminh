@@ -1,4 +1,4 @@
-import React, { useState, Component, type ReactNode, type ErrorInfo } from "react";
+import React, { useState, useEffect, Component, type ReactNode, type ErrorInfo } from "react";
 import { 
   initialResidents, 
   initialHouseholds, 
@@ -44,6 +44,7 @@ import LoginAndRegister from "./components/LoginAndRegister";
 import SettingsAndPermissions, { PendingRegistration } from "./components/SettingsAndPermissions";
 import AdministrativeForms from "./components/AdministrativeForms";
 import CitizenLandingPage from "./components/CitizenLandingPage";
+import { supabase, isSupabaseConfigured } from "./lib/supabase";
 import { 
   Bell, 
   Search, 
@@ -197,6 +198,161 @@ export default function App() {
   const [businesses, setBusinesses] = useState<Business[]>(initialBusinesses);
   const [reports, setReports] = useState<FieldReport[]>(initialReports);
   const [partyMembers] = useState<PartyMember[]>(initialPartyMembers);
+  const [isDataLoading, setIsDataLoading] = useState(false);
+
+  // Nạp toàn bộ Dữ liệu thật từ Supabase PostgreSQL (11.632 Cư dân & 488 Hộ)
+  useEffect(() => {
+    async function fetchSupabaseData() {
+      if (!isSupabaseConfigured || !supabase) return;
+      try {
+        setIsDataLoading(true);
+
+        // 1. Fetch Households thật
+        const { data: dbHouseholds, error: hErr } = await (supabase as any)
+          .from("households")
+          .select("*")
+          .order("code", { ascending: true });
+
+        if (!hErr && dbHouseholds && dbHouseholds.length > 0) {
+          const mappedHouseholds: Household[] = dbHouseholds.map((h: any) => ({
+            id: h.id,
+            code: h.code,
+            ownerName: h.owner_name,
+            address: h.address,
+            memberCount: h.member_count || 1,
+            coordinates: h.coordinates || "10.7935, 106.7445",
+            type: "Thường trú",
+            members: []
+          }));
+          setHouseholds(mappedHouseholds);
+        }
+
+        // 2. Fetch Residents thật (Tải toàn bộ 11.632 cư dân qua phân trang Supabase)
+        let allResidents: any[] = [];
+        let fromIdx = 0;
+        const batchSize = 1000;
+        let keepFetching = true;
+
+        while (keepFetching && fromIdx < 20000) {
+          const { data: chunk, error: rErr } = await (supabase as any)
+            .from("residents")
+            .select("*")
+            .order("created_at", { ascending: false })
+            .range(fromIdx, fromIdx + batchSize - 1);
+
+          if (rErr || !chunk || chunk.length === 0) {
+            keepFetching = false;
+          } else {
+            allResidents = allResidents.concat(chunk);
+            if (chunk.length < batchSize) {
+              keepFetching = false;
+            } else {
+              fromIdx += batchSize;
+            }
+          }
+        }
+
+        if (allResidents.length > 0) {
+          const mappedResidents: Resident[] = allResidents.map((r: any) => ({
+            id: r.id,
+            fullName: r.full_name,
+            gender: (r.gender as "Nam" | "Nữ") || "Nam",
+            birthDate: r.birth_date ? r.birth_date.split("-").reverse().join("/") : "01/01/1990",
+            cccd: r.cccd,
+            phone: r.phone || "",
+            status: (r.status as "Thường trú" | "Tạm trú" | "Tạm vắng") || "Thường trú",
+            occupation: r.occupation || "Tự do",
+            address: r.address || "Khu phố 3, Phường An Phú, TP. Thủ Đức",
+            householdId: r.household_code || "HK-301",
+            relationToOwner: r.relation_to_owner || "Thành viên",
+            workplace: r.workplace || undefined,
+            avatar: r.gender === "Nữ" 
+              ? "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=150" 
+              : "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150"
+          }));
+          setResidents(mappedResidents);
+        }
+
+        // 3. Fetch Businesses
+        const { data: dbBusinesses } = await (supabase as any).from("businesses").select("*");
+        if (dbBusinesses && dbBusinesses.length > 0) {
+          setBusinesses(dbBusinesses.map((b: any) => ({
+            id: b.id,
+            name: b.name,
+            taxCode: b.tax_code || "",
+            type: (b.business_type as any) || "Hộ kinh doanh",
+            owner: b.owner_name || "",
+            phone: b.phone || "",
+            address: b.address,
+            status: (b.status as any) || "Đang hoạt động",
+            safetyCertified: b.safety_certified ?? true,
+            employeeCount: b.employee_count || 1,
+            coordinates: b.coordinates || "10.7935, 106.7445"
+          })));
+        }
+
+        // 4. Fetch Field Reports (1022)
+        const { data: dbReports } = await (supabase as any).from("field_reports").select("*");
+        if (dbReports && dbReports.length > 0) {
+          setReports(dbReports.map((rep: any) => ({
+            id: rep.id,
+            title: rep.title,
+            category: (rep.category as any) || "Trật tự đô thị",
+            location: rep.location,
+            description: rep.description,
+            reporterName: rep.reporter_name || "Cư dân ẩn danh",
+            reporterPhone: rep.reporter_phone || "",
+            status: (rep.status as any) || "Đã tiếp nhận",
+            priority: (rep.priority as any) || "Bình thường",
+            createdAt: new Date(rep.created_at || Date.now()).toLocaleDateString("vi-VN"),
+            images: rep.image_urls || []
+          })));
+        }
+
+        // 5. Fetch Community News
+        const { data: dbNews } = await (supabase as any)
+          .from("community_news")
+          .select("*")
+          .order("created_at", { ascending: false });
+
+        if (dbNews && dbNews.length > 0) {
+          setNewsList(dbNews.map((n: any) => ({
+            id: n.id,
+            title: n.title,
+            category: n.category,
+            content: n.content,
+            author: n.author_name,
+            date: new Date(n.created_at).toLocaleDateString("vi-VN"),
+            isPinned: n.is_pinned ?? false
+          })));
+        }
+
+        // 6. Fetch Neighborhood Funds
+        const { data: dbFunds } = await (supabase as any)
+          .from("neighborhood_funds")
+          .select("*")
+          .order("created_at", { ascending: false });
+
+        if (dbFunds && dbFunds.length > 0) {
+          setFundContributions(dbFunds.map((f: any) => ({
+            id: f.id,
+            householdCode: f.household_code || "N/A",
+            ownerName: f.payer_or_receiver || "Cư dân đóng góp",
+            amount: Number(f.amount) || 0,
+            fundName: f.fund_name,
+            status: f.status === "Chưa nộp" ? "Chưa nộp" : "Đã nộp",
+            paidAt: f.created_at ? new Date(f.created_at).toLocaleDateString("vi-VN") : undefined
+          })));
+        }
+      } catch (e) {
+        console.warn("Lỗi nạp dữ liệu từ Supabase:", e);
+      } finally {
+        setIsDataLoading(false);
+      }
+    }
+
+    fetchSupabaseData();
+  }, []);
   
   // New State variables for the 3 additional views
   const [welfareRecipients, setWelfareRecipients] = useState<WelfareRecipient[]>(initialWelfareRecipients);
@@ -212,48 +368,65 @@ export default function App() {
     }
   });
 
-  const handleAddNews = (newNews: LocalNews) => {
-    setNewsList(prev => {
-      const updated = [newNews, ...prev];
-      try {
-        localStorage.setItem("kp3_local_news", JSON.stringify(updated));
-      } catch (e) {
-        console.error("Error saving news to localStorage:", e);
-      }
-      return updated;
-    });
+  const handleAddNews = async (newNews: LocalNews) => {
+    setNewsList(prev => [newNews, ...prev]);
     setNotifications(prev => [
       { id: Date.now(), text: `Đã công bố bản tin mới: ${newNews.title}`, unread: true },
       ...prev
     ]);
+
+    if (isSupabaseConfigured && supabase) {
+      try {
+        const { data, error } = await (supabase as any).from("community_news").insert({
+          title: newNews.title,
+          category: newNews.category,
+          content: newNews.content,
+          author_name: newNews.author,
+          is_pinned: newNews.isPinned ?? false,
+          is_urgent: newNews.category === "Thông báo khẩn"
+        }).select().single();
+
+        if (data && !error) {
+          setNewsList(prev => prev.map(n => n.id === newNews.id ? { ...n, id: data.id } : n));
+        }
+      } catch (e) {
+        console.warn("Supabase add news error:", e);
+      }
+    }
   };
 
-  const handleUpdateNews = (updatedNews: LocalNews) => {
-    setNewsList(prev => {
-      const updated = prev.map(n => n.id === updatedNews.id ? updatedNews : n);
-      try {
-        localStorage.setItem("kp3_local_news", JSON.stringify(updated));
-      } catch (e) {
-        console.error("Error saving news to localStorage:", e);
-      }
-      return updated;
-    });
+  const handleUpdateNews = async (updatedNews: LocalNews) => {
+    setNewsList(prev => prev.map(n => n.id === updatedNews.id ? updatedNews : n));
     setNotifications(prev => [
       { id: Date.now(), text: `Đã cập nhật bài viết: ${updatedNews.title}`, unread: true },
       ...prev
     ]);
+
+    if (isSupabaseConfigured && supabase) {
+      try {
+        await (supabase as any).from("community_news").update({
+          title: updatedNews.title,
+          category: updatedNews.category,
+          content: updatedNews.content,
+          author_name: updatedNews.author,
+          is_pinned: updatedNews.isPinned ?? false
+        }).eq("id", updatedNews.id);
+      } catch (e) {
+        console.warn("Supabase update news error:", e);
+      }
+    }
   };
 
-  const handleDeleteNews = (newsId: string) => {
-    setNewsList(prev => {
-      const updated = prev.filter(n => n.id !== newsId);
+  const handleDeleteNews = async (newsId: string) => {
+    setNewsList(prev => prev.filter(n => n.id !== newsId));
+
+    if (isSupabaseConfigured && supabase) {
       try {
-        localStorage.setItem("kp3_local_news", JSON.stringify(updated));
+        await (supabase as any).from("community_news").delete().eq("id", newsId);
       } catch (e) {
-        console.error("Error saving news to localStorage:", e);
+        console.warn("Supabase delete news error:", e);
       }
-      return updated;
-    });
+    }
   };
 
   // Target item for GIS Map navigation & sync
@@ -382,25 +555,41 @@ export default function App() {
     }));
   };
 
-  const handleAddReport = (newReport: FieldReport) => {
-    setReports([newReport, ...reports]);
-    setNotifications([
+  const handleAddReport = async (newReport: FieldReport) => {
+    setReports(prev => [newReport, ...prev]);
+    setNotifications(prev => [
       { id: Date.now(), text: `Phản ánh mới: "${newReport.title}"`, unread: true },
-      ...notifications
+      ...prev
     ]);
+
+    if (isSupabaseConfigured && supabase) {
+      try {
+        await (supabase as any).from("field_reports").insert({
+          title: newReport.title,
+          category: newReport.category,
+          location: newReport.location,
+          description: newReport.description,
+          reporter_name: newReport.reporterName,
+          reporter_phone: newReport.reporterPhone,
+          status: "Đã tiếp nhận",
+          priority: "Bình thường",
+          image_urls: newReport.beforeImage ? [newReport.beforeImage] : []
+        });
+      } catch (err) {
+        console.warn("Supabase insert report error:", err);
+      }
+    }
   };
 
-  const handleUpdateReportStatus = (
+  const handleUpdateReportStatus = async (
     id: string, 
     status: "Đã tiếp nhận" | "Đang xử lý" | "Đã giải quyết", 
     actorName: string = "Cán bộ quản lý",
     actionDetail: string = "Cập nhật tiến độ xử lý phản ánh."
   ) => {
-    setReports(reports.map(r => {
+    setReports(prev => prev.map(r => {
       if (r.id === id) {
         const timeStr = new Date().toLocaleDateString("vi-VN") + " " + new Date().toLocaleTimeString("vi-VN", { hour12: false });
-        const beforeImg = r.beforeImage;
-        // If status is solved, add a mock beautiful afterImage
         const afterImg = status === "Đã giải quyết" 
           ? "https://images.unsplash.com/photo-1506744038136-46273834b3fb?w=300" 
           : r.afterImage;
@@ -422,6 +611,18 @@ export default function App() {
       }
       return r;
     }));
+
+    if (isSupabaseConfigured && supabase) {
+      try {
+        await (supabase as any).from("field_reports").update({
+          status,
+          resolved_at: status === "Đã giải quyết" ? new Date().toISOString() : null,
+          response_content: actionDetail
+        }).eq("id", id);
+      } catch (err) {
+        console.warn("Supabase update report error:", err);
+      }
+    }
   };
 
   const handleAddWelfareRecipient = (newRec: WelfareRecipient) => {
@@ -444,8 +645,26 @@ export default function App() {
     setCommunityEvents(communityEvents.map(e => e.id === id ? { ...e, status } : e));
   };
 
-  const handleAddFundContribution = (newCont: FundContribution) => {
-    setFundContributions([newCont, ...fundContributions]);
+  const handleAddFundContribution = async (newCont: FundContribution) => {
+    setFundContributions(prev => [newCont, ...prev]);
+
+    if (isSupabaseConfigured && supabase) {
+      try {
+        await (supabase as any).from("neighborhood_funds").insert({
+          transaction_type: "thu",
+          fund_name: newCont.fundName,
+          household_code: newCont.householdCode,
+          payer_or_receiver: newCont.ownerName,
+          amount: newCont.amount,
+          description: `Đóng góp ${newCont.fundName} hộ ${newCont.householdCode}`,
+          evidence_code: `PT-${Date.now().toString().slice(-4)}`,
+          status: newCont.status || "Đã nộp",
+          approved_by: "Ban điều hành KP3"
+        });
+      } catch (err) {
+        console.warn("Supabase insert fund error:", err);
+      }
+    }
   };
 
   const handleUpdateContributionStatus = (id: string, status: FundContribution["status"], paidAt?: string) => {

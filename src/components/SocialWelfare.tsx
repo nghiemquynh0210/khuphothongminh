@@ -231,6 +231,7 @@ export default function SocialWelfare({ recipients, onUpdateStatus, onAddRecipie
             id="social-welfare-search"
             name="welfareSearch"
             type="text" 
+            aria-label="Tìm kiếm theo tên công dân, số CCCD hoặc địa chỉ"
             placeholder="Tìm theo tên công dân, số CCCD hoặc địa chỉ..."
             value={searchTerm}
             onChange={(e) => handleSearchChange(e.target.value)}
@@ -239,10 +240,13 @@ export default function SocialWelfare({ recipients, onUpdateStatus, onAddRecipie
         </div>
         <div className="flex flex-wrap items-center gap-2.5 shrink-0">
           <div className="flex items-center gap-1.5 text-xs">
-            <span className="text-xs font-semibold text-slate-500 flex items-center gap-1"><Filter size={14} /> Phân loại:</span>
+            <label htmlFor="social-welfare-category-filter" className="text-xs font-semibold text-slate-500 flex items-center gap-1">
+              <Filter size={14} /> Phân loại:
+            </label>
             <select 
               id="social-welfare-category-filter"
               name="categoryFilter"
+              aria-label="Lọc theo phân loại đối tượng an sinh"
               value={categoryFilter}
               onChange={(e) => handleCategoryFilterChange(e.target.value)}
               className="px-3 py-1.5 border border-slate-200 rounded-lg text-xs bg-white focus:outline-none focus:border-rose-500"

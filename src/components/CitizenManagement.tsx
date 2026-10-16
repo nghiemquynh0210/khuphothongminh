@@ -37,12 +37,15 @@ import {
   FileText,
   Filter,
   Navigation,
-  Compass
+  Compass,
+  Loader2,
+  Database
 } from "lucide-react";
 import { Resident, TargetGisItem } from "../types";
 import { generateDefaultCoordinatesForAddress, parseCoordinates as parseGisCoords } from "../utils/gisUtils";
 import * as XLSX from "xlsx";
 import Pagination from "./Pagination";
+import { supabase, isSupabaseConfigured } from "../lib/supabase";
 
 export const isForeignResident = (r: Resident): boolean => {
   return r.isForeigner === true || (Boolean(r.nationality) && r.nationality !== "Việt Nam") || Boolean(r.passportNumber);
@@ -207,6 +210,8 @@ export default function CitizenManagement({
   const [parsedData, setParsedData] = useState<any[]>([]);
   const [importFileName, setImportFileName] = useState("");
   const [pastedRawText, setPastedRawText] = useState("");
+  const [isUploadingToDb, setIsUploadingToDb] = useState(false);
+  const [uploadStatusMsg, setUploadStatusMsg] = useState("");
 
   // Edit Mode state
   const [showModal, setShowModal] = useState(false);
@@ -594,6 +599,41 @@ NGƯỜI NƯỚC NGOÀI KHAI BÁO       CHỦ CƠ SỞ LƯU TRÚ       XÁC NH�
       gender = "Nữ";
     }
 
+    // Auto-normalize CCCD 12 digits (pad leading zeroes if lost from Excel)
+    let cleanCccd = cccd.replace(/\D/g, "");
+    if (cleanCccd.length > 0 && cleanCccd.length <= 12) {
+      cleanCccd = cleanCccd.padStart(12, "0");
+    }
+
+    // Auto-normalize Birth Date (supports Excel serial date, ISO, and DD/MM/YYYY)
+    let formattedBirthDate = birthDate || "01/01/1990";
+    if (birthDate) {
+      const trimmed = String(birthDate).trim().replace(/\.0$/, "");
+      if (/^\d{4,5}$/.test(trimmed)) {
+        const valNum = parseInt(trimmed, 10);
+        if (valNum >= 1900 && valNum <= 2100 && trimmed.length === 4) {
+          formattedBirthDate = `01/01/${valNum}`;
+        } else if (valNum >= 10000 && valNum <= 65000) {
+          try {
+            const dt = new Date(Math.round((valNum - 25569) * 86400 * 1000));
+            if (!isNaN(dt.getTime())) {
+              const d = String(dt.getUTCDate()).padStart(2, "0");
+              const m = String(dt.getUTCMonth() + 1).padStart(2, "0");
+              const y = dt.getUTCFullYear();
+              formattedBirthDate = `${d}/${m}/${y}`;
+            }
+          } catch {
+            // fallback
+          }
+        }
+      } else if (trimmed.includes("-") && trimmed.length >= 10) {
+        const parts = trimmed.slice(0, 10).split("-");
+        if (parts.length === 3) {
+          formattedBirthDate = `${parts[2].padStart(2, '0')}/${parts[1].padStart(2, '0')}/${parts[0]}`;
+        }
+      }
+    }
+
     // Parse Status
     let status: "Thường trú" | "Tạm trú" | "Tạm vắng" = "Thường trú";
     const lowerStatus = statusStr.toLowerCase();
@@ -617,8 +657,8 @@ NGƯỜI NƯỚC NGOÀI KHAI BÁO       CHỦ CƠ SỞ LƯU TRÚ       XÁC NH�
       id: `TEMP-${idx}-${Date.now()}`,
       fullName: fullName || "",
       gender,
-      birthDate: birthDate || "01/01/1990",
-      cccd: cccd || "",
+      birthDate: formattedBirthDate,
+      cccd: cleanCccd || cccd,
       idIssueDate: idIssueDate || "15/05/2021",
       idIssuePlace: idIssuePlace || "Cục Cảnh sát QLHC về TTXH",
       ethnicity: ethnicity || "Kinh",
@@ -641,7 +681,7 @@ NGƯỜI NƯỚC NGOÀI KHAI BÁO       CHỦ CƠ SỞ LƯU TRÚ       XÁC NH�
       policyGroup: policyGroup || "Bình thường",
       emergencyContact: emergencyContact || "",
       notes: notes || "",
-      isValid: !!fullName && !!cccd && cccd.length >= 9
+      isValid: !!fullName && !!cleanCccd && cleanCccd.length >= 9
     };
   };
 
@@ -674,13 +714,15 @@ NGƯỜI NƯỚC NGOÀI KHAI BÁO       CHỦ CƠ SỞ LƯU TRÚ       XÁC NH�
 
   // Raw Text / Paste Parser Logic (Tab-separated or Comma-separated)
   const handleParsePastedText = () => {
-    if (!pastedRawText.trim()) {
+    const textareaEl = document.getElementById("raw-pasted-residents-textarea") as HTMLTextAreaElement | null;
+    const textToParse = (pastedRawText || "").trim() || (textareaEl?.value || "").trim();
+    if (!textToParse) {
       alert("Vui lòng dán danh sách hoặc bảng dữ liệu dân cư vào ô nhập!");
       return;
     }
 
     try {
-      const lines = pastedRawText.trim().split("\n").map(l => l.trim()).filter(Boolean);
+      const lines = textToParse.split("\n").map(l => l.trim()).filter(Boolean);
       if (lines.length < 2) {
         alert("Dữ liệu cần có ít nhất 1 dòng tiêu đề và 1 dòng dữ liệu!");
         return;
@@ -736,52 +778,152 @@ NGƯỜI NƯỚC NGOÀI KHAI BÁO       CHỦ CƠ SỞ LƯU TRÚ       XÁC NH�
     }
   };
 
-  const handleConfirmImport = () => {
+  const handleConfirmImport = async () => {
     const validRows = parsedData.filter(r => r.isValid);
     if (validRows.length === 0) {
       alert("Không có dữ liệu cư dân hợp lệ nào để nhập!");
       return;
     }
 
-    validRows.forEach((row, i) => {
-      onAddResident({
-        id: "R" + (residents.length + 1 + i).toString().padStart(3, "0"),
-        fullName: row.fullName,
-        gender: row.gender,
-        birthDate: row.birthDate,
-        cccd: row.cccd,
-        idIssueDate: row.idIssueDate,
-        idIssuePlace: row.idIssuePlace,
-        ethnicity: row.ethnicity,
-        religion: row.religion,
-        nationality: row.nationality,
-        hometown: row.hometown,
-        phone: row.phone,
-        status: row.status,
-        education: row.education,
-        occupation: row.occupation,
-        workplace: row.workplace,
-        maritalStatus: row.maritalStatus,
-        address: row.address,
-        permanentAddress: row.permanentAddress,
-        temporaryAddress: row.temporaryAddress,
-        householdId: row.householdId,
-        relationToOwner: row.relationToOwner,
-        healthInsuranceNumber: row.healthInsuranceNumber,
-        militaryServiceStatus: row.militaryServiceStatus,
-        policyGroup: row.policyGroup,
-        emergencyContact: row.emergencyContact,
-        notes: row.notes,
-        avatar: `https://images.unsplash.com/photo-${1535713875002 + (i % 10)}?w=150`,
-        joinDate: new Date().toLocaleDateString("vi-VN")
-      });
-    });
+    setIsUploadingToDb(true);
+    setUploadStatusMsg("Đang chuẩn hóa và chuẩn bị đồng bộ vào Database...");
 
-    alert(`Đã tích hợp thành công ${validRows.length} hồ sơ cư dân đầy đủ trường vào hệ thống!`);
-    setShowImportModal(false);
-    setParsedData([]);
-    setImportFileName("");
-    setPastedRawText("");
+    try {
+      if (isSupabaseConfigured && supabase) {
+        // Chuẩn hóa dữ liệu tương thích schema Supabase PostgreSQL
+        const dbPayload = validRows.map(row => {
+          let birthDateIso: string | null = null;
+          if (row.birthDate && row.birthDate.includes("/")) {
+            const parts = row.birthDate.split("/");
+            if (parts.length === 3) {
+              const [d, m, y] = parts;
+              if (y && m && d) birthDateIso = `${y.trim()}-${m.trim().padStart(2, '0')}-${d.trim().padStart(2, '0')}`;
+            }
+          } else if (row.birthDate && row.birthDate.includes("-")) {
+            birthDateIso = row.birthDate.slice(0, 10);
+          }
+
+          const birthYear = birthDateIso ? parseInt(birthDateIso.slice(0, 4), 10) : null;
+          const isElderly = birthYear ? (2026 - birthYear) >= 60 : false;
+
+          return {
+            full_name: (row.fullName || "").trim(),
+            cccd: (row.cccd || "").trim(),
+            gender: row.gender === "Nữ" ? "Nữ" : "Nam",
+            birth_date: birthDateIso,
+            phone: row.phone && row.phone !== "N/A" ? row.phone.trim() : null,
+            address: (row.address || row.permanentAddress || "Khu phố 3, Phường An Phú, TP. Thủ Đức").trim(),
+            household_code: row.householdId?.trim() || null,
+            relation_to_owner: row.relationToOwner?.trim() || "Thành viên",
+            status: row.status || "Thường trú",
+            occupation: row.occupation?.trim() || null,
+            workplace: row.workplace?.trim() || null,
+            nationality: row.nationality?.trim() || "Việt Nam",
+            is_party_member: false,
+            is_policy_household: false,
+            is_elderly: isElderly,
+            is_poor_household: false
+          };
+        });
+
+        // Chia lô 100 bản ghi để tối ưu hiệu năng và không bị timeout
+        const BATCH_SIZE = 100;
+        let insertedCount = 0;
+        for (let i = 0; i < dbPayload.length; i += BATCH_SIZE) {
+          const batch = dbPayload.slice(i, i + BATCH_SIZE);
+          setUploadStatusMsg(`Đang ghi vào Supabase: ${Math.min(i + BATCH_SIZE, dbPayload.length)}/${dbPayload.length} hồ sơ...`);
+          const { error: upsertErr } = await supabase.from('residents').upsert(batch, { onConflict: 'cccd' });
+          if (upsertErr) {
+            console.error("Supabase upsert error:", upsertErr);
+            throw new Error(upsertErr.message);
+          }
+          insertedCount += batch.length;
+        }
+
+        // Cập nhật State giao diện
+        validRows.forEach((row, i) => {
+          onAddResident({
+            id: "R" + (residents.length + 1 + i).toString().padStart(3, "0"),
+            fullName: row.fullName,
+            gender: row.gender,
+            birthDate: row.birthDate,
+            cccd: row.cccd,
+            idIssueDate: row.idIssueDate,
+            idIssuePlace: row.idIssuePlace,
+            ethnicity: row.ethnicity,
+            religion: row.religion,
+            nationality: row.nationality,
+            hometown: row.hometown,
+            phone: row.phone,
+            status: row.status,
+            education: row.education,
+            occupation: row.occupation,
+            workplace: row.workplace,
+            maritalStatus: row.maritalStatus,
+            address: row.address,
+            permanentAddress: row.permanentAddress,
+            temporaryAddress: row.temporaryAddress,
+            householdId: row.householdId,
+            relationToOwner: row.relationToOwner,
+            healthInsuranceNumber: row.healthInsuranceNumber,
+            militaryServiceStatus: row.militaryServiceStatus,
+            policyGroup: row.policyGroup,
+            emergencyContact: row.emergencyContact,
+            notes: row.notes,
+            avatar: `https://images.unsplash.com/photo-${1535713875002 + (i % 10)}?w=150`,
+            joinDate: new Date().toLocaleDateString("vi-VN")
+          });
+        });
+
+        alert(`✓ THÀNH CÔNG RỰC RỠ!\nĐã đồng bộ trực tiếp ${insertedCount} hồ sơ cư dân vào Cơ sở dữ liệu Supabase PostgreSQL!`);
+      } else {
+        // Fallback khi offline hoặc chưa config Supabase
+        validRows.forEach((row, i) => {
+          onAddResident({
+            id: "R" + (residents.length + 1 + i).toString().padStart(3, "0"),
+            fullName: row.fullName,
+            gender: row.gender,
+            birthDate: row.birthDate,
+            cccd: row.cccd,
+            idIssueDate: row.idIssueDate,
+            idIssuePlace: row.idIssuePlace,
+            ethnicity: row.ethnicity,
+            religion: row.religion,
+            nationality: row.nationality,
+            hometown: row.hometown,
+            phone: row.phone,
+            status: row.status,
+            education: row.education,
+            occupation: row.occupation,
+            workplace: row.workplace,
+            maritalStatus: row.maritalStatus,
+            address: row.address,
+            permanentAddress: row.permanentAddress,
+            temporaryAddress: row.temporaryAddress,
+            householdId: row.householdId,
+            relationToOwner: row.relationToOwner,
+            healthInsuranceNumber: row.healthInsuranceNumber,
+            militaryServiceStatus: row.militaryServiceStatus,
+            policyGroup: row.policyGroup,
+            emergencyContact: row.emergencyContact,
+            notes: row.notes,
+            avatar: `https://images.unsplash.com/photo-${1535713875002 + (i % 10)}?w=150`,
+            joinDate: new Date().toLocaleDateString("vi-VN")
+          });
+        });
+        alert(`Đã lưu ${validRows.length} hồ sơ vào bộ nhớ cục bộ.`);
+      }
+
+      setShowImportModal(false);
+      setParsedData([]);
+      setImportFileName("");
+      setPastedRawText("");
+    } catch (err: any) {
+      alert("Lỗi khi ghi dữ liệu vào Supabase Database: " + (err?.message || "Không thể kết nối máy chủ CSDL"));
+    } finally {
+      setIsUploadingToDb(false);
+      setUploadStatusMsg("");
+    }
   };
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
@@ -3095,6 +3237,8 @@ NGƯỜI NƯỚC NGOÀI KHAI BÁO       CHỦ CƠ SỞ LƯU TRÚ       XÁC NH�
                   </div>
 
                   <textarea
+                    id="raw-pasted-residents-textarea"
+                    name="rawPastedResidents"
                     rows={6}
                     value={pastedRawText}
                     onChange={(e) => setPastedRawText(e.target.value)}
@@ -3176,31 +3320,63 @@ NGƯỜI NƯỚC NGOÀI KHAI BÁO       CHỦ CƠ SỞ LƯU TRÚ       XÁC NH�
             </div>
 
             {/* Modal Footer */}
-            <div className="bg-slate-50 p-4 border-t border-slate-200 flex justify-between items-center shrink-0">
-              <button 
-                type="button" 
-                onClick={() => {
-                  setShowImportModal(false);
-                  setParsedData([]);
-                  setImportFileName("");
-                  setPastedRawText("");
-                }}
-                className="px-4 py-2 border border-slate-200 rounded-lg text-slate-600 hover:bg-slate-100 cursor-pointer text-xs font-semibold"
-              >
-                Hủy bỏ
-              </button>
-              <button 
-                type="button" 
-                disabled={parsedData.filter(r => r.isValid).length === 0}
-                onClick={handleConfirmImport}
-                className={`px-4 py-2 text-white font-bold rounded-lg cursor-pointer text-xs flex items-center gap-1.5 ${
-                  parsedData.filter(r => r.isValid).length === 0 
-                    ? "bg-slate-300 cursor-not-allowed text-slate-500" 
-                    : "bg-emerald-600 hover:bg-emerald-700 shadow-xs"
-                }`}
-              >
-                <CheckCircle size={15} /> Tích hợp vào hệ thống ({parsedData.filter(r => r.isValid).length} hồ sơ hợp lệ)
-              </button>
+            <div className="bg-slate-50 p-4 border-t border-slate-200 flex flex-col sm:flex-row gap-3 justify-between items-stretch sm:items-center shrink-0">
+              <div className="flex items-center gap-2 text-xs">
+                {isSupabaseConfigured ? (
+                  <span className="flex items-center gap-1.5 text-emerald-700 font-semibold bg-emerald-50 px-2.5 py-1 rounded-lg border border-emerald-200">
+                    <Database size={13} className="text-emerald-600" />
+                    Supabase PostgreSQL: Đã kết nối
+                  </span>
+                ) : (
+                  <span className="flex items-center gap-1.5 text-amber-700 font-medium bg-amber-50 px-2.5 py-1 rounded-lg border border-amber-200">
+                    <AlertTriangle size={13} className="text-amber-600" />
+                    Lưu trữ cục bộ (Offline)
+                  </span>
+                )}
+                {isUploadingToDb && (
+                  <span className="text-emerald-600 font-medium animate-pulse">
+                    {uploadStatusMsg}
+                  </span>
+                )}
+              </div>
+
+              <div className="flex items-center gap-2 justify-end">
+                <button 
+                  type="button" 
+                  disabled={isUploadingToDb}
+                  onClick={() => {
+                    setShowImportModal(false);
+                    setParsedData([]);
+                    setImportFileName("");
+                    setPastedRawText("");
+                  }}
+                  className="px-4 py-2 border border-slate-200 rounded-lg text-slate-600 hover:bg-slate-100 cursor-pointer text-xs font-semibold disabled:opacity-50"
+                >
+                  Hủy bỏ
+                </button>
+                <button 
+                  type="button" 
+                  disabled={isUploadingToDb || parsedData.filter(r => r.isValid).length === 0}
+                  onClick={handleConfirmImport}
+                  className={`px-4 py-2 text-white font-bold rounded-lg text-xs flex items-center justify-center gap-1.5 transition-all ${
+                    isUploadingToDb || parsedData.filter(r => r.isValid).length === 0 
+                      ? "bg-slate-400 cursor-not-allowed opacity-80" 
+                      : "bg-emerald-600 hover:bg-emerald-700 shadow-md cursor-pointer active:scale-95"
+                  }`}
+                >
+                  {isUploadingToDb ? (
+                    <>
+                      <Loader2 size={15} className="animate-spin" />
+                      <span>{uploadStatusMsg || "Đang ghi vào Supabase..."}</span>
+                    </>
+                  ) : (
+                    <>
+                      <Database size={15} />
+                      <span>Tích hợp vào Database ({parsedData.filter(r => r.isValid).length} hồ sơ hợp lệ)</span>
+                    </>
+                  )}
+                </button>
+              </div>
             </div>
           </div>
         </div>

@@ -201,13 +201,28 @@ export default function LeafletGisMap({
     mapInstanceRef.current = map;
 
     // Fix map sizing when container becomes ready
-    setTimeout(() => {
-      map.invalidateSize();
+    const resizeTimer = setTimeout(() => {
+      if (mapInstanceRef.current && mapContainerRef.current) {
+        try {
+          mapInstanceRef.current.invalidateSize({ animate: false });
+        } catch {
+          // ignore if already unmounted
+        }
+      }
     }, 250);
 
     return () => {
-      map.remove();
-      mapInstanceRef.current = null;
+      clearTimeout(resizeTimer);
+      if (mapInstanceRef.current) {
+        try {
+          mapInstanceRef.current.stop();
+          mapInstanceRef.current.off();
+          mapInstanceRef.current.remove();
+        } catch {
+          // ignore cleanup errors on fast tab switches
+        }
+        mapInstanceRef.current = null;
+      }
     };
   }, []);
 
@@ -220,11 +235,17 @@ export default function LeafletGisMap({
 
   // 3. Render / Update Administrative Boundary Polygon (Geo-pinned)
   useEffect(() => {
-    if (!mapInstanceRef.current) return;
+    if (!mapInstanceRef.current || !mapContainerRef.current) return;
     const map = mapInstanceRef.current;
 
     if (boundaryPolygonRef.current) {
-      map.removeLayer(boundaryPolygonRef.current);
+      try {
+        if (map.hasLayer(boundaryPolygonRef.current)) {
+          map.removeLayer(boundaryPolygonRef.current);
+        }
+      } catch {
+        // ignore
+      }
       boundaryPolygonRef.current = null;
     }
 
@@ -232,28 +253,36 @@ export default function LeafletGisMap({
 
     const latLngs = boundaryCoords.map(p => [p.lat, p.lng] as [number, number]);
 
-    const polygon = L.polygon(latLngs, {
-      color: boundaryStyle.strokeColor || "#10b981",
-      weight: (boundaryStyle.strokeWeight || 3) * 1.2,
-      opacity: 0.9,
-      fillColor: boundaryStyle.fillColor || "#10b981",
-      fillOpacity: boundaryStyle.fillOpacity || 0.15,
-      dashArray: isBoundaryEditMode ? "8, 6" : undefined
-    });
+    try {
+      const polygon = L.polygon(latLngs, {
+        color: boundaryStyle.strokeColor || "#10b981",
+        weight: (boundaryStyle.strokeWeight || 3) * 1.2,
+        opacity: 0.9,
+        fillColor: boundaryStyle.fillColor || "#10b981",
+        fillOpacity: boundaryStyle.fillOpacity || 0.15,
+        dashArray: isBoundaryEditMode ? "8, 6" : undefined
+      });
 
-    polygon.bindTooltip("<b>ĐỊA GIỚI HÀNH CHÍNH KHU PHỐ 3</b><br/>Phường An Phú, TP. Thủ Đức", {
-      sticky: true,
-      className: "bg-slate-900 text-white text-xs px-2.5 py-1.5 rounded-lg shadow-xl border border-emerald-500/30"
-    });
+      polygon.bindTooltip("<b>ĐỊA GIỚI HÀNH CHÍNH KHU PHỐ 3</b><br/>Phường An Phú, TP. Thủ Đức", {
+        sticky: true,
+        className: "bg-slate-900 text-white text-xs px-2.5 py-1.5 rounded-lg shadow-xl border border-emerald-500/30"
+      });
 
-    polygon.addTo(map);
-    boundaryPolygonRef.current = polygon;
+      polygon.addTo(map);
+      boundaryPolygonRef.current = polygon;
+    } catch {
+      // ignore
+    }
   }, [boundaryCoords, boundaryStyle, layers.boundary, isBoundaryEditMode]);
 
   // 4. Render TDP Sub-zones
   useEffect(() => {
-    if (!tdpPolygonsGroupRef.current) return;
-    tdpPolygonsGroupRef.current.clearLayers();
+    if (!tdpPolygonsGroupRef.current || !mapInstanceRef.current || !mapContainerRef.current) return;
+    try {
+      tdpPolygonsGroupRef.current.clearLayers();
+    } catch {
+      // ignore
+    }
 
     if (!showTdpZones || !layers.boundary) return;
 
@@ -279,8 +308,12 @@ export default function LeafletGisMap({
 
   // 5. Render Boundary Milestones (Numbered markers 1..N)
   useEffect(() => {
-    if (!milestoneMarkersGroupRef.current) return;
-    milestoneMarkersGroupRef.current.clearLayers();
+    if (!milestoneMarkersGroupRef.current || !mapInstanceRef.current || !mapContainerRef.current) return;
+    try {
+      milestoneMarkersGroupRef.current.clearLayers();
+    } catch {
+      // ignore
+    }
 
     if (!layers.boundary || !isBoundaryEditMode) return;
 
@@ -312,14 +345,22 @@ export default function LeafletGisMap({
         onSelectMilestone(isSelected ? null : idx);
       });
 
-      marker.addTo(milestoneMarkersGroupRef.current!);
+      try {
+        marker.addTo(milestoneMarkersGroupRef.current!);
+      } catch {
+        // ignore
+      }
     });
   }, [boundaryCoords, isBoundaryEditMode, selectedMilestoneIndex, layers.boundary]);
 
   // 6. Render Map Pins (Households, Businesses, Cameras, PCCC, Lights)
   useEffect(() => {
-    if (!pinsGroupRef.current) return;
-    pinsGroupRef.current.clearLayers();
+    if (!pinsGroupRef.current || !mapInstanceRef.current || !mapContainerRef.current) return;
+    try {
+      pinsGroupRef.current.clearLayers();
+    } catch {
+      // ignore
+    }
 
     const getPinColor = (type: string) => {
       switch (type) {
@@ -395,7 +436,11 @@ export default function LeafletGisMap({
         }
       });
 
-      marker.addTo(pinsGroupRef.current!);
+      try {
+        marker.addTo(pinsGroupRef.current!);
+      } catch {
+        // ignore
+      }
     });
   }, [pins, layers, selectedPin]);
 

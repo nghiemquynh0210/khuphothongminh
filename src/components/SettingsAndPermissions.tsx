@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo } from "react";
 import { 
   Shield, 
   ShieldAlert, 
+  ShieldCheck,
   UserCheck, 
   UserX, 
   Check, 
@@ -45,6 +46,7 @@ import { Resident, ActiveTab, AdministrativeForm, LocalNews } from "../types";
 import AdministrativeForms from "./AdministrativeForms";
 import { initialAdministrativeForms } from "../mockForms";
 import { initialNewsList } from "../mockData";
+import { supabase, isSupabaseConfigured } from "../lib/supabase";
 
 export interface PendingRegistration {
   id: string;
@@ -104,6 +106,65 @@ export default function SettingsAndPermissions({
   defaultSubTab = "approvals"
 }: SettingsAndPermissionsProps) {
   const [activeSubTab, setActiveSubTab] = useState<"approvals" | "forms" | "news" | "permissions" | "plan">(defaultSubTab);
+
+  // Supabase Cadre Approval state
+  const [pendingCadres, setPendingCadres] = useState<any[]>([]);
+  const [cadreLoading, setCadreLoading] = useState(false);
+
+  const fetchPendingCadres = async () => {
+    if (!isSupabaseConfigured || !supabase) return;
+    try {
+      setCadreLoading(true);
+      const { data, error } = await (supabase as any)
+        .from("user_profiles")
+        .select("*")
+        .eq("approval_status", "pending")
+        .order("created_at", { ascending: false });
+      if (!error && data) {
+        setPendingCadres(data);
+      }
+    } catch (e) {
+      console.warn("Fetch pending cadres error:", e);
+    } finally {
+      setCadreLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchPendingCadres();
+  }, [activeSubTab]);
+
+  const handleApproveCadre = async (cadreId: string) => {
+    if (!isSupabaseConfigured || !supabase) return;
+    try {
+      const { error } = await (supabase as any)
+        .from("user_profiles")
+        .update({ approval_status: "approved", approved_at: new Date().toISOString() })
+        .eq("id", cadreId);
+      if (!error) {
+        setPendingCadres(prev => prev.filter(c => c.id !== cadreId));
+        showNewsToast("Đã phê duyệt tài khoản Cán bộ công tác thành công!");
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  const handleRejectCadre = async (cadreId: string) => {
+    if (!isSupabaseConfigured || !supabase) return;
+    try {
+      const { error } = await (supabase as any)
+        .from("user_profiles")
+        .update({ approval_status: "rejected" })
+        .eq("id", cadreId);
+      if (!error) {
+        setPendingCadres(prev => prev.filter(c => c.id !== cadreId));
+        showNewsToast("Đã từ chối cấp quyền tài khoản Cán bộ!");
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  };
 
   useEffect(() => {
     if (defaultSubTab) {
@@ -350,8 +411,74 @@ export default function SettingsAndPermissions({
 
       {/* Approvals tab */}
       {activeSubTab === "approvals" && (
-        <div className="space-y-4">
-          <div className="flex justify-between items-center">
+        <div className="space-y-6">
+          {/* 1. Phê duyệt Cán bộ công tác (Supabase Auth & RLS) */}
+          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 text-white space-y-4">
+            <div className="flex justify-between items-center">
+              <div>
+                <h4 className="font-extrabold text-sm tracking-tight text-white flex items-center gap-2">
+                  <ShieldCheck size={18} className="text-indigo-400" />
+                  PHÊ DUYỆT TÀI KHOẢN CÁN BỘ CÔNG TÁC (SUPABASE AUTH)
+                </h4>
+                <p className="text-xs text-slate-400 mt-0.5">
+                  Xác thực danh tính và phân quyền truy cập hệ thống Quản lý dân cư theo chuẩn PostgreSQL Row Level Security (RLS)
+                </p>
+              </div>
+              <span className="bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 font-bold px-2.5 py-1 rounded-full text-[11px] font-mono">
+                {pendingCadres.length} Cán bộ chờ duyệt
+              </span>
+            </div>
+
+            {cadreLoading ? (
+              <div className="py-6 text-center text-xs text-slate-400">Đang kiểm tra danh sách cán bộ...</div>
+            ) : pendingCadres.length === 0 ? (
+              <div className="bg-slate-950/60 border border-slate-800/60 rounded-xl p-5 text-center text-xs text-slate-400 flex items-center justify-center gap-2">
+                <CheckCircle2 size={16} className="text-emerald-400" />
+                Không có tài khoản Cán bộ nào đang chờ phê duyệt. Toàn bộ cán bộ đã được cấp quyền hợp lệ.
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
+                {pendingCadres.map((cadre) => (
+                  <div key={cadre.id} className="bg-slate-950 border border-slate-800 rounded-xl p-4 space-y-3">
+                    <div className="flex items-start justify-between">
+                      <div>
+                        <h5 className="font-bold text-white text-sm">{cadre.full_name}</h5>
+                        <p className="text-xs text-indigo-400 font-medium">{cadre.position || "Cán bộ Khu phố"}</p>
+                        <p className="text-[11px] text-slate-400 font-mono mt-0.5">{cadre.email}</p>
+                      </div>
+                      <span className="text-[10px] bg-amber-500/10 border border-amber-500/20 text-amber-300 px-2 py-0.5 rounded-full font-bold">
+                        Chờ duyệt
+                      </span>
+                    </div>
+
+                    <div className="flex items-center gap-2 text-[11px] text-slate-400 pt-1 border-t border-slate-800/80">
+                      <span>Điện thoại: <strong className="text-slate-200">{cadre.phone || "Chưa cập nhật"}</strong></span>
+                    </div>
+
+                    <div className="flex gap-2 pt-1">
+                      <button
+                        type="button"
+                        onClick={() => handleApproveCadre(cadre.id)}
+                        className="flex-1 bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-1.5 px-3 rounded-lg text-xs transition-all flex items-center justify-center gap-1 cursor-pointer"
+                      >
+                        <UserCheck size={13} /> Phê duyệt cấp quyền
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleRejectCadre(cadre.id)}
+                        className="bg-rose-500/10 hover:bg-rose-500/20 text-rose-300 border border-rose-500/20 font-bold px-3 py-1.5 rounded-lg text-xs transition-all cursor-pointer"
+                      >
+                        Từ chối
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* 2. Yêu cầu Đăng ký Cư dân trực tuyến */}
+          <div className="flex justify-between items-center pt-2">
             <div>
               <h4 className="font-extrabold text-slate-800 text-sm tracking-tight uppercase">Yêu cầu Đăng ký Cư dân trực tuyến</h4>
               <p className="text-xs text-slate-500">Người dân tự khai báo nhân khẩu qua ứng dụng và đợi Cán bộ phê duyệt trước khi tích hợp vào sổ hộ khẩu</p>
@@ -539,6 +666,9 @@ export default function SettingsAndPermissions({
             <div className="relative flex-1 max-w-md">
               <Search size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
               <input
+                id="admin-news-search-input"
+                name="newsSearch"
+                aria-label="Tìm bài viết theo tiêu đề, nội dung, tác giả"
                 type="text"
                 value={newsSearch}
                 onChange={(e) => setNewsSearch(e.target.value)}
