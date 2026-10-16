@@ -7,13 +7,18 @@ Tài liệu này đóng vai trò là **Bộ nhớ làm việc (Agent Memory)** v
 ## 1. TỔNG QUAN DỰ ÁN & ĐỊA BÀN
 - **Tên dự án:** Remix Khu phố 3 An Phú - Quản lý thông minh & Cổng Dịch vụ Cư dân số.
 - **Địa bàn hành chính:** Khu phố 3, Phường An Phú, TP. Thủ Đức, TP. Hồ Chí Minh.
-- **Quy mô dân cư:** 350 hộ gia đình, 1.420 nhân khẩu, 45 cơ sở kinh doanh/doanh nghiệp.
+- **Quy mô dân cư thực tế trong Database:** 
+  - **488 hộ gia đình**
+  - **11.632 nhân khẩu** (2.076 Thường trú + 9.556 Tạm trú đã khử trùng CCCD)
+  - **3 cơ sở kinh doanh/doanh nghiệp**
 - **Thường trực Ban điều hành:**
   - Bí thư Chi bộ: Ông Nguyễn Văn Hùng
   - Trưởng Khu phố: Bà Lê Thị Mai
   - Công an khu vực: Đại úy Trần Quốc Hải
-- **Tài khoản quản trị viên / đại diện:**
+- **Tài khoản quản trị viên tối cao (Admin Bootstrap):**
   - Email: `bdhkhupho3.ap@gmail.com`
+  - Mật khẩu: `Trunghuy741`
+  - Role: `admin` | Trạng thái: `approved` | Email Confirmed: `true`
 
 ---
 
@@ -27,22 +32,18 @@ Tài liệu này đóng vai trò là **Bộ nhớ làm việc (Agent Memory)** v
 
 ---
 
-## 3. CƠ SỞ DỮ LIỆU SUPABASE
+## 3. CƠ SỞ DỮ LIỆU SUPABASE & BẢO MẬT RLS
 - **Project URL:** `https://wjdgaobhipkgzveidtra.supabase.co`
 - **Project ID:** `wjdgaobhipkgzveidtra`
 - **Access Token:** `sbp_fc2b41fc33b4edc43b40e83dec70d6f54502c03e`
 - **Public Anon Key:** Được lưu trong `.env` và Vercel Environment Variables (`VITE_SUPABASE_ANON_KEY`).
-- **Client SDK:** `src/lib/supabase.ts` (kèm fallback in-memory nếu mất mạng hoặc offline).
-- **Các bảng dữ liệu chính (`supabase/schema.sql`):**
-  - `citizens`: Danh sách công dân, CCCD, ngày sinh, quan hệ chủ hộ, nhóm đối tượng.
-  - `households`: Danh sách hộ gia đình, số nhà, tổ dân phố, số nhân khẩu, trạng thái đóng quỹ.
-  - `businesses`: Cơ sở kinh doanh dịch vụ, ngành nghề, người đại diện, trạng thái PCCC.
-  - `field_reflections`: Phản ánh hiện trường 1022 (rác, tiếng ồn, hạ tầng) kèm hình ảnh, tọa độ.
-  - `fund_transactions`: Sổ quỹ khu phố (thu/chi, chứng từ, loại quỹ).
-  - `party_members`: Chi bộ Đảng, chức vụ, ngày vào Đảng.
-  - `social_welfare`: Danh sách an sinh xã hội, người cao tuổi, hộ nghèo, quà Tết, BHYT.
-  - `tasks`: Lịch công tác, phân công nhiệm vụ cán bộ khu phố.
-  - `community_events`: Tin tức, thông báo, sự kiện cộng đồng.
+- **Client SDK:** `src/lib/supabase.ts`.
+- **Row Level Security (RLS) & Phân quyền:**
+  - Bật RLS 100% trên cả 8 bảng: `user_profiles`, `households`, `residents`, `businesses`, `field_reports`, `neighborhood_funds`, `community_news`, `tasks`.
+  - Hàm phân quyền: `is_approved_staff(uid)`, `is_admin(uid)`.
+  - Cư dân/Khách (Anon): Chỉ được đọc tin tức, tra cứu quỹ, gửi phản ánh 1022. Tuyệt đối bị chặn đọc/ghi bảng `residents` và `households`.
+  - Cán bộ đã duyệt (`is_approved_staff`): Đọc và quản lý đầy đủ nhân khẩu, hộ khẩu, nhiệm vụ, quỹ.
+  - Quản trị viên (`is_admin`): Quyền duyệt/thu hồi tài khoản cán bộ công tác trong `user_profiles`.
 
 ---
 
@@ -67,42 +68,32 @@ Dự án đã thiết lập 2 MCP Servers hoạt động:
 
 ---
 
-## 6. DANH MỤC TÍNH NĂNG ĐẶC TRÙNG ĐÃ HOÀN THIỆN
-1. **Bản đồ số không gian GIS (`src/components/gis/LeafletGisMap.tsx`):**
-   - Ranh giới địa giới hành chính Khu phố 3 An Phú cố định trên bản đồ Leaflet.
-   - Các lớp ghim: Nhà ở dân cư, Điểm phản ánh hiện trường 1022, Cơ sở kinh doanh.
-2. **Lịch công tác & Phân công nhiệm vụ (`src/components/TaskAndSchedule.tsx`):**
-   - Quản lý lịch họp Chi bộ, lịch tuần tra an ninh, ra quân Ngày Chủ Nhật Xanh.
-   - Phân công nhiệm vụ cụ thể cho từng thành viên Ban điều hành, theo dõi tiến độ hoàn thành.
-3. **Quỹ Khu phố & VietQR Động (`src/components/NeighborhoodFunds.tsx`, `VietQrModal.tsx`, `HouseholdFundLookup.tsx`):**
-   - Tạo mã QR thanh toán chuẩn VietQR (ngân hàng, số tài khoản, số tiền và cú pháp đóng nộp theo hộ).
-   - Tra cứu đóng nộp minh bạch theo từng tổ và từng hộ dân.
-4. **Cổng Dịch vụ Cư Dân Số & Trang chủ Công cộng (`src/components/CitizenLandingPage.tsx`):**
-   - Đóng vai trò là Cổng thông tin & Trang chủ mặc định cho người dân và du khách khi truy cập ứng dụng.
-   - Tiện ích trực tuyến: Gửi phản ánh hiện trường 1022 (kèm tọa độ GPS, ảnh thực tế, cơ chế chống spam/rate limit), tra cứu và tải về 11 biểu mẫu hành chính chuẩn (CT01, cấp số nhà, tạm trú người nước ngoài, PCCC...).
-   - Hiển thị danh sách thông báo khẩn cấp (Ưu tiên đỏ), tin tức đời sống cộng đồng, lịch sự kiện sắp diễn ra và danh bạ thường trực Ban Điều hành KP3.
-   - Điều hướng mượt mà 1-chạm giữa Cổng Cư dân và Trung tâm Nghiệp vụ Cán bộ.
-5. **Phân hệ Biên tập & Quản lý Tin tức, Thông báo Khu phố (`src/components/SettingsAndPermissions.tsx`, `CommunityEvents.tsx`):**
-   - Quản trị viên và Cán bộ có thể trực tiếp soạn thảo bản tin/thông báo mới, chọn chuyên mục (*Thông báo khẩn*, *Hành chính*, *Y tế & Đời sống*, *Phong trào*, *An sinh xã hội*).
-   - Tùy chọn ghim tin nổi bật (`isPinned`) lên đầu Cổng Cư Dân.
-   - Hỗ trợ đầy đủ thao tác: Chỉnh sửa nội dung, ghim/bỏ ghim nhanh, xem trước bài viết (Live Preview theo giao diện cư dân), xóa bài viết và tìm kiếm/lọc chuyên mục.
-   - Tự động đồng bộ dữ liệu thời gian thực giữa Cổng Cán bộ và Cổng Người dân.
-6. **Cơ chế Xác thực & Đăng nhập 1-Chạm (`src/components/LoginAndRegister.tsx`, `App.tsx`):**
-   - Nút "Cổng dành cho cán bộ" tại Header/Menu/Footer tự động cấp quyền và đăng nhập trực tiếp tài khoản Cán bộ Quản trị (`CANBO_USER` - Bí thư Nguyễn Văn Hùng).
-   - Màn hình đăng nhập tích hợp sẵn 2 nút truy cập nhanh 1-chạm cho Cán bộ và Cư dân, không lo quên mật khẩu khi giám sát hay nghiệm thu.
-7. **Trợ lý AI Thông minh & Cơ sở dữ liệu Cư dân:**
-   - Trả lời 24/7 thắc mắc thủ tục hành chính, quy định pháp luật và hướng dẫn gửi phản ánh.
-   - Quản lý chi tiết danh sách cư dân, hộ gia đình, doanh nghiệp, cơ sở kinh doanh, an sinh xã hội, chi bộ Đảng và sổ thu/chi quỹ khu phố.
+## 6. DANH MỤC TÍNH NĂNG ĐÃ HOÀN THIỆN & CHUYỂN ĐỔI DATABASE THẬT
+1. **Nạp & Đồng bộ Dữ liệu Cư dân Quy mô lớn:**
+   - Đã nạp thành công **11.632 nhân khẩu** (Thường trú & Tạm trú) và **488 hộ gia đình** từ file Excel vào Supabase PostgreSQL.
+   - Cơ chế tải dữ liệu khách hàng theo batch cursor/range tối ưu trong `App.tsx` giúp load 11.632 dòng mượt mà, không nghẽn mạng.
+2. **Quản lý Hộ khẩu & Tự nhận diện Hộ vĩnh viễn (`HouseholdAutoRecognition.tsx`):**
+   - Thuật toán phân tích cấu trúc gia đình, tự nhận diện Chủ hộ và thành viên.
+   - Nút **"Đồng bộ Toàn bộ vào Sổ Hộ Khẩu"** và **"Đồng bộ từng hộ"** đã được kết nối trực tiếp lệnh `UPSERT` vào bảng `households` và cập nhật `residents` trong PostgreSQL -> Lưu vĩnh viễn, không bị mất sau khi đăng xuất/tải lại trang.
+3. **Quản lý Dân cư & Dán văn bản thô / Excel (`CitizenManagement.tsx`):**
+   - Modal phân tích thông minh cho phép copy/paste dữ liệu thô hoặc nạp Excel, tự động chuẩn hóa và batch upsert trực tiếp vào database.
+4. **Hệ thống Supabase Auth & Luồng Phê duyệt Cán bộ:**
+   - Đăng ký cán bộ mới chuyển vào trạng thái `pending`.
+   - Phân hệ **Cài đặt & Phân quyền (`SettingsAndPermissions.tsx`)** cho phép Bí thư Chi bộ xem danh sách và duyệt 1-chạm (`approved`).
+   - Đăng nhập thật qua `supabase.auth.signInWithPassword()`, khôi phục mật khẩu qua email.
+   - Tài khoản Admin chính thức: `bdhkhupho3.ap@gmail.com` / `Trunghuy741`.
+5. **Cổng Dịch vụ Cư Dân Số (`CitizenLandingPage.tsx`):**
+   - Tiếp nhận phản ánh 1022 lưu thẳng vào `field_reports`.
+   - Hiển thị tin tức cộng đồng và quỹ khu phố minh bạch từ database thật.
 
 ---
 
 ## 7. TRẠNG THÁI HỆ THỐNG & ĐỊNH HƯỚNG PHIÊN TIẾP THEO
-- **Trạng thái Build:** ✅ TypeScript không lỗi (`npx tsc --noEmit` pass 100%), Vite build thành công sạch sẽ.
-- **Trạng thái Console DevTools:** ✅ Đã kiểm tra qua Chrome DevTools MCP, 0 lỗi runtime/console error.
+- **Trạng thái Build:** ✅ TypeScript không lỗi (`npx tsc --noEmit` exit 0), Vite build thành công sạch sẽ.
+- **Trạng thái Console DevTools:** ✅ Đã kiểm tra qua Chrome DevTools MCP, 0 lỗi console/runtime.
 - **Trạng thái Deployment:**
   - Production Vercel: 👉 **[https://bdhkp3.vercel.app](https://bdhkp3.vercel.app)**
   - Local Dev Server: `http://localhost:3000`
-- **Tài liệu & Kế hoạch phiên tiếp theo:**
-  - Tích hợp thêm kênh gửi phản ánh kèm gửi email / webhook thông báo tức thì đến cán bộ phụ trách.
-  - Kết nối Supabase Database bảng `community_news` để đồng bộ tin tức đa thiết bị khi có kết nối mạng.
-
+- **Kế hoạch phiên tiếp theo:**
+  - Kết nối tính năng xuất báo cáo thống kê dân cư (Thường trú/Tạm trú/Người cao tuổi) ra file Excel/PDF chuẩn biểu mẫu Bộ Công an.
+  - Tích hợp thêm gửi thông báo email/webhook khi có phản ánh hiện trường 1022 mới gửi lên từ cư dân.
