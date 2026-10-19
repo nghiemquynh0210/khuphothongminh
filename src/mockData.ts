@@ -1601,6 +1601,71 @@ export const initialBusinesses: Business[] = [
         recommendation: "Tổ chức diễn tập nội bộ 6 tháng/lần."
       }
     ]
+  },
+  {
+    id: "B013",
+    internalCode: "HKD-KP3-013",
+    name: "Nhà trọ Phạm Văn Bình",
+    taxCode: "0317654321-001",
+    businessType: "Hộ kinh doanh",
+    enterpriseScale: "Siêu nhỏ (< 5 LĐ)",
+    type: "Nhà trọ / Cho thuê lưu trú",
+    industryGroup: "Lưu trú & Cho thuê",
+    owner: "Phạm Văn Bình",
+    phone: "0913137155",
+    address: "17/A3 Khu phố 3, Phường An Phú, TP. Thủ Đức, TP. Hồ Chí Minh",
+    licenseNumber: "GP-NT-2022/KP3",
+    status: "Đang hoạt động",
+    startDate: "15/06/2021",
+    verificationSource: "Công an Phường An Phú & Ban Điều hành KP3",
+    streetArea: "Hẻm 17/A3 Khu phố 3",
+    premisesType: "Nhà phố",
+    premisesOwner: "Phạm Văn Bình",
+    premisesOwnerPhone: "0913137155",
+    linkedBuildingOrHostel: "Khu nhà trọ 17/A3 Phạm Văn Bình",
+    legalRepresentative: "Phạm Văn Bình",
+    legalRepPhone: "0913137155",
+    legalRepCccd: "079075009876",
+    siteManager: "Phạm Văn Bình (Chủ cơ sở)",
+    siteManagerPhone: "0913137155",
+    focalPointName: "Phạm Văn Bình",
+    focalPointPhone: "0913137155",
+    focalPointRole: "Chủ hộ kinh doanh nhà trọ",
+    employeeCount: 2,
+    localWorkersCount: 2,
+    temporaryWorkersCount: 0,
+    foreignWorkersCount: 0,
+    supportNeeds: ["Tuyên truyền ANTT và PCCC cho người thuê trọ", "Hướng dẫn khai báo tạm trú trực tuyến"],
+    safetyCertified: true,
+    image: "https://images.unsplash.com/photo-1555854877-bab0e564b8d5?w=500",
+    images: [
+      "https://images.unsplash.com/photo-1555854877-bab0e564b8d5?w=500",
+      "https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?w=500"
+    ],
+    coordinates: "10°56'05.4\"N 106°44'40.8\"E",
+    toBanDo: "272",
+    soThua: "68",
+    dienTich: 180,
+    loaiDat: "ODT",
+    mapUrl: "https://maps.app.goo.gl/8dLqumEfdbFZekif8?g_st=ic",
+    tenChuSuDung: "Phạm Văn Bình",
+    soGcn: "CH-089123",
+    soVaoSo: "CS-2021-098",
+    isAccommodation: true,
+    soPhong: 15,
+    soTang: 3,
+    soNguoiLuuTru: 20,
+    giaThueTrungBinh: "2.5 - 3.2 triệu/tháng",
+    inspections: [
+      {
+        id: "INSP-B013-1",
+        date: "12/05/2026",
+        result: "Đạt chuẩn",
+        inspector: "Công an Phường An Phú",
+        note: "Kiểm tra khai báo tạm trú và an toàn PCCC nhà trọ. Có trang bị bình bọt, kẻ biển báo lối thoát nạn, danh sách người thuê trọ khớp với CSDL quốc gia.",
+        recommendation: "Thường xuyên nhắc nhở người thuê trọ khóa cổng và cảnh giác vào ban đêm."
+      }
+    ]
   }
 ];
 

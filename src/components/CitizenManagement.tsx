@@ -39,10 +39,13 @@ import {
   Navigation,
   Compass,
   Loader2,
-  Database
+  Database,
+  MoreVertical,
+  MoreHorizontal
 } from "lucide-react";
 import { Resident, TargetGisItem } from "../types";
 import { generateDefaultCoordinatesForAddress, parseCoordinates as parseGisCoords } from "../utils/gisUtils";
+import { getTemporaryResidenceExpiryStatus, parseAccommodationInfo } from "../utils/householdRecognitionUtils";
 import * as XLSX from "xlsx";
 import Pagination from "./Pagination";
 import { supabase, isSupabaseConfigured } from "../lib/supabase";
@@ -112,6 +115,7 @@ export default function CitizenManagement({
   const [showDetailModal, setShowDetailModal] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("Tất cả");
+  const [temporaryExpiryFilter, setTemporaryExpiryFilter] = useState("Tất cả");
   const [genderFilter, setGenderFilter] = useState("Tất cả");
   const [policyFilter, setPolicyFilter] = useState("Tất cả");
   const [currentPage, setCurrentPage] = useState(1);
@@ -155,6 +159,22 @@ export default function CitizenManagement({
     setResidentForNA17(res);
     setShowNA17Modal(true);
   };
+
+  // Dropdown actions menu state for citizen rows
+  const [activeDropdownId, setActiveDropdownId] = useState<string | null>(null);
+
+  // Close dropdown menu on click outside
+  useEffect(() => {
+    const handleDocumentClick = () => {
+      setActiveDropdownId(null);
+    };
+    if (activeDropdownId) {
+      window.addEventListener("click", handleDocumentClick);
+    }
+    return () => {
+      window.removeEventListener("click", handleDocumentClick);
+    };
+  }, [activeDropdownId]);
 
   useEffect(() => {
     if (window.innerWidth < 768) {
@@ -583,15 +603,27 @@ NGƯỜI NƯỚC NGOÀI KHAI BÁO       CHỦ CƠ SỞ LƯU TRÚ       XÁC NH�
     const workplace = findVal(["Nơi làm việc", "Noi lam viec", "workplace", "Cơ quan", "Đơn vị"]);
     const maritalStatusStr = findVal(["Tình trạng hôn nhân", "Tinh trang hon nhan", "maritalStatus", "Hôn nhân"]);
     const address = findVal(["Địa chỉ cư trú", "Địa chỉ", "Dia chi", "address", "Nơi ở", "Noi o"]);
-    const permanentAddress = findVal(["Nơi thường trú gốc", "Nơi thường trú", "Noi thuong tru", "permanentAddress", "Hộ khẩu thường trú"]);
-    const temporaryAddress = findVal(["Nơi ở hiện nay", "Nơi tạm trú", "Noi tam tru", "temporaryAddress"]);
-    const householdId = findVal(["Mã hộ khẩu", "Ma ho khau", "householdId", "Mã hộ", "Ma ho", "Số hộ khẩu", "So ho khau"]);
+    const permanentAddress = findVal([
+      "ĐỊA CHỈ THƯỜNG TRÚ", "Địa chỉ thường trú", "Dia chi thuong tru",
+      "Nơi thường trú gốc", "Nơi thường trú", "Noi thuong tru", "permanentAddress", "Hộ khẩu thường trú"
+    ]);
+    const currentAddressRaw = findVal([
+      "CHỔ Ở HIỆN TẠI", "Chổ ở hiện tại", "Chỗ ở hiện tại", "Cho o hien tai",
+      "ĐỊA CHỈ TẠM TRÚ", "Địa chỉ tạm trú", "Dia chi tam tru",
+      "Nơi tạm trú", "Noi tam tru", "Nơi ở hiện nay", "temporaryAddress", "currentAddress"
+    ]);
+    const fatherName = findVal(["HỌ TÊN CHA", "Họ tên cha", "Ho ten cha", "Cha", "fatherName"]);
+    const motherName = findVal(["HỌ TÊN MẸ", "Họ tên mẹ", "Ho ten me", "Mẹ", "motherName"]);
+    const temporaryRegDate = findVal(["NGÀY ĐĂNG KÝ", "Ngày đăng ký", "Ngay dang ky", "temporaryRegDate"]);
+    const temporaryExpDate = findVal(["NGÀY HẾT HẠN", "Ngày hết hạn", "Ngay het han", "temporaryExpDate"]);
+    const managementStatus = findVal(["TÌNH TRẠNG QUẢN LÝ", "Tình trạng quản lý", "managementStatus", "Diện quản lý"]);
+    const householdId = findVal(["MÃ HỘ KHẨU", "Mã hộ khẩu", "Ma ho khau", "householdId", "Mã hộ", "Ma ho", "Số hộ khẩu", "So ho khau"]);
     const relationToOwner = findVal(["Quan hệ với chủ hộ", "Quan he voi chu ho", "relationToOwner", "Quan hệ", "Quan he", "Quan hệ chủ hộ"]);
     const healthInsuranceNumber = findVal(["Mã số BHYT", "Ma so BHYT", "healthInsuranceNumber", "BHYT", "Thẻ BHYT"]);
     const militaryServiceStatus = findVal(["Nghĩa vụ quân sự", "Nghia vu quan su", "militaryServiceStatus", "NVQS"]);
     const policyGroup = findVal(["Nhóm chính sách", "Nhom chinh sach", "policyGroup", "Chính sách", "Đoàn thể", "Diện chính sách"]);
     const emergencyContact = findVal(["Người liên hệ khẩn cấp", "Liên hệ khẩn cấp", "emergencyContact"]);
-    const notes = findVal(["Ghi chú", "Ghi chu", "notes"]);
+    const notes = findVal(["Ghi chú", "Ghi chu", "notes", "NGÀY LẬP HỘ"]);
 
     // Parse Gender
     let gender: "Nam" | "Nữ" = "Nam";
@@ -606,7 +638,7 @@ NGƯỜI NƯỚC NGOÀI KHAI BÁO       CHỦ CƠ SỞ LƯU TRÚ       XÁC NH�
     }
 
     // Auto-normalize Birth Date (supports Excel serial date, ISO, and DD/MM/YYYY)
-    let formattedBirthDate = birthDate || "01/01/1990";
+    let formattedBirthDate = birthDate || "";
     if (birthDate) {
       const trimmed = String(birthDate).trim().replace(/\.0$/, "");
       if (/^\d{4,5}$/.test(trimmed)) {
@@ -637,21 +669,28 @@ NGƯỜI NƯỚC NGOÀI KHAI BÁO       CHỦ CƠ SỞ LƯU TRÚ       XÁC NH�
     // Parse Status
     let status: "Thường trú" | "Tạm trú" | "Tạm vắng" = "Thường trú";
     const lowerStatus = statusStr.toLowerCase();
-    if (lowerStatus.includes("tạm trú") || lowerStatus === "tam tru" || lowerStatus.includes("temporary")) {
+    if (lowerStatus.includes("tạm trú") || lowerStatus === "tam tru" || lowerStatus.includes("temporary") || !!temporaryRegDate || !!temporaryExpDate) {
       status = "Tạm trú";
     } else if (lowerStatus.includes("tạm vắng") || lowerStatus === "tam vang" || lowerStatus.includes("absent")) {
       status = "Tạm vắng";
     }
 
     // Parse Marital
-    let maritalStatus: "Độc thân" | "Đã kết hôn" | "Ly hôn" | "Góa" = "Đã kết hôn";
+    let maritalStatus: "Độc thân" | "Đã kết hôn" | "Ly hôn" | "Góa" | undefined = undefined;
     if (maritalStatusStr.includes("Độc thân") || maritalStatusStr.includes("Doc than")) {
       maritalStatus = "Độc thân";
     } else if (maritalStatusStr.includes("Ly hôn") || maritalStatusStr.includes("Ly hon")) {
       maritalStatus = "Ly hôn";
     } else if (maritalStatusStr.includes("Góa") || maritalStatusStr.includes("Goa")) {
       maritalStatus = "Góa";
+    } else if (maritalStatusStr.includes("kết hôn") || maritalStatusStr.includes("ket hon")) {
+      maritalStatus = "Đã kết hôn";
     }
+
+    // Địa chỉ thường trú và Chỗ ở hiện tại / Tạm trú
+    let resolvedPermanent = permanentAddress || undefined;
+    let resolvedCurrent = currentAddressRaw || address || undefined;
+    let resolvedActiveAddress = resolvedCurrent || resolvedPermanent || "Khu phố 3, Phường An Phú";
 
     return {
       id: `TEMP-${idx}-${Date.now()}`,
@@ -659,28 +698,34 @@ NGƯỜI NƯỚC NGOÀI KHAI BÁO       CHỦ CƠ SỞ LƯU TRÚ       XÁC NH�
       gender,
       birthDate: formattedBirthDate,
       cccd: cleanCccd || cccd,
-      idIssueDate: idIssueDate || "15/05/2021",
-      idIssuePlace: idIssuePlace || "Cục Cảnh sát QLHC về TTXH",
-      ethnicity: ethnicity || "Kinh",
-      religion: religion || "Không",
+      idIssueDate: idIssueDate || undefined,
+      idIssuePlace: idIssuePlace || undefined,
+      ethnicity: ethnicity || undefined,
+      religion: religion || undefined,
       nationality: nationality || "Việt Nam",
-      hometown: hometown || "TP. Hồ Chí Minh",
-      phone: phone || "N/A",
+      hometown: hometown || undefined,
+      phone: phone || undefined,
       status,
-      education: education || "12/12",
-      occupation: occupation || "Tự do",
-      workplace: workplace || "Khu vực TP. Thủ Đức",
+      education: education || undefined,
+      occupation: occupation || undefined,
+      workplace: workplace || undefined,
       maritalStatus,
-      address: address || "Khu phố 3, Phường An Phú",
-      permanentAddress: permanentAddress || address || "Khu phố 3, Phường An Phú, TP. Thủ Đức",
-      temporaryAddress: temporaryAddress || address || "Khu phố 3, Phường An Phú, TP. Thủ Đức",
-      householdId: householdId || "HK-301",
+      address: resolvedActiveAddress,
+      permanentAddress: resolvedPermanent,
+      temporaryAddress: resolvedCurrent,
+      currentAddress: resolvedCurrent,
+      fatherName: fatherName || undefined,
+      motherName: motherName || undefined,
+      temporaryRegDate: temporaryRegDate || undefined,
+      temporaryExpDate: temporaryExpDate || undefined,
+      managementStatus: managementStatus || undefined,
+      householdId: householdId || (status === "Tạm trú" ? "Tạm trú" : undefined),
       relationToOwner: relationToOwner || "Thành viên",
-      healthInsuranceNumber: healthInsuranceNumber || "",
-      militaryServiceStatus: militaryServiceStatus || "Đã hoàn thành",
-      policyGroup: policyGroup || "Bình thường",
-      emergencyContact: emergencyContact || "",
-      notes: notes || "",
+      healthInsuranceNumber: healthInsuranceNumber || undefined,
+      militaryServiceStatus: militaryServiceStatus || undefined,
+      policyGroup: policyGroup || undefined,
+      emergencyContact: emergencyContact || undefined,
+      notes: notes || undefined,
       isValid: !!fullName && !!cleanCccd && cleanCccd.length >= 9
     };
   };
@@ -812,7 +857,14 @@ NGƯỜI NƯỚC NGOÀI KHAI BÁO       CHỦ CƠ SỞ LƯU TRÚ       XÁC NH�
             gender: row.gender === "Nữ" ? "Nữ" : "Nam",
             birth_date: birthDateIso,
             phone: row.phone && row.phone !== "N/A" ? row.phone.trim() : null,
-            address: (row.address || row.permanentAddress || "Khu phố 3, Phường An Phú, TP. Thủ Đức").trim(),
+            address: (row.address || row.temporaryAddress || row.permanentAddress || "Khu phố 3, Phường An Phú, TP. Thủ Đức").trim(),
+            permanent_address: row.permanentAddress?.trim() || null,
+            current_address: (row.currentAddress || row.temporaryAddress || row.address)?.trim() || null,
+            father_name: row.fatherName?.trim() || null,
+            mother_name: row.motherName?.trim() || null,
+            temporary_reg_date: row.temporaryRegDate?.trim() || null,
+            temporary_exp_date: row.temporaryExpDate?.trim() || null,
+            management_status: row.managementStatus?.trim() || null,
             household_code: row.householdId?.trim() || null,
             relation_to_owner: row.relationToOwner?.trim() || "Thành viên",
             status: row.status || "Thường trú",
@@ -826,56 +878,108 @@ NGƯỜI NƯỚC NGOÀI KHAI BÁO       CHỦ CƠ SỞ LƯU TRÚ       XÁC NH�
           };
         });
 
-        // Chia lô 100 bản ghi để tối ưu hiệu năng và không bị timeout
-        const BATCH_SIZE = 100;
-        let insertedCount = 0;
+        // Chia lô 500 bản ghi và chạy song song (Concurrency x4) để tối ưu hiệu năng siêu tốc
+        const BATCH_SIZE = 500;
+        const CONCURRENCY = 4;
+        const totalBatches: any[][] = [];
         for (let i = 0; i < dbPayload.length; i += BATCH_SIZE) {
-          const batch = dbPayload.slice(i, i + BATCH_SIZE);
-          setUploadStatusMsg(`Đang ghi vào Supabase: ${Math.min(i + BATCH_SIZE, dbPayload.length)}/${dbPayload.length} hồ sơ...`);
-          const { error: upsertErr } = await supabase.from('residents').upsert(batch, { onConflict: 'cccd' });
-          if (upsertErr) {
-            console.error("Supabase upsert error:", upsertErr);
-            throw new Error(upsertErr.message);
-          }
-          insertedCount += batch.length;
+          totalBatches.push(dbPayload.slice(i, i + BATCH_SIZE));
         }
 
-        // Cập nhật State giao diện
-        validRows.forEach((row, i) => {
-          onAddResident({
-            id: "R" + (residents.length + 1 + i).toString().padStart(3, "0"),
-            fullName: row.fullName,
-            gender: row.gender,
-            birthDate: row.birthDate,
-            cccd: row.cccd,
-            idIssueDate: row.idIssueDate,
-            idIssuePlace: row.idIssuePlace,
-            ethnicity: row.ethnicity,
-            religion: row.religion,
-            nationality: row.nationality,
-            hometown: row.hometown,
-            phone: row.phone,
-            status: row.status,
-            education: row.education,
-            occupation: row.occupation,
-            workplace: row.workplace,
-            maritalStatus: row.maritalStatus,
-            address: row.address,
-            permanentAddress: row.permanentAddress,
-            temporaryAddress: row.temporaryAddress,
-            householdId: row.householdId,
-            relationToOwner: row.relationToOwner,
-            healthInsuranceNumber: row.healthInsuranceNumber,
-            militaryServiceStatus: row.militaryServiceStatus,
-            policyGroup: row.policyGroup,
-            emergencyContact: row.emergencyContact,
-            notes: row.notes,
-            avatar: `https://images.unsplash.com/photo-${1535713875002 + (i % 10)}?w=150`,
-            joinDate: new Date().toLocaleDateString("vi-VN")
-          });
-        });
+        let insertedCount = 0;
+        for (let i = 0; i < totalBatches.length; i += CONCURRENCY) {
+          const chunk = totalBatches.slice(i, i + CONCURRENCY);
+          await Promise.all(chunk.map(async (batch) => {
+            const { error: upsertErr } = await (supabase as any).from('residents').upsert(batch, { onConflict: 'cccd' });
+            if (upsertErr) {
+              console.error("Supabase upsert error:", upsertErr);
+              throw new Error(upsertErr.message);
+            }
+            insertedCount += batch.length;
+            setUploadStatusMsg(`Đang ghi siêu tốc vào Supabase: ${Math.min(insertedCount, dbPayload.length)}/${dbPayload.length} hồ sơ (${Math.round((insertedCount / dbPayload.length) * 100)}%)...`);
+          }));
+        }
 
-        alert(`✓ THÀNH CÔNG RỰC RỠ!\nĐã đồng bộ trực tiếp ${insertedCount} hồ sơ cư dân vào Cơ sở dữ liệu Supabase PostgreSQL!`);
+        // Cập nhật State giao diện 1 lần duy nhất để không làm đứng giao diện
+        if (onUpdateResidents) {
+          const newMap = new Map<string, Resident>(residents.map(r => [r.cccd, r]));
+          validRows.forEach((row, i) => {
+            newMap.set(row.cccd, {
+              id: "R" + (residents.length + 1 + i).toString().padStart(3, "0"),
+              fullName: row.fullName,
+              gender: row.gender,
+              birthDate: row.birthDate,
+              cccd: row.cccd,
+              idIssueDate: row.idIssueDate,
+              idIssuePlace: row.idIssuePlace,
+              ethnicity: row.ethnicity,
+              religion: row.religion,
+              nationality: row.nationality,
+              hometown: row.hometown,
+              phone: row.phone,
+              status: row.status,
+              education: row.education,
+              occupation: row.occupation,
+              workplace: row.workplace,
+              maritalStatus: row.maritalStatus,
+              address: row.address,
+              permanentAddress: row.permanentAddress,
+              temporaryAddress: row.temporaryAddress,
+              currentAddress: row.currentAddress,
+              fatherName: row.fatherName,
+              motherName: row.motherName,
+              temporaryRegDate: row.temporaryRegDate,
+              temporaryExpDate: row.temporaryExpDate,
+              managementStatus: row.managementStatus,
+              householdId: row.householdId,
+              relationToOwner: row.relationToOwner,
+              healthInsuranceNumber: row.healthInsuranceNumber,
+              militaryServiceStatus: row.militaryServiceStatus,
+              policyGroup: row.policyGroup,
+              emergencyContact: row.emergencyContact,
+              notes: row.notes,
+              avatar: `https://images.unsplash.com/photo-${1535713875002 + (i % 10)}?w=150`,
+              joinDate: new Date().toLocaleDateString("vi-VN")
+            });
+          });
+          onUpdateResidents(Array.from(newMap.values()));
+        } else {
+          validRows.forEach((row, i) => {
+            onAddResident({
+              id: "R" + (residents.length + 1 + i).toString().padStart(3, "0"),
+              fullName: row.fullName,
+              gender: row.gender,
+              birthDate: row.birthDate,
+              cccd: row.cccd,
+              idIssueDate: row.idIssueDate,
+              idIssuePlace: row.idIssuePlace,
+              ethnicity: row.ethnicity,
+              religion: row.religion,
+              nationality: row.nationality,
+              hometown: row.hometown,
+              phone: row.phone,
+              status: row.status,
+              education: row.education,
+              occupation: row.occupation,
+              workplace: row.workplace,
+              maritalStatus: row.maritalStatus,
+              address: row.address,
+              permanentAddress: row.permanentAddress,
+              temporaryAddress: row.temporaryAddress,
+              householdId: row.householdId,
+              relationToOwner: row.relationToOwner,
+              healthInsuranceNumber: row.healthInsuranceNumber,
+              militaryServiceStatus: row.militaryServiceStatus,
+              policyGroup: row.policyGroup,
+              emergencyContact: row.emergencyContact,
+              notes: row.notes,
+              avatar: `https://images.unsplash.com/photo-${1535713875002 + (i % 10)}?w=150`,
+              joinDate: new Date().toLocaleDateString("vi-VN")
+            });
+          });
+        }
+
+        alert(`✓ ĐỒNG BỘ SIÊU TỐC THÀNH CÔNG!\nĐã nạp ${insertedCount} hồ sơ cư dân vào Cơ sở dữ liệu Supabase PostgreSQL!`);
       } else {
         // Fallback khi offline hoặc chưa config Supabase
         validRows.forEach((row, i) => {
@@ -1147,6 +1251,14 @@ NGƯỜI NƯỚC NGOÀI KHAI BÁO       CHỦ CƠ SỞ LƯU TRÚ       XÁC NH�
         if (foreignExpiryFilter === "Còn hạn dài" && expiryInfo.status !== "valid") return false;
         if (foreignExpiryFilter === "Đã hết hạn" && expiryInfo.status !== "expired") return false;
       }
+    } else if (statusFilter === "Tạm trú") {
+      if (res.status !== "Tạm trú" || isForeign) return false;
+      if (temporaryExpiryFilter !== "Tất cả") {
+        const expStatus = getTemporaryResidenceExpiryStatus(res.temporaryExpDate);
+        if (temporaryExpiryFilter === "Sắp hết hạn (< 30 ngày)" && !expStatus.isWarning) return false;
+        if (temporaryExpiryFilter === "Đã hết hạn" && !expStatus.isExpired) return false;
+        if (temporaryExpiryFilter === "Còn hạn dài" && (expStatus.isWarning || expStatus.isExpired)) return false;
+      }
     } else if (statusFilter !== "Tất cả") {
       matchesStatus = res.status === statusFilter && !isForeign;
     }
@@ -1159,10 +1271,14 @@ NGƯỜI NƯỚC NGOÀI KHAI BÁO       CHỦ CƠ SỞ LƯU TRÚ       XÁC NH�
 
   // Calculate dynamic segment tab counts
   const foreignResidentsList = residents.filter(r => isForeignResident(r));
+  const tamTruResidentsList = residents.filter(r => r.status === "Tạm trú" && !isForeignResident(r));
+  const tamTruExpiringSoonCount = tamTruResidentsList.filter(r => getTemporaryResidenceExpiryStatus(r.temporaryExpDate).isWarning).length;
+  const tamTruExpiredCount = tamTruResidentsList.filter(r => getTemporaryResidenceExpiryStatus(r.temporaryExpDate).isExpired).length;
+
   const tabCounts = {
     all: residents.length,
     thuongTru: residents.filter(r => r.status === "Thường trú" && !isForeignResident(r)).length,
-    tamTru: residents.filter(r => r.status === "Tạm trú" && !isForeignResident(r)).length,
+    tamTru: tamTruResidentsList.length,
     tamVang: residents.filter(r => r.status === "Tạm vắng" && !isForeignResident(r)).length,
     foreigners: foreignResidentsList.length
   };
@@ -1268,13 +1384,18 @@ NGƯỜI NƯỚC NGOÀI KHAI BÁO       CHỦ CƠ SỞ LƯU TRÚ       XÁC NH�
             <button
               type="button"
               onClick={() => handleStatusFilterChange("Tạm trú")}
-              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
                 statusFilter === "Tạm trú"
                   ? "bg-white text-amber-700 shadow-xs border border-amber-200"
                   : "text-slate-500 hover:text-slate-800 font-medium"
               }`}
             >
-              Tạm trú ({tabCounts.tamTru})
+              <span>Tạm trú ({tabCounts.tamTru})</span>
+              {tamTruExpiringSoonCount > 0 && (
+                <span className="px-1.5 py-0.2 rounded-full text-[10px] font-bold bg-amber-500 text-white animate-pulse" title={`Có ${tamTruExpiringSoonCount} cư dân tạm trú sắp hết hạn trước 1 tháng`}>
+                  ⚠️ {tamTruExpiringSoonCount}
+                </span>
+              )}
             </button>
             <button
               type="button"
@@ -1300,6 +1421,24 @@ NGƯỜI NƯỚC NGOÀI KHAI BÁO       CHỦ CƠ SỞ LƯU TRÚ       XÁC NH�
               Người nước ngoài ({tabCounts.foreigners})
             </button>
           </div>
+
+          {/* Temporary Residence Expiry Filter Dropdown */}
+          {statusFilter === "Tạm trú" && (
+            <select
+              id="citizen-temporary-expiry-filter"
+              value={temporaryExpiryFilter}
+              onChange={(e) => {
+                setTemporaryExpiryFilter(e.target.value);
+                setCurrentPage(1);
+              }}
+              className="px-2.5 py-1.5 border border-amber-300 rounded-lg text-xs bg-amber-50/90 text-amber-950 font-bold focus:outline-none focus:border-amber-500 shrink-0"
+            >
+              <option value="Tất cả">Thời hạn tạm trú: Tất cả ({tabCounts.tamTru})</option>
+              <option value="Sắp hết hạn (< 30 ngày)">⚠️ Sắp hết hạn trước 1 tháng ({tamTruExpiringSoonCount})</option>
+              <option value="Đã hết hạn">🚨 Đã hết hạn tạm trú ({tamTruExpiredCount})</option>
+              <option value="Còn hạn dài">Còn hạn dài ({Math.max(0, tabCounts.tamTru - tamTruExpiringSoonCount - tamTruExpiredCount)})</option>
+            </select>
+          )}
 
           {/* Gender Filter */}
           <select 
@@ -1351,6 +1490,62 @@ NGƯỜI NƯỚC NGOÀI KHAI BÁO       CHỦ CƠ SỞ LƯU TRÚ       XÁC NH�
           </div>
         </div>
       </div>
+
+      {/* Temporary Residence Expiry Alert Banner */}
+      {statusFilter === "Tạm trú" && (tamTruExpiringSoonCount > 0 || tamTruExpiredCount > 0) && (
+        <div className="bg-gradient-to-r from-amber-50 via-amber-50/90 to-orange-50 border border-amber-300 rounded-2xl p-4 shadow-xs flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 animate-in fade-in duration-200">
+          <div className="flex items-start gap-3">
+            <div className="p-2 rounded-xl bg-amber-200/80 text-amber-900 shrink-0 mt-0.5">
+              <AlertTriangle size={18} className="animate-pulse text-amber-700" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2 flex-wrap">
+                <h4 className="font-bold text-amber-950 text-xs sm:text-sm">
+                  Cảnh báo Quản lý Cư trú: Cư dân Tạm trú Sắp hết hạn & Quá hạn
+                </h4>
+                <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-amber-200 text-amber-900 border border-amber-300">
+                  Trước 01 tháng (30 ngày)
+                </span>
+              </div>
+              <p className="text-xs text-amber-900/90 mt-1 leading-relaxed">
+                Phát hiện <strong className="text-amber-950 font-black underline">{tamTruExpiringSoonCount} nhân khẩu</strong> sắp hết hạn tạm trú trong vòng 30 ngày tới và <strong className="text-rose-700 font-black">{tamTruExpiredCount} nhân khẩu</strong> đã hết hạn. Đề nghị cán bộ rà soát, thông báo cho chủ cơ sở lưu trú / nhà trọ và người tạm trú nộp hồ sơ gia hạn theo quy định Luật Cư trú.
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2 w-full sm:w-auto shrink-0">
+            <button
+              type="button"
+              onClick={() => {
+                setTemporaryExpiryFilter("Sắp hết hạn (< 30 ngày)");
+                setCurrentPage(1);
+              }}
+              className={`flex-1 sm:flex-none px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
+                temporaryExpiryFilter === "Sắp hết hạn (< 30 ngày)"
+                  ? "bg-amber-600 text-white shadow-xs"
+                  : "bg-white hover:bg-amber-100 text-amber-900 border border-amber-300 shadow-2xs"
+              }`}
+            >
+              <span>Xem DS sắp hết hạn</span>
+              <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-amber-500 text-white">
+                {tamTruExpiringSoonCount}
+              </span>
+            </button>
+            {temporaryExpiryFilter !== "Tất cả" && (
+              <button
+                type="button"
+                onClick={() => {
+                  setTemporaryExpiryFilter("Tất cả");
+                  setCurrentPage(1);
+                }}
+                className="px-2.5 py-1.5 rounded-xl text-xs font-semibold text-slate-600 hover:bg-white bg-slate-100 border border-slate-200 transition-all cursor-pointer"
+              >
+                Hiện tất cả
+              </button>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Foreign Resident Intelligence & Compliance Panel */}
       {statusFilter === "Người nước ngoài" && (
@@ -1516,12 +1711,12 @@ NGƯỜI NƯỚC NGOÀI KHAI BÁO       CHỦ CƠ SỞ LƯU TRÚ       XÁC NH�
             <table className="w-full text-left border-collapse text-xs">
               <thead>
                 <tr className="bg-slate-50/80 border-b border-slate-200/80 text-[11px] font-bold text-slate-600 uppercase tracking-wider">
-                  <th className="py-3.5 px-4 min-w-[220px]">Cư dân & Nhân thân</th>
-                  <th className="py-3.5 px-4 min-w-[170px]">Số CCCD / Mã BHYT</th>
-                  <th className="py-3.5 px-4 min-w-[240px]">Hộ khẩu & Địa chỉ thường trú</th>
-                  <th className="py-3.5 px-4 min-w-[190px]">Học vấn & Việc làm</th>
-                  <th className="py-3.5 px-4 min-w-[170px]">Diện cư trú & Chính sách</th>
-                  <th className="py-3.5 px-4 text-center min-w-[160px]">Thao tác</th>
+                  <th className="py-3.5 px-4 min-w-[280px]">Cư dân & Nhân thân</th>
+                  <th className="py-3.5 px-4 min-w-[150px]">Số CCCD / Mã BHYT</th>
+                  <th className="py-3.5 px-4 min-w-[220px]">Hộ khẩu & Địa chỉ thường trú</th>
+                  <th className="py-3.5 px-4 min-w-[170px]">Học vấn & Việc làm</th>
+                  <th className="py-3.5 px-4 min-w-[150px]">Diện cư trú & Chính sách</th>
+                  <th className="py-3.5 px-4 text-center w-[70px]">Thao tác</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
@@ -1541,6 +1736,8 @@ NGƯỜI NƯỚC NGOÀI KHAI BÁO       CHỦ CƠ SỞ LƯU TRÚ       XÁC NH�
                     const isSelected = selectedResident?.id === res.id && showDetailModal;
                     const isForeign = isForeignResident(res);
                     const expiryInfo = isForeign ? getVisaExpiryStatus(res.visaValidUntil) : null;
+                    const tamTruExpiry = (!isForeign && res.status === "Tạm trú") ? getTemporaryResidenceExpiryStatus(res.temporaryExpDate) : null;
+                    const hostelInfo = parseAccommodationInfo(res.address || res.currentAddress || res.temporaryAddress);
 
                     return (
                       <tr 
@@ -1553,11 +1750,11 @@ NGƯỜI NƯỚC NGOÀI KHAI BÁO       CHỦ CƠ SỞ LƯU TRÚ       XÁC NH�
                       >
                         <td className="py-3.5 px-4">
                           <div className="flex items-center gap-3">
-                            <div className="relative">
+                            <div className="relative shrink-0">
                               <img 
                                 src={res.avatar || "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150"} 
                                 alt={res.fullName} 
-                                className="w-9 h-9 rounded-full object-cover border border-slate-200 shrink-0 group-hover:border-emerald-400 transition-colors"
+                                className="w-10 h-10 rounded-full object-cover border border-slate-200 shrink-0 group-hover:border-emerald-400 transition-colors"
                                 referrerPolicy="no-referrer"
                               />
                               {isForeign && (
@@ -1566,11 +1763,13 @@ NGƯỜI NƯỚC NGOÀI KHAI BÁO       CHỦ CƠ SỞ LƯU TRÚ       XÁC NH�
                                 </span>
                               )}
                             </div>
-                            <div className="min-w-0">
-                              <div className="font-bold text-slate-900 group-hover:text-emerald-700 transition-colors flex items-center gap-1.5 flex-wrap">
-                                <span className="hover:underline">{res.fullName}</span>
+                            <div className="min-w-0 flex-1">
+                              <div className="flex items-center gap-1.5 flex-nowrap">
+                                <span className="font-bold text-slate-900 group-hover:text-emerald-700 transition-colors text-sm whitespace-nowrap truncate hover:underline" title={res.fullName}>
+                                  {res.fullName}
+                                </span>
                                 {isForeign && (
-                                  <span className="px-1.5 py-0.2 rounded text-[9px] font-bold bg-purple-100 text-purple-800 border border-purple-200">
+                                  <span className="px-1.5 py-0.2 rounded text-[9px] font-bold bg-purple-100 text-purple-800 border border-purple-200 shrink-0">
                                     {res.nationality || "Nước ngoài"}
                                   </span>
                                 )}
@@ -1578,7 +1777,7 @@ NGƯỜI NƯỚC NGOÀI KHAI BÁO       CHỦ CƠ SỞ LƯU TRÚ       XÁC NH�
                                   <span className="w-2 h-2 rounded-full bg-rose-500 shrink-0" title="Đảng viên"></span>
                                 )}
                               </div>
-                              <div className="text-[10px] text-slate-500 font-mono flex items-center gap-1 mt-0.5">
+                              <div className="text-[11px] text-slate-500 font-mono flex items-center gap-1 mt-0.5 whitespace-nowrap">
                                 <span>{res.gender}</span>
                                 <span>•</span>
                                 <span>{res.birthDate}</span>
@@ -1616,11 +1815,11 @@ NGƯỜI NƯỚC NGOÀI KHAI BÁO       CHỦ CƠ SỞ LƯU TRÚ       XÁC NH�
                                 <div className="text-[10px] text-emerald-700 font-mono mt-0.5 font-medium">
                                   BHYT: {res.healthInsuranceNumber}
                                 </div>
-                              ) : (
+                              ) : res.idIssueDate ? (
                                 <div className="text-[10px] text-slate-400 font-mono mt-0.5">
-                                  Cấp: {res.idIssueDate || "15/05/2021"}
+                                  Cấp: {res.idIssueDate}
                                 </div>
-                              )}
+                              ) : null}
                             </div>
                           )}
                         </td>
@@ -1635,8 +1834,26 @@ NGƯỜI NƯỚC NGOÀI KHAI BÁO       CHỦ CƠ SỞ LƯU TRÚ       XÁC NH�
                           </div>
                           <div className="text-[11px] text-slate-600 truncate max-w-[280px] mt-0.5 flex items-center gap-1" title={res.address}>
                             <MapPin size={11} className="text-slate-400 shrink-0" />
-                            <span>{res.address}</span>
+                            <span>{hostelInfo.isHostel && hostelInfo.shortAddress ? hostelInfo.shortAddress : res.address}</span>
                           </div>
+                          {hostelInfo.isHostel && (
+                            <div className="mt-1 flex items-center gap-1.5 flex-wrap">
+                              <span className="inline-flex items-center gap-1 px-1.5 py-0.2 rounded bg-amber-50 text-amber-900 border border-amber-200 text-[10px] font-bold">
+                                <Home size={9} className="text-amber-700" />
+                                <span>{hostelInfo.hostelName}</span>
+                              </span>
+                              {hostelInfo.phone && (
+                                <a 
+                                  href={`tel:${hostelInfo.phone}`}
+                                  onClick={(e) => e.stopPropagation()}
+                                  className="inline-flex items-center gap-0.5 text-[9.5px] text-emerald-700 font-mono font-semibold hover:underline bg-emerald-50 px-1 py-0.2 rounded border border-emerald-200"
+                                  title="Gọi điện cho chủ nhà trọ"
+                                >
+                                  <Phone size={8.5} /> {hostelInfo.phone}
+                                </a>
+                              )}
+                            </div>
+                          )}
                           {isForeign && res.landlordContact && (
                             <div className="text-[10px] text-slate-500 truncate max-w-[280px] mt-0.5 flex items-center gap-1">
                               <Home size={10} className="text-slate-400 shrink-0" />
@@ -1645,11 +1862,11 @@ NGƯỜI NƯỚC NGOÀI KHAI BÁO       CHỦ CƠ SỞ LƯU TRÚ       XÁC NH�
                           )}
                         </td>
                         <td className="py-3.5 px-4">
-                          <div className="font-medium text-slate-800 truncate max-w-[190px]">{res.occupation || "Tự do"}</div>
+                          <div className="font-medium text-slate-800 truncate max-w-[190px]">{res.occupation || "Chưa cập nhật"}</div>
                           <div className="text-[10px] text-slate-500 truncate max-w-[190px] mt-0.5">
                             {isForeign 
                               ? (res.sponsoringOrganization || res.workplace || "Cư trú tự do")
-                              : `${res.education || "12/12"} ${res.workplace ? `• ${res.workplace}` : ""}`}
+                              : `${res.education ? res.education : "Học vấn: Chưa cập nhật"}${res.workplace ? ` • ${res.workplace}` : ""}`}
                           </div>
                           {isForeign && res.workPermitNumber && (
                             <div className="text-[10px] text-blue-700 font-mono truncate max-w-[190px] mt-0.5">
@@ -1670,71 +1887,144 @@ NGƯỜI NƯỚC NGOÀI KHAI BÁO       CHỦ CƠ SỞ LƯU TRÚ       XÁC NH�
                               )}
                             </div>
                           ) : (
-                            <div>
-                              <span className={`inline-block text-[10px] font-bold px-2.5 py-0.5 rounded-full border mb-1 ${statusColors[res.status]}`}>
-                                {res.status}
-                              </span>
-                              {res.policyGroup && res.policyGroup !== "Bình thường" && (
-                                <div className="text-[10px] font-semibold text-rose-600 truncate max-w-[160px]">
-                                  {res.policyGroup}
+                            <div className="space-y-1">
+                              <div className="flex items-center gap-1.5 flex-wrap">
+                                <span className={`inline-block text-[10px] font-bold px-2.5 py-0.5 rounded-full border ${statusColors[res.status]}`}>
+                                  {res.status}
+                                </span>
+                                {res.policyGroup && res.policyGroup !== "Bình thường" && (
+                                  <span className="text-[10px] font-semibold text-rose-600 truncate max-w-[140px]">
+                                    {res.policyGroup}
+                                  </span>
+                                )}
+                              </div>
+                              {/* CẢNH BÁO HẾT HẠN TẠM TRÚ TRƯỚC 1 THÁNG / QUÁ HẠN */}
+                              {tamTruExpiry && tamTruExpiry.status !== "unknown" && (
+                                <div>
+                                  {tamTruExpiry.isWarning ? (
+                                    <div className="inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-md border font-mono font-bold bg-amber-100 text-amber-950 border-amber-400 shadow-xs animate-pulse" title={`Thời hạn tạm trú đến ngày ${tamTruExpiry.formattedDate}`}>
+                                      <AlertTriangle size={11} className="text-amber-700 shrink-0" />
+                                      <span>{tamTruExpiry.label}</span>
+                                    </div>
+                                  ) : tamTruExpiry.isExpired ? (
+                                    <div className="inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-md border font-mono font-bold bg-rose-100 text-rose-900 border-rose-300 shadow-xs" title={`Thời hạn tạm trú đã hết ngày ${tamTruExpiry.formattedDate}`}>
+                                      <AlertCircle size={11} className="text-rose-700 shrink-0" />
+                                      <span>{tamTruExpiry.label}</span>
+                                    </div>
+                                  ) : (
+                                    <div className="text-[10px] text-slate-500 font-mono">
+                                      Hạn: {tamTruExpiry.formattedDate}
+                                    </div>
+                                  )}
                                 </div>
                               )}
                             </div>
                           )}
                         </td>
-                        <td className="py-3.5 px-4 text-center">
-                          <div className="flex items-center justify-center gap-1.5" onClick={(e) => e.stopPropagation()}>
-                            <button 
-                              onClick={() => handleOpenDetailModal(res)}
-                              title="Xem chi tiết hồ sơ cư dân"
-                              className="px-2.5 py-1.5 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 text-emerald-800 rounded-lg text-xs font-semibold flex items-center gap-1 transition-all cursor-pointer shadow-2xs"
-                            >
-                              <Eye size={13} />
-                              <span className="hidden sm:inline">Chi tiết</span>
-                            </button>
+                        <td className="py-3.5 px-4 text-center relative">
+                          <div className="flex items-center justify-center relative" onClick={(e) => e.stopPropagation()}>
                             <button
-                              onClick={() => handleDirections(res)}
-                              title="Chỉ đường GIS đến nơi cư trú / địa chỉ tạm trú"
-                              className="p-1.5 hover:bg-emerald-100 rounded-lg text-emerald-700 hover:text-emerald-900 cursor-pointer border border-emerald-200 transition-colors"
-                            >
-                              <Navigation size={13} />
-                            </button>
-                            {isForeign ? (
-                              <button 
-                                onClick={() => handleOpenNA17(res)}
-                                title="Xem & In Phiếu khai báo tạm trú Mẫu NA17 (Bộ Công an)"
-                                className="p-1.5 hover:bg-purple-100 rounded-lg text-purple-700 hover:text-purple-900 cursor-pointer border border-purple-200 transition-colors"
-                              >
-                                <FileText size={14} />
-                              </button>
-                            ) : (
-                              <button 
-                                onClick={() => handleOpenCT07(res)}
-                                title="Xem & In Giấy xác nhận cư trú CT07"
-                                className="p-1.5 hover:bg-slate-100 rounded-lg text-slate-600 hover:text-emerald-700 cursor-pointer border border-transparent hover:border-slate-200 transition-colors"
-                              >
-                                <Printer size={14} />
-                              </button>
-                            )}
-                            <button 
-                              onClick={() => handleEditClick(res)}
-                              title="Sửa thông tin cư dân"
-                              className="p-1.5 hover:bg-slate-100 rounded-lg text-slate-600 hover:text-blue-700 cursor-pointer border border-transparent hover:border-slate-200 transition-colors"
-                            >
-                              <Edit2 size={14} />
-                            </button>
-                            <button 
-                              onClick={() => {
-                                if (confirm(`Bạn có chắc muốn xóa hồ sơ cư dân ${res.fullName}?`)) {
-                                  onDeleteResident(res.id);
-                                  if (selectedResident?.id === res.id) setSelectedResident(null);
-                                }
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setActiveDropdownId(activeDropdownId === res.id ? null : res.id);
                               }}
-                              title="Xóa hồ sơ cư dân"
-                              className="p-1.5 hover:bg-rose-50 rounded-lg text-slate-400 hover:text-rose-600 cursor-pointer border border-transparent hover:border-rose-200 transition-colors"
+                              className={`p-1.5 rounded-xl transition-all cursor-pointer border ${
+                                activeDropdownId === res.id 
+                                  ? "bg-emerald-100 text-emerald-900 border-emerald-300 shadow-xs" 
+                                  : "text-slate-500 hover:text-slate-800 hover:bg-slate-100 border-transparent hover:border-slate-200"
+                              }`}
+                              title="Tùy chọn thao tác"
                             >
-                              <Trash2 size={14} />
+                              <MoreHorizontal size={18} />
                             </button>
+
+                            {/* Dropdown Menu Popup */}
+                            {activeDropdownId === res.id && (
+                              <div 
+                                className="absolute right-0 top-full mt-1.5 w-48 bg-white rounded-xl shadow-xl border border-slate-200 py-1.5 z-50 animate-in fade-in zoom-in-95 duration-100 text-left"
+                                onClick={(e) => e.stopPropagation()}
+                              >
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    handleOpenDetailModal(res);
+                                    setActiveDropdownId(null);
+                                  }}
+                                  className="w-full px-3 py-2 text-xs text-slate-700 hover:bg-emerald-50 hover:text-emerald-800 flex items-center gap-2.5 font-medium transition-colors cursor-pointer"
+                                >
+                                  <Eye size={14} className="text-emerald-600" />
+                                  <span>Xem chi tiết hồ sơ</span>
+                                </button>
+
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    handleDirections(res);
+                                    setActiveDropdownId(null);
+                                  }}
+                                  className="w-full px-3 py-2 text-xs text-slate-700 hover:bg-emerald-50 hover:text-emerald-800 flex items-center gap-2.5 font-medium transition-colors cursor-pointer"
+                                >
+                                  <Navigation size={14} className="text-emerald-600" />
+                                  <span>Chỉ đường GIS</span>
+                                </button>
+
+                                {isForeign ? (
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      handleOpenNA17(res);
+                                      setActiveDropdownId(null);
+                                    }}
+                                    className="w-full px-3 py-2 text-xs text-slate-700 hover:bg-purple-50 hover:text-purple-800 flex items-center gap-2.5 font-medium transition-colors cursor-pointer"
+                                  >
+                                    <FileText size={14} className="text-purple-600" />
+                                    <span>In Mẫu NA17 (BCA)</span>
+                                  </button>
+                                ) : (
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      handleOpenCT07(res);
+                                      setActiveDropdownId(null);
+                                    }}
+                                    className="w-full px-3 py-2 text-xs text-slate-700 hover:bg-emerald-50 hover:text-emerald-800 flex items-center gap-2.5 font-medium transition-colors cursor-pointer"
+                                  >
+                                    <Printer size={14} className="text-slate-600" />
+                                    <span>In xác nhận CT07</span>
+                                  </button>
+                                )}
+
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    handleEditClick(res);
+                                    setActiveDropdownId(null);
+                                  }}
+                                  className="w-full px-3 py-2 text-xs text-slate-700 hover:bg-blue-50 hover:text-blue-800 flex items-center gap-2.5 font-medium transition-colors cursor-pointer"
+                                >
+                                  <Edit2 size={14} className="text-blue-600" />
+                                  <span>Sửa thông tin</span>
+                                </button>
+
+                                <div className="my-1 border-t border-slate-100"></div>
+
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setActiveDropdownId(null);
+                                    if (confirm(`Bạn có chắc muốn xóa hồ sơ cư dân ${res.fullName}?`)) {
+                                      onDeleteResident(res.id);
+                                      if (selectedResident?.id === res.id) setSelectedResident(null);
+                                    }
+                                  }}
+                                  className="w-full px-3 py-2 text-xs text-rose-600 hover:bg-rose-50 flex items-center gap-2.5 font-medium transition-colors cursor-pointer"
+                                >
+                                  <Trash2 size={14} />
+                                  <span>Xóa hồ sơ</span>
+                                </button>
+                              </div>
+                            )}
                           </div>
                         </td>
                       </tr>
@@ -1759,6 +2049,8 @@ NGƯỜI NƯỚC NGOÀI KHAI BÁO       CHỦ CƠ SỞ LƯU TRÚ       XÁC NH�
                 };
                 const isForeign = isForeignResident(res);
                 const expiryInfo = isForeign ? getVisaExpiryStatus(res.visaValidUntil) : null;
+                const tamTruExpiry = (!isForeign && res.status === "Tạm trú") ? getTemporaryResidenceExpiryStatus(res.temporaryExpDate) : null;
+                const hostelInfo = parseAccommodationInfo(res.address || res.currentAddress || res.temporaryAddress);
 
                 return (
                   <div 
@@ -1809,17 +2101,42 @@ NGƯỜI NƯỚC NGOÀI KHAI BÁO       CHỦ CƠ SỞ LƯU TRÚ       XÁC NH�
                     <div className="pt-2.5 border-t border-slate-100 text-[11px] space-y-1">
                       <div className="text-slate-600 truncate flex items-center gap-1.5">
                         <Briefcase size={12} className="text-slate-400 shrink-0" />
-                        <span>{res.occupation || "Tự do"} {isForeign && res.sponsoringOrganization ? `• ${res.sponsoringOrganization}` : `(${res.education || "12/12"})`}</span>
+                        <span>{res.occupation || "Chưa cập nhật nghề nghiệp"} {isForeign && res.sponsoringOrganization ? `• ${res.sponsoringOrganization}` : (res.education ? `(${res.education})` : "")}</span>
                       </div>
                       <div className="text-slate-500 truncate flex items-center gap-1.5" title={res.address}>
                         <MapPin size={12} className="text-slate-400 shrink-0" />
-                        <span>{res.address}</span>
+                        <span>{hostelInfo.isHostel && hostelInfo.shortAddress ? hostelInfo.shortAddress : res.address}</span>
                       </div>
+                      {hostelInfo.isHostel && (
+                        <div className="text-[10px] text-amber-800 font-bold flex items-center gap-1">
+                          <Home size={10} className="text-amber-600 shrink-0" />
+                          <span className="truncate">{hostelInfo.hostelName} {hostelInfo.phone ? `(${hostelInfo.phone})` : ""}</span>
+                        </div>
+                      )}
                       {isForeign && expiryInfo && (
                         <div className="text-[10px] font-mono flex items-center gap-1 pt-0.5">
                           <span className={`px-2 py-0.5 rounded border ${expiryInfo.badgeClass}`}>
                             {expiryInfo.label}
                           </span>
+                        </div>
+                      )}
+                      {tamTruExpiry && tamTruExpiry.status !== "unknown" && (
+                        <div className="text-[10px] font-mono flex items-center gap-1 pt-0.5">
+                          {tamTruExpiry.isWarning ? (
+                            <span className="px-2 py-0.5 rounded border font-bold bg-amber-100 text-amber-950 border-amber-400 animate-pulse flex items-center gap-1">
+                              <AlertTriangle size={10} className="text-amber-700" />
+                              {tamTruExpiry.label}
+                            </span>
+                          ) : tamTruExpiry.isExpired ? (
+                            <span className="px-2 py-0.5 rounded border font-bold bg-rose-100 text-rose-900 border-rose-300 flex items-center gap-1">
+                              <AlertCircle size={10} className="text-rose-700" />
+                              {tamTruExpiry.label}
+                            </span>
+                          ) : (
+                            <span className="text-slate-400 text-[10px]">
+                              Hạn tạm trú: {tamTruExpiry.formattedDate}
+                            </span>
+                          )}
                         </div>
                       )}
                     </div>
@@ -1989,13 +2306,13 @@ NGƯỜI NƯỚC NGOÀI KHAI BÁO       CHỦ CƠ SỞ LƯU TRÚ       XÁC NH�
                     <div>
                       <span className="text-slate-500 text-[11px] block">Ngày cấp:</span>
                       <span className="font-semibold text-slate-800">
-                        {selectedResident.idIssueDate || "15/05/2021"}
+                        {selectedResident.idIssueDate || "Chưa cập nhật"}
                       </span>
                     </div>
                     <div>
                       <span className="text-slate-500 text-[11px] block">Nơi cấp:</span>
-                      <span className="font-semibold text-slate-800 truncate block" title={selectedResident.idIssuePlace || "Cục CS QLHC về TTXH"}>
-                        {selectedResident.idIssuePlace || "Cục CS QLHC về TTXH"}
+                      <span className="font-semibold text-slate-800 truncate block" title={selectedResident.idIssuePlace || "Chưa cập nhật"}>
+                        {selectedResident.idIssuePlace || "Chưa cập nhật"}
                       </span>
                     </div>
                   </div>
@@ -2003,22 +2320,22 @@ NGƯỜI NƯỚC NGOÀI KHAI BÁO       CHỦ CƠ SỞ LƯU TRÚ       XÁC NH�
                   <div className="grid grid-cols-2 gap-2 py-1 border-b border-slate-50">
                     <div>
                       <span className="text-slate-500 text-[11px] block">Ngày sinh:</span>
-                      <span className="font-semibold text-slate-800">{selectedResident.birthDate}</span>
+                      <span className="font-semibold text-slate-800">{selectedResident.birthDate || "Chưa cập nhật"}</span>
                     </div>
                     <div>
                       <span className="text-slate-500 text-[11px] block">Giới tính:</span>
-                      <span className="font-semibold text-slate-800">{selectedResident.gender}</span>
+                      <span className="font-semibold text-slate-800">{selectedResident.gender || "Chưa cập nhật"}</span>
                     </div>
                   </div>
 
                   <div className="grid grid-cols-3 gap-1.5 py-1 border-b border-slate-50">
                     <div>
                       <span className="text-slate-500 text-[10px] block">Dân tộc:</span>
-                      <span className="font-semibold text-slate-800">{selectedResident.ethnicity || "Kinh"}</span>
+                      <span className="font-semibold text-slate-800">{selectedResident.ethnicity || "Chưa cập nhật"}</span>
                     </div>
                     <div>
                       <span className="text-slate-500 text-[10px] block">Tôn giáo:</span>
-                      <span className="font-semibold text-slate-800">{selectedResident.religion || "Không"}</span>
+                      <span className="font-semibold text-slate-800">{selectedResident.religion || "Chưa cập nhật"}</span>
                     </div>
                     <div>
                       <span className="text-slate-500 text-[10px] block">Quốc tịch:</span>
@@ -2060,30 +2377,144 @@ NGƯỜI NƯỚC NGOÀI KHAI BÁO       CHỦ CƠ SỞ LƯU TRÚ       XÁC NH�
                     <div>
                       <span className="text-slate-500 text-[11px] block">Mã số hộ khẩu:</span>
                       <span className="font-mono font-bold text-blue-700">
-                        {selectedResident.householdId}
+                        {selectedResident.householdId || "Chưa cập nhật"}
                       </span>
                     </div>
                     <div>
                       <span className="text-slate-500 text-[11px] block">Quan hệ chủ hộ:</span>
                       <span className="font-semibold text-slate-800">
-                        {selectedResident.relationToOwner}
+                        {selectedResident.relationToOwner || "Chưa cập nhật"}
                       </span>
                     </div>
                   </div>
 
                   <div className="py-1 border-b border-slate-50">
-                    <span className="text-slate-500 text-[11px] block">Nơi thường trú gốc:</span>
+                    <span className="text-slate-500 text-[11px] block">Nơi thường trú gốc (Địa chỉ thường trú):</span>
                     <span className="font-medium text-slate-800 leading-snug">
-                      {selectedResident.permanentAddress || selectedResident.address}
+                      {selectedResident.permanentAddress || "Chưa cập nhật"}
                     </span>
                   </div>
 
-                  <div className="pt-1">
-                    <span className="text-slate-500 text-[11px] block">Nơi ở hiện nay / Tạm trú:</span>
+                  <div className="py-1 border-b border-slate-50">
+                    <span className="text-slate-500 text-[11px] block">Chỗ ở hiện tại / Tạm trú:</span>
                     <span className="font-medium text-slate-800 leading-snug">
-                      {selectedResident.temporaryAddress || selectedResident.address}
+                      {selectedResident.currentAddress || selectedResident.temporaryAddress || selectedResident.address || "Chưa cập nhật"}
                     </span>
                   </div>
+
+                  {(selectedResident.status === "Tạm trú" || selectedResident.temporaryRegDate || selectedResident.temporaryExpDate) && (
+                    <div className="space-y-2 py-1 border-b border-slate-50">
+                      <div className="grid grid-cols-2 gap-2 bg-amber-50/50 p-2.5 rounded-lg border border-amber-100">
+                        <div>
+                          <span className="text-amber-800 text-[10px] block font-semibold">Ngày đăng ký tạm trú:</span>
+                          <span className="font-medium text-slate-800 text-[11px]">
+                            {selectedResident.temporaryRegDate || "Chưa cập nhật"}
+                          </span>
+                        </div>
+                        <div>
+                          <span className="text-amber-800 text-[10px] block font-semibold">Ngày hết hạn tạm trú:</span>
+                          <span className="font-medium text-slate-800 text-[11px]">
+                            {selectedResident.temporaryExpDate || "Chưa cập nhật"}
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* CẢNH BÁO HẾT HẠN TẠM TRÚ TRƯỚC 01 THÁNG TRÊN MODAL */}
+                      {(() => {
+                        const expiry = getTemporaryResidenceExpiryStatus(selectedResident.temporaryExpDate);
+                        if (expiry.status === "unknown") return null;
+                        return (
+                          <div className={`p-2.5 rounded-xl border flex items-start gap-2.5 ${
+                            expiry.isWarning 
+                              ? "bg-amber-100 border-amber-400 text-amber-950 shadow-xs animate-pulse" 
+                              : expiry.isExpired 
+                              ? "bg-rose-100 border-rose-300 text-rose-950 shadow-xs" 
+                              : "bg-emerald-50 border-emerald-200 text-emerald-900"
+                          }`}>
+                            {expiry.isWarning ? (
+                              <AlertTriangle size={17} className="text-amber-700 shrink-0 mt-0.5" />
+                            ) : expiry.isExpired ? (
+                              <AlertCircle size={17} className="text-rose-700 shrink-0 mt-0.5" />
+                            ) : (
+                              <CheckCircle2 size={17} className="text-emerald-600 shrink-0 mt-0.5" />
+                            )}
+                            <div className="flex-1 text-[11px] leading-tight">
+                              <div className="font-bold flex items-center gap-1.5 flex-wrap">
+                                <span>{expiry.label}</span>
+                                {expiry.isWarning && (
+                                  <span className="px-1.5 py-0.2 rounded bg-amber-200 text-amber-900 text-[9px] font-mono font-bold">
+                                    Cảnh báo trước 30 ngày
+                                  </span>
+                                )}
+                              </div>
+                              <div className="text-[10.5px] opacity-90 mt-1 leading-normal">
+                                {expiry.isWarning 
+                                  ? "Cảnh báo trước 01 tháng: Cán bộ khu phố / CSKV cần liên hệ cơ sở lưu trú và cư dân hướng dẫn nộp hồ sơ gia hạn tạm trú trực tuyến trên Cổng Dịch vụ công." 
+                                  : expiry.isExpired 
+                                  ? "Đã quá hạn đăng ký tạm trú: Cần kiểm tra nơi ở hiện tại thực tế và nhắc nhở công dân hoặc lập biên bản xử lý theo Luật Cư trú." 
+                                  : `Thời hạn cư trú hợp lệ đến ngày ${expiry.formattedDate}.`}
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })()}
+                    </div>
+                  )}
+
+                  {/* KHỐI THÔNG TIN BÓC TÁCH NHÀ TRỌ / CƠ SỞ LƯU TRÚ QUẢN LÝ */}
+                  {(() => {
+                    const hostel = parseAccommodationInfo(selectedResident.currentAddress || selectedResident.temporaryAddress || selectedResident.address);
+                    if (!hostel.isHostel) return null;
+                    return (
+                      <div className="p-3 rounded-xl bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200 space-y-2">
+                        <div className="flex items-center justify-between">
+                          <span className="font-bold text-amber-900 text-xs flex items-center gap-1.5">
+                            <Home size={14} className="text-amber-700" />
+                            Cơ sở Lưu trú / Nhà trọ Quản lý
+                          </span>
+                          <span className="text-[9.5px] font-bold bg-amber-200 text-amber-900 px-2 py-0.5 rounded-full border border-amber-300">
+                            Liên kết CSKD
+                          </span>
+                        </div>
+                        <div className="bg-white/90 p-2.5 rounded-lg border border-amber-100 space-y-1.5 text-[11px]">
+                          <div className="flex justify-between items-center">
+                            <span className="text-slate-500">Tên cơ sở / Nhà trọ:</span>
+                            <strong className="text-slate-900">{hostel.hostelName}</strong>
+                          </div>
+                          {hostel.owner && (
+                            <div className="flex justify-between items-center">
+                              <span className="text-slate-500">Chủ nhà trọ:</span>
+                              <strong className="text-slate-800">{hostel.owner}</strong>
+                            </div>
+                          )}
+                          {hostel.phone && (
+                            <div className="flex justify-between items-center">
+                              <span className="text-slate-500">Số điện thoại chủ trọ:</span>
+                              <a 
+                                href={`tel:${hostel.phone}`}
+                                className="inline-flex items-center gap-1 text-emerald-700 font-mono font-bold hover:underline bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200"
+                              >
+                                <Phone size={10} /> {hostel.phone} (Gọi ngay)
+                              </a>
+                            </div>
+                          )}
+                          <div className="pt-1 border-t border-slate-100">
+                            <span className="text-slate-500 block text-[10px]">Địa chỉ phòng trọ ghi nhận:</span>
+                            <span className="font-medium text-slate-800">{hostel.address || selectedResident.address}</span>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })()}
+
+                  {selectedResident.managementStatus && (
+                    <div className="py-1 border-b border-slate-50">
+                      <span className="text-slate-500 text-[11px] block">Tình trạng quản lý:</span>
+                      <span className="font-semibold text-emerald-800 text-[11px]">
+                        {selectedResident.managementStatus}
+                      </span>
+                    </div>
+                  )}
 
                   <div className="pt-2 flex items-center justify-between gap-2 border-t border-slate-100">
                     <span className="text-[11px] text-slate-500">Định vị & Chỉ đường:</span>
@@ -2110,17 +2541,34 @@ NGƯỜI NƯỚC NGOÀI KHAI BÁO       CHỦ CƠ SỞ LƯU TRÚ       XÁC NH�
                 </div>
 
                 <div className="space-y-2">
+                  {(selectedResident.fatherName || selectedResident.motherName) && (
+                    <div className="grid grid-cols-2 gap-2 py-1 border-b border-slate-50 bg-slate-50 p-2 rounded-lg">
+                      <div>
+                        <span className="text-slate-500 text-[10px] block font-semibold">Họ tên cha:</span>
+                        <span className="font-bold text-slate-800 text-[11px]">
+                          {selectedResident.fatherName || "Chưa cập nhật"}
+                        </span>
+                      </div>
+                      <div>
+                        <span className="text-slate-500 text-[10px] block font-semibold">Họ tên mẹ:</span>
+                        <span className="font-bold text-slate-800 text-[11px]">
+                          {selectedResident.motherName || "Chưa cập nhật"}
+                        </span>
+                      </div>
+                    </div>
+                  )}
+
                   <div className="grid grid-cols-2 gap-2 py-1 border-b border-slate-50">
                     <div>
                       <span className="text-slate-500 text-[11px] block">Trình độ học vấn:</span>
                       <span className="font-semibold text-slate-800">
-                        {selectedResident.education || "12/12"}
+                        {selectedResident.education || "Chưa cập nhật"}
                       </span>
                     </div>
                     <div>
                       <span className="text-slate-500 text-[11px] block">Hôn nhân:</span>
                       <span className="font-semibold text-slate-800">
-                        {selectedResident.maritalStatus || "Đã kết hôn"}
+                        {selectedResident.maritalStatus || "Chưa cập nhật"}
                       </span>
                     </div>
                   </div>
@@ -2128,14 +2576,14 @@ NGƯỜI NƯỚC NGOÀI KHAI BÁO       CHỦ CƠ SỞ LƯU TRÚ       XÁC NH�
                   <div className="py-1 border-b border-slate-50">
                     <span className="text-slate-500 text-[11px] block">Nghề nghiệp:</span>
                     <span className="font-semibold text-slate-800">
-                      {selectedResident.occupation || "Tự do"}
+                      {selectedResident.occupation || "Chưa cập nhật"}
                     </span>
                   </div>
 
                   <div className="pt-1">
                     <span className="text-slate-500 text-[11px] block">Nơi làm việc / Cơ quan:</span>
                     <span className="font-medium text-slate-800 leading-snug">
-                      {selectedResident.workplace || "Khu vực TP. Thủ Đức"}
+                      {selectedResident.workplace || "Chưa cập nhật"}
                     </span>
                   </div>
                 </div>
@@ -2152,7 +2600,7 @@ NGƯỜI NƯỚC NGOÀI KHAI BÁO       CHỦ CƠ SỞ LƯU TRÚ       XÁC NH�
                   <div className="flex items-center justify-between py-1 border-b border-slate-50">
                     <span className="text-slate-500 text-[11px]">Diện chính sách / Đoàn thể:</span>
                     <span className="font-bold text-rose-700">
-                      {selectedResident.policyGroup || "Bình thường"}
+                      {selectedResident.policyGroup || "Dân cư phổ thông / Chưa cập nhật"}
                     </span>
                   </div>
 
@@ -2160,13 +2608,13 @@ NGƯỜI NƯỚC NGOÀI KHAI BÁO       CHỦ CƠ SỞ LƯU TRÚ       XÁC NH�
                     <div>
                       <span className="text-slate-500 text-[11px] block">Mã thẻ BHYT:</span>
                       <span className="font-mono font-bold text-emerald-800">
-                        {selectedResident.healthInsuranceNumber || "Chưa có"}
+                        {selectedResident.healthInsuranceNumber || "Chưa cập nhật"}
                       </span>
                     </div>
                     <div>
                       <span className="text-slate-500 text-[11px] block">Nghĩa vụ quân sự:</span>
                       <span className="font-semibold text-slate-800">
-                        {selectedResident.militaryServiceStatus || "Đã hoàn thành"}
+                        {selectedResident.militaryServiceStatus || "Chưa cập nhật"}
                       </span>
                     </div>
                   </div>
@@ -3181,15 +3629,22 @@ NGƯỜI NƯỚC NGOÀI KHAI BÁO       CHỦ CƠ SỞ LƯU TRÚ       XÁC NH�
             <div className="p-5 space-y-4 overflow-y-auto flex-1 text-xs">
               {importTab === "file" ? (
                 <>
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-slate-50 p-4 rounded-xl border border-slate-200">
-                    <div className="space-y-0.5">
-                      <p className="font-bold text-slate-800">Mẫu tệp chuẩn Quốc gia 26 trường:</p>
-                      <p className="text-[11px] text-slate-500">Tải mẫu Excel đã được định dạng đầy đủ các trường thông tin để điền danh sách thường trú.</p>
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-gradient-to-r from-emerald-50 to-teal-50 p-4 rounded-xl border border-emerald-200">
+                    <div className="space-y-1">
+                      <div className="flex items-center gap-2">
+                        <span className="px-2 py-0.5 rounded-full bg-emerald-600 text-white font-bold text-[10px] tracking-wide">
+                          ⚡ TỐC ĐỘ CAO
+                        </span>
+                        <p className="font-bold text-slate-900 text-xs">Thuật toán phân tích thông minh Thường trú & Tạm trú:</p>
+                      </div>
+                      <p className="text-[11px] text-slate-600 leading-relaxed">
+                        Tự động nhận diện Cột H & J (Thường trú & Chỗ ở hiện tại), Cột G & J (Địa chỉ tạm trú & Thường trú gốc), Cha/Mẹ, Ngày đăng ký/Hết hạn.
+                      </p>
                     </div>
                     <button 
                       onClick={downloadTemplate}
                       type="button"
-                      className="flex items-center justify-center gap-1.5 bg-white hover:bg-slate-100 text-emerald-700 border border-emerald-300 px-3.5 py-2 rounded-lg text-xs font-bold transition-colors cursor-pointer shrink-0"
+                      className="flex items-center justify-center gap-1.5 bg-white hover:bg-emerald-100 text-emerald-800 border border-emerald-300 px-3.5 py-2 rounded-lg text-xs font-bold transition-colors cursor-pointer shrink-0 shadow-2xs"
                     >
                       <Download size={13} /> Tải file mẫu (.xlsx)
                     </button>

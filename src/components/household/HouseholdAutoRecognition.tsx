@@ -25,6 +25,9 @@ import {
 } from "lucide-react";
 import { Household, Resident } from "../../types";
 import { supabase, isSupabaseConfigured } from "../../lib/supabase";
+import { inferRelationToOwner, extractBirthYear } from "../../utils/householdRecognitionUtils";
+import { normalizeAddress } from "./HouseholdDuplicates";
+import Pagination from "../Pagination";
 
 interface HouseholdAutoRecognitionProps {
   households: Household[];
@@ -59,6 +62,8 @@ export default function HouseholdAutoRecognition({
   const [selectedGroupCode, setSelectedGroupCode] = useState<string | null>(null);
   const [syncSuccessMsg, setSyncSuccessMsg] = useState<string | null>(null);
   const [manualOwners, setManualOwners] = useState<{ [householdCode: string]: string }>({}); // override owner cccd
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 10;
 
   // Filter out soft-deleted households
   const activeHouseholds = useMemo(() => {
@@ -67,37 +72,55 @@ export default function HouseholdAutoRecognition({
 
   // Main Recognition Algorithm
   const recognizedGroups: RecognizedHouseholdGroup[] = useMemo(() => {
-    // 1. Group residents by householdId (or by normalized address if householdId is missing)
-    const groupsMap: { [key: string]: Resident[] } = {};
+    // 1. Group residents by householdId (for Thường trú) or by normalized address (for Tạm trú & missing code)
+    const groupsMap: { [key: string]: { residents: Resident[]; type: "Thường trú" | "Tạm trú"; address: string; code: string } } = {};
 
     residents.forEach(res => {
-      let key = res.householdId?.trim();
-      if (!key || key === "N/A" || key === "") {
-        // Fallback to normalized address
-        key = `ADDR-${res.address?.toLowerCase().replace(/[^a-z0-9]/g, "") || "UNKNOWN"}`;
+      const isTamTru = res.status === "Tạm trú";
+      const hId = (res.householdId || "").trim();
+      const addr = res.address || res.currentAddress || res.permanentAddress || "Khu phố 3, Phường An Phú, TP. Thủ Đức";
+      
+      let key: string;
+      let code: string;
+
+      if (!isTamTru && hId && hId !== "Chưa cập nhật" && hId !== "Tạm trú" && hId !== "N/A") {
+        // Hộ thường trú có mã hộ khẩu chính thức
+        key = `HK_${hId}`;
+        code = hId;
+      } else if (isTamTru) {
+        // Hộ tạm trú: nhóm theo địa chỉ tạm trú chuẩn hóa
+        const normAddr = normalizeAddress(res.currentAddress || res.address || "");
+        key = `TT_${normAddr || "UNKNOWN"}`;
+        code = `TT-${res.cccd ? res.cccd.slice(-6) : Math.floor(100000 + Math.random() * 900000)}`;
+      } else {
+        // Thường trú nhưng chưa có mã sổ: nhóm theo địa chỉ
+        const normAddr = normalizeAddress(res.permanentAddress || res.address || "");
+        key = `HK_ADDR_${normAddr || "UNKNOWN"}`;
+        code = `HK-${res.cccd ? res.cccd.slice(-6) : Math.floor(100000 + Math.random() * 900000)}`;
       }
+
       if (!groupsMap[key]) {
-        groupsMap[key] = [];
+        groupsMap[key] = {
+          residents: [],
+          type: isTamTru ? "Tạm trú" : "Thường trú",
+          address: addr,
+          code
+        };
       }
-      groupsMap[key].push(res);
+      groupsMap[key].residents.push(res);
     });
 
     const results: RecognizedHouseholdGroup[] = [];
 
-    Object.entries(groupsMap).forEach(([groupKey, groupResidents]) => {
+    Object.entries(groupsMap).forEach(([groupKey, groupData]) => {
+      const groupResidents = groupData.residents;
       if (groupResidents.length === 0) return;
 
-      const firstRes = groupResidents[0];
-      const isCustomKey = groupKey.startsWith("ADDR-");
-      const householdCode = isCustomKey ? `HK-${groupResidents[0].id.replace(/\D/g, "") || "999"}` : groupKey;
-      const address = firstRes.address || "Khu phố 3, Phường An Phú";
-      
-      // Determine residency type
-      const hasTemporary = groupResidents.some(r => r.status === "Tạm trú");
-      const type: "Thường trú" | "Tạm trú" = hasTemporary && !groupResidents.some(r => r.status === "Thường trú") ? "Tạm trú" : "Thường trú";
+      const householdCode = groupData.code;
+      const address = groupData.address;
+      const type = groupData.type;
 
       // 2. Identify Household Head (Chủ hộ)
-      // Check if user manually designated an owner in this session
       const manualOwnerCccd = manualOwners[householdCode];
       
       const ownerCandidates = groupResidents.filter(r => {
@@ -118,28 +141,33 @@ export default function HouseholdAutoRecognition({
         status = "conflict_owner";
         statusText = `Xung đột: Có ${ownerCandidates.length} nhân khẩu tự khai là Chủ hộ`;
       } else {
-        // No one declared as "Chủ hộ", auto-propose oldest adult
+        // Không có ai tự khai là Chủ hộ: tự động chọn người lớn tuổi nhất đã trưởng thành
         const sortedByAge = [...groupResidents].sort((a, b) => {
-          const yearA = parseInt(a.birthDate?.split("/")[2] || "1980");
-          const yearB = parseInt(b.birthDate?.split("/")[2] || "1980");
-          return yearA - yearB; // older birth year first
+          return extractBirthYear(a.birthDate) - extractBirthYear(b.birthDate);
         });
         owner = sortedByAge[0];
         status = "missing_owner";
         statusText = `Tự nhận diện chủ hộ đề xuất: ${owner.fullName} (${owner.birthDate})`;
       }
 
-      // 3. Separate non-owner members
-      const members = groupResidents.filter(r => r.cccd !== owner?.cccd);
+      // 3. Suy luận thông minh quan hệ gia phả cho từng thành viên không phải chủ hộ
+      const nonOwnerMembers = groupResidents.filter(r => r.cccd !== owner?.cccd);
+      const members = nonOwnerMembers.map(m => {
+        if (!owner) return m;
+        const inferredRel = inferRelationToOwner(m, owner, groupResidents);
+        return {
+          ...m,
+          relationToOwner: inferredRel
+        };
+      });
 
-      // 4. Compare with existing households in database
+      // 4. So sánh với sổ hộ khẩu hiện có trong database
       const existingHousehold = activeHouseholds.find(h => h.code.trim().toUpperCase() === householdCode.trim().toUpperCase()) || null;
 
       if (!existingHousehold) {
         status = "new_needed";
         statusText = "Hộ mới nhận diện từ Dân cư - Chưa có sổ điện tử";
       } else {
-        // Check if all resident members match household members
         const existingCccds = new Set(existingHousehold.members.map(m => m.cccd));
         const residentCccds = new Set(groupResidents.map(r => r.cccd));
         
@@ -221,6 +249,12 @@ export default function HouseholdAutoRecognition({
       return matchesSearch && matchesFilter;
     });
   }, [recognizedGroups, searchTerm, filterStatus]);
+
+  // Paginated list for smooth rendering
+  const paginatedGroups = useMemo(() => {
+    const start = (currentPage - 1) * itemsPerPage;
+    return filteredGroups.slice(start, start + itemsPerPage);
+  }, [filteredGroups, currentPage, itemsPerPage]);
 
   // Manual Owner Override Handler
   const handleSetOwner = (householdCode: string, residentCccd: string) => {
@@ -432,10 +466,18 @@ export default function HouseholdAutoRecognition({
     });
 
     // Update Residents relation tags
+    const memberRelMap = new Map<string, string>();
+    recognizedGroups.forEach(g => {
+      if (g.owner) memberRelMap.set(g.owner.cccd, "Chủ hộ");
+      g.members.forEach(m => {
+        if (m.relationToOwner) memberRelMap.set(m.cccd, m.relationToOwner);
+      });
+    });
+
     const updatedResidentsList = residents.map(r => {
-      const matchGroup = recognizedGroups.find(g => g.householdCode === r.householdId);
-      if (matchGroup && matchGroup.owner?.cccd === r.cccd) {
-        return { ...r, relationToOwner: "Chủ hộ" };
+      const newRel = memberRelMap.get(r.cccd);
+      if (newRel) {
+        return { ...r, relationToOwner: newRel };
       }
       return r;
     });
@@ -588,106 +630,119 @@ export default function HouseholdAutoRecognition({
               Không tìm thấy hộ gia đình nào phù hợp với bộ lọc tìm kiếm
             </div>
           ) : (
-            filteredGroups.map(group => {
-              const isSelected = activeSelectedGroup?.householdCode === group.householdCode;
-              
-              const statusBadgeStyles = {
-                matched: "bg-emerald-50 text-emerald-700 border-emerald-200",
-                new_needed: "bg-blue-50 text-blue-700 border-blue-200",
-                conflict_owner: "bg-rose-50 text-rose-700 border-rose-200",
-                missing_owner: "bg-amber-50 text-amber-700 border-amber-200",
-                partial_match: "bg-purple-50 text-purple-700 border-purple-200"
-              };
+            <>
+              {paginatedGroups.map(group => {
+                const isSelected = activeSelectedGroup?.householdCode === group.householdCode;
+                
+                const statusBadgeStyles = {
+                  matched: "bg-emerald-50 text-emerald-700 border-emerald-200",
+                  new_needed: "bg-blue-50 text-blue-700 border-blue-200",
+                  conflict_owner: "bg-rose-50 text-rose-700 border-rose-200",
+                  missing_owner: "bg-amber-50 text-amber-700 border-amber-200",
+                  partial_match: "bg-purple-50 text-purple-700 border-purple-200"
+                };
 
-              return (
-                <div
-                  key={group.householdCode}
-                  onClick={() => setSelectedGroupCode(group.householdCode)}
-                  className={`bg-white p-4.5 rounded-2xl border transition-all cursor-pointer shadow-xs hover:shadow-md ${
-                    isSelected 
-                      ? "border-emerald-500 ring-2 ring-emerald-500/10 bg-emerald-50/15" 
-                      : "border-slate-150 hover:border-slate-300"
-                  }`}
-                >
-                  {/* Household Card Header */}
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-3 border-b border-slate-100">
-                    <div className="flex items-center gap-2.5">
-                      <span className="font-mono text-xs font-black px-2.5 py-1 bg-slate-900 text-slate-100 rounded-lg shrink-0">
-                        {group.householdCode}
-                      </span>
-                      <div>
-                        <h3 className="font-bold text-sm text-slate-900 flex items-center gap-1.5">
-                          <span>Hộ: {group.owner ? group.owner.fullName : "Chưa xác định"}</span>
-                          <span className="text-[10px] font-semibold text-slate-400 font-mono">
-                            ({group.totalMembers} nhân khẩu)
-                          </span>
-                        </h3>
-                        <p className="text-[11px] text-slate-500 flex items-center gap-1 mt-0.5">
-                          <MapPin size={12} className="text-slate-400 shrink-0" />
-                          <span className="truncate max-w-[280px] sm:max-w-md">{group.address}</span>
-                        </p>
-                      </div>
-                    </div>
-
-                    <div className="flex items-center gap-2 self-start sm:self-auto shrink-0">
-                      <span className={`text-[10px] font-bold px-2.5 py-0.5 rounded-full border ${statusBadgeStyles[group.status]}`}>
-                        {group.statusText}
-                      </span>
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleSyncSingleHousehold(group);
-                        }}
-                        className="text-[11px] bg-slate-100 hover:bg-emerald-600 hover:text-white text-slate-700 font-bold px-2.5 py-1 rounded-lg transition-colors cursor-pointer"
-                        title="Đồng bộ hộ này vào Sổ hộ khẩu điện tử"
-                      >
-                        Đồng bộ
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* Owner & Member Chips Preview */}
-                  <div className="pt-3 grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
-                    {/* Recognized Owner */}
-                    <div className="p-2.5 bg-emerald-50/50 rounded-xl border border-emerald-100/70 flex items-center gap-2.5">
-                      <div className="w-8 h-8 rounded-full bg-emerald-600 text-white font-bold flex items-center justify-center text-xs shrink-0">
-                        CH
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <span className="text-[9px] font-bold text-emerald-800 uppercase tracking-wider block">CHỦ HỘ NHẬN DIỆN</span>
-                        <p className="font-bold text-slate-900 truncate">
-                          {group.owner ? group.owner.fullName : "Chưa rõ chủ hộ"}
-                        </p>
-                        <p className="text-[10px] text-slate-500 font-mono mt-0.5">
-                          CCCD: {group.owner?.cccd} • Sinh: {group.owner?.birthDate}
-                        </p>
-                      </div>
-                    </div>
-
-                    {/* Members Summary */}
-                    <div className="p-2.5 bg-slate-50 rounded-xl border border-slate-150 flex flex-col justify-center">
-                      <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider block">THÀNH VIÊN GIA ĐÌNH ({group.members.length})</span>
-                      <div className="flex flex-wrap gap-1 mt-1">
-                        {group.members.length === 0 ? (
-                          <span className="text-[10px] text-slate-400 italic">Hộ đơn thân (1 nhân khẩu)</span>
-                        ) : (
-                          group.members.slice(0, 3).map(m => (
-                            <span key={m.cccd} className="text-[10px] bg-white border border-slate-200 text-slate-700 px-2 py-0.5 rounded-md font-medium truncate max-w-[130px]">
-                              {m.fullName} ({m.relationToOwner || "Thành viên"})
+                return (
+                  <div
+                    key={group.householdCode}
+                    onClick={() => setSelectedGroupCode(group.householdCode)}
+                    className={`bg-white p-4.5 rounded-2xl border transition-all cursor-pointer shadow-xs hover:shadow-md ${
+                      isSelected 
+                        ? "border-emerald-500 ring-2 ring-emerald-500/10 bg-emerald-50/15" 
+                        : "border-slate-150 hover:border-slate-300"
+                    }`}
+                  >
+                    {/* Household Card Header */}
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-3 border-b border-slate-100">
+                      <div className="flex items-center gap-2.5">
+                        <span className="font-mono text-xs font-black px-2.5 py-1 bg-slate-900 text-slate-100 rounded-lg shrink-0">
+                          {group.householdCode}
+                        </span>
+                        <div>
+                          <h3 className="font-bold text-sm text-slate-900 flex items-center gap-1.5">
+                            <span>Hộ: {group.owner ? group.owner.fullName : "Chưa xác định"}</span>
+                            <span className="text-[10px] font-semibold text-slate-400 font-mono">
+                              ({group.totalMembers} nhân khẩu)
                             </span>
-                          ))
-                        )}
-                        {group.members.length > 3 && (
-                          <span className="text-[10px] text-slate-500 font-semibold px-1 py-0.5">
-                            +{group.members.length - 3} người khác
-                          </span>
-                        )}
+                          </h3>
+                          <p className="text-[11px] text-slate-500 flex items-center gap-1 mt-0.5">
+                            <MapPin size={12} className="text-slate-400 shrink-0" />
+                            <span className="truncate max-w-[280px] sm:max-w-md">{group.address}</span>
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-2 self-start sm:self-auto shrink-0">
+                        <span className={`text-[10px] font-bold px-2.5 py-0.5 rounded-full border ${statusBadgeStyles[group.status]}`}>
+                          {group.statusText}
+                        </span>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleSyncSingleHousehold(group);
+                          }}
+                          className="text-[11px] bg-slate-100 hover:bg-emerald-600 hover:text-white text-slate-700 font-bold px-2.5 py-1 rounded-lg transition-colors cursor-pointer"
+                          title="Đồng bộ hộ này vào Sổ hộ khẩu điện tử"
+                        >
+                          Đồng bộ
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Owner & Member Chips Preview */}
+                    <div className="pt-3 grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                      {/* Recognized Owner */}
+                      <div className="p-2.5 bg-emerald-50/50 rounded-xl border border-emerald-100/70 flex items-center gap-2.5">
+                        <div className="w-8 h-8 rounded-full bg-emerald-600 text-white font-bold flex items-center justify-center text-xs shrink-0">
+                          CH
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <span className="text-[9px] font-bold text-emerald-800 uppercase tracking-wider block">CHỦ HỘ NHẬN DIỆN</span>
+                          <p className="font-bold text-slate-900 truncate">
+                            {group.owner ? group.owner.fullName : "Chưa rõ chủ hộ"}
+                          </p>
+                          <p className="text-[10px] text-slate-500 font-mono mt-0.5">
+                            CCCD: {group.owner?.cccd} • Sinh: {group.owner?.birthDate}
+                          </p>
+                        </div>
+                      </div>
+
+                      {/* Members Summary */}
+                      <div className="p-2.5 bg-slate-50 rounded-xl border border-slate-150 flex flex-col justify-center">
+                        <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider block">THÀNH VIÊN GIA ĐÌNH ({group.members.length})</span>
+                        <div className="flex flex-wrap gap-1 mt-1">
+                          {group.members.length === 0 ? (
+                            <span className="text-[10px] text-slate-400 italic">Hộ đơn thân (1 nhân khẩu)</span>
+                          ) : (
+                            group.members.slice(0, 3).map(m => (
+                              <span key={m.cccd} className="text-[10px] bg-white border border-slate-200 text-slate-700 px-2 py-0.5 rounded-md font-medium truncate max-w-[130px]">
+                                {m.fullName} ({m.relationToOwner || "Thành viên"})
+                              </span>
+                            ))
+                          )}
+                          {group.members.length > 3 && (
+                            <span className="text-[10px] text-slate-500 font-semibold px-1 py-0.5">
+                              +{group.members.length - 3} người khác
+                            </span>
+                          )}
+                        </div>
                       </div>
                     </div>
                   </div>
-                </div>
-              );
-            })
+                );
+              })}
+
+              {/* Phân trang mượt mà */}
+              <div className="pt-2 bg-white rounded-2xl border border-slate-150 overflow-hidden shadow-xs">
+                <Pagination
+                  id="household-recognition-pagination"
+                  currentPage={currentPage}
+                  totalItems={filteredGroups.length}
+                  itemsPerPage={itemsPerPage}
+                  onPageChange={(p) => setCurrentPage(p)}
+                />
+              </div>
+            </>
           )}
         </div>
 

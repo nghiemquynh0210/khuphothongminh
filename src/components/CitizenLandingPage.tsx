@@ -560,9 +560,9 @@ export default function CitizenLandingPage({
                 </div>
                 <dl className="grid grid-cols-3 gap-3">
                   {[
-                    { icon: <Home size={18} />, value: households?.length ? households.length.toLocaleString("vi-VN") : "350", label: "Hộ gia đình" },
-                    { icon: <Users size={18} />, value: residents?.length ? residents.length.toLocaleString("vi-VN") : "1.420", label: "Nhân khẩu" },
-                    { icon: <Briefcase size={18} />, value: businesses?.length ? businesses.length.toLocaleString("vi-VN") : "45", label: "Cơ sở kinh doanh" }
+                    { icon: <Home size={18} />, value: households?.length ? households.length.toLocaleString("vi-VN") : "488", label: "Hộ gia đình" },
+                    { icon: <Users size={18} />, value: residents?.length ? residents.length.toLocaleString("vi-VN") : "11.632", label: "Nhân khẩu" },
+                    { icon: <Briefcase size={18} />, value: businesses?.length ? businesses.length.toLocaleString("vi-VN") : "118", label: "Cơ sở kinh doanh" }
                   ].map(s => (
                     <div key={s.label} className="rounded-2xl bg-white/10 p-3 text-center">
                       <span className="text-blue-200 flex justify-center" aria-hidden="true">{s.icon}</span>

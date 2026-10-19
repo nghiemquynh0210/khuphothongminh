@@ -43,6 +43,7 @@ import PlanArchitecture from "./components/PlanArchitecture";
 import LoginAndRegister from "./components/LoginAndRegister";
 import SettingsAndPermissions, { PendingRegistration } from "./components/SettingsAndPermissions";
 import AdministrativeForms from "./components/AdministrativeForms";
+import { inferRelationToOwner, extractBirthYear, autoExtractHostelBusinesses } from "./utils/householdRecognitionUtils";
 import CitizenLandingPage from "./components/CitizenLandingPage";
 import { supabase, isSupabaseConfigured } from "./lib/supabase";
 import { 
@@ -208,13 +209,14 @@ export default function App() {
         setIsDataLoading(true);
 
         // 1. Fetch Households thật
+        let loadedHouseholds: Household[] = [];
         const { data: dbHouseholds, error: hErr } = await (supabase as any)
           .from("households")
           .select("*")
           .order("code", { ascending: true });
 
         if (!hErr && dbHouseholds && dbHouseholds.length > 0) {
-          const mappedHouseholds: Household[] = dbHouseholds.map((h: any) => ({
+          loadedHouseholds = dbHouseholds.map((h: any) => ({
             id: h.id,
             code: h.code,
             ownerName: h.owner_name,
@@ -224,7 +226,7 @@ export default function App() {
             type: "Thường trú",
             members: []
           }));
-          setHouseholds(mappedHouseholds);
+          setHouseholds(loadedHouseholds);
         }
 
         // 2. Fetch Residents thật (Tải toàn bộ 11.632 cư dân qua phân trang Supabase)
@@ -252,18 +254,27 @@ export default function App() {
           }
         }
 
+        let mappedResidents: Resident[] = [];
         if (allResidents.length > 0) {
-          const mappedResidents: Resident[] = allResidents.map((r: any) => ({
+          mappedResidents = allResidents.map((r: any) => ({
             id: r.id,
             fullName: r.full_name,
             gender: (r.gender as "Nam" | "Nữ") || "Nam",
-            birthDate: r.birth_date ? r.birth_date.split("-").reverse().join("/") : "01/01/1990",
+            birthDate: r.birth_date ? r.birth_date.split("-").reverse().join("/") : "Chưa cập nhật",
             cccd: r.cccd,
             phone: r.phone || "",
             status: (r.status as "Thường trú" | "Tạm trú" | "Tạm vắng") || "Thường trú",
-            occupation: r.occupation || "Tự do",
-            address: r.address || "Khu phố 3, Phường An Phú, TP. Thủ Đức",
-            householdId: r.household_code || "HK-301",
+            occupation: r.occupation || "",
+            address: r.address || r.current_address || r.permanent_address || "Khu phố 3, Phường An Phú, TP. Thủ Đức",
+            permanentAddress: r.permanent_address || undefined,
+            temporaryAddress: r.current_address || r.address || undefined,
+            currentAddress: r.current_address || r.address || undefined,
+            fatherName: r.father_name || undefined,
+            motherName: r.mother_name || undefined,
+            temporaryRegDate: r.temporary_reg_date || undefined,
+            temporaryExpDate: r.temporary_exp_date || undefined,
+            managementStatus: r.management_status || undefined,
+            householdId: r.household_code || (r.status === "Tạm trú" ? "Tạm trú" : "Chưa cập nhật"),
             relationToOwner: r.relation_to_owner || "Thành viên",
             workplace: r.workplace || undefined,
             avatar: r.gender === "Nữ" 
@@ -271,24 +282,106 @@ export default function App() {
               : "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150"
           }));
           setResidents(mappedResidents);
+
+          // Tự động liên kết nhân khẩu & suy luận quan hệ gia phả vào từng Sổ Hộ Khẩu (Không cần bấm thủ công)
+          if (loadedHouseholds.length > 0) {
+            // Gom nhóm cư dân theo mã hộ khẩu
+            const resByHousehold: { [code: string]: Resident[] } = {};
+            mappedResidents.forEach(res => {
+              const code = res.householdId?.trim();
+              if (code && code !== "Chưa cập nhật" && code !== "Tạm trú" && code !== "N/A") {
+                if (!resByHousehold[code]) resByHousehold[code] = [];
+                resByHousehold[code].push(res);
+              }
+            });
+
+            const enrichedHouseholds = loadedHouseholds.map(h => {
+              const matchedResidents = resByHousehold[h.code] || [];
+              if (matchedResidents.length === 0) return h;
+
+              // Tìm chủ hộ trong nhóm
+              let owner = matchedResidents.find(r => {
+                const rel = (r.relationToOwner || "").trim().toLowerCase();
+                return rel === "chủ hộ" || r.fullName.trim().toUpperCase() === h.ownerName.trim().toUpperCase();
+              }) || matchedResidents[0];
+
+              const membersList = matchedResidents.map(r => {
+                const isOwner = r.cccd === owner.cccd || r.fullName.trim().toUpperCase() === h.ownerName.trim().toUpperCase();
+                const inferredRel = isOwner ? "Chủ hộ" : inferRelationToOwner(r, owner, matchedResidents);
+                return {
+                  name: r.fullName,
+                  relation: inferredRel,
+                  cccd: r.cccd,
+                  birthYear: extractBirthYear(r.birthDate),
+                  phone: r.phone && r.phone !== "N/A" ? r.phone : undefined
+                };
+              });
+
+              return {
+                ...h,
+                ownerName: owner ? owner.fullName : h.ownerName,
+                memberCount: membersList.length,
+                members: membersList
+              };
+            });
+
+            setHouseholds(enrichedHouseholds);
+          }
         }
 
-        // 3. Fetch Businesses
+        // 3. Fetch Businesses (Bao gồm Doanh nghiệp, Hộ kinh doanh & Cơ sở lưu trú, Nhà trọ)
         const { data: dbBusinesses } = await (supabase as any).from("businesses").select("*");
         if (dbBusinesses && dbBusinesses.length > 0) {
-          setBusinesses(dbBusinesses.map((b: any) => ({
-            id: b.id,
-            name: b.name,
-            taxCode: b.tax_code || "",
-            type: (b.business_type as any) || "Hộ kinh doanh",
-            owner: b.owner_name || "",
-            phone: b.phone || "",
-            address: b.address,
-            status: (b.status as any) || "Đang hoạt động",
-            safetyCertified: b.safety_certified ?? true,
-            employeeCount: b.employee_count || 1,
-            coordinates: b.coordinates || "10.7935, 106.7445"
-          })));
+          const loadedBusinesses: Business[] = dbBusinesses.map((b: any) => {
+            // Đối chiếu với initialBusinesses để kế thừa thông tin giàu chi tiết (hình ảnh, nhật ký kiểm tra, sổ đỏ...)
+            const matchedMock = initialBusinesses.find(ib => 
+              (ib.internalCode && ib.internalCode === b.internal_code) ||
+              ib.name.trim().toLowerCase() === b.name.trim().toLowerCase() ||
+              ib.id === b.id
+            );
+
+            return {
+              ...(matchedMock || {}),
+              id: matchedMock ? matchedMock.id : b.id,
+              internalCode: b.internal_code || matchedMock?.internalCode,
+              name: b.name,
+              taxCode: b.tax_code || matchedMock?.taxCode || "",
+              type: (b.business_type as any) || matchedMock?.type || "Hộ kinh doanh",
+              businessType: (b.business_type as any) || matchedMock?.businessType || "Hộ kinh doanh",
+              industryGroup: b.industry_group || matchedMock?.industryGroup || "Khác",
+              owner: b.owner_name || matchedMock?.owner || "",
+              phone: b.phone || matchedMock?.phone || "",
+              address: b.address,
+              licenseNumber: b.license_number || matchedMock?.licenseNumber || "",
+              status: (b.status as any) || matchedMock?.status || "Đang hoạt động",
+              safetyCertified: b.safety_certified ?? matchedMock?.safetyCertified ?? true,
+              employeeCount: b.employee_count || matchedMock?.employeeCount || 1,
+              coordinates: b.coordinates || matchedMock?.coordinates || "10.7935, 106.7445",
+              isAccommodation: b.is_accommodation ?? matchedMock?.isAccommodation ?? false,
+              soPhong: b.room_count || matchedMock?.soPhong || 0,
+              soNguoiLuuTru: b.guest_count || matchedMock?.soNguoiLuuTru || 0,
+              image: matchedMock?.image || b.image_url || "https://images.unsplash.com/photo-1555854877-bab0e564b8d5?w=500"
+            };
+          });
+
+          // Bổ sung các cơ sở trong initialBusinesses nếu chưa có trong DB
+          const existingCodes = new Set(loadedBusinesses.map(b => b.internalCode || b.name));
+          initialBusinesses.forEach(ib => {
+            const key = ib.internalCode || ib.name;
+            if (!existingCodes.has(key)) {
+              loadedBusinesses.push(ib);
+            }
+          });
+
+          // Tự động nhận diện & liên kết các cơ sở nhà trọ từ dữ liệu 11.632 cư dân (tương tự Nhà trọ Phạm Văn Bình)
+          if (mappedResidents.length > 0) {
+            const autoHostels = autoExtractHostelBusinesses(mappedResidents, loadedBusinesses);
+            if (autoHostels.length > 0) {
+              loadedBusinesses.push(...autoHostels);
+            }
+          }
+
+          setBusinesses(loadedBusinesses);
         }
 
         // 4. Fetch Field Reports (1022)

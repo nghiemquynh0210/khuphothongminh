@@ -78,6 +78,15 @@ import {
   getGoogleMapsDirectionUrl 
 } from "../utils/gisUtils";
 import Pagination from "./Pagination";
+import * as XLSX from "xlsx";
+import { 
+  isResidentInAccommodation, 
+  parseAccommodationInfo, 
+  getTemporaryResidenceExpiryStatus,
+  autoExtractHostelBusinesses,
+  ParsedAccommodationInfo 
+} from "../utils/householdRecognitionUtils";
+import { supabase } from "../lib/supabase";
 
 export interface IndustrySectorDef {
   id: string;
@@ -341,6 +350,84 @@ export default function BusinessManagement({
   const [viewMode, setViewMode] = useState<"card" | "table">("card");
   const itemsPerPage = 8;
 
+  // Tự động nhận diện & thêm cơ sở nhà trọ từ dữ liệu dân cư
+  const [isDetectingHostels, setIsDetectingHostels] = useState(false);
+  const [isSyncingHostels, setIsSyncingHostels] = useState(false);
+  const [hostelToast, setHostelToast] = useState<{ message: string; type: "success" | "info" | "error" } | null>(null);
+
+  const showHostelToast = (message: string, type: "success" | "info" | "error" = "success") => {
+    setHostelToast({ message, type });
+    setTimeout(() => setHostelToast(null), 4000);
+  };
+
+  const handleAutoDetectHostels = () => {
+    setIsDetectingHostels(true);
+    try {
+      const extracted = autoExtractHostelBusinesses(residents, businesses);
+      if (extracted.length === 0) {
+        showHostelToast("Hệ thống đã nhận diện đầy đủ tất cả cơ sở trọ từ dữ liệu cư dân KP3!", "info");
+        return;
+      }
+      const updated = [...businesses, ...extracted];
+      if (onUpdateBusinesses) {
+        onUpdateBusinesses(updated);
+      }
+      showHostelToast(`Đã tự động nhận diện và liên kết thành công ${extracted.length} cơ sở nhà trọ từ dữ liệu cư dân KP3!`, "success");
+    } catch (err: any) {
+      showHostelToast(`Lỗi nhận diện cơ sở trọ: ${err.message}`, "error");
+    } finally {
+      setIsDetectingHostels(false);
+    }
+  };
+
+  const handleSyncHostelsToSupabase = async () => {
+    if (!supabase) {
+      showHostelToast("Chưa kết nối CSDL Supabase", "error");
+      return;
+    }
+    setIsSyncingHostels(true);
+    try {
+      const hostelsToSync = businesses.filter(b => b.isAccommodation);
+      const rows = hostelsToSync.map(b => {
+        const isValidUuid = b.id && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(b.id);
+        const item: any = {
+          name: b.name,
+          tax_code: b.taxCode || "",
+          business_type: b.businessType || "Hộ kinh doanh",
+          industry_group: b.industryGroup || "Lưu trú & Cho thuê",
+          owner_name: b.owner,
+          phone: b.phone,
+          address: b.address,
+          license_number: b.licenseNumber,
+          status: b.status,
+          safety_certified: b.safetyCertified,
+          employee_count: b.employeeCount || 1,
+          coordinates: b.coordinates,
+          is_accommodation: true,
+          room_count: b.soPhong || 0,
+          guest_count: b.soNguoiLuuTru || 0,
+          internal_code: b.internalCode || `HKD-KP3-${b.name.replace(/[^A-Za-z0-9]/g, "").slice(0, 15)}`,
+          image_url: b.image
+        };
+        if (isValidUuid) {
+          item.id = b.id;
+        }
+        return item;
+      });
+
+      const { error } = await (supabase as any)
+        .from("businesses")
+        .upsert(rows, { onConflict: "internal_code" });
+
+      if (error) throw error;
+      showHostelToast(`Đã lưu vĩnh viễn ${hostelsToSync.length} cơ sở lưu trú vào CSDL Supabase!`, "success");
+    } catch (err: any) {
+      showHostelToast(`Lỗi đồng bộ Supabase: ${err.message}`, "error");
+    } finally {
+      setIsSyncingHostels(false);
+    }
+  };
+
   // Open and close detail modal
   const handleOpenDetailModal = (b: Business) => {
     setSelectedBusiness(b);
@@ -421,6 +508,46 @@ export default function BusinessManagement({
       if (b.linkedHouseholdCode && r.householdId === b.linkedHouseholdCode) return true;
       return false;
     });
+  };
+
+  // Lấy danh sách cư dân tạm trú thực tế đang ở trọ tại cơ sở kinh doanh lưu trú
+  const getStayingResidentsInBusiness = (b: Business): Resident[] => {
+    return (residents || []).filter(r => isResidentInAccommodation(r, b));
+  };
+
+  // Xuất file Excel danh sách cư dân đang lưu trú tại cơ sở nhà trọ
+  const handleExportHostelResidents = (bus: Business, hostelResidents: Resident[]) => {
+    if (!hostelResidents || hostelResidents.length === 0) {
+      alert("Không có dữ liệu người lưu trú để xuất file!");
+      return;
+    }
+
+    const exportRows = hostelResidents.map((r, i) => {
+      const expStatus = getTemporaryResidenceExpiryStatus(r.temporaryExpDate);
+      return {
+        "STT": i + 1,
+        "Họ và tên": r.fullName,
+        "Giới tính": r.gender,
+        "Ngày sinh": r.birthDate,
+        "Số CCCD / Định danh": r.cccd,
+        "Số điện thoại": r.phone || "Chưa cập nhật",
+        "Nơi thường trú gốc (Quê quán)": r.permanentAddress || r.hometown || "Chưa cập nhật",
+        "Chỗ ở hiện tại / Tạm trú": r.currentAddress || r.address,
+        "Ngày đăng ký tạm trú": r.temporaryRegDate || "Chưa cập nhật",
+        "Ngày hết hạn tạm trú": r.temporaryExpDate || "Chưa cập nhật",
+        "Tình trạng thời hạn": expStatus.label,
+        "Cơ sở lưu trú": bus.name,
+        "Chủ cơ sở": bus.owner,
+        "SĐT chủ cơ sở": bus.phone,
+        "Địa chỉ cơ sở": bus.address
+      };
+    });
+
+    const ws = XLSX.utils.json_to_sheet(exportRows);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Danh_sach_cu_dan_luu_tru");
+    const fileName = `DS_LuuTru_${bus.name.replace(/[^a-zA-Z0-9]/g, "_")}.xlsx`;
+    XLSX.writeFile(wb, fileName);
   };
 
   // Change Log States & Handlers
@@ -1355,7 +1482,21 @@ export default function BusinessManagement({
   };
 
   return (
-    <div id="business-management-view" className="space-y-6">
+    <div id="business-management-view" className="space-y-6 relative">
+      {/* Toast thông báo Nhận diện / Đồng bộ Cơ sở trọ */}
+      {hostelToast && (
+        <div className={`fixed top-5 right-5 z-50 px-4 py-3 rounded-2xl shadow-xl flex items-center gap-2.5 text-xs font-bold border transition-all animate-bounce ${
+          hostelToast.type === "success" 
+            ? "bg-emerald-600 text-white border-emerald-500 shadow-emerald-600/30"
+            : hostelToast.type === "info"
+            ? "bg-indigo-600 text-white border-indigo-500 shadow-indigo-600/30"
+            : "bg-rose-600 text-white border-rose-500 shadow-rose-600/30"
+        }`}>
+          <Sparkles size={16} />
+          <span>{hostelToast.message}</span>
+        </div>
+      )}
+
       {/* Upper header */}
       <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 text-white p-6 rounded-2xl shadow-md border border-slate-800">
         <div className="space-y-1">
@@ -1371,6 +1512,16 @@ export default function BusinessManagement({
         </div>
 
         <div className="flex flex-wrap items-center gap-2.5">
+          <button 
+            type="button"
+            onClick={handleAutoDetectHostels}
+            disabled={isDetectingHostels}
+            className="flex items-center gap-1.5 bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/40 px-3.5 py-2.5 rounded-xl font-bold text-xs sm:text-sm transition-all cursor-pointer shadow-xs hover:border-amber-400 disabled:opacity-50"
+            title="Tự động phân tích cư dân để nhận diện và thêm các cơ sở nhà trọ / lưu trú"
+          >
+            <Sparkles size={16} className={`text-amber-400 ${isDetectingHostels ? "animate-spin" : ""}`} />
+            <span>Tự động nhận diện Nhà trọ</span>
+          </button>
           <button 
             type="button"
             onClick={handleExportBusinessesCsv}
@@ -1814,6 +1965,50 @@ export default function BusinessManagement({
 
       {/* Main Container: Toàn bộ chiều rộng cho danh sách Cơ sở Kinh doanh */}
       <div className="w-full space-y-4">
+        {/* Banner Tự động liên kết Nhà trọ từ dữ liệu Dân cư */}
+        {establishmentFilter === "accommodation" && (
+          <div className="bg-gradient-to-r from-amber-50 via-amber-50/70 to-orange-50/60 border border-amber-200/90 p-4 rounded-2xl flex flex-col md:flex-row items-start md:items-center justify-between gap-3 text-xs text-amber-950 shadow-2xs">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-amber-500/20 text-amber-800 flex items-center justify-center shrink-0 border border-amber-300/60 shadow-xs">
+                <Sparkles size={20} className="text-amber-700" />
+              </div>
+              <div>
+                <div className="font-bold text-amber-900 text-sm flex items-center gap-2">
+                  <span>Hệ thống đã tự động nhận diện {totalAccomCount} cơ sở nhà trọ & lưu trú từ 11.632 cư dân</span>
+                  <span className="text-[10px] bg-amber-200/80 text-amber-900 font-extrabold px-2 py-0.5 rounded-full border border-amber-300">
+                    Đối soát CSDL thực tế
+                  </span>
+                </div>
+                <div className="text-amber-800/80 text-[11px] mt-0.5">
+                  Tất cả các cơ sở trọ được trích xuất tự động từ địa chỉ tạm trú, nhận diện tên chủ trọ, số điện thoại, quy mô phòng và số người lưu trú thực tế.
+                </div>
+              </div>
+            </div>
+            <div className="flex items-center gap-2 shrink-0">
+              <button
+                type="button"
+                onClick={handleAutoDetectHostels}
+                disabled={isDetectingHostels}
+                className="px-3.5 py-2 rounded-xl bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs flex items-center gap-1.5 shadow-xs transition-all cursor-pointer disabled:opacity-50"
+                title="Quét lại toàn bộ 11.632 cư dân để bổ sung thêm cơ sở trọ mới"
+              >
+                <RefreshCw size={13} className={isDetectingHostels ? "animate-spin" : ""} />
+                <span>Quét lại cư dân</span>
+              </button>
+              <button
+                type="button"
+                onClick={handleSyncHostelsToSupabase}
+                disabled={isSyncingHostels}
+                className="px-3.5 py-2 rounded-xl bg-white hover:bg-amber-100/70 text-amber-900 border border-amber-300 font-bold text-xs flex items-center gap-1.5 shadow-xs transition-all cursor-pointer disabled:opacity-50"
+                title="Lưu toàn bộ các cơ sở lưu trú vào bảng businesses trong cơ sở dữ liệu Supabase"
+              >
+                <Upload size={13} className={isSyncingHostels ? "animate-spin" : ""} />
+                <span>{isSyncingHostels ? "Đang lưu..." : "Lưu vào Supabase CSDL"}</span>
+              </button>
+            </div>
+          </div>
+        )}
+
         {viewMode === "card" ? (
           /* Card Grid View: Toàn bộ chiều rộng, 1-4 cột */
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
@@ -1839,148 +2034,172 @@ export default function BusinessManagement({
                     key={b.id}
                     id={`business-card-${b.id}`}
                     onClick={() => handleOpenDetailModal(b)}
-                    className={`bg-white rounded-xl border p-4 hover:shadow-md transition-all cursor-pointer flex flex-col justify-between space-y-3 relative
-                      ${isSelected ? "border-indigo-500 ring-2 ring-indigo-500/10 shadow-sm" : "border-slate-100"}
+                    className={`group bg-white rounded-2xl border p-4 hover:shadow-lg hover:border-indigo-200 transition-all duration-200 cursor-pointer flex flex-col justify-between relative
+                      ${isSelected ? "border-indigo-500 ring-2 ring-indigo-500/20 shadow-md" : "border-slate-200/80 shadow-xs"}
                     `}
                   >
-                      <div className="space-y-2.5">
-                        <div className="flex justify-between items-start gap-2">
-                          <div className="flex flex-wrap items-center gap-1.5">
-                            <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border flex items-center gap-1 ${sectorMeta.badgeClass}`}>
-                              <span>{sectorMeta.icon}</span>
-                              <span>{sectorMeta.shortName}</span>
-                            </span>
-                            <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-slate-100 text-slate-600 font-mono uppercase">
-                              {b.type}
-                            </span>
-                            {isAccom && sectorGroup !== "Lưu trú & Cho thuê" && (
-                              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 border border-amber-200 flex items-center gap-1">
-                                <Building size={10} /> Lưu trú
-                              </span>
-                            )}
-                          </div>
-                          <span className={`text-[10px] font-extrabold px-2 py-0.5 rounded-full border ${statusColors[b.status]}`}>
-                            {b.status}
+                    <div className="space-y-3">
+                      {/* 1. Header Badges: Category & Status */}
+                      <div className="flex justify-between items-center gap-2">
+                        <div className="flex flex-wrap items-center gap-1.5 min-w-0">
+                          <span className={`text-[11px] font-bold px-2.5 py-0.5 rounded-full border flex items-center gap-1.5 shadow-2xs ${sectorMeta.badgeClass}`}>
+                            <span>{sectorMeta.icon}</span>
+                            <span className="truncate">{sectorMeta.shortName}</span>
+                          </span>
+                          <span className="text-[10px] font-semibold px-2 py-0.5 rounded-md bg-slate-100 text-slate-600 font-mono">
+                            {b.type}
+                          </span>
+                        </div>
+                        <span className={`text-[10.5px] font-bold px-2.5 py-0.5 rounded-full border flex items-center gap-1.5 shrink-0 whitespace-nowrap ${statusColors[b.status]}`}>
+                          <span className={`w-1.5 h-1.5 rounded-full ${b.status === "Đang hoạt động" ? "bg-emerald-500 animate-pulse" : b.status === "Tạm ngưng" ? "bg-rose-500" : "bg-amber-500"}`} />
+                          <span>{b.status}</span>
+                        </span>
+                      </div>
+
+                      {/* 2. Image Thumbnail (Gọn gàng, sang trọng, không chèn chữ dài ngoằng đè lên ảnh) */}
+                      <div className="relative h-32 rounded-xl overflow-hidden bg-slate-100 border border-slate-200/60 shadow-inner">
+                        <img 
+                          src={b.image || "https://images.unsplash.com/photo-1578916171728-46686eac8d58?w=500"} 
+                          alt={b.name}
+                          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                          onError={(e) => {
+                            (e.target as HTMLImageElement).src = "https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?w=500";
+                          }}
+                        />
+                        <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-black/10 pointer-events-none" />
+                        
+                        {/* Giấy phép kinh doanh đặt góc trên phải ảnh */}
+                        <div className="absolute top-2 right-2">
+                          <span className="text-[10px] font-mono font-semibold px-2 py-0.5 rounded-md bg-black/60 text-white backdrop-blur-xs shadow-xs border border-white/20">
+                            {b.licenseNumber || b.internalCode || "KP3-KD"}
                           </span>
                         </div>
 
-                        {/* Image Thumbnail preview */}
-                        <div className="relative h-28 rounded-lg overflow-hidden bg-slate-100 border border-slate-100">
-                          <img 
-                            src={b.image || "https://images.unsplash.com/photo-1578916171728-46686eac8d58?w=400"} 
-                            alt={b.name}
-                            className="w-full h-full object-cover"
-                            onError={(e) => {
-                              (e.target as HTMLImageElement).src = "https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?w=500";
-                            }}
-                          />
-                          <div className="absolute inset-0 bg-gradient-to-t from-slate-950/70 via-transparent to-transparent"></div>
-                          
-                          {/* Badges on bottom of card image */}
-                          <div className="absolute bottom-2 left-2 right-2 flex justify-between items-end text-white">
-                            <div className="text-[11px] font-bold truncate pr-2 drop-shadow-sm">
-                              {b.name}
-                            </div>
-                            <span className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-black/50 text-white/90 backdrop-blur-xs shrink-0">
-                              {b.licenseNumber}
+                        {/* Huy hiệu cơ sở lưu trú ở góc dưới trái ảnh */}
+                        {isAccom && (
+                          <div className="absolute bottom-2 left-2">
+                            <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-amber-500/90 text-white backdrop-blur-xs flex items-center gap-1 shadow-xs">
+                              <Building size={11} /> Cơ sở lưu trú
                             </span>
                           </div>
-                        </div>
+                        )}
+                      </div>
 
-                        {/* Accommodation Highlight Box */}
-                        {isAccom && (
-                          <div className="p-2 rounded-lg bg-amber-50/80 border border-amber-100 text-xs text-amber-900 flex items-center justify-between">
-                            <div className="flex items-center gap-1.5 font-bold">
-                              <Building size={13} className="text-amber-700" />
+                      {/* 3. Tên cơ sở kinh doanh đặt ra ngoài ảnh - Rõ ràng, không bị che khuất */}
+                      <div>
+                        <h3 className="font-bold text-slate-900 text-[14px] leading-snug group-hover:text-indigo-600 transition-colors line-clamp-1" title={b.name}>
+                          {b.name}
+                        </h3>
+                        <div className="text-[11px] text-slate-500 flex items-center gap-1 mt-1">
+                          <MapPin size={12} className="shrink-0 text-slate-400" />
+                          <span className="line-clamp-1 text-slate-600 font-medium" title={b.address}>
+                            {b.address}
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* 4. Khối thông tin lưu trú / phòng trọ (Đồng bộ chuẩn 100% như 2 hộ kế bên, không vỡ layout) */}
+                      {isAccom && (() => {
+                        const staying = residents.filter(r => isResidentInAccommodation(r, b));
+                        const actualCount = staying.length > 0 ? staying.length : (b.soNguoiLuuTru || 0);
+                        return (
+                          <div className="py-2 px-3 rounded-xl bg-amber-50/90 border border-amber-200/80 text-amber-950 flex items-center justify-between shadow-2xs">
+                            <div className="flex items-center gap-1.5 text-xs font-bold whitespace-nowrap">
+                              <Bed size={14} className="text-amber-700 shrink-0" />
                               <span>{b.soPhong || 0} phòng</span>
                               <span className="text-amber-400">•</span>
                               <span>{b.soTang || 0} tầng</span>
                             </div>
-                            {b.soNguoiLuuTru ? (
-                              <span className="text-[11px] font-medium text-amber-800">
-                                👥 {b.soNguoiLuuTru} người lưu trú
-                              </span>
-                            ) : null}
-                          </div>
-                        )}
-
-                        {/* Cadastral & Land Use Info */}
-                        <div className="text-[11px] text-slate-500 bg-slate-50 p-2 rounded-lg border border-slate-100/80 space-y-1">
-                          <div className="flex justify-between items-center">
-                            <span className="text-slate-400">Tờ BĐ / Thửa:</span>
-                            <span className="font-mono font-bold text-slate-700">Tờ {b.toBanDo || "—"}, Thửa {b.soThua || "—"}</span>
-                          </div>
-                          {b.dienTich && (
-                            <div className="flex justify-between items-center">
-                              <span className="text-slate-400">Diện tích & Loại đất:</span>
-                              <span className="font-semibold text-slate-700">{b.dienTich} m² ({b.loaiDat || "ODT"})</span>
-                            </div>
-                          )}
-                        </div>
-
-                        <div className="text-xs text-slate-500 flex items-center gap-1">
-                          <MapPin size={12} className="shrink-0 text-slate-400" /> 
-                          <span className="truncate">{b.address}</span>
-                        </div>
-                      </div>
-
-                      {/* Footer Actions & Badges */}
-                      <div className="pt-3 border-t border-slate-50 flex justify-between items-center text-xs text-slate-500">
-                        <span className="flex items-center gap-1 font-medium text-slate-700">
-                          <User size={12} className="text-slate-400" /> {b.owner}
-                        </span>
-
-                        <div className="flex items-center gap-2">
-                          {b.soDoFile && (
-                            <button
-                              type="button"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setViewingDoc({
-                                  title: "Hồ sơ Giấy chứng nhận QSDĐ (Sổ đỏ)",
-                                  businessName: b.name,
-                                  file: b.soDoFile!,
-                                  business: b
-                                });
-                              }}
-                              className={`text-[10px] font-bold px-2 py-0.5 rounded-md flex items-center gap-1 transition-colors cursor-pointer ${
-                                b.soDoFile.type === "pdf" 
-                                  ? "bg-rose-50 text-rose-700 border border-rose-200 hover:bg-rose-100" 
-                                  : "bg-blue-50 text-blue-700 border border-blue-200 hover:bg-blue-100"
-                              }`}
-                              title="Nhấp để xem tệp Sổ đỏ"
-                            >
-                              <FileText size={11} />
-                              Sổ đỏ ({b.soDoFile.type.toUpperCase()})
-                            </button>
-                          )}
-
-                          {b.safetyCertified && (
-                            <span className="flex items-center gap-0.5 text-emerald-600 font-bold text-[10px]">
-                              <ShieldCheck size={12} /> PCCC
+                            <span className="text-[11px] font-bold text-amber-900 bg-amber-100/90 px-2.5 py-0.5 rounded-full border border-amber-300/80 whitespace-nowrap shrink-0">
+                              👥 {actualCount} người
                             </span>
-                          )}
+                          </div>
+                        );
+                      })()}
+
+                      {/* 5. Địa chính & Thửa đất (Gọn gàng 1 hàng không bị rớt dòng) */}
+                      <div className="bg-slate-50/90 py-2 px-2.5 rounded-xl border border-slate-200/60 flex items-center justify-between text-[11px]">
+                        <div className="flex items-center gap-1.5 font-mono text-slate-700 font-bold whitespace-nowrap">
+                          <span className="text-slate-400 font-sans font-normal text-[10px]">ĐC:</span>
+                          <span className="bg-white px-1.5 py-0.5 rounded border border-slate-200 shadow-2xs text-[10.5px]">
+                            Tờ {b.toBanDo || "—"}, Thửa {b.soThua || "—"}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-1 font-semibold text-slate-700 whitespace-nowrap text-[11px]">
+                          <span>{b.dienTich ? `${b.dienTich} m²` : "—"}</span>
+                          <span className="text-[9px] font-mono font-bold px-1.5 py-0.2 rounded bg-indigo-50 text-indigo-700 border border-indigo-200">
+                            {b.loaiDat || "ODT"}
+                          </span>
                         </div>
                       </div>
                     </div>
-                  );
-                })
-              )}
-            </div>
+
+                    {/* 6. Footer: Chủ hộ + Nút Sổ đỏ + PCCC */}
+                    <div className="pt-2.5 mt-2 border-t border-slate-100 flex justify-between items-center text-xs">
+                      <div className="flex items-center gap-1.5 min-w-0 pr-1 flex-1">
+                        <div className="w-5 h-5 rounded-full bg-slate-100 border border-slate-200 text-slate-700 flex items-center justify-center shrink-0 text-[10px] font-bold">
+                          {b.owner ? b.owner.charAt(0) : "U"}
+                        </div>
+                        <span className="font-semibold text-slate-800 truncate text-[11.5px]" title={b.owner}>
+                          {b.owner}
+                        </span>
+                      </div>
+
+                      <div className="flex items-center gap-1 shrink-0">
+                        {b.soDoFile ? (
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setViewingDoc({
+                                title: "Hồ sơ Giấy chứng nhận QSDĐ (Sổ đỏ)",
+                                businessName: b.name,
+                                file: b.soDoFile!,
+                                business: b
+                              });
+                            }}
+                            className={`text-[9.5px] font-bold px-2 py-0.5 rounded-md flex items-center gap-1 transition-colors cursor-pointer shadow-2xs ${
+                              b.soDoFile.type === "pdf" 
+                                ? "bg-rose-50 text-rose-700 border border-rose-200 hover:bg-rose-100" 
+                                : "bg-blue-50 text-blue-700 border border-blue-200 hover:bg-blue-100"
+                            }`}
+                            title="Nhấp để xem tệp Sổ đỏ"
+                          >
+                            <FileText size={10} />
+                            <span>Sổ đỏ</span>
+                          </button>
+                        ) : (
+                          <span className="text-[9.5px] text-slate-400 bg-slate-50 px-1.5 py-0.5 rounded border border-slate-200/60 italic">
+                            Chưa sổ
+                          </span>
+                        )}
+
+                        {b.safetyCertified && (
+                          <span className="inline-flex items-center gap-0.5 text-emerald-700 bg-emerald-50 border border-emerald-200 px-1.5 py-0.5 rounded-md font-bold text-[9.5px]">
+                            <ShieldCheck size={11} className="text-emerald-600" /> PCCC
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })
+            )}
+          </div>
           ) : (
             /* Table Detailed View */
-            <div className="bg-white rounded-xl border border-slate-100 shadow-sm overflow-hidden">
+            <div className="bg-white rounded-2xl border border-slate-200/80 shadow-xs overflow-hidden">
               <div className="overflow-x-auto">
                 <table className="w-full text-left border-collapse text-xs">
                   <thead>
-                    <tr className="bg-slate-50/80 border-b border-slate-200 text-slate-500 font-bold uppercase text-[10px] tracking-wider">
-                      <th className="p-3">Cơ sở / Ngành nghề</th>
-                      <th className="p-3">Chủ sở hữu & Liên hệ</th>
-                      <th className="p-3">Đặc điểm Lưu trú</th>
-                      <th className="p-3">Địa chính / Thửa đất</th>
-                      <th className="p-3">Sổ đỏ & PCCC</th>
-                      <th className="p-3 text-center">Trạng thái</th>
-                      <th className="p-3 text-center">Thao tác</th>
+                    <tr className="bg-slate-50 border-b border-slate-200 text-slate-500 font-bold uppercase text-[10px] tracking-wider">
+                      <th className="p-3.5">Cơ sở / Ngành nghề</th>
+                      <th className="p-3.5">Chủ sở hữu & Liên hệ</th>
+                      <th className="p-3.5">Đặc điểm Lưu trú</th>
+                      <th className="p-3.5">Địa chính / Thửa đất</th>
+                      <th className="p-3.5">Sổ đỏ & PCCC</th>
+                      <th className="p-3.5 text-center">Trạng thái</th>
+                      <th className="p-3.5 text-center">Thao tác</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
@@ -1993,54 +2212,91 @@ export default function BusinessManagement({
                         <tr 
                           key={b.id}
                           onClick={() => handleOpenDetailModal(b)}
-                          className={`hover:bg-indigo-50/30 transition-colors cursor-pointer ${
-                            isSelected ? "bg-indigo-50/60 font-medium" : ""
+                          className={`hover:bg-indigo-50/40 transition-colors cursor-pointer ${
+                            isSelected ? "bg-indigo-50/70 font-medium" : ""
                           }`}
                         >
-                          <td className="p-3">
-                            <div className="font-bold text-slate-800 text-xs">{b.name}</div>
-                            <div className="flex flex-wrap items-center gap-1.5 mt-1">
-                              <span className={`text-[9px] font-bold px-1.5 py-0.2 rounded-full border flex items-center gap-0.5 ${sectorMeta.badgeClass}`}>
-                                <span>{sectorMeta.icon}</span>
-                                <span>{sectorMeta.shortName}</span>
-                              </span>
-                              <span className="font-mono text-slate-400 text-[10px]">{b.licenseNumber}</span>
-                              <span className="text-[10px] text-slate-500">• {b.type}</span>
+                          {/* Cột 1: Cơ sở / Ngành nghề */}
+                          <td className="p-3.5">
+                            <div className="flex items-center gap-3">
+                              <div className="w-10 h-10 rounded-xl overflow-hidden bg-slate-100 border border-slate-200 shrink-0 shadow-2xs">
+                                <img 
+                                  src={b.image || "https://images.unsplash.com/photo-1578916171728-46686eac8d58?w=200"} 
+                                  alt={b.name} 
+                                  className="w-full h-full object-cover" 
+                                  onError={(e) => {
+                                    (e.target as HTMLImageElement).src = "https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?w=200";
+                                  }}
+                                />
+                              </div>
+                              <div className="min-w-0">
+                                <div className="font-bold text-slate-900 text-xs hover:text-indigo-600 transition-colors line-clamp-1">{b.name}</div>
+                                <div className="flex flex-wrap items-center gap-1.5 mt-1">
+                                  <span className={`text-[9.5px] font-bold px-1.5 py-0.2 rounded-full border flex items-center gap-1 ${sectorMeta.badgeClass}`}>
+                                    <span>{sectorMeta.icon}</span>
+                                    <span>{sectorMeta.shortName}</span>
+                                  </span>
+                                  <span className="font-mono text-slate-500 font-semibold text-[10px] bg-slate-100 px-1 py-0.2 rounded border border-slate-200">{b.licenseNumber}</span>
+                                  <span className="text-[10px] text-slate-500">• {b.type}</span>
+                                </div>
+                              </div>
                             </div>
                           </td>
 
-                          <td className="p-3">
-                            <div className="font-semibold text-slate-800">{b.owner}</div>
-                            <div className="text-[10px] text-slate-500 font-mono">{b.phone}</div>
+                          {/* Cột 2: Chủ sở hữu & Liên hệ */}
+                          <td className="p-3.5 whitespace-nowrap">
+                            <div className="font-semibold text-slate-900 text-xs flex items-center gap-1.5">
+                              <User size={13} className="text-slate-400" />
+                              <span>{b.owner}</span>
+                            </div>
+                            <div className="text-[11px] text-slate-500 font-mono flex items-center gap-1.5 mt-0.5">
+                              <Phone size={11} className="text-slate-400" />
+                              <span>{b.phone || "—"}</span>
+                            </div>
                           </td>
 
-                          <td className="p-3">
-                            {isAccom ? (
-                              <div className="space-y-0.5">
-                                <span className="inline-flex items-center gap-1 font-bold text-amber-800 bg-amber-100/70 px-2 py-0.5 rounded-full text-[10px]">
-                                  <Building size={11} /> {b.soPhong || 0} phòng / {b.soTang || 0} tầng
-                                </span>
-                                {b.soNguoiLuuTru ? (
-                                  <div className="text-[10px] text-slate-500">
-                                    {b.soNguoiLuuTru} người lưu trú
+                          {/* Cột 3: Đặc điểm Lưu trú */}
+                          <td className="p-3.5 whitespace-nowrap">
+                            {isAccom ? (() => {
+                              const staying = residents.filter(r => isResidentInAccommodation(r, b));
+                              const actualCount = staying.length > 0 ? staying.length : (b.soNguoiLuuTru || 0);
+                              return (
+                                <div className="space-y-1">
+                                  <span className="inline-flex items-center gap-1 font-bold text-amber-900 bg-amber-100/80 px-2 py-0.5 rounded-full text-[10px] border border-amber-200">
+                                    <Building size={11} className="text-amber-700" /> {b.soPhong || 0} phòng / {b.soTang || 0} tầng
+                                  </span>
+                                  <div className="text-[11px] font-bold text-amber-950 flex items-center gap-1.5">
+                                    <span>👥 {actualCount} người</span>
+                                    {staying.length > 0 ? (
+                                      <span className="text-[9px] font-bold px-1.5 py-0.2 rounded bg-emerald-100 text-emerald-800 border border-emerald-300">
+                                        ✓ CSDL
+                                      </span>
+                                    ) : (
+                                      <span className="text-[9px] text-slate-400 font-normal">lưu trú</span>
+                                    )}
                                   </div>
-                                ) : null}
-                              </div>
-                            ) : (
-                              <span className="text-slate-400 text-[11px] italic">Không lưu trú</span>
+                                </div>
+                              );
+                            })() : (
+                              <span className="text-slate-400 text-[11px] italic bg-slate-50 px-2 py-0.5 rounded">Không lưu trú</span>
                             )}
                           </td>
 
-                          <td className="p-3">
-                            <div className="text-[11px] font-mono text-slate-700">
-                              Tờ: <strong>{b.toBanDo || "—"}</strong>, Thửa: <strong>{b.soThua || "—"}</strong>
+                          {/* Cột 4: Địa chính / Thửa đất */}
+                          <td className="p-3.5 whitespace-nowrap">
+                            <div className="text-[11px] font-mono text-slate-800 font-bold">
+                              Tờ {b.toBanDo || "—"} • Thửa {b.soThua || "—"}
                             </div>
-                            <div className="text-[10px] text-slate-500">
-                              {b.dienTich ? `${b.dienTich} m²` : "—"} ({b.loaiDat || "ODT"})
+                            <div className="text-[10.5px] text-slate-500 flex items-center gap-1 mt-0.5">
+                              <span>{b.dienTich ? `${b.dienTich} m²` : "—"}</span>
+                              <span className="text-[9px] font-semibold px-1 py-0.2 rounded bg-slate-100 text-slate-600">
+                                {b.loaiDat || "ODT"}
+                              </span>
                             </div>
                           </td>
 
-                          <td className="p-3">
+                          {/* Cột 5: Sổ đỏ & PCCC */}
+                          <td className="p-3.5 whitespace-nowrap">
                             <div className="flex flex-col gap-1 items-start">
                               {b.soDoFile ? (
                                 <button
@@ -2054,62 +2310,67 @@ export default function BusinessManagement({
                                       business: b
                                     });
                                   }}
-                                  className={`text-[9px] font-bold px-2 py-0.5 rounded flex items-center gap-1 transition-colors cursor-pointer ${
+                                  className={`text-[9.5px] font-bold px-2 py-0.5 rounded-md flex items-center gap-1 transition-colors cursor-pointer shadow-2xs ${
                                     b.soDoFile.type === "pdf"
                                       ? "bg-rose-50 text-rose-700 border border-rose-200 hover:bg-rose-100"
                                       : "bg-blue-50 text-blue-700 border border-blue-200 hover:bg-blue-100"
                                   }`}
                                 >
-                                  <FileText size={10} /> Sổ đỏ ({b.soDoFile.type.toUpperCase()})
+                                  <FileText size={11} /> Sổ đỏ ({b.soDoFile.type.toUpperCase()})
                                 </button>
                               ) : (
-                                <span className="text-[10px] text-slate-400 italic">Chưa nộp sổ</span>
+                                <span className="text-[10px] text-slate-400 bg-slate-50 px-1.5 py-0.2 rounded border border-slate-200/60 italic">
+                                  Chưa nộp sổ
+                                </span>
                               )}
 
                               {b.safetyCertified && (
-                                <span className="text-[9px] font-extrabold text-emerald-700 bg-emerald-100 px-1.5 py-0.5 rounded">
-                                  ✓ PCCC đạt
+                                <span className="text-[9.5px] font-bold text-emerald-800 bg-emerald-50 border border-emerald-200 px-1.5 py-0.5 rounded-md flex items-center gap-1">
+                                  <ShieldCheck size={11} className="text-emerald-600" /> PCCC đạt
                                 </span>
                               )}
                             </div>
                           </td>
 
-                          <td className="p-3 text-center">
-                            <span className={`text-[10px] font-extrabold px-2 py-0.5 rounded-full border ${
-                              b.status === "Đang hoạt động" ? "bg-emerald-500/10 text-emerald-600 border-emerald-500/20" :
-                              b.status === "Tạm ngưng" ? "bg-rose-500/10 text-rose-600 border-rose-500/20" :
-                              "bg-amber-500/10 text-amber-600 border-amber-500/20"
+                          {/* Cột 6: Trạng thái (Luôn 1 hàng, không bị ngắt chữ) */}
+                          <td className="p-3.5 text-center whitespace-nowrap">
+                            <span className={`inline-flex items-center gap-1.5 text-[11px] font-bold px-2.5 py-1 rounded-full border shadow-2xs ${
+                              b.status === "Đang hoạt động" ? "bg-emerald-50 text-emerald-700 border-emerald-200" :
+                              b.status === "Tạm ngưng" ? "bg-rose-50 text-rose-700 border-rose-200" :
+                              "bg-amber-50 text-amber-700 border-amber-200"
                             }`}>
-                              {b.status}
+                              <span className={`w-1.5 h-1.5 rounded-full ${b.status === "Đang hoạt động" ? "bg-emerald-500 animate-pulse" : b.status === "Tạm ngưng" ? "bg-rose-500" : "bg-amber-500"}`} />
+                              <span>{b.status}</span>
                             </span>
                           </td>
 
-                          <td className="p-3 text-center">
+                          {/* Cột 7: Thao tác (Cân đối, chuẩn UI) */}
+                          <td className="p-3.5 text-center whitespace-nowrap">
                             <div className="flex items-center justify-center gap-1.5" onClick={(e) => e.stopPropagation()}>
                               <button
                                 type="button"
                                 onClick={() => handleOpenDetailModal(b)}
-                                className="px-2.5 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded-lg text-xs font-semibold flex items-center gap-1 border border-indigo-200 transition-colors cursor-pointer shadow-2xs"
+                                className="px-2.5 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded-lg text-xs font-bold flex items-center gap-1 border border-indigo-200/80 transition-all cursor-pointer shadow-2xs"
                                 title="Xem chi tiết hồ sơ kinh doanh"
                               >
                                 <Eye size={13} />
-                                <span className="hidden sm:inline">Hồ sơ</span>
+                                <span>Hồ sơ</span>
                               </button>
                               <button
                                 type="button"
                                 onClick={() => handleOpenEditModal(b)}
-                                className="p-1.5 text-slate-500 hover:text-indigo-600 hover:bg-slate-100 rounded-lg transition-colors cursor-pointer"
+                                className="w-7 h-7 flex items-center justify-center text-slate-500 hover:text-indigo-600 hover:bg-slate-100 rounded-lg transition-colors cursor-pointer border border-transparent hover:border-slate-200"
                                 title="Chỉnh sửa"
                               >
-                                <Pencil size={14} />
+                                <Pencil size={13} />
                               </button>
                               <button
                                 type="button"
                                 onClick={() => setBusinessToDelete(b)}
-                                className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer"
+                                className="w-7 h-7 flex items-center justify-center text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer border border-transparent hover:border-rose-200"
                                 title="Xóa cơ sở"
                               >
-                                <Trash2 size={14} />
+                                <Trash2 size={13} />
                               </button>
                             </div>
                           </td>
@@ -2447,39 +2708,147 @@ export default function BusinessManagement({
                     );
                   })()}
 
-                  {/* KHỐI LIÊN KẾT NHÀ TRỌ / CƠ SỞ LƯU TRÚ / TÒA NHÀ (Nếu có) */}
-                  {(isAccommodationBusiness(selectedBusiness) || selectedBusiness.linkedBuildingOrHostel) && (
-                    <div className="p-3 rounded-xl bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200/80 space-y-2 text-xs">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-1.5 font-bold text-amber-900 text-xs">
-                          <Building size={14} className="text-amber-700" />
-                          <span>Liên kết Tòa nhà, Căn hộ & Cơ sở Lưu trú / Nhà trọ</span>
-                        </div>
-                        <span className="text-[9px] font-black uppercase px-2 py-0.5 rounded-full bg-amber-200 text-amber-900">
-                          Chuyên đề lưu trú
-                        </span>
-                      </div>
+                  {/* KHỐI LIÊN KẾT NHÀ TRỌ / CƠ SỞ LƯU TRÚ / TÒA NHÀ & DANH SÁCH CƯ DÂN */}
+                  {(isAccommodationBusiness(selectedBusiness) || selectedBusiness.linkedBuildingOrHostel) && (() => {
+                    const stayingResidents = getStayingResidentsInBusiness(selectedBusiness);
+                    const actualCount = stayingResidents.length > 0 ? stayingResidents.length : (selectedBusiness.soNguoiLuuTru || 0);
+                    return (
+                      <div className="space-y-3">
+                        <div className="p-3 rounded-xl bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200/80 space-y-2 text-xs">
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-1.5 font-bold text-amber-900 text-xs">
+                              <Building size={14} className="text-amber-700" />
+                              <span>Liên kết Tòa nhà, Căn hộ & Cơ sở Lưu trú / Nhà trọ</span>
+                            </div>
+                            <span className="text-[9px] font-black uppercase px-2 py-0.5 rounded-full bg-amber-200 text-amber-900 border border-amber-300">
+                              Chuyên đề lưu trú KP3
+                            </span>
+                          </div>
 
-                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs">
-                        <div className="bg-white/80 p-2 rounded-lg border border-amber-100">
-                          <span className="text-[10px] text-slate-500 block">Số tầng</span>
-                          <strong className="text-amber-950 font-black text-xs">{selectedBusiness.soTang || "3"} tầng</strong>
+                          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs">
+                            <div className="bg-white/80 p-2 rounded-lg border border-amber-100">
+                              <span className="text-[10px] text-slate-500 block">Số tầng</span>
+                              <strong className="text-amber-950 font-black text-xs">{selectedBusiness.soTang || "3"} tầng</strong>
+                            </div>
+                            <div className="bg-white/80 p-2 rounded-lg border border-amber-100">
+                              <span className="text-[10px] text-slate-500 block">Số phòng trọ</span>
+                              <strong className="text-amber-950 font-black text-xs">{selectedBusiness.soPhong || "12"} phòng</strong>
+                            </div>
+                            <div className="bg-white/80 p-2 rounded-lg border border-amber-100">
+                              <span className="text-[10px] text-slate-500 block">Người lưu trú thực tế</span>
+                              <strong className="text-emerald-700 font-black text-xs flex items-center gap-1">
+                                <span>{actualCount} người</span>
+                                {stayingResidents.length > 0 && <span className="text-[9px] text-emerald-600 font-normal">(CSDL)</span>}
+                              </strong>
+                            </div>
+                            <div className="bg-white/80 p-2 rounded-lg border border-amber-100">
+                              <span className="text-[10px] text-slate-500 block">Giá thuê</span>
+                              <strong className="text-slate-800 text-[10.5px] block truncate">{selectedBusiness.giaThueTrungBinh || "Thỏa thuận"}</strong>
+                            </div>
+                          </div>
                         </div>
-                        <div className="bg-white/80 p-2 rounded-lg border border-amber-100">
-                          <span className="text-[10px] text-slate-500 block">Số phòng trọ</span>
-                          <strong className="text-amber-950 font-black text-xs">{selectedBusiness.soPhong || "12"} phòng</strong>
-                        </div>
-                        <div className="bg-white/80 p-2 rounded-lg border border-amber-100">
-                          <span className="text-[10px] text-slate-500 block">Người lưu trú</span>
-                          <strong className="text-slate-800 font-bold text-xs">{selectedBusiness.soNguoiLuuTru || "18"} người</strong>
-                        </div>
-                        <div className="bg-white/80 p-2 rounded-lg border border-amber-100">
-                          <span className="text-[10px] text-slate-500 block">Giá thuê</span>
-                          <strong className="text-slate-800 text-[10.5px] block truncate">{selectedBusiness.giaThueTrungBinh || "Thỏa thuận"}</strong>
+
+                        {/* BẢNG CHI TIẾT DANH SÁCH CƯ DÂN ĐANG THUÊ TRỌ / LƯU TRÚ */}
+                        <div className="p-3.5 rounded-xl bg-white border border-amber-200 shadow-2xs space-y-3">
+                          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-amber-100 pb-2">
+                            <div className="flex items-center gap-2">
+                              <span className="p-1.5 bg-amber-100 text-amber-800 rounded-lg">
+                                <Users size={15} />
+                              </span>
+                              <div>
+                                <h4 className="font-bold text-amber-950 text-xs uppercase tracking-wider flex items-center gap-1.5">
+                                  <span>Danh sách Người Lưu trú / Thuê trọ Thực tế</span>
+                                  <span className="px-2 py-0.5 rounded-full text-[10px] font-mono bg-amber-200 text-amber-900 font-black">
+                                    {stayingResidents.length} người
+                                  </span>
+                                </h4>
+                                <p className="text-[10.5px] text-slate-500 mt-0.5">
+                                  {stayingResidents.length > 0 
+                                    ? "Dữ liệu liên kết đối khớp thời gian thực từ CSDL Dân cư Khu phố 3 (11.632 nhân khẩu)"
+                                    : "Chưa ghi nhận cư dân tạm trú khớp với địa chỉ / thông tin chủ trọ này"}
+                                </p>
+                              </div>
+                            </div>
+
+                            {stayingResidents.length > 0 && (
+                              <button
+                                type="button"
+                                onClick={() => handleExportHostelResidents(selectedBusiness, stayingResidents)}
+                                className="inline-flex items-center gap-1.5 px-2.5 py-1.5 bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-300 rounded-lg text-xs font-bold transition-all shadow-2xs cursor-pointer"
+                              >
+                                <Download size={13} /> Xuất DS Excel ({stayingResidents.length})
+                              </button>
+                            )}
+                          </div>
+
+                          {stayingResidents.length > 0 ? (
+                            <div className="overflow-x-auto max-h-72 overflow-y-auto border border-amber-100 rounded-lg">
+                              <table className="w-full text-left border-collapse text-xs">
+                                <thead className="bg-amber-100 text-amber-950 font-bold sticky top-0 z-10 border-b border-amber-300 text-[11px] shadow-2xs">
+                                  <tr>
+                                    <th className="py-2 px-2.5">STT</th>
+                                    <th className="py-2 px-2.5">Họ và tên</th>
+                                    <th className="py-2 px-2.5">CCCD / Định danh</th>
+                                    <th className="py-2 px-2.5">SĐT cư dân</th>
+                                    <th className="py-2 px-2.5">Thường trú gốc (Quê quán)</th>
+                                    <th className="py-2 px-2.5">Thời hạn tạm trú</th>
+                                  </tr>
+                                </thead>
+                                <tbody className="divide-y divide-slate-100 bg-white">
+                                  {stayingResidents.map((res, idx) => {
+                                    const expStatus = getTemporaryResidenceExpiryStatus(res.temporaryExpDate);
+                                    return (
+                                      <tr key={res.id} className="hover:bg-amber-50/40 transition-colors">
+                                        <td className="py-2 px-2.5 font-mono text-slate-400 text-[10px]">{idx + 1}</td>
+                                        <td className="py-2 px-2.5">
+                                          <div className="font-bold text-slate-900 text-xs flex items-center gap-1">
+                                            <span>{res.fullName}</span>
+                                            <span className="text-[10px] text-slate-400 font-normal">({res.gender}, {res.birthDate})</span>
+                                          </div>
+                                        </td>
+                                        <td className="py-2 px-2.5 font-mono text-slate-800 text-[11px] font-semibold">{res.cccd}</td>
+                                        <td className="py-2 px-2.5 font-mono text-slate-600 text-[11px]">
+                                          {res.phone ? (
+                                            <a href={`tel:${res.phone}`} className="text-emerald-700 hover:underline flex items-center gap-0.5">
+                                              <Phone size={10} /> {res.phone}
+                                            </a>
+                                          ) : "—"}
+                                        </td>
+                                        <td className="py-2 px-2.5 text-slate-600 truncate max-w-[160px]" title={res.permanentAddress || res.hometown || "—"}>
+                                          {res.permanentAddress || res.hometown || "—"}
+                                        </td>
+                                        <td className="py-2 px-2.5">
+                                          {expStatus.isWarning ? (
+                                            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-100 text-amber-950 border border-amber-300 animate-pulse" title={`Hạn tạm trú đến ngày ${expStatus.formattedDate}`}>
+                                              <AlertTriangle size={10} className="text-amber-700" />
+                                              <span>{expStatus.label}</span>
+                                            </span>
+                                          ) : expStatus.isExpired ? (
+                                            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold bg-rose-100 text-rose-900 border border-rose-300" title={`Hạn tạm trú đã hết ngày ${expStatus.formattedDate}`}>
+                                              <AlertCircle size={10} className="text-rose-700" />
+                                              <span>{expStatus.label}</span>
+                                            </span>
+                                          ) : (
+                                            <span className="text-[10px] text-slate-500 font-mono">
+                                              {res.temporaryExpDate ? `Hạn: ${expStatus.formattedDate}` : "Còn hạn"}
+                                            </span>
+                                          )}
+                                        </td>
+                                      </tr>
+                                    );
+                                  })}
+                                </tbody>
+                              </table>
+                            </div>
+                          ) : (
+                            <div className="text-center py-6 text-xs text-slate-400 bg-slate-50 rounded-lg border border-dashed border-slate-200">
+                              Chưa phát hiện cư dân có địa chỉ đăng ký trùng khớp trong dữ liệu tạm trú
+                            </div>
+                          )}
                         </div>
                       </div>
-                    </div>
-                  )}
+                    );
+                  })()}
 
                   {/* THÔNG TIN ĐỊA CHÍNH, SỔ ĐỎ & TỌA ĐỘ */}
                   <div className="p-3 rounded-xl bg-slate-50 border border-slate-200/80 space-y-2 text-xs">

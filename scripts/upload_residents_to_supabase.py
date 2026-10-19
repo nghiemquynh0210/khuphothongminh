@@ -275,13 +275,23 @@ def prepare_data():
         relation = "Chủ hộ" if full_name == owner_name else "Thành viên hộ"
         dob = row['dob_clean']
         
+        perm_addr = clean_text(row.get('ĐỊA CHỈ THƯỜNG TRÚ')) or "Khu phố 3, Phường An Phú, TP. Thủ Đức"
+        curr_addr = clean_text(row.get('CHỔ Ở HIỆN TẠI')) or perm_addr
+
         residents_list.append({
             'full_name': full_name,
             'cccd': cccd,
             'gender': clean_text(row.get('GIỚI TÍNH')) if row.get('GIỚI TÍNH') in ['Nam', 'Nữ'] else None,
             'birth_date': dob,
             'phone': None,
-            'address': clean_text(row['CHỔ Ở HIỆN TẠI']) or clean_text(row['ĐỊA CHỈ THƯỜNG TRÚ']),
+            'address': curr_addr,
+            'permanent_address': perm_addr,
+            'current_address': curr_addr,
+            'father_name': clean_text(row.get('HỌ TÊN CHA')),
+            'mother_name': clean_text(row.get('HỌ TÊN MẸ')),
+            'temporary_reg_date': None,
+            'temporary_exp_date': None,
+            'management_status': clean_text(row.get('TÌNH TRẠNG QUẢN LÝ')),
             'household_code': clean_text(row['MÃ HỘ KHẨU']),
             'household_id': None,
             'relation_to_owner': relation,
@@ -343,12 +353,19 @@ def prepare_data():
             'birth_date': dob,
             'phone': phone,
             'address': dia_chi_tam_tru,
+            'permanent_address': dia_chi_goc or "Chưa cập nhật",
+            'current_address': dia_chi_tam_tru,
+            'father_name': None,
+            'mother_name': None,
+            'temporary_reg_date': clean_text(row.get('NGÀY ĐĂNG KÝ')),
+            'temporary_exp_date': clean_text(row.get('NGÀY HẾT HẠN')),
+            'management_status': clean_text(row.get('Unnamed: 11')),
             'household_code': None,
             'household_id': None,
             'relation_to_owner': relation,
             'status': 'Tạm trú',
             'occupation': None,
-            'workplace': f"ĐKTT gốc: {dia_chi_goc}" if dia_chi_goc else None,
+            'workplace': None,
             'nationality': 'Việt Nam',
             'is_party_member': False,
             'is_policy_household': False,

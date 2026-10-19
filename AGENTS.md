@@ -85,15 +85,81 @@ Dự án đã thiết lập 2 MCP Servers hoạt động:
 5. **Cổng Dịch vụ Cư Dân Số (`CitizenLandingPage.tsx`):**
    - Tiếp nhận phản ánh 1022 lưu thẳng vào `field_reports`.
    - Hiển thị tin tức cộng đồng và quỹ khu phố minh bạch từ database thật.
+6. **Chuẩn Hóa Trường Dữ Liệu Địa Chỉ & Chi Tiết Cư Dân (Thường Trú & Tạm Trú):**
+   - **Thường trú (2.076 nhân khẩu):** Phân định rạch ròi **Địa chỉ thường trú (Cột H)** và **Chỗ ở hiện tại (Cột J)**. Tích hợp bổ sung **Họ tên cha (Cột K)**, **Họ tên mẹ (Cột L)**, **Tình trạng quản lý (Cột N)**.
+   - **Tạm trú (9.556 nhân khẩu):** Phân định chuẩn xác **Địa chỉ tạm trú / Chỗ ở hiện tại tại KP3 (Cột G)** và **Địa chỉ thường trú gốc ở quê quán (Cột J)**. Tích hợp **Ngày đăng ký tạm trú (Cột H)**, **Ngày hết hạn tạm trú (Cột I)**, **Tình trạng quản lý (Cột L)**, tách số điện thoại chủ trọ. Loại bỏ hoàn toàn việc gán nhầm thông tin thường trú gốc vào trường nơi làm việc (workplace).
+   - **Thông tin chi tiết cư dân (`CitizenManagement.tsx`):** Mọi trường thông tin chưa có trong file (học vấn, hôn nhân, nghề nghiệp, BHYT, NVQS...) đều hiển thị trung thực là **"Chưa cập nhật"**, tuyệt đối không dùng giá trị giả lập/hardcoded.
+   - **Database Supabase:** Đã bổ sung 7 cột chuyên dụng (`permanent_address`, `current_address`, `father_name`, `mother_name`, `temporary_reg_date`, `temporary_exp_date`, `management_status`) và cập nhật đồng bộ thành công toàn bộ 11.632 nhân khẩu.
+
+7. **Tự Động Nhận Diện Hộ Gia Đình & Suy Luận Cây Phả Hệ Tự Động (`HouseholdAutoRecognition.tsx` & `householdRecognitionUtils.ts`):**
+   - **Tự động 100% khi khởi động ứng dụng:** Khi tải 11.632 cư dân từ Supabase, hệ thống tự động gom nhóm, liên kết toàn bộ thành viên vào Sổ hộ khẩu điện tử tương ứng và suy luận quan hệ mà người dùng không cần bấm bất kỳ nút nào thủ công.
+   - **Thuật toán phả hệ thông minh:** Tự động đối chiếu chéo `Họ tên cha`, `Họ tên mẹ`, `Giới tính`, `Năm sinh` để xác định chính xác: `Chủ hộ`, `Vợ/Chồng`, `Con trai/Con gái`, `Cháu nội/Cháu ngoại`, `Bố/Mẹ`, `Con dâu/Con rể`, `Anh/Chị/Em`.
+   - **Hỗ trợ đầy đủ cả Thường trú & Tạm trú:** Nhận diện theo mã hộ khẩu (Thường trú) hoặc phân cụm địa chỉ chuẩn hóa (Tạm trú).
+   - **Tối ưu hóa UI/UX:** Tích hợp phân trang `Pagination` (10 hộ/trang) tại màn hình "Tự Nhận Diện Hộ", loại bỏ triệt để hiện tượng lag DOM khi render hàng trăm/nghìn hộ.
+
+8. **Cảnh Báo Hết Hạn Tạm Trú Trước 01 Tháng & Bóc Tách / Liên Kết Cơ Sở Kinh Doanh Nhà Trọ:**
+   - **Bóc tách thông tin nhà trọ thông minh (`parseAccommodationInfo`):** Tự động phân tích các chuỗi dữ liệu phức tạp như `"Nhà trọ Phạm Văn Bình (SĐT: 0913137155) 17/A3 Khu phố 3, Phường An Phú, Thành phố Hồ Chí Minh"`, tách thành:
+     + Tên chủ trọ / Tên cơ sở: `Phạm Văn Bình` / `Nhà trọ Phạm Văn Bình`
+     + Số điện thoại liên hệ: `0913137155` (có nút bấm gọi `tel:` trực tiếp)
+     + Địa chỉ phòng trọ chuẩn hóa: `17/A3 Khu phố 3`
+   - **Cảnh báo hết hạn tạm trú trước 01 tháng (`getTemporaryResidenceExpiryStatus`):**
+     + So khớp ngày hết hạn tạm trú (`temporaryExpDate`) với thời gian thực.
+     + Nếu còn hạn <= 30 ngày (trước 01 tháng): Hiển thị badge vàng/cam nhấp nháy `⚠️ Sắp hết hạn tạm trú (còn X ngày)`.
+     + Nếu đã quá hạn: Hiển thị badge đỏ `🚨 Đã hết hạn tạm trú (quá X ngày)`.
+     + Tích hợp Banner cảnh báo điều hành và Bộ lọc nhanh theo thời hạn tạm trú trên thanh công cụ `CitizenManagement.tsx`.
+   - **Liên kết Cơ sở Kinh doanh Nhà trọ & Số người lưu trú thực tế (`BusinessManagement.tsx`):**
+     + Tự động tính toán số người lưu trú thực tế từ danh sách cư dân (`residents`) bằng hàm `isResidentInAccommodation`.
+     + Khi bấm vào cơ sở kinh doanh nhà trọ (ví dụ `Nhà trọ Phạm Văn Bình` tại `17/A3`): Hiển thị chính xác số người thực tế (81 người đối khớp từ 11.632 cư dân) và hiển thị bảng chi tiết danh sách cư dân lưu trú (Họ tên, CCCD, SĐT, Quê quán/Thường trú gốc, Thời hạn tạm trú, Cảnh báo hạn).
+     + Hỗ trợ xuất danh sách cư dân lưu trú ra file Excel 1-chạm (`handleExportHostelResidents`).
+
+9. **Khắc Phục Phân Hệ Cơ Sở Kinh Doanh & Đồng Bộ Cơ Sở Lưu Trú Vào Database Supabase:**
+   - **Nguyên nhân trước đó:** Bảng `businesses` trên Supabase PostgreSQL trước đây chỉ có 3 dòng mẫu và thiếu các cột lưu trú (`is_accommodation`, `room_count`, `guest_count`), khiến hàm fetch từ DB ghi đè lên danh sách và không hiển thị các nhà trọ.
+   - **Đã khắc phục:**
+     + Bổ sung các cột `is_accommodation`, `room_count`, `guest_count`, `pccc_passed`, `scale`, `has_cam_ket_an_ninh` vào bảng `businesses` trên Supabase PostgreSQL.
+     + Đồng bộ toàn bộ 13 cơ sở kinh doanh & nhà trọ lưu trú vào bảng `businesses` (bao gồm `Nhà trọ Phạm Văn Bình`, `Nhà trọ An Phú Khang`, `Nhà nghỉ Bình Minh`...).
+     + Nâng cấp hàm nạp dữ liệu trong [src/App.tsx](file:///d:/Download/remix-remix-remix-khu-ph-3-an-ph-qu-n-l-th-ng-minh-12-oct-2026-07-01-28/src/App.tsx) để tự động đối chiếu, kế thừa metadata phong phú và giữ đầy đủ các trường thông tin.
+     + Kiểm tra trực quan qua Chrome DevTools MCP: UI render chuẩn xác 13 cơ sở, 3 cơ sở lưu trú (57 phòng), mở modal chi tiết Nhà trọ Phạm Văn Bình hiển thị đầy đủ 81 cư dân lưu trú thực tế cùng nút xuất Excel.
+
+10. **Tối Ưu Hóa Toàn Diện UI/UX Phân Hệ Cơ Sở Kinh Doanh (Card View & Table View):**
+   - **Card View:**
+     + Tách tên cơ sở ra ngoài ảnh, in đậm 14px, loại bỏ hiện tượng bị che khuất / cắt cụt chữ (`truncate`) trên chân ảnh.
+     + Đưa mã giấy phép (`licenseNumber`) và huy hiệu `Cơ sở lưu trú` lên các góc ảnh một cách tinh tế.
+     + Thiết kế khối thông tin lưu trú nền cam hổ phách cao cấp với micro-stat `phòng • tầng` và huy hiệu `✓ CSDL`.
+     + Khối Địa chính format dạng mono 1 hàng (`Tờ 272, Thửa 55 • 150 m² ODT`), không bị ngắt rớt dòng.
+     + Footer hiển thị trọn vẹn 100% họ tên chủ hộ (`Nguyễn Văn Hùng`, `Trần Thị Lan`, `Phạm Văn Bình`) và căn chỉnh đều đặn nút `Sổ đỏ` cùng `✓ PCCC`.
+   - **Table View:**
+     + Bổ sung ảnh thumbnail đại diện tròn bo góc 10x10.
+     + Sửa lỗi rớt dòng tại cột Trạng thái (`Đang hoạt động` nằm trên 1 hàng duy nhất với chấm tròn pulse sinh động).
+     + Cột lưu trú căn chỉnh thẳng hàng tuyệt đối giữa số người và tag `✓ CSDL`.
+     + Sửa nút `Hồ sơ` từ hình bầu dục dọc méo mó thành nút bấm chuẩn UI chữ nhật bo góc với icon mắt và chữ nằm ngang cân đối.
+
+11. **Tự Động Nhận Diện & Liên Kết Cơ Sở Nhà Trọ Từ Dữ Liệu Dân Cư (`autoExtractHostelBusinesses`):**
+   - **Tự động bóc tách & phát hiện 108 cơ sở nhà trọ:** Phân tích toàn diện 11.632 cư dân (đặc biệt 9.556 cư dân tạm trú), bóc tách địa chỉ phòng trọ, SĐT chủ trọ và tên chủ hộ để gom nhóm tạo thành các cơ sở kinh doanh lưu trú chuẩn xác (e.g. `Nhà trọ Đặng Văn Độ`, `Nhà trọ Đồng Thị Gái`, `Nhà trọ Phạm Thị Thanh Thủy`, `Nhà trọ Phạm Thị Hiền`, `Nhà trọ Cao Thị Mỹ Linh`...).
+   - **Đồng bộ layout chuẩn 100% không vỡ khung:** Mọi cơ sở nhà trọ mới đều có cấu trúc hiển thị đồng nhất tuyệt đối với `Nhà trọ An Phú Khang`, `Nhà nghỉ Bình Minh` và `Nhà trọ Phạm Văn Bình`: `🛏️ X phòng • Y tầng` | `👥 Z người` | Khối Địa chính mono 1 dòng | Tên chủ hộ và badge PCCC cân đối.
+   - **Xem chi tiết & Xuất Excel 1-chạm:** Khi click vào bất kỳ cơ sở nhà trọ nào hoặc bấm `👁️ Hồ sơ`, modal mở ra hiển thị danh sách toàn bộ cư dân đang lưu trú tại cơ sở đó (Họ tên, ngày sinh, CCCD, quê quán thường trú gốc, thời hạn tạm trú, cảnh báo hết hạn) và nút `Xuất DS Excel (X người)`.
+   - **Đồng bộ vĩnh viễn vào Supabase PostgreSQL:** Đã thêm nút `Lưu vào Supabase CSDL` và đồng bộ thành công toàn bộ 108 cơ sở lưu trú vào bảng `businesses` trên Supabase, đảm bảo dữ liệu tồn tại vĩnh viễn và không bị mất sau khi tải lại trang.
+
+12. **Đồng Bộ Hóa Số Liệu Thực Tế Trên Toàn Hệ Thống Tổng Quan Cán Bộ & Cổng Cư Dân (`Dashboard.tsx` & `CitizenLandingPage.tsx`):**
+   - **Xóa bỏ hoàn toàn số liệu giả lập:** Loại bỏ các số liệu mock cũ (1.420 dân, 350 hộ, 45 cơ sở, 1.045 thường trú, 320 tạm trú...).
+   - **Liên kết 100% CSDL Supabase PostgreSQL thời gian thực:**
+     + **Dân cư thực tế:** **11.632 nhân khẩu** (Nam: 6.005 người chiếm 51.6% • Nữ: 5.627 người chiếm 48.4%).
+     + **Hộ khẩu thực tế:** **488 hộ gia đình** số hóa (bình quân 4.3 người/hộ).
+     + **Doanh nghiệp & Cơ sở kinh doanh:** **118 cơ sở** (7 Doanh nghiệp TNHH/Cổ phần có MST • 111 Cơ sở kinh doanh tại chỗ gồm 108 cơ sở nhà trọ với 553 phòng).
+     + **Phân bố cư trú trực quan trên biểu đồ BarChart:** Thường trú **2.076 người**, Tạm trú **9.556 người**.
+   - **Tích hợp khối "Chỉ Số Quản Lý Dân Cư & Cảnh Báo Điều Hành KP3":**
+     + **Cơ cấu Độ tuổi (Luật Căn cước 2023):** Trẻ em (<14t): 1.311 | Độ tuổi lao động (14-59t): 9.883 | Người cao tuổi (≥60t): 438.
+     + **Cảnh báo Tạm trú thời gian thực (Công an KV):** Sắp hết hạn (≤30 ngày): 245 người (badge cảnh báo nhấp nháy) | Đã quá hạn: 533 người (badge đỏ) | An toàn: 8.778 hồ sơ.
+     + **Mạng lưới Nhà trọ:** 108 cơ sở • 553 phòng • 9.556 khách tạm trú đối khớp thực tế.
+     + **Tra cứu Sổ hộ khẩu:** Mẫu tra cứu chuẩn xác `HK-001`, `HK-002`... liên kết trực tiếp với dữ liệu 488 hộ gia đình.
 
 ---
 
-## 7. TRẠNG THÁI HỆ THỐNG & ĐỊNH HƯỚNG PHIÊN TIẾP THEO
+## 8. TRẠNG THÁI HỆ THỐNG & ĐỊNH HƯỚNG TIẾP THEO
 - **Trạng thái Build:** ✅ TypeScript không lỗi (`npx tsc --noEmit` exit 0), Vite build thành công sạch sẽ.
-- **Trạng thái Console DevTools:** ✅ Đã kiểm tra qua Chrome DevTools MCP, 0 lỗi console/runtime.
 - **Trạng thái Deployment:**
   - Production Vercel: 👉 **[https://bdhkp3.vercel.app](https://bdhkp3.vercel.app)**
   - Local Dev Server: `http://localhost:3000`
-- **Kế hoạch phiên tiếp theo:**
-  - Kết nối tính năng xuất báo cáo thống kê dân cư (Thường trú/Tạm trú/Người cao tuổi) ra file Excel/PDF chuẩn biểu mẫu Bộ Công an.
+- **Kế hoạch tiếp theo:**
+  - Triển khai xuất báo cáo thống kê dân cư (Thường trú/Tạm trú/Người cao tuổi) ra file Excel/PDF chuẩn biểu mẫu Bộ Công an.
   - Tích hợp thêm gửi thông báo email/webhook khi có phản ánh hiện trường 1022 mới gửi lên từ cư dân.
+

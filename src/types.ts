@@ -18,9 +18,15 @@ export interface Resident {
   religion?: string;               // Tôn giáo (Không, Phật giáo, Công giáo...)
   nationality?: string;            // Quốc tịch (Việt Nam, Hàn Quốc, Anh...)
   hometown?: string;               // Quê quán
-  permanentAddress?: string;       // Nơi thường trú gốc
-  temporaryAddress?: string;       // Nơi ở hiện nay
-  education?: string;              // Trình độ học vấn (12/12, Đại học, Thạc sĩ...)
+  permanentAddress?: string;       // Nơi thường trú gốc (Cột H ở Thường trú, Cột J ở Tạm trú)
+  temporaryAddress?: string;       // Nơi ở hiện nay / Tạm trú (Cột J ở Thường trú, Cột G ở Tạm trú)
+  currentAddress?: string;         // Chỗ ở hiện tại
+  education?: string;              // Trình độ học vấn
+  fatherName?: string;             // Họ tên cha (Cột K ở Thường trú)
+  motherName?: string;             // Họ tên mẹ (Cột L ở Thường trú)
+  temporaryRegDate?: string;       // Ngày đăng ký tạm trú (Cột H ở Tạm trú)
+  temporaryExpDate?: string;       // Ngày hết hạn tạm trú (Cột I ở Tạm trú)
+  managementStatus?: string;       // Tình trạng quản lý
   maritalStatus?: "Độc thân" | "Đã kết hôn" | "Ly hôn" | "Góa"; // Tình trạng hôn nhân
   workplace?: string;              // Nơi làm việc / Cơ quan công tác
   idIssueDate?: string;            // Ngày cấp CCCD / Hộ chiếu

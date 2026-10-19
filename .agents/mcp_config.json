@@ -21,6 +21,44 @@
       "env": {
         "VERCEL_API_TOKEN": "vcp_2E4YuC4RETScN01BRUIPtrVSTijX4JyB2EehKF8BMXqtuTWfFh2sIBhQ"
       }
+    },
+    "notebooklm": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@m4ykeldev/notebooklm-mcp",
+        "serve"
+      ]
+    },
+    "office": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "office-mcp"
+      ],
+      "env": {
+        "DOTNET_ROLL_FORWARD": "LatestMajor"
+      }
+    },
+    "excel": {
+      "command": "python",
+      "args": [
+        "-m",
+        "excelmcp.server"
+      ],
+      "env": {
+        "EXCEL_ENABLE_WRITE": "true"
+      }
+    },
+    "powerpoint": {
+      "command": "python",
+      "args": [
+        "-m",
+        "pptmcp.server"
+      ],
+      "env": {
+        "PPT_ENABLE_WRITE": "true"
+      }
     }
   }
 }
