@@ -1,0 +1,37 @@
+[project]
+name = "kp3-scripts"
+version = "1.0.0"
+description = "Scripts hỗ trợ Hệ thống Quản lý Khu phố 3 An Phú"
+requires-python = ">=3.11"
+dependencies = [
+    "openpyxl>=3.1.0",
+    "pandas>=2.0.0",
+    "supabase>=2.0.0",
+    "python-dotenv>=1.0.0",
+    "requests>=2.31.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.4.0",
+    "ruff>=0.1.0",
+]
+
+[tool.ruff]
+target-version = "py311"
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "N", "UP"]
+ignore = ["E501"]  # Handled by line-length
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+
+[tool.pytest.ini_options]
+testpaths = ["scripts/tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+addopts = "-v --tb=short"

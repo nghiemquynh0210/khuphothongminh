@@ -1,0 +1,38 @@
+version: '3.8'
+
+services:
+  # =========================================
+  # App KP3 — Local Development
+  # =========================================
+  app:
+    build:
+      context: .
+      target: dev
+    container_name: kp3-app
+    ports:
+      - '3000:3000'
+    volumes:
+      - .:/app
+      - /app/node_modules
+    env_file:
+      - .env.local
+    environment:
+      - DISABLE_HMR=false
+    restart: unless-stopped
+    depends_on:
+      - mailhog
+
+  # =========================================
+  # MailHog — Test email locally
+  # =========================================
+  mailhog:
+    image: mailhog/mailhog:latest
+    container_name: kp3-mailhog
+    ports:
+      - '1025:1025'   # SMTP
+      - '8025:8025'   # Web UI
+    restart: unless-stopped
+
+networks:
+  default:
+    name: kp3-network

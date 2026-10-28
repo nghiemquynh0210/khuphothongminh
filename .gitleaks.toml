@@ -1,0 +1,36 @@
+title = "KP3 An Phu - Gitleaks Config"
+
+[allowlist]
+  description = "Cho phép biến môi trường (không phải giá trị thực)"
+  regexes = [
+    '''VITE_SUPABASE_ANON_KEY\s*=\s*your_''',
+    '''VITE_GEMINI_API_KEY\s*=\s*your_''',
+  ]
+  paths = [
+    '''.env.example''',
+    '''AGENTS.md''',
+  ]
+
+[[rules]]
+  description = "Supabase Service Role Key"
+  id = "supabase-service-role"
+  regex = '''eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9\.[A-Za-z0-9+/=]+\.[A-Za-z0-9+/=_-]+'''
+  tags = ["secret", "supabase", "jwt"]
+
+[[rules]]
+  description = "Supabase Access Token (sbp_)"
+  id = "supabase-access-token"
+  regex = '''sbp_[a-f0-9]{40}'''
+  tags = ["secret", "supabase"]
+
+[[rules]]
+  description = "Vercel Personal Access Token (vcp_)"
+  id = "vercel-pat"
+  regex = '''vcp_[A-Za-z0-9]{40,}'''
+  tags = ["secret", "vercel"]
+
+[[rules]]
+  description = "Google API Key"
+  id = "google-api-key"
+  regex = '''AIza[0-9A-Za-z\-_]{35}'''
+  tags = ["secret", "google"]

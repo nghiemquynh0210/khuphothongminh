@@ -28,8 +28,7 @@ import {
   X,
   Home,
   Briefcase,
-  Coins,
-  Pin
+  Coins
 } from "lucide-react";
 import { AdministrativeForm, CommunityEvent, FieldReport, LocalNews } from "../types";
 
@@ -879,10 +878,10 @@ export default function CitizenLandingPage({
                     >
                       <div className="space-y-2">
                         <div className="flex justify-between items-center text-xs">
-                          <span className={`inline-flex items-center gap-1 font-semibold px-2 py-0.5 rounded text-[11px] ${
+                          <span className={`font-semibold px-2 py-0.5 rounded text-[11px] ${
                             n.isPinned ? "bg-red-100 text-gov-danger font-bold" : "bg-blue-100 text-gov-navy"
                           }`}>
-                            {n.isPinned ? <><Pin size={10} className="rotate-45" /> Ưu tiên</> : n.category}
+                            {n.isPinned ? "📌 Ưu tiên" : n.category}
                           </span>
                           <span className="text-slate-500 flex items-center gap-1 font-mono text-[11px]">
                             <Clock size={11} /> {n.date}
@@ -1102,7 +1101,7 @@ export default function CitizenLandingPage({
             <div><dt className="text-slate-500">Chuyên mục</dt><dd className="font-semibold text-gov-navy">{newsDetail.category}</dd></div>
             <div><dt className="text-slate-500">Ngày công bố</dt><dd className="font-semibold">{newsDetail.date}</dd></div>
             <div><dt className="text-slate-500">Cơ quan ban hành / Tác giả</dt><dd className="font-semibold text-gov-navy">{newsDetail.author}</dd></div>
-            <div><dt className="text-slate-500">Tình trạng</dt><dd className="font-semibold text-emerald-700 flex items-center gap-1">{newsDetail.isPinned ? <><Pin size={12} className="rotate-45" /> Thông báo ưu tiên</> : "Bản tin chính thức"}</dd></div>
+            <div><dt className="text-slate-500">Tình trạng</dt><dd className="font-semibold text-emerald-700">{newsDetail.isPinned ? "📌 Thông báo ưu tiên" : "Bản tin chính thức"}</dd></div>
           </dl>
           <div className="text-sm text-slate-700 leading-relaxed whitespace-pre-line p-4 rounded-2xl bg-white border border-slate-200">
             {newsDetail.content}

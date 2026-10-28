@@ -1,0 +1,28 @@
+meta {
+  name: Tìm kiếm cư dân theo tên
+  type: http
+  seq: 1
+}
+
+get {
+  url: {{SUPABASE_URL}}/rest/v1/residents?name=ilike.*{{search_name}}*&limit=20&select=id,name,cccd,gender,date_of_birth,residency_type,current_address,temporary_exp_date
+  body: none
+  auth: none
+}
+
+headers {
+  apikey: {{SUPABASE_ANON_KEY}}
+  Authorization: Bearer {{SUPABASE_ANON_KEY}}
+  Content-Type: application/json
+}
+
+params:query {
+  search_name: Phạm
+}
+
+docs {
+  # Tìm kiếm cư dân
+  Tra cứu danh sách cư dân theo tên (hỗ trợ tìm kiếm gần đúng).
+  
+  **Phân quyền:** Yêu cầu token cán bộ đã duyệt (is_approved_staff)
+}

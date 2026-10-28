@@ -9,7 +9,7 @@
         "wjdgaobhipkgzveidtra"
       ],
       "env": {
-        "SUPABASE_ACCESS_TOKEN": "sbp_fc2b41fc33b4edc43b40e83dec70d6f54502c03e"
+        "SUPABASE_ACCESS_TOKEN": "${SUPABASE_ACCESS_TOKEN}"
       }
     },
     "vercel": {
@@ -19,7 +19,7 @@
         "@modelcontextprotocol/server-vercel"
       ],
       "env": {
-        "VERCEL_API_TOKEN": "vcp_2E4YuC4RETScN01BRUIPtrVSTijX4JyB2EehKF8BMXqtuTWfFh2sIBhQ"
+        "VERCEL_API_TOKEN": "${VERCEL_API_TOKEN}"
       }
     },
     "notebooklm": {
@@ -58,6 +58,30 @@
       ],
       "env": {
         "PPT_ENABLE_WRITE": "true"
+      }
+    },
+    "context7": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@upstash/context7-mcp@latest"
+      ]
+    },
+    "playwright": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@playwright/mcp@latest"
+      ]
+    },
+    "github": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@modelcontextprotocol/server-github"
+      ],
+      "env": {
+        "GITHUB_PERSONAL_ACCESS_TOKEN": "${GITHUB_PAT}"
       }
     }
   }

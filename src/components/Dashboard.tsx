@@ -31,8 +31,7 @@ import {
   Copy,
   Check,
   Filter,
-  Globe,
-  MapPin
+  Globe
 } from "lucide-react";
 import { 
   ResponsiveContainer, 
@@ -304,30 +303,30 @@ export default function Dashboard({
     return (
       <div id="dashboard-view" className="space-y-6">
         {/* Public Citizen Header Banner */}
-        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-gradient-to-r from-blue-900 via-indigo-950 to-slate-900 p-6 sm:p-8 rounded-3xl text-white shadow-lg relative overflow-hidden border border-blue-900/40">
-          <div className="absolute right-0 top-0 translate-x-10 -translate-y-10 w-64 h-64 bg-blue-500/10 rounded-full blur-3xl pointer-events-none"></div>
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-gradient-to-r from-emerald-800 via-teal-900 to-slate-900 p-6 md:p-8 rounded-3xl text-white shadow-lg relative overflow-hidden">
+          <div className="absolute right-0 top-0 translate-x-10 -translate-y-10 w-64 h-64 bg-emerald-500/10 rounded-full blur-3xl pointer-events-none"></div>
           
           <div className="relative z-10 space-y-1.5 max-w-2xl">
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-blue-500/20 border border-blue-400/30 text-blue-200 text-xs font-semibold backdrop-blur-sm mb-1">
-              <Sparkles size={14} className="text-blue-300 animate-pulse" />
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/20 border border-emerald-400/30 text-emerald-300 text-xs font-semibold backdrop-blur-sm mb-1">
+              <Sparkles size={14} className="text-emerald-300 animate-pulse" />
               <span>Cổng Dịch Vụ Cư Dân Số Khu Phố 3</span>
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
-              <span className="font-normal text-[11px] text-blue-200">Truy cập mở 24/7</span>
+              <span className="font-normal text-[11px] text-emerald-200">Truy cập mở 24/7</span>
             </div>
-            <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-white">
+            <h1 className="text-2xl md:text-3xl font-black tracking-tight text-white">
               Xin chào Quý Cư dân Khu phố 3, An Phú!
             </h1>
-            <p className="text-slate-200 text-xs sm:text-sm leading-relaxed">
-              Cổng dịch vụ trực tuyến phục vụ toàn thể người dân địa phương. Tải trực tiếp 43 biểu mẫu hành chính (cấp số nhà, CT01, đăng ký kinh doanh), gửi phản ánh hiện trường 1022 và hỏi Trợ lý AI hoàn toàn miễn phí.
+            <p className="text-slate-200 text-xs md:text-sm leading-relaxed">
+              Cổng dịch vụ trực tuyến phục vụ toàn thể người dân địa phương. Tải trực tiếp biểu mẫu hành chính (cấp số nhà, CT01, đăng ký kinh doanh), gửi phản ánh hiện trường 1022 và hỏi Trợ lý AI hoàn toàn miễn phí.
             </p>
           </div>
 
           <div className="relative z-10 flex flex-col sm:flex-row md:flex-col items-start md:items-end gap-2.5 shrink-0">
             <div className="flex items-center gap-2 bg-white/10 px-3.5 py-1.5 rounded-xl text-xs font-mono font-medium backdrop-blur-md border border-white/15">
-              <Clock size={15} className="text-blue-300" />
-              <span>Hôm nay: {new Date().toLocaleDateString("vi-VN", { weekday: 'short', year: 'numeric', month: 'numeric', day: 'numeric' })}</span>
+              <Clock size={15} className="text-emerald-300" />
+              <span>Hôm nay: {new Date().toLocaleDateString("vi-VN")}</span>
             </div>
-            <div className="text-[11px] text-blue-200/90 font-medium font-mono">
+            <div className="text-[11px] text-emerald-200/90 font-medium">
               Phường An Phú, TP. Thủ Đức, TP. Hồ Chí Minh
             </div>
           </div>
@@ -735,11 +734,8 @@ export default function Dashboard({
                 </div>
 
                 <div className="pt-2.5 border-t border-slate-100 flex items-center justify-between text-[10px] text-slate-400 font-mono">
-                  <span className="flex items-center gap-1 truncate max-w-[200px]">
-                    <MapPin size={11} className="text-slate-400 shrink-0" />
-                    <span className="truncate">{r.location}</span>
-                  </span>
-                  <span className="shrink-0">{r.reportedAt}</span>
+                  <span>📍 {r.location}</span>
+                  <span>{r.reportedAt}</span>
                 </div>
               </div>
             ))}
@@ -878,30 +874,15 @@ export default function Dashboard({
   return (
     <div id="dashboard-view" className="space-y-6">
       {/* Top Banner / Welcome Row */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-gradient-to-r from-blue-900 via-indigo-950 to-slate-900 p-6 sm:p-7 rounded-3xl text-white shadow-lg relative overflow-hidden border border-blue-900/40">
-        <div className="relative z-10 space-y-1">
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-blue-500/20 border border-blue-400/30 text-blue-200 text-xs font-semibold backdrop-blur-sm mb-1">
-            <span className="w-1.5 h-1.5 rounded-full bg-blue-400 animate-pulse"></span>
-            <span>Trung Tâm Điều Hành Cán Bộ • KP3 An Phú</span>
-            <span className="w-1 h-1 rounded-full bg-blue-300"></span>
-            <span className="font-mono text-[10px] text-blue-300 font-normal">WGS-84 CRS</span>
-          </div>
-          <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-white">
-            Bàn Làm Việc & Điều Hành Khu Phố 3
-          </h1>
-          <p className="text-slate-200 text-xs sm:text-sm leading-relaxed max-w-2xl">
-            Giám sát trực quan dữ liệu 11.632 nhân khẩu, 488 hộ gia đình, 118 cơ sở kinh doanh và tiếp nhận xử lý phản ánh hiện trường 1022 theo thời gian thực.
-          </p>
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-gradient-to-r from-emerald-800 to-slate-900 p-6 rounded-2xl text-white shadow-md">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight">Khu phố 3, Phường An Phú</h1>
+          <p className="text-slate-300 text-sm mt-1">Trang điều hành Trung tâm Quản lý Khu phố Thông minh - Cập nhật tự động</p>
         </div>
-        <div className="relative z-10 flex flex-col sm:flex-row md:flex-col items-start md:items-end gap-2 shrink-0">
-          <div className="flex items-center gap-2 bg-white/10 px-3.5 py-1.5 rounded-xl text-xs font-mono font-semibold backdrop-blur-md border border-white/15">
-            <Clock size={14} className="text-blue-300" />
-            <span>{new Date().toLocaleDateString("vi-VN", { weekday: 'long', year: 'numeric', month: 'numeric', day: 'numeric' })}</span>
-          </div>
-          <div className="flex items-center gap-1.5 text-[11px] text-emerald-300 font-mono font-semibold">
-            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
-            <span>Supabase PostgreSQL: Đã đồng bộ</span>
-          </div>
+        <div className="flex items-center gap-3 bg-white/10 px-4 py-2 rounded-xl text-xs font-mono font-medium backdrop-blur-sm">
+          <Clock size={16} className="text-emerald-400" />
+          <span>Hôm nay: {new Date().toLocaleDateString("vi-VN")}</span>
+          <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
         </div>
       </div>
 

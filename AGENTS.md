@@ -117,7 +117,7 @@ Dự án đã thiết lập 2 MCP Servers hoạt động:
    - **Đã khắc phục:**
      + Bổ sung các cột `is_accommodation`, `room_count`, `guest_count`, `pccc_passed`, `scale`, `has_cam_ket_an_ninh` vào bảng `businesses` trên Supabase PostgreSQL.
      + Đồng bộ toàn bộ 13 cơ sở kinh doanh & nhà trọ lưu trú vào bảng `businesses` (bao gồm `Nhà trọ Phạm Văn Bình`, `Nhà trọ An Phú Khang`, `Nhà nghỉ Bình Minh`...).
-     + Nâng cấp hàm nạp dữ liệu trong [src/App.tsx](file:///d:/Download/remix-remix-remix-khu-ph-3-an-ph-qu-n-l-th-ng-minh-12-oct-2026-07-01-28/src/App.tsx) để tự động đối chiếu, kế thừa metadata phong phú và giữ đầy đủ các trường thông tin.
+     + Nâng cấp hàm nạp dữ liệu trong [src/App.tsx](file:///d:/Download/khuphothongminh/src/App.tsx) để tự động đối chiếu, kế thừa metadata phong phú và giữ đầy đủ các trường thông tin.
      + Kiểm tra trực quan qua Chrome DevTools MCP: UI render chuẩn xác 13 cơ sở, 3 cơ sở lưu trú (57 phòng), mở modal chi tiết Nhà trọ Phạm Văn Bình hiển thị đầy đủ 81 cư dân lưu trú thực tế cùng nút xuất Excel.
 
 10. **Tối Ưu Hóa Toàn Diện UI/UX Phân Hệ Cơ Sở Kinh Doanh (Card View & Table View):**
@@ -151,25 +151,6 @@ Dự án đã thiết lập 2 MCP Servers hoạt động:
      + **Cảnh báo Tạm trú thời gian thực (Công an KV):** Sắp hết hạn (≤30 ngày): 245 người (badge cảnh báo nhấp nháy) | Đã quá hạn: 533 người (badge đỏ) | An toàn: 8.778 hồ sơ.
      + **Mạng lưới Nhà trọ:** 108 cơ sở • 553 phòng • 9.556 khách tạm trú đối khớp thực tế.
      + **Tra cứu Sổ hộ khẩu:** Mẫu tra cứu chuẩn xác `HK-001`, `HK-002`... liên kết trực tiếp với dữ liệu 488 hộ gia đình.
-
-13. **Tái Thiết Kế Giao Diện Web Toàn Diện Theo Tiêu Chuẩn UI-UX-PRO-MAX (Civic Tech & WCAG AAA):**
-   - **Hệ thống Design System Chuẩn mực (`design-system/kp3-smart-city/MASTER.md`):**
-     + Màu sắc chủ đạo hành chính chính thống: Primary Civic Blue (`#1E40AF`), Digital Sky (`#3B82F6`), Forest Service Accent (`#16A34A`), Dark surfaces (`#0F172A` / `#090D16`), Muted border (`#BFDBFE` / `#E2E8F0`).
-     + Chuẩn mực Spacing 4/8dp, Typography phân cấp rõ ràng (Fira Sans / Inter kết hợp Mono numerals cho mã CCCD, số sổ hộ khẩu, timestamp).
-   - **Xóa bỏ triệt để Emoji làm Icon cấu trúc (Nguyên tắc No Emoji as Structural Icons):**
-     + Thay thế 100% emoji thô (📍, 👥, 📌, 🏠...) bằng bộ vector icon Lucide SVG chuẩn mực (`MapPin`, `Users`, `Pin`, `Home`, `Store`...).
-   - **Thanh Điều Hướng Sidebar Đẳng Cấp:**
-     + Phân nhóm nghiệp vụ trực quan: `ĐIỀU HÀNH & TRỢ LÝ`, `DÂN CƯ & ĐỊA BÀN`, `KINH TẾ & DOANH NGHIỆP`, `CỘNG ĐỒNG & AN SINH`, `QUẢN TRỊ HỆ THỐNG`.
-     + Huy hiệu số liệu động thời gian thực (`11.6k`, `488`, `118`, `1022`, `AI`).
-     + Trạng thái Active viền xanh công nghệ (`border-l-[3px] border-blue-500 bg-blue-600/20 text-blue-400 font-semibold`).
-   - **Header Bar Hiện Đại & Chuyển Đổi Nhanh 1-Chạm:**
-     + Breadcrumb định vị phân hệ (`ĐIỀU HÀNH KP3 / ...`), chỉ số đồng bộ Supabase PostgreSQL thời gian thực với pulse sinh động.
-     + Nút chuyển đổi vai trò (`Cổng Cư dân` ⇄ `Bàn làm việc Cán bộ`) tương phản cao, chống nhầm lẫn.
-     + Menu Thông báo popover phân cấp rõ ràng và hỗ trợ đánh dấu đã đọc.
-   - **Dashboard Cán Bộ & Cổng Cư Dân:**
-     + Bảng điều khiển cán bộ: Banner màu xanh hành chính sang trọng, 5 thẻ chỉ số KPI cân đối, biểu đồ phân bố dân cư BarChart/Donut, Bento Grid cảnh báo hạn tạm trú & mạng lưới nhà trọ.
-     + Cổng Cư dân: Hero Banner đón tiếp, 6 tiện ích số trực tuyến, kho 43 biểu mẫu Word (.DOC) và danh sách phản ánh hiện trường 1022 minh bạch.
-   - **Production Deployment:** Đã triển khai bản build mới nhất lên Vercel Production 👉 **[https://bdhkp3.vercel.app](https://bdhkp3.vercel.app)**.
 
 ---
 

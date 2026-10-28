@@ -2110,8 +2110,8 @@ export default function BusinessManagement({
                               <span className="text-amber-400">•</span>
                               <span>{b.soTang || 0} tầng</span>
                             </div>
-                            <span className="text-[11px] font-bold text-amber-900 bg-amber-100/90 px-2.5 py-0.5 rounded-full border border-amber-300/80 whitespace-nowrap shrink-0 inline-flex items-center gap-1">
-                              <Users size={11} className="text-amber-700" /> {actualCount} người
+                            <span className="text-[11px] font-bold text-amber-900 bg-amber-100/90 px-2.5 py-0.5 rounded-full border border-amber-300/80 whitespace-nowrap shrink-0">
+                              👥 {actualCount} người
                             </span>
                           </div>
                         );
@@ -2266,9 +2266,7 @@ export default function BusinessManagement({
                                     <Building size={11} className="text-amber-700" /> {b.soPhong || 0} phòng / {b.soTang || 0} tầng
                                   </span>
                                   <div className="text-[11px] font-bold text-amber-950 flex items-center gap-1.5">
-                                    <span className="inline-flex items-center gap-1">
-                                      <Users size={11} className="text-amber-800" /> {actualCount} người
-                                    </span>
+                                    <span>👥 {actualCount} người</span>
                                     {staying.length > 0 ? (
                                       <span className="text-[9px] font-bold px-1.5 py-0.2 rounded bg-emerald-100 text-emerald-800 border border-emerald-300">
                                         ✓ CSDL
