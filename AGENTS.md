@@ -53,7 +53,7 @@ Tài liệu này đóng vai trò là **Bộ nhớ làm việc (Agent Memory)** v
 - **Personal Access Token:** `vcp_2E4YuC4RETScN01BRUIPtrVSTijX4JyB2EehKF8BMXqtuTWfFh2sIBhQ`
 - **Domain Production chính thức:**
   👉 **[https://bdhkp3.vercel.app](https://bdhkp3.vercel.app)**
-- **GitHub Repository (Private):**
+- **GitHub Repository (Public):**
   👉 **[https://github.com/nghiemquynh0210/khuphothongminh](https://github.com/nghiemquynh0210/khuphothongminh)**
 - **Git Commit Author chuẩn:** `Khupho3 <bdhkhupho3.ap@gmail.com>` (Bắt buộc giữ author này để Vercel không chặn deployment).
 - **Lệnh Deploy nhanh:**
