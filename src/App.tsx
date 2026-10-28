@@ -1032,14 +1032,21 @@ export default function App() {
       <div className="flex-1 flex flex-col md:pl-20 lg:pl-64 min-w-0 transition-all duration-300">
         
         {/* Top Header Bar */}
-        <header className="h-16 border-b border-slate-200/80 bg-white/95 backdrop-blur-md flex items-center justify-between px-3 sm:px-6 sticky top-0 z-30 shrink-0 shadow-2xs transition-all">
+        <header className="h-16 border-b border-slate-200/90 bg-white/95 backdrop-blur-md flex items-center justify-between px-3.5 sm:px-6 sticky top-0 z-30 shrink-0 shadow-xs transition-all">
           <div className="flex items-center gap-2 sm:gap-3 pl-12 md:pl-0 flex-1 min-w-0 mr-2 sm:mr-4">
-            <h2 className="font-extrabold text-slate-900 text-sm sm:text-base lg:text-lg tracking-tight whitespace-nowrap overflow-hidden text-ellipsis max-w-[240px] sm:max-w-md lg:max-w-xl">
-              {currentUser.role === "nguoidan" && activeTab === "dashboard" ? "Cổng Dịch Vụ Cư Dân Số" : getTabTitle()}
-            </h2>
-            <span className="hidden xl:inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-slate-100 text-slate-600 border border-slate-200/60 shrink-0 select-none">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
-              KP3 • P. An Phú • TP. Thủ Đức
+            <div className="flex items-center gap-1.5 min-w-0">
+              <span className="text-[10px] sm:text-xs font-mono font-bold uppercase tracking-wider text-slate-400 shrink-0 hidden sm:inline">
+                {currentUser.role === "canbo" ? "ĐIỀU HÀNH KP3" : "CỔNG DỊCH VỤ SỐ"}
+              </span>
+              <span className="text-slate-300 hidden sm:inline">/</span>
+              <h1 className="font-extrabold text-slate-900 text-sm sm:text-base lg:text-lg tracking-tight whitespace-nowrap overflow-hidden text-ellipsis max-w-[220px] sm:max-w-sm lg:max-w-md">
+                {currentUser.role === "nguoidan" && activeTab === "dashboard" ? "Cổng Dịch Vụ Cư Dân Số" : getTabTitle()}
+              </h1>
+            </div>
+            
+            <span className="hidden xl:inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-blue-50 text-blue-800 border border-blue-200/70 shrink-0 select-none shadow-2xs">
+              <span className="w-1.5 h-1.5 rounded-full bg-blue-600 animate-pulse"></span>
+              CSDL 11.632 Cư Dân • 488 Hộ • Supabase
             </span>
           </div>
 
@@ -1050,17 +1057,17 @@ export default function App() {
             <button
               id="header-info-plan"
               onClick={() => setActiveTab("plan")}
-              className={`p-1.5 rounded-lg transition-all duration-200 cursor-pointer relative group ${
+              className={`p-2 rounded-xl transition-all duration-150 cursor-pointer relative group ${
                 activeTab === "plan" 
-                  ? "bg-emerald-100 text-emerald-800" 
+                  ? "bg-blue-100 text-blue-800" 
                   : "text-slate-500 hover:text-slate-800 hover:bg-slate-100"
               }`}
               title="Đề án & Thiết kế Kiến trúc Cơ sở dữ liệu"
             >
-              <Info size={18} className="sm:w-5 sm:h-5" />
+              <Info size={18} />
               {/* Tooltip */}
-              <span className="absolute top-10 right-0 bg-slate-900 text-white text-[10px] rounded px-2 py-1 opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none z-50 shadow-md">
-                Đề án & Thiết kế Kiến trúc Cơ sở dữ liệu
+              <span className="absolute top-11 right-0 bg-slate-900 text-white text-[11px] rounded-lg px-2.5 py-1 opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none z-50 shadow-lg border border-slate-800">
+                Đề án & Kiến trúc CSDL
               </span>
             </button>
 
@@ -1068,30 +1075,31 @@ export default function App() {
             <div className="relative group">
               <button 
                 id="header-notifications"
-                className="p-1.5 text-slate-500 hover:text-slate-800 hover:bg-slate-100 rounded-lg transition-colors cursor-pointer relative"
+                className="p-2 text-slate-500 hover:text-slate-800 hover:bg-slate-100 rounded-xl transition-colors cursor-pointer relative"
+                aria-label="Thông báo hệ thống"
               >
-                <Bell size={18} className="sm:w-5 sm:h-5" />
+                <Bell size={18} />
                 {notifications.some(n => n.unread) && (
-                  <span className="absolute top-1 right-1 w-2.5 h-2.5 bg-rose-600 rounded-full ring-2 ring-white animate-pulse"></span>
+                  <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-rose-600 rounded-full ring-2 ring-white animate-pulse"></span>
                 )}
               </button>
 
               {/* Notifications Dropdown on hover */}
-              <div className="absolute right-0 mt-2 w-72 bg-white rounded-xl shadow-xl border border-slate-100 p-2 opacity-0 scale-95 pointer-events-none group-hover:opacity-100 group-hover:scale-100 group-hover:pointer-events-auto transition-all duration-200 z-50">
-                <div className="px-3 py-2 border-b border-slate-50 flex justify-between items-center bg-slate-50/50 rounded-t-lg">
-                  <span className="font-bold text-xs text-slate-700">Thông báo mới nhận</span>
+              <div className="absolute right-0 mt-2 w-80 bg-white rounded-2xl shadow-xl border border-slate-200/80 p-2.5 opacity-0 scale-95 pointer-events-none group-hover:opacity-100 group-hover:scale-100 group-hover:pointer-events-auto transition-all duration-200 z-50">
+                <div className="px-3 py-2 border-b border-slate-100 flex justify-between items-center bg-slate-50/70 rounded-xl">
+                  <span className="font-bold text-xs text-slate-800">Thông báo điều hành</span>
                   <button 
                     onClick={() => setNotifications(notifications.map(n => ({ ...n, unread: false })))}
-                    className="text-[10px] text-emerald-600 hover:text-emerald-700 font-bold"
+                    className="text-[10px] text-blue-600 hover:text-blue-700 font-bold cursor-pointer"
                   >
-                    Đánh dấu đã đọc
+                    Đã đọc tất cả
                   </button>
                 </div>
-                <div className="py-1 divide-y divide-slate-50 max-h-48 overflow-y-auto">
+                <div className="py-1 divide-y divide-slate-100 max-h-56 overflow-y-auto">
                   {notifications.map((n) => (
-                    <div key={n.id} className="p-2.5 text-xs text-slate-600 hover:bg-slate-50 rounded-lg flex items-start gap-2">
-                      <span className={`w-1.5 h-1.5 rounded-full shrink-0 mt-1.5 ${n.unread ? "bg-rose-500" : "bg-slate-300"}`}></span>
-                      <span>{n.text}</span>
+                    <div key={n.id} className="p-2.5 text-xs text-slate-700 hover:bg-slate-50 rounded-xl flex items-start gap-2.5 transition-colors">
+                      <span className={`w-2 h-2 rounded-full shrink-0 mt-1.5 ${n.unread ? "bg-rose-500" : "bg-slate-300"}`}></span>
+                      <span className="leading-relaxed">{n.text}</span>
                     </div>
                   ))}
                 </div>
@@ -1101,7 +1109,7 @@ export default function App() {
             {/* Role Indicator & Quick Switch */}
             {currentUser.role === "nguoidan" ? (
               <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
-                <div className="hidden xl:flex items-center gap-1.5 px-2.5 py-1 bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-xl text-xs font-bold">
+                <div className="hidden xl:flex items-center gap-1.5 px-2.5 py-1 bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-xl text-xs font-bold select-none">
                   <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
                   <span>Cổng Cư dân</span>
                 </div>
@@ -1111,15 +1119,16 @@ export default function App() {
                     setCurrentUser(CANBO_USER);
                     setActiveTab("dashboard");
                   }}
-                  className="flex items-center gap-1 sm:gap-1.5 px-2.5 sm:px-3 py-1.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold transition-all shadow-xs cursor-pointer shrink-0"
+                  className="flex items-center gap-1.5 px-3 py-2 bg-blue-700 hover:bg-blue-800 text-white rounded-xl text-xs font-bold transition-all shadow-xs cursor-pointer interactive-tap shrink-0"
                   title="Chuyển sang Bàn làm việc Cán bộ quản lý"
                 >
+                  <LockKeyhole size={14} />
                   <span className="hidden sm:inline">Đăng nhập </span><span>Cán bộ</span>
                 </button>
                 <button
                   id="header-open-auth"
                   onClick={() => setCurrentUser(null)}
-                  className="hidden md:flex items-center gap-1 px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-semibold transition-all cursor-pointer shrink-0"
+                  className="hidden md:flex items-center gap-1 px-2.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-semibold transition-all cursor-pointer shrink-0"
                   title="Đăng nhập tài khoản cá nhân / Đăng ký nhân khẩu mới"
                 >
                   <span>Tài khoản</span>
@@ -1127,8 +1136,8 @@ export default function App() {
               </div>
             ) : (
               <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
-                <div className="hidden xl:flex items-center gap-1.5 px-2.5 py-1 bg-indigo-50 border border-indigo-200 text-indigo-800 rounded-xl text-xs font-bold">
-                  <span className="w-2 h-2 rounded-full bg-indigo-500 animate-pulse"></span>
+                <div className="hidden xl:flex items-center gap-1.5 px-2.5 py-1 bg-blue-50 border border-blue-200 text-blue-800 rounded-xl text-xs font-bold select-none">
+                  <span className="w-2 h-2 rounded-full bg-blue-600 animate-pulse"></span>
                   <span>Cán bộ</span>
                 </div>
                 <button
@@ -1138,15 +1147,16 @@ export default function App() {
                     setCitizenSubView(null);
                     setActiveTab("dashboard");
                   }}
-                  className="flex items-center gap-1 sm:gap-1.5 px-2.5 sm:px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition-all shadow-xs cursor-pointer shrink-0"
+                  className="flex items-center gap-1.5 px-3 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition-all shadow-xs cursor-pointer interactive-tap shrink-0"
                   title="Quay lại Cổng Cư dân số (Trang chủ Landing Page)"
                 >
+                  <Users size={14} />
                   <span className="hidden sm:inline">Về Cổng </span><span>Cư dân</span>
                 </button>
                 <button
                   id="header-logout-auth"
                   onClick={() => setCurrentUser(null)}
-                  className="hidden md:flex items-center gap-1 px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-semibold transition-all cursor-pointer shrink-0"
+                  className="hidden md:flex items-center gap-1 px-2.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-semibold transition-all cursor-pointer shrink-0"
                   title="Mở màn hình đăng nhập tài khoản / đăng ký nhân khẩu mới"
                 >
                   <span>Đăng xuất</span>
@@ -1155,17 +1165,17 @@ export default function App() {
             )}
 
             {/* User identity display */}
-            <div className="flex items-center gap-2 border-l border-slate-200 pl-2 sm:pl-3">
+            <div className="flex items-center gap-2.5 border-l border-slate-200 pl-2 sm:pl-3">
               {currentUser.role === "canbo" ? (
                 <>
                   <div className="text-right hidden sm:block">
                     <span className="text-xs font-bold text-slate-800 block">{currentUser.fullName}</span>
-                    <span className="text-[10px] text-slate-400 font-mono uppercase tracking-wider block">Bí thư Chi bộ KP3</span>
+                    <span className="text-[10px] text-blue-600 font-mono uppercase tracking-wider block font-semibold">Bí thư Chi bộ KP3</span>
                   </div>
                   <img 
                     src="https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150"
                     alt={currentUser.fullName}
-                    className="w-8 h-8 rounded-full border border-slate-200 object-cover shadow-xs shrink-0"
+                    className="w-9 h-9 rounded-full border border-blue-200 object-cover shadow-xs shrink-0"
                     referrerPolicy="no-referrer"
                   />
                 </>
@@ -1173,10 +1183,10 @@ export default function App() {
                 <>
                   <div className="text-right hidden sm:block">
                     <span className="text-xs font-bold text-slate-800 block">Cư dân Khu phố 3</span>
-                    <span className="text-[10px] text-emerald-600 font-mono uppercase tracking-wider block">Cổng mở toàn dân</span>
+                    <span className="text-[10px] text-emerald-600 font-mono uppercase tracking-wider block font-semibold">Cổng mở toàn dân</span>
                   </div>
-                  <div className="w-8 h-8 rounded-full bg-emerald-600 text-white flex items-center justify-center font-bold text-xs shadow-xs shrink-0">
-                    <Users size={16} />
+                  <div className="w-9 h-9 rounded-full bg-emerald-600 text-white flex items-center justify-center font-bold text-xs shadow-xs shrink-0">
+                    <Users size={17} />
                   </div>
                 </>
               )}
