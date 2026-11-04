@@ -1,0 +1,51 @@
+{
+  // ============================================================
+  // KP3 An Phú — VS Code Settings
+  // GitLens (#30) + Editor + TypeScript + Prettier (#20)
+  // ============================================================
+
+  // Prettier (Công cụ #20)
+  "editor.formatOnSave": true,
+  "editor.defaultFormatter": "esbenp.prettier-vscode",
+  "[typescript]": { "editor.defaultFormatter": "esbenp.prettier-vscode" },
+  "[typescriptreact]": { "editor.defaultFormatter": "esbenp.prettier-vscode" },
+
+  // TypeScript
+  "typescript.preferences.importModuleSpecifier": "relative",
+  "typescript.updateImportsOnFileMove.enabled": "always",
+  "typescript.suggest.autoImports": true,
+
+  // GitLens (Công cụ #30)
+  "gitlens.hovers.currentLine.over": "annotation",
+  "gitlens.blame.format": "${author} | ${date(relative)} | ${message|50}",
+  "gitlens.graph.layout": "editor",
+  "gitlens.currentLine.enabled": true,
+  "gitlens.statusBar.enabled": true,
+
+  // ESLint (Công cụ #19)
+  "eslint.validate": ["typescript", "typescriptreact"],
+  "editor.codeActionsOnSave": {
+    "source.fixAll.eslint": "explicit"
+  },
+
+  // File exclusions (tăng hiệu suất IDE)
+  "files.exclude": {
+    "**/node_modules": true,
+    "**/dist": true,
+    "**/coverage": true,
+    "**/.venv": true
+  },
+  "search.exclude": {
+    "**/node_modules": true,
+    "**/dist": true,
+    "**/coverage": true,
+    "**/package-lock.json": true
+  },
+
+  // Editor
+  "editor.tabSize": 2,
+  "editor.insertSpaces": true,
+  "editor.rulers": [100],
+  "files.eol": "\n",
+  "files.trimTrailingWhitespace": true
+}

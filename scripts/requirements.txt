@@ -1,0 +1,22 @@
+# Hệ thống Quản lý Khu phố 3 An Phú — Python Dependencies
+# Cài đặt: uv pip install -r requirements.txt
+
+# Excel & Data Processing
+openpyxl>=3.1.0
+pandas>=2.0.0
+xlsxwriter>=3.1.0
+
+# Supabase
+supabase>=2.0.0
+postgrest>=0.16.0
+
+# HTTP & API
+requests>=2.31.0
+httpx>=0.25.0
+
+# Environment
+python-dotenv>=1.0.0
+
+# Dev Tools (cài thêm khi phát triển)
+# pytest>=7.4.0
+# ruff>=0.1.0

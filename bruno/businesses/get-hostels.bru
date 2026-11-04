@@ -1,0 +1,24 @@
+meta {
+  name: Lấy danh sách cơ sở lưu trú
+  type: http
+  seq: 1
+}
+
+get {
+  url: {{SUPABASE_URL}}/rest/v1/businesses?is_accommodation=eq.true&select=id,name,address,owner,phone,room_count,guest_count,pccc_passed
+  body: none
+  auth: none
+}
+
+headers {
+  apikey: {{SUPABASE_ANON_KEY}}
+  Authorization: Bearer {{SUPABASE_ANON_KEY}}
+  Content-Type: application/json
+}
+
+docs {
+  # Danh sách nhà trọ/cơ sở lưu trú
+  Lấy toàn bộ 108 cơ sở lưu trú đã đồng bộ vào Supabase.
+  
+  Trả về: tên, địa chỉ, chủ hộ, SĐT, số phòng, số khách, trạng thái PCCC.
+}

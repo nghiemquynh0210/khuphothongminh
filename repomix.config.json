@@ -1,0 +1,35 @@
+{
+  "output": {
+    "filePath": "repomix_output.txt",
+    "style": "markdown",
+    "headerText": "KP3 An Phu Smart Management System — AI Context Snapshot",
+    "instructionFilePath": "AGENTS.md",
+    "removeComments": false,
+    "removeEmptyLines": false,
+    "showLineNumbers": true,
+    "copyToClipboard": false
+  },
+  "include": [
+    "src/**/*.ts",
+    "src/**/*.tsx",
+    "api/**/*.ts",
+    "server.ts",
+    "vite.config.ts",
+    "tsconfig.json",
+    "vercel.json"
+  ],
+  "ignore": {
+    "useGitignore": true,
+    "useDefaultPatterns": true,
+    "customPatterns": [
+      "*.test.*",
+      "*.spec.*",
+      "__tests__/**",
+      "src/mockData.ts",
+      "src/mockForms.ts",
+      "dist/**",
+      "node_modules/**",
+      "coverage/**"
+    ]
+  }
+}

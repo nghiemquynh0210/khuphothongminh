@@ -1,0 +1,21 @@
+{
+  "version": "1",
+  "name": "KP3-An-Phu-API",
+  "meta": {
+    "name": "KP3 An Phú — API Collection",
+    "version": "1.0.0"
+  },
+  "vars": {
+    "SUPABASE_URL": "https://wjdgaobhipkgzveidtra.supabase.co",
+    "LOCAL_URL": "http://localhost:3000",
+    "PROD_URL": "https://bdhkp3.vercel.app"
+  },
+  "auth": {
+    "mode": "apikey",
+    "apikey": {
+      "key": "apikey",
+      "value": "{{SUPABASE_ANON_KEY}}",
+      "placement": "header"
+    }
+  }
+}
