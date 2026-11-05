@@ -2668,7 +2668,7 @@ export default function PartyBranch({ partyMembers, residents = [] }: PartyBranc
                         const memberAvatar = member.avatar || matchedRes?.avatar || "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150";
 
                         return (
-                          <tr key={member.cccd} className="hover:bg-slate-50/80 transition-colors">
+                          <tr key={`${member.cccd}-${mIdx}`} className="hover:bg-slate-50/80 transition-colors">
                             <td className="py-2.5 px-3 text-center text-slate-400 font-mono text-[11px]">
                               {mIdx + 1}
                             </td>
@@ -2791,7 +2791,7 @@ export default function PartyBranch({ partyMembers, residents = [] }: PartyBranc
             ) : (
               /* CARD VIEW */
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3.5">
-                {filteredMembers.map((member) => {
+                {filteredMembers.map((member, mIdx) => {
                   const matchedRes = residents.find(r => r.cccd === member.cccd);
                   const roleStyle = getMemberRoleStyle(member.role);
                   const isPartyMem = partyMembers.some(p => p.cccd === member.cccd);
@@ -2799,7 +2799,7 @@ export default function PartyBranch({ partyMembers, residents = [] }: PartyBranc
 
                   return (
                     <div 
-                      key={member.cccd} 
+                      key={`${member.cccd}-${mIdx}`} 
                       className={`p-3.5 rounded-xl border relative transition-all hover:border-slate-300 hover:shadow-2xs flex flex-col justify-between ${roleStyle.cardBorder}`}
                     >
                       <div className="space-y-2.5">
@@ -4454,17 +4454,39 @@ export default function PartyBranch({ partyMembers, residents = [] }: PartyBranc
                       <label className="text-xs font-bold text-slate-700 block">
                         Chọn Cư dân để cấu hình Đa vai trò / Đa nhiệm *
                       </label>
+                      <input
+                        type="text"
+                        placeholder="Tìm nhanh theo họ tên hoặc CCCD..."
+                        value={quickAssignResidentSearch}
+                        onChange={(e) => setQuickAssignResidentSearch(e.target.value)}
+                        className="w-full px-3 py-1.5 border border-slate-200 rounded-lg text-xs bg-white focus:outline-none focus:border-amber-500 font-medium placeholder:text-slate-400"
+                      />
                       <select
                         value={quickAssignResidentCccd}
                         onChange={(e) => handleSelectQuickAssignResident(e.target.value)}
                         className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs bg-white focus:outline-none focus:border-amber-500 font-medium"
                       >
-                        {residents.map(r => (
-                          <option key={r.cccd} value={r.cccd}>
-                            {r.fullName} - CCCD: {r.cccd} ({r.occupation || "Cư dân"})
-                          </option>
-                        ))}
+                        {residents
+                          .filter(r => {
+                            if (!quickAssignResidentSearch.trim()) return true;
+                            const q = quickAssignResidentSearch.toLowerCase();
+                            return r.fullName.toLowerCase().includes(q) || r.cccd.includes(q);
+                          })
+                          .slice(0, 100)
+                          .map((r, idx) => (
+                            <option key={`${r.id || r.cccd}-${idx}`} value={r.cccd}>
+                              {r.fullName} - CCCD: {r.cccd} ({r.occupation || "Cư dân"})
+                            </option>
+                          ))}
                       </select>
+                      {quickAssignResidentSearch.trim() && (
+                        <div className="text-[10px] text-slate-500 italic">
+                          Tìm thấy {residents.filter(r => {
+                            const q = quickAssignResidentSearch.toLowerCase();
+                            return r.fullName.toLowerCase().includes(q) || r.cccd.includes(q);
+                          }).length} kết quả phù hợp (hiển thị tối đa 100).
+                        </div>
+                      )}
                     </div>
 
                     {/* Selected resident quick summary */}
@@ -4622,13 +4644,22 @@ export default function PartyBranch({ partyMembers, residents = [] }: PartyBranc
                     </div>
 
                     <div className="max-h-[360px] overflow-y-auto space-y-1.5 border border-slate-200 rounded-xl p-2 bg-slate-50/50">
-                      {residents
-                        .filter(r => {
+                      {(() => {
+                        const filtered = residents.filter(r => {
                           if (!quickAssignResidentSearch.trim()) return true;
                           const q = quickAssignResidentSearch.toLowerCase();
                           return r.fullName.toLowerCase().includes(q) || r.cccd.includes(q) || (r.occupation && r.occupation.toLowerCase().includes(q));
-                        })
-                        .map(res => {
+                        });
+                        const displayed = filtered.slice(0, 100);
+
+                        return (
+                          <>
+                            {filtered.length > 100 && (
+                              <div className="text-[11px] text-amber-800 bg-amber-50 px-3 py-1.5 rounded-lg border border-amber-200 font-medium text-center sticky top-0 z-10 shadow-xs">
+                                Đang hiển thị 100 / {filtered.length} cư dân phù hợp. Hãy nhập thêm tên hoặc CCCD để lọc chính xác.
+                              </div>
+                            )}
+                            {displayed.map((res, idx) => {
                           const isChecked = quickAssignSelectedResidentCccds.includes(res.cccd);
                           
                           const targetGroupAssoc = associations.find(a => a.id === quickAssignTargetGroupId || a.name.toLowerCase() === TARGET_GROUPS.find(g => g.id === quickAssignTargetGroupId)?.name.toLowerCase());
@@ -4637,7 +4668,7 @@ export default function PartyBranch({ partyMembers, residents = [] }: PartyBranc
 
                           return (
                             <label
-                              key={res.cccd}
+                              key={`${res.id || res.cccd}-${idx}`}
                               className={`p-3 rounded-xl border flex items-center justify-between gap-3 cursor-pointer transition-all ${
                                 isChecked
                                   ? "bg-amber-50 border-amber-300 ring-1 ring-amber-300 shadow-2xs"
@@ -4679,6 +4710,9 @@ export default function PartyBranch({ partyMembers, residents = [] }: PartyBranc
                             </label>
                           );
                         })}
+                        </>
+                      );
+                    })()}
                     </div>
                   </div>
                 </div>

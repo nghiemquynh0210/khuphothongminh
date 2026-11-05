@@ -417,19 +417,34 @@ export default function App() {
         // 4. Fetch Field Reports (1022)
         const { data: dbReports } = await (supabase as any).from("field_reports").select("*");
         if (dbReports && dbReports.length > 0) {
-          setReports(dbReports.map((rep: any) => ({
-            id: rep.id,
-            title: rep.title,
-            category: (rep.category as any) || "Trật tự đô thị",
-            location: rep.location,
-            description: rep.description,
-            reporterName: rep.reporter_name || "Cư dân ẩn danh",
-            reporterPhone: rep.reporter_phone || "",
-            status: (rep.status as any) || "Đã tiếp nhận",
-            priority: (rep.priority as any) || "Bình thường",
-            createdAt: new Date(rep.created_at || Date.now()).toLocaleDateString("vi-VN"),
-            images: rep.image_urls || []
-          })));
+          setReports(dbReports.map((rep: any) => {
+            const timeFormatted = rep.created_at 
+              ? new Date(rep.created_at).toLocaleString("vi-VN", { hour12: false }) 
+              : new Date().toLocaleString("vi-VN", { hour12: false });
+            return {
+              id: rep.id,
+              title: rep.title,
+              category: (rep.category as any) || "Trật tự đô thị",
+              location: rep.location || "Khu phố 3, Phường An Phú",
+              description: rep.description || "",
+              reporterName: rep.reporter_name || "Cư dân ẩn danh",
+              reporterPhone: rep.reporter_phone || "",
+              status: (rep.status as any) || "Đã tiếp nhận",
+              priority: (rep.priority as any) || "Bình thường",
+              reportedAt: timeFormatted,
+              createdAt: new Date(rep.created_at || Date.now()).toLocaleDateString("vi-VN"),
+              coordinates: { x: 50, y: 50 },
+              timeline: [
+                {
+                  time: timeFormatted,
+                  title: "Tiếp nhận phản ánh",
+                  description: rep.description || "Hệ thống tự động ghi nhận phản ánh từ Cổng cư dân số.",
+                  actor: rep.reporter_name || "Cư dân"
+                }
+              ],
+              images: rep.image_urls || []
+            };
+          }));
         }
 
         // 5. Fetch Community News

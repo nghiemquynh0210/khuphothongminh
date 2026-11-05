@@ -609,7 +609,7 @@ export default function FieldReflections({ reports, onAddReport, onUpdateReportS
                           <span className="truncate">{report.location}</span>
                         </span>
                         <span className="shrink-0 flex items-center gap-1 font-mono text-[10px]">
-                          <Clock size={11} /> {report.reportedAt.split(" ")[0]}
+                          <Clock size={11} /> {report.reportedAt ? report.reportedAt.split(" ")[0] : (report as any).createdAt || "Hôm nay"}
                         </span>
                       </div>
 
