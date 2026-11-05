@@ -4,6 +4,9 @@ AI Assistant (Antigravity) cần luôn ghi nhớ các thông số kỹ thuật s
 
 1. **Địa bàn:** Khu phố 3, Phường An Phú, TP. Thủ Đức, TP. Hồ Chí Minh.
 2. **Database:** Supabase project `wjdgaobhipkgzveidtra` (URL: `https://wjdgaobhipkgzveidtra.supabase.co`).
+   - Đã cấu hình kết nối qua Supabase MCP Server (`@supabase/mcp-server-supabase`) với Personal Access Token (PAT).
+   - Đã nạp API Key `anon` và `VITE_SUPABASE_URL` vào file `.env`.
+   - Cơ sở dữ liệu Cloud thực tế: Đã xác thực kết nối thành công tới 488 hộ gia đình và 11.632 nhân khẩu.
 3. **Deployment:** Vercel project `bdhkp3` thuộc team `khupho3-s-projects`.
    - Domain: `https://bdhkp3.vercel.app`
    - Git author: `Khupho3 <bdhkhupho3.ap@gmail.com>`

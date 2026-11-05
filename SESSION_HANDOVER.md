@@ -111,3 +111,4 @@ Chọn một trong hai phương án thuận tiện nhất:
   - Tích hợp module quét ảnh / camera OCR cho CCCD & mã QR VNeID.
   - Xuất biểu mẫu hành chính chuẩn CT07, CT08 định dạng PDF/Word.
   - Mở rộng báo cáo tháp dân số và bản đồ nhiệt biến động nhân khẩu theo cụm dân cư.
+
