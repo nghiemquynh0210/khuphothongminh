@@ -111,6 +111,12 @@ ALTER TABLE neighborhood_funds ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Cho phép đọc dữ liệu công khai" ON businesses FOR SELECT USING (true);
 CREATE POLICY "Cho phép cư dân gửi phản ánh" ON field_reports FOR INSERT WITH CHECK (true);
 CREATE POLICY "Cho phép đọc phản ánh hiện trường" ON field_reports FOR SELECT USING (true);
+CREATE POLICY "Cho phép đọc dữ liệu hộ khẩu" ON households FOR SELECT USING (true);
+CREATE POLICY "Cho phép đọc dữ liệu cư dân" ON residents FOR SELECT USING (true);
 CREATE POLICY "Cho phép cán bộ quản lý đầy đủ hộ khẩu" ON households FOR ALL USING (true);
 CREATE POLICY "Cho phép cán bộ quản lý đầy đủ dân cư" ON residents FOR ALL USING (true);
 CREATE POLICY "Cho phép đọc và quản lý quỹ" ON neighborhood_funds FOR ALL USING (true);
+
+-- Cấp quyền truy cập cơ bản cho các role anon và authenticated
+GRANT USAGE ON SCHEMA public TO anon, authenticated;
+GRANT SELECT ON ALL TABLES IN SCHEMA public TO anon, authenticated;
