@@ -1,24 +1,23 @@
 # BIÊN BẢN BÀN GIAO & CẬP NHẬT PHIÊN LÀM VIỆC (SESSION HANDOVER)
 **Dự án:** Cổng Dịch vụ Cư dân số & Hệ thống Quản trị Thông minh Khu phố 3, Phường An Phú  
-**Thời gian cập nhật:** 04/11/2026  
+**Thời gian cập nhật:** 05/11/2026  
 **Trạng thái phiên:** Sẵn sàng cho phiên tiếp theo (Ready for Next Session)
 
 ---
 
 ## 1. THÔNG SỐ KỸ THUẬT & TRẠNG THÁI HIỆN TẠI
-- **Mã nguồn:** Đã commit toàn bộ lên Git cục bộ:
-  - Branch: `main`
-  - Commit ID: `8562f55`
-  - Message: `feat: complete unified UI/UX redesign for khu pho thong minh KP3`
-  - Trạng thái working tree: Sạch hoàn toàn (`working tree clean`, không có file uncommitted).
-- **Đường dẫn nhị phân Git (GitHub Desktop):**
-  `C:\Users\KHUPHO3\AppData\Local\GitHubDesktop\app-3.5.12\resources\app\git\mingw64\bin\git.exe`
-- **Tài khoản Git & GitHub:**
-  - `user.name`: `bdhkhupho3ap`
-  - `user.email`: `bdhkhupho3.ap@gmail.com`
+- **Mã nguồn & GitHub Repository:**
+  - GitHub Remote: `https://github.com/nghiemquynh0210/khuphothongminh.git` (Nhánh: `main`)
+  - Tài khoản GitHub: `nghiemquynh0210`
+  - Đã push toàn bộ mã nguồn mới nhất lên GitHub (Synced with `main`).
+  - Trạng thái working tree cục bộ: Sạch hoàn toàn (`working tree clean`).
+- **Cơ sở dữ liệu Supabase Cloud:**
+  - Project Reference: `wjdgaobhipkgzveidtra` (`nghiemquynh0210's Project`, region: `ap-southeast-1`)
+  - Đã kết nối trực tiếp vào CSDL thật: 488 hộ gia đình và 11.632 nhân khẩu.
+  - Supabase MCP Server (`@supabase/mcp-server-supabase`) và GitHub MCP (`@modelcontextprotocol/server-github`) đã được cấu hình trong `mcp_config.json` toàn cục.
 - **Môi trường chạy:**
   - Node.js LTS, Vite 6, React 19, TypeScript 5.8, Tailwind CSS v4.
-  - Server localhost đang chạy nền tại: `http://localhost:3000` (Task ID: `ac67b2e6-d369-4ad7-8dea-a5b3a0b2dfde/task-2082`).
+  - Server localhost đang chạy nền tại: `http://localhost:3000` (Task ID: `ac67b2e6-d369-4ad7-8dea-a5b3a0b2dfde/task-3523`).
   - Kiểm tra TypeScript (`npx tsc --noEmit`): **0 Lỗi (Zero Errors)**.
   - Trình duyệt Chrome DevTools Console: **0 Lỗi / 0 Cảnh báo đỏ**.
 

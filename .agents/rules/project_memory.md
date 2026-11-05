@@ -7,9 +7,13 @@ AI Assistant (Antigravity) cần luôn ghi nhớ các thông số kỹ thuật s
    - Đã cấu hình kết nối qua Supabase MCP Server (`@supabase/mcp-server-supabase`) với Personal Access Token (PAT).
    - Đã nạp API Key `anon` và `VITE_SUPABASE_URL` vào file `.env`.
    - Cơ sở dữ liệu Cloud thực tế: Đã xác thực kết nối thành công tới 488 hộ gia đình và 11.632 nhân khẩu.
-3. **Deployment:** Vercel project `bdhkp3` thuộc team `khupho3-s-projects`.
-   - Domain: `https://bdhkp3.vercel.app`
-   - Git author: `Khupho3 <bdhkhupho3.ap@gmail.com>`
+3. **Deployment & GitHub Repository:**
+   - GitHub Repo: `https://github.com/nghiemquynh0210/khuphothongminh` (Branch: `main`)
+   - GitHub Account: `nghiemquynh0210`
+   - Đã cấu hình remote `origin`, lưu PAT vào `.env` (`GITHUB_PAT`) và MCP config toàn cục (`@modelcontextprotocol/server-github`).
+   - Đã push đồng bộ toàn bộ mã nguồn mới nhất lên GitHub `main`.
+   - Vercel project: `bdhkp3` thuộc team `khupho3-s-projects` (Domain: `https://bdhkp3.vercel.app`).
+   - Git author: `Khupho3 <bdhkhupho3.ap@gmail.com>`.
 4. **Bản đồ GIS:** Sử dụng Leaflet WGS-84 với đa giác khoanh vùng ranh giới hành chính Khu phố 3 An Phú.
    - **Ranh giới mốc tự động theo đường đứt đoạn:** Đường biên địa giới luôn được vẽ tự động nối các mốc bằng nét đứt đoạn chuẩn bản đồ địa chính (`dashArray: 12, 6, 3, 6`).
    - **Cơ chế Kéo thả / Cố định mốc:** Các điểm mốc ranh giới (1..N) mặc định là **CỐ ĐỊNH** (`draggable: false`) để tránh chạm nhầm. Khi bấm nút **"Sửa mốc"**, mốc chuyển sang trạng thái **KÉO DI CHUYỂN** (`draggable: true`), đường đứt đoạn tự động co giãn theo mốc khi kéo, lưu tọa độ vào `localStorage`. Khi bấm **"Hoàn tất & Cố định mốc"**, các mốc được khóa lại cố định.
