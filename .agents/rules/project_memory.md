@@ -12,7 +12,9 @@ AI Assistant (Antigravity) cần luôn ghi nhớ các thông số kỹ thuật s
    - GitHub Account: `nghiemquynh0210`
    - Đã cấu hình remote `origin`, lưu PAT vào `.env` (`GITHUB_PAT`) và MCP config toàn cục (`@modelcontextprotocol/server-github`).
    - Đã push đồng bộ toàn bộ mã nguồn mới nhất lên GitHub `main`.
-   - Vercel project: `bdhkp3` thuộc team `khupho3-s-projects` (Domain: `https://bdhkp3.vercel.app`).
+   - Vercel Account: `nghiemquynh0210` (email: `nghiemquynh0210@gmail.com`, team: `nghiemquynh0210s-projects` - `team_5JdtH3l3j0wix2LsdMJVs7kZ`).
+   - Đã cấu hình Vercel Access Token vào `.env` (`VERCEL_API_TOKEN`) và MCP config toàn cục (`@modelcontextprotocol/server-vercel`).
+   - Domain triển khai: `https://bdhkp3.vercel.app`.
    - Git author: `Khupho3 <bdhkhupho3.ap@gmail.com>`.
 4. **Bản đồ GIS:** Sử dụng Leaflet WGS-84 với đa giác khoanh vùng ranh giới hành chính Khu phố 3 An Phú.
    - **Ranh giới mốc tự động theo đường đứt đoạn:** Đường biên địa giới luôn được vẽ tự động nối các mốc bằng nét đứt đoạn chuẩn bản đồ địa chính (`dashArray: 12, 6, 3, 6`).

@@ -15,8 +15,10 @@
       }
     },
     "vercel": {
-      "command": "npx",
+      "command": "cmd.exe",
       "args": [
+        "/c",
+        "npx",
         "-y",
         "@modelcontextprotocol/server-vercel"
       ],
@@ -77,8 +79,10 @@
       ]
     },
     "github": {
-      "command": "npx",
+      "command": "cmd.exe",
       "args": [
+        "/c",
+        "npx",
         "-y",
         "@modelcontextprotocol/server-github"
       ],

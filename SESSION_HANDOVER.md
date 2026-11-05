@@ -14,7 +14,13 @@
 - **Cơ sở dữ liệu Supabase Cloud:**
   - Project Reference: `wjdgaobhipkgzveidtra` (`nghiemquynh0210's Project`, region: `ap-southeast-1`)
   - Đã kết nối trực tiếp vào CSDL thật: 488 hộ gia đình và 11.632 nhân khẩu.
-  - Supabase MCP Server (`@supabase/mcp-server-supabase`) và GitHub MCP (`@modelcontextprotocol/server-github`) đã được cấu hình trong `mcp_config.json` toàn cục.
+- **Hệ sinh thái MCP Servers (Cấu hình toàn cục & Dự án):**
+  - Supabase MCP: `@supabase/mcp-server-supabase` (Personal Access Token).
+  - GitHub MCP: `@modelcontextprotocol/server-github` (`GITHUB_PAT`).
+  - Vercel MCP: `@modelcontextprotocol/server-vercel` (`VERCEL_API_TOKEN`).
+  - Chrome DevTools MCP: `chrome-devtools-mcp` (headless Chrome kiểm thử tự động).
+- **Tài khoản Vercel:**
+  - User: `nghiemquynh0210` (`nghiemquynh0210@gmail.com`), Team: `nghiemquynh0210s-projects`.
 - **Môi trường chạy:**
   - Node.js LTS, Vite 6, React 19, TypeScript 5.8, Tailwind CSS v4.
   - Server localhost đang chạy nền tại: `http://localhost:3000` (Task ID: `ac67b2e6-d369-4ad7-8dea-a5b3a0b2dfde/task-3523`).
