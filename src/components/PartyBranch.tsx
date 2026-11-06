@@ -1,4 +1,4 @@
-import React, { useState, useRef } from "react";
+import React, { useState, useRef, useMemo } from "react";
 import { 
   ShieldCheck, 
   Users, 
@@ -1882,17 +1882,29 @@ export default function PartyBranch({ partyMembers, residents = [] }: PartyBranc
   const startIndex = (activePage - 1) * itemsPerPage;
   const paginatedAssociations = filteredAssociations.slice(startIndex, startIndex + itemsPerPage);
 
-  // Eligible residents search
-  const searchedResidents = (residents || []).filter(r => {
-    if (!r) return false;
-    const search = (residentSearchTerm || "").toLowerCase();
-    const name = r.fullName || "";
-    const cccd = r.cccd || "";
-    const matchesNameOrCccd = name.toLowerCase().includes(search) || cccd.includes(search);
-    // Exclude those already in the selected association
-    const isAlreadyMember = (selectedAssociation?.members || []).some(m => m?.cccd === r.cccd);
-    return matchesNameOrCccd && !isAlreadyMember;
-  });
+  // Eligible residents search (Memoized and capped at 80 items to prevent DOM bloat)
+  const searchedResidents = useMemo(() => {
+    if (!residents || residents.length === 0) return [];
+    const search = (residentSearchTerm || "").toLowerCase().trim();
+    const hasSearch = search.length > 0;
+    const existingCccds = new Set((selectedAssociation?.members || []).map(m => m?.cccd).filter(Boolean));
+
+    const list: Resident[] = [];
+    for (let i = 0; i < residents.length; i++) {
+      const r = residents[i];
+      if (!r || existingCccds.has(r.cccd)) continue;
+      if (!hasSearch || (r.fullName && r.fullName.toLowerCase().includes(search)) || (r.cccd && r.cccd.includes(search))) {
+        list.push(r);
+        if (list.length >= 80) break;
+      }
+    }
+    return list;
+  }, [residents, residentSearchTerm, selectedAssociation]);
+
+  // Capped leader candidates to eliminate 20,000+ DOM nodes
+  const leaderCandidates = useMemo(() => {
+    return (residents || []).slice(0, 80);
+  }, [residents]);
 
   // Calculate some analytics
   const totalAssociationsCount = (associations || []).length;
@@ -3012,7 +3024,7 @@ export default function PartyBranch({ partyMembers, residents = [] }: PartyBranc
                   className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs focus:outline-none focus:border-emerald-500 bg-white"
                 >
                   <option value="">-- Chọn đại diện đứng đầu --</option>
-                  {residents.map(r => (
+                  {leaderCandidates.map(r => (
                     <option key={r.cccd} value={r.cccd}>
                       {r.fullName} - CCCD: {r.cccd} ({r.occupation})
                     </option>
@@ -3936,7 +3948,7 @@ export default function PartyBranch({ partyMembers, residents = [] }: PartyBranc
                   className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs focus:outline-none focus:border-emerald-500 bg-white"
                 >
                   <option value="">-- Giữ nguyên hoặc chọn người khác --</option>
-                  {residents.map(r => (
+                  {leaderCandidates.map(r => (
                     <option key={r.cccd} value={r.cccd}>
                       {r.fullName} - CCCD: {r.cccd} ({r.occupation})
                     </option>

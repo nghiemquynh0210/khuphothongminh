@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useMemo } from "react";
 import { 
   Map as MapIcon, 
   Layers, 
@@ -468,15 +468,19 @@ export default function GisMap({
   const boundaryArea = calculatePolygonAreaMeters(boundaryCoords);
   const boundaryPerimeter = calculatePolygonPerimeterMeters(boundaryCoords);
 
-  const insideHouseholdsCount = households.filter(h => {
-    const pt = parseCoordinates(h.coordinates);
-    return pt ? isPointInPolygon(pt, boundaryCoords) : false;
-  }).length;
+  const { insideHouseholdsCount, insideBusinessesCount } = useMemo(() => {
+    const hhCount = households.filter(h => {
+      const pt = parseCoordinates(h.coordinates);
+      return pt ? isPointInPolygon(pt, boundaryCoords) : false;
+    }).length;
 
-  const insideBusinessesCount = businesses.filter(b => {
-    const pt = parseCoordinates(b.coordinates);
-    return pt ? isPointInPolygon(pt, boundaryCoords) : false;
-  }).length;
+    const bCount = businesses.filter(b => {
+      const pt = parseCoordinates(b.coordinates);
+      return pt ? isPointInPolygon(pt, boundaryCoords) : false;
+    }).length;
+
+    return { insideHouseholdsCount: hhCount, insideBusinessesCount: bCount };
+  }, [households, businesses, boundaryCoords]);
 
   const handleSaveBoundary = (newCoords: { lat: number; lng: number }[], newStyle: BoundaryStyle) => {
     setBoundaryCoords(newCoords);
@@ -687,40 +691,46 @@ export default function GisMap({
     setLayers({ ...layers, [layer]: !layers[layer] });
   };
 
-  // Convert household coordinates dynamically into pins
-  const householdPins: GisPin[] = households.map(h => {
-    const coords = parseCoordinates(h.coordinates);
-    if (!coords) return null;
-    return {
-      id: `H_PIN_${h.id}`,
-      type: "household" as const,
-      name: `Hộ ${h.ownerName}`,
-      location: h.address,
-      status: "Hoạt động" as const,
-      lat: coords.lat,
-      lng: coords.lng,
-      details: `Chủ hộ: ${h.ownerName}. Mã sổ hộ khẩu: ${h.code}. Thành viên: ${h.members?.map((m: any) => m.name).join(", ") || "Chưa có"}. Nhân khẩu: ${h.memberCount} người.`
-    };
-  }).filter(Boolean) as GisPin[];
+  // Convert household coordinates dynamically into pins (Memoized)
+  const householdPins: GisPin[] = useMemo(() => {
+    return households.map(h => {
+      const coords = parseCoordinates(h.coordinates);
+      if (!coords) return null;
+      return {
+        id: `H_PIN_${h.id}`,
+        type: "household" as const,
+        name: `Hộ ${h.ownerName}`,
+        location: h.address,
+        status: "Hoạt động" as const,
+        lat: coords.lat,
+        lng: coords.lng,
+        details: `Chủ hộ: ${h.ownerName}. Mã sổ hộ khẩu: ${h.code}. Thành viên: ${h.members?.map((m: any) => m.name).join(", ") || "Chưa có"}. Nhân khẩu: ${h.memberCount} người.`
+      };
+    }).filter(Boolean) as GisPin[];
+  }, [households]);
 
-  // Convert businesses dynamically into pins
-  const businessPins: GisPin[] = businesses.map(b => {
-    const coords = parseCoordinates(b.coordinates);
-    if (!coords) return null;
-    return {
-      id: `B_PIN_${b.id}`,
-      type: "business" as const,
-      name: b.name,
-      location: b.address,
-      status: b.status === "Đang hoạt động" ? ("Hoạt động" as const) : ("Bảo trì" as const),
-      lat: coords.lat,
-      lng: coords.lng,
-      details: `Hộ kinh doanh: ${b.name}. Chủ sở hữu: ${b.owner}. Ngành nghề: ${b.type}. Số giấy phép ĐKKD: ${b.licenseNumber}.`
-    };
-  }).filter(Boolean) as GisPin[];
+  // Convert businesses dynamically into pins (Memoized)
+  const businessPins: GisPin[] = useMemo(() => {
+    return businesses.map(b => {
+      const coords = parseCoordinates(b.coordinates);
+      if (!coords) return null;
+      return {
+        id: `B_PIN_${b.id}`,
+        type: "business" as const,
+        name: b.name,
+        location: b.address,
+        status: b.status === "Đang hoạt động" ? ("Hoạt động" as const) : ("Bảo trì" as const),
+        lat: coords.lat,
+        lng: coords.lng,
+        details: `Hộ kinh doanh: ${b.name}. Chủ sở hữu: ${b.owner}. Ngành nghề: ${b.type}. Số giấy phép ĐKKD: ${b.licenseNumber}.`
+      };
+    }).filter(Boolean) as GisPin[];
+  }, [businesses]);
 
-  // Combine static initial system pins, custom pins, dynamic household pins, and business pins
-  const allPins = [...initialGisPins, ...customPins, ...householdPins, ...businessPins];
+  // Combine static initial system pins, custom pins, dynamic household pins, and business pins (Memoized)
+  const allPins = useMemo(() => {
+    return [...initialGisPins, ...customPins, ...householdPins, ...businessPins];
+  }, [customPins, householdPins, businessPins]);
 
   // Sync targetGisItem passed from other tabs (Household, Enterprise, Business)
   useEffect(() => {

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo, useCallback } from "react";
 import { 
   Home, 
   Users, 
@@ -57,6 +57,55 @@ interface HouseholdManagementProps {
   onNavigateToGis?: (item: TargetGisItem) => void;
 }
 
+const HouseholdSearchInput = React.memo(function HouseholdSearchInput({
+  defaultValue,
+  onSearch
+}: {
+  defaultValue: string;
+  onSearch: (value: string) => void;
+}) {
+  const [val, setVal] = useState(defaultValue);
+
+  useEffect(() => {
+    setVal(defaultValue);
+  }, [defaultValue]);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      onSearch(val);
+    }, 200);
+    return () => clearTimeout(timer);
+  }, [val, onSearch]);
+
+  return (
+    <div className="relative flex-1">
+      <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
+      <input 
+        id="household-search-input"
+        name="householdSearchTerm"
+        type="text" 
+        placeholder="Tìm kiếm theo chủ hộ, mã số sổ, địa chỉ, CCCD..."
+        value={val}
+        onChange={(e) => setVal(e.target.value)}
+        className="w-full pl-10 pr-8 py-2 border border-slate-200 rounded-xl text-xs focus:outline-none focus:border-emerald-500 bg-white transition-all placeholder:text-slate-400"
+      />
+      {val && (
+        <button
+          type="button"
+          onClick={() => {
+            setVal("");
+            onSearch("");
+          }}
+          className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-1 cursor-pointer"
+          title="Xóa tìm kiếm"
+        >
+          <X size={14} />
+        </button>
+      )}
+    </div>
+  );
+});
+
 export default function HouseholdManagement({ 
   households, 
   onAddHousehold,
@@ -75,6 +124,10 @@ export default function HouseholdManagement({
   const [selectedHousehold, setSelectedHousehold] = useState<Household | null>(null);
   const [showDetailModal, setShowDetailModal] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
+  const handleSearchChange = useCallback((val: string) => {
+    setSearchTerm(val);
+    setCurrentPage(1);
+  }, []);
   const [typeFilter, setTypeFilter] = useState<"Tất cả" | "Thường trú" | "Tạm trú">("Tất cả");
   const [showSoftDeleted, setShowSoftDeleted] = useState(false); // Recycle bin toggle
   
@@ -280,21 +333,28 @@ export default function HouseholdManagement({
     setParsedGPS(parsed);
   };
 
-  // Filter households by search, type, and soft-delete status
-  const filteredHouseholds = households.filter((h) => {
-    const isDeleted = !!(h as any).deletedAt;
-    if (showSoftDeleted !== isDeleted) return false;
+  // Filter households by search, type, and soft-delete status (Memoized)
+  const filteredHouseholds = useMemo(() => {
+    const q = searchTerm.toLowerCase().trim();
+    const hasQuery = q.length > 0;
 
-    const matchesSearch = 
-      h.ownerName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      h.code.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      h.address.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      h.members.some(m => m.name.toLowerCase().includes(searchTerm.toLowerCase()) || m.cccd.includes(searchTerm));
-    
-    const matchesType = typeFilter === "Tất cả" || (h.type || "Thường trú") === typeFilter;
-    
-    return matchesSearch && matchesType;
-  });
+    return households.filter((h) => {
+      const isDeleted = !!(h as any).deletedAt;
+      if (showSoftDeleted !== isDeleted) return false;
+
+      const matchesType = typeFilter === "Tất cả" || (h.type || "Thường trú") === typeFilter;
+      if (!matchesType) return false;
+
+      if (!hasQuery) return true;
+
+      return (
+        h.ownerName.toLowerCase().includes(q) ||
+        h.code.toLowerCase().includes(q) ||
+        h.address.toLowerCase().includes(q) ||
+        (h.members && h.members.some(m => (m.name && m.name.toLowerCase().includes(q)) || (m.cccd && m.cccd.includes(q))))
+      );
+    });
+  }, [households, searchTerm, showSoftDeleted, typeFilter]);
 
   // Paginated selection
   const paginatedHouseholds = filteredHouseholds.slice(
@@ -916,18 +976,7 @@ export default function HouseholdManagement({
             {/* Filters Bar */}
           <div className="flex flex-col md:flex-row gap-3 justify-between items-stretch md:items-center bg-white p-4 rounded-xl border border-slate-100 shadow-xs">
             {/* Search Box */}
-            <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
-              <input 
-                id="household-search-input"
-                name="householdSearchTerm"
-                type="text"
-                placeholder="Tìm kiếm theo chủ hộ, mã số sổ, địa chỉ, CCCD..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-10 pr-4 py-2 border border-slate-200 rounded-xl text-xs focus:outline-none focus:border-emerald-500 bg-white"
-              />
-            </div>
+            <HouseholdSearchInput defaultValue={searchTerm} onSearch={handleSearchChange} />
 
             {/* Quick selectors */}
             <div className="flex flex-wrap items-center gap-2.5 text-xs">

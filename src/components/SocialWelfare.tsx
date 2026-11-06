@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { 
   Heart, 
   Search, 
@@ -109,6 +109,15 @@ export default function SocialWelfare({ recipients, onUpdateStatus, onAddRecipie
   const [phone, setPhone] = useState("");
   const [supportLevel, setSupportLevel] = useState("1.500.000đ / tháng");
   const [notes, setNotes] = useState("");
+  const [citizenQuickSearch, setCitizenQuickSearch] = useState("");
+
+  const candidateResidents = useMemo(() => {
+    const q = citizenQuickSearch.toLowerCase().trim();
+    if (!q) return (residents || []).slice(0, 60);
+    return (residents || [])
+      .filter(r => (r.fullName && r.fullName.toLowerCase().includes(q)) || (r.cccd && r.cccd.includes(q)))
+      .slice(0, 60);
+  }, [residents, citizenQuickSearch]);
 
   // Lock body scroll when modals open
   useEffect(() => {
@@ -653,13 +662,23 @@ export default function SocialWelfare({ recipients, onUpdateStatus, onAddRecipie
             </div>
              <form onSubmit={handleCreate} className="p-5 space-y-4 text-xs">
               
-              <div className="space-y-1">
+              <div className="space-y-1.5">
                 <label className="text-xs font-bold text-slate-600 block">Chọn nhanh từ danh sách cư dân khu phố</label>
+                <div className="relative">
+                  <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" size={13} />
+                  <input
+                    type="text"
+                    placeholder="Lọc nhanh tên hoặc CCCD cư dân..."
+                    value={citizenQuickSearch}
+                    onChange={(e) => setCitizenQuickSearch(e.target.value)}
+                    className="w-full pl-8 pr-3 py-1.5 border border-slate-200 rounded-lg text-xs focus:outline-none focus:border-rose-500 bg-slate-50/50"
+                  />
+                </div>
                 <select
                   onChange={(e) => {
                     const selectedCccd = e.target.value;
                     if (!selectedCccd) return;
-                    const res = residents.find(r => r.cccd === selectedCccd);
+                    const res = (residents || []).find(r => r.cccd === selectedCccd);
                     if (res) {
                       setFullName(res.fullName);
                       setCccd(res.cccd);
@@ -667,10 +686,10 @@ export default function SocialWelfare({ recipients, onUpdateStatus, onAddRecipie
                       setAddress(res.address);
                     }
                   }}
-                  className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:border-rose-500 bg-white"
+                  className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs focus:outline-none focus:border-rose-500 bg-white"
                 >
-                  <option value="">-- Chọn cư dân có sẵn trong hệ thống --</option>
-                  {residents.map(r => (
+                  <option value="">-- Chọn cư dân ({candidateResidents.length} kết quả) --</option>
+                  {candidateResidents.map(r => (
                     <option key={r.cccd} value={r.cccd}>
                       {r.fullName} - CCCD: {r.cccd}
                     </option>

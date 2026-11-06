@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useMemo } from "react";
 import { 
   Users, 
   Home, 
@@ -79,94 +79,154 @@ export default function Dashboard({
   setActiveTab,
   currentUser 
 }: DashboardProps) {
-  // 1. Dân cư thực tế từ Supabase CSDL
-  const totalResidentsCount = residents.length;
-  const maleCount = residents.filter(r => r.gender === "Nam").length;
-  const femaleCount = residents.filter(r => r.gender === "Nữ").length;
-  const malePct = totalResidentsCount > 0 ? ((maleCount / totalResidentsCount) * 100).toFixed(1) : "0";
-  const femalePct = totalResidentsCount > 0 ? ((femaleCount / totalResidentsCount) * 100).toFixed(1) : "0";
+  // Consolidated single-pass demographics and business analytics (Memoized)
+  const {
+    totalResidentsCount,
+    maleCount,
+    femaleCount,
+    malePct,
+    femalePct,
+    thuongTruCount,
+    tamTruCount,
+    tamVangCount,
+    foreignCount,
+    childrenCount,
+    workingAgeCount,
+    elderlyCount,
+    expiringTamTruCount,
+    expiredTamTruCount,
+    totalHouseholdsCount,
+    avgPerHousehold,
+    totalEnterprisesCount,
+    totalEstablishmentsCount,
+    totalHostelsCount,
+    totalRoomsCount,
+    pendingReportsCount,
+    familyMembers,
+    myReports,
+    residencyChartData
+  } = useMemo(() => {
+    const totalRes = (residents || []).length;
+    let mCount = 0;
+    let fCount = 0;
+    let ttCount = 0;
+    let tmCount = 0;
+    let tvCount = 0;
+    let forCount = 0;
+    let child = 0;
+    let work = 0;
+    let elder = 0;
+    let expiringTT = 0;
+    let expiredTT = 0;
+    const currentYear = 2026;
 
-  // Phân loại cư trú
-  const thuongTruCount = residents.filter(r => r.status === "Thường trú").length;
-  const tamTruCount = residents.filter(r => r.status === "Tạm trú").length;
-  const tamVangCount = residents.filter(r => r.status === "Tạm vắng").length;
+    for (let i = 0; i < totalRes; i++) {
+      const r = residents[i];
+      if (r.gender === "Nam") mCount++;
+      else if (r.gender === "Nữ") fCount++;
 
-  // Người nước ngoài (Luật 47/2014/QH13)
-  const foreignResidents = residents.filter(r => 
-    (r.nationality && r.nationality !== "Việt Nam") ||
-    r.passportNumber ||
-    (r.cccd && (r.cccd.toLowerCase().includes("hộ chiếu") || r.cccd.toLowerCase().includes("passport"))) ||
-    (r.id && r.id.startsWith("R_FOR_"))
-  );
-  const foreignCount = foreignResidents.length;
+      const isForeign = 
+        (r.nationality && r.nationality !== "Việt Nam") ||
+        Boolean(r.passportNumber) ||
+        (r.cccd && (r.cccd.toLowerCase().includes("hộ chiếu") || r.cccd.toLowerCase().includes("passport"))) ||
+        (r.id && r.id.startsWith("R_FOR_"));
 
-  // 2. Cơ cấu độ tuổi (Luật Căn cước 2023) & Cảnh báo thời hạn tạm trú thực tế
-  const currentYear = 2026;
-  let childrenCount = 0;   // < 14 tuổi (Trẻ em)
-  let workingAgeCount = 0; // 14 - 59 tuổi (Độ tuổi lao động)
-  let elderlyCount = 0;    // >= 60 tuổi (Người cao tuổi)
-  let expiringTamTruCount = 0; // Hết hạn <= 30 ngày
-  let expiredTamTruCount = 0;  // Đã quá hạn
+      if (isForeign) {
+        forCount++;
+      } else if (r.status === "Thường trú") {
+        ttCount++;
+      } else if (r.status === "Tạm trú") {
+        tmCount++;
+      } else if (r.status === "Tạm vắng") {
+        tvCount++;
+      }
 
-  residents.forEach(r => {
-    const by = extractBirthYear(r.birthDate);
-    if (by > 1900 && by <= currentYear) {
-      const age = currentYear - by;
-      if (age < 14) childrenCount++;
-      else if (age >= 60) elderlyCount++;
-      else workingAgeCount++;
-    } else {
-      workingAgeCount++;
+      const by = extractBirthYear(r.birthDate);
+      if (by > 1900 && by <= currentYear) {
+        const age = currentYear - by;
+        if (age < 14) child++;
+        else if (age >= 60) elder++;
+        else work++;
+      } else {
+        work++;
+      }
+
+      if (r.status === "Tạm trú" && r.temporaryExpDate) {
+        const expStatus = getTemporaryResidenceExpiryStatus(r.temporaryExpDate);
+        if (expStatus.isWarning) expiringTT++;
+        else if (expStatus.isExpired) expiredTT++;
+      }
     }
 
-    if (r.status === "Tạm trú" && r.temporaryExpDate) {
-      const expStatus = getTemporaryResidenceExpiryStatus(r.temporaryExpDate);
-      if (expStatus.isWarning) expiringTamTruCount++;
-      else if (expStatus.isExpired) expiredTamTruCount++;
-    }
-  });
+    const totalHouseholds = (households || []).length;
+    const avgHH = totalHouseholds > 0 ? (ttCount / totalHouseholds).toFixed(1) : "0";
 
-  // 3. Hộ khẩu thực tế từ Supabase CSDL
-  const totalHouseholdsCount = households.length;
-  const avgPerHousehold = totalHouseholdsCount > 0 
-    ? (thuongTruCount / totalHouseholdsCount).toFixed(1) 
-    : "0";
+    // Businesses breakdown
+    let enterprisesCount = 0;
+    let establishmentsCount = 0;
+    let hostelsCount = 0;
+    let roomsCount = 0;
 
-  // 4. Doanh nghiệp & Cơ sở kinh doanh thực tế
-  const enterprises = businesses.filter(b => 
-    b.businessType === "Công ty TNHH" || 
-    b.businessType === "Công ty Cổ phần" || 
-    b.businessType === "Doanh nghiệp tư nhân" || 
-    (b.name && (b.name.toLowerCase().includes("công ty") || b.name.toLowerCase().includes("tnhh") || b.name.toLowerCase().includes("cổ phần")))
-  );
-  const totalEnterprisesCount = enterprises.length;
+    (businesses || []).forEach(b => {
+      const isEnterprise = 
+        b.businessType === "Công ty TNHH" || 
+        b.businessType === "Công ty Cổ phần" || 
+        b.businessType === "Doanh nghiệp tư nhân" || 
+        (b.name && (b.name.toLowerCase().includes("công ty") || b.name.toLowerCase().includes("tnhh") || b.name.toLowerCase().includes("cổ phần")));
 
-  const establishments = businesses.filter(b => !enterprises.some(e => e.id === b.id));
-  const totalEstablishmentsCount = establishments.length;
+      if (isEnterprise) enterprisesCount++;
+      else establishmentsCount++;
 
-  const hostelList = businesses.filter(b => b.isAccommodation);
-  const totalHostelsCount = hostelList.length;
-  const totalRoomsCount = hostelList.reduce((sum, h) => sum + (h.soPhong || 0), 0);
+      if (b.isAccommodation) {
+        hostelsCount++;
+        roomsCount += (b.soPhong || 0);
+      }
+    });
 
-  // 5. Phản ánh hiện trường
-  const pendingReportsCount = reports.filter(r => r.status !== "Đã giải quyết").length;
+    const pendingReports = (reports || []).filter(r => r.status !== "Đã giải quyết").length;
 
-  // Filter household members if resident
-  const familyMembers = currentUser?.role === "nguoidan" && currentUser.householdCode
-    ? residents.filter(r => r.householdId === currentUser.householdCode)
-    : [];
+    const famMembers = currentUser?.role === "nguoidan" && currentUser.householdCode
+      ? (residents || []).filter(r => r.householdId === currentUser.householdCode)
+      : [];
 
-  const myReports = currentUser?.role === "nguoidan"
-    ? reports.filter(r => r.reporterName === currentUser.fullName || r.reporterPhone === currentUser.phone)
-    : [];
+    const citizenReports = currentUser?.role === "nguoidan"
+      ? (reports || []).filter(r => r.reporterName === currentUser.fullName || r.reporterPhone === currentUser.phone)
+      : [];
 
-  // Demographics chart data từ CSDL thực
-  const residencyChartData = [
-    { name: "Thường trú", Số_lượng: thuongTruCount, color: "#10b981" },
-    { name: "Tạm trú", Số_lượng: tamTruCount, color: "#f59e0b" },
-    { name: "Tạm vắng", Số_lượng: tamVangCount, color: "#64748b" },
-    { name: "Người nước ngoài", Số_lượng: foreignCount, color: "#9333ea" }
-  ];
+    const chartData = [
+      { name: "Thường trú", Số_lượng: ttCount, color: "#10b981" },
+      { name: "Tạm trú", Số_lượng: tmCount, color: "#f59e0b" },
+      { name: "Tạm vắng", Số_lượng: tvCount, color: "#64748b" },
+      { name: "Người nước ngoài", Số_lượng: forCount, color: "#9333ea" }
+    ];
+
+    return {
+      totalResidentsCount: totalRes,
+      maleCount: mCount,
+      femaleCount: fCount,
+      malePct: totalRes > 0 ? ((mCount / totalRes) * 100).toFixed(1) : "0",
+      femalePct: totalRes > 0 ? ((fCount / totalRes) * 100).toFixed(1) : "0",
+      thuongTruCount: ttCount,
+      tamTruCount: tmCount,
+      tamVangCount: tvCount,
+      foreignCount: forCount,
+      childrenCount: child,
+      workingAgeCount: work,
+      elderlyCount: elder,
+      expiringTamTruCount: expiringTT,
+      expiredTamTruCount: expiredTT,
+      totalHouseholdsCount: totalHouseholds,
+      avgPerHousehold: avgHH,
+      totalEnterprisesCount: enterprisesCount,
+      totalEstablishmentsCount: establishmentsCount,
+      totalHostelsCount: hostelsCount,
+      totalRoomsCount: roomsCount,
+      pendingReportsCount: pendingReports,
+      familyMembers: famMembers,
+      myReports: citizenReports,
+      residencyChartData: chartData
+    };
+  }, [residents, households, businesses, reports, currentUser]);
 
   // Business type chart data
   const businessTypeCounts = businesses.reduce((acc, b) => {
@@ -988,7 +1048,7 @@ export default function Dashboard({
           </div>
           <div className="mt-3 pt-2.5 border-t border-slate-50 flex justify-between text-[11px] text-slate-500">
             <span>{totalHostelsCount} nhà trọ ({totalRoomsCount} phòng)</span>
-            <span>{establishments.length - totalHostelsCount} Hộ KD khác</span>
+            <span>{totalEstablishmentsCount - totalHostelsCount} Hộ KD khác</span>
           </div>
         </div>
 

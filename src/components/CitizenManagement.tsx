@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo, useCallback } from "react";
 import { 
   Search, 
   Plus, 
@@ -97,6 +97,59 @@ export const getVisaExpiryStatus = (validUntil?: string) => {
     return { status: "valid", daysLeft, label: `Còn hạn đến ${validUntil}`, badgeClass: "bg-emerald-50 text-emerald-800 border-emerald-300" };
   }
 };
+
+interface CitizenSearchInputProps {
+  defaultValue: string;
+  onSearch: (value: string) => void;
+  placeholder?: string;
+}
+
+const CitizenSearchInput = React.memo(function CitizenSearchInput({
+  defaultValue,
+  onSearch,
+  placeholder
+}: CitizenSearchInputProps) {
+  const [val, setVal] = useState(defaultValue);
+
+  useEffect(() => {
+    setVal(defaultValue);
+  }, [defaultValue]);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      onSearch(val);
+    }, 220);
+    return () => clearTimeout(timer);
+  }, [val, onSearch]);
+
+  return (
+    <div className="relative flex-1 min-w-[280px]">
+      <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
+      <input 
+        id="citizen-search-input"
+        name="citizenSearch"
+        type="text" 
+        placeholder={placeholder || "Tìm theo họ tên, CCCD, SĐT, quê quán, nghề nghiệp, mã BHYT..."}
+        value={val}
+        onChange={(e) => setVal(e.target.value)}
+        className="w-full pl-9 pr-8 py-2 border border-slate-200/90 rounded-xl text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600 bg-slate-50/50 hover:bg-white transition-all placeholder:text-slate-400"
+      />
+      {val && (
+        <button
+          type="button"
+          onClick={() => {
+            setVal("");
+            onSearch("");
+          }}
+          className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-1 cursor-pointer"
+          title="Xóa tìm kiếm"
+        >
+          <X size={14} />
+        </button>
+      )}
+    </div>
+  );
+});
 
 interface CitizenManagementProps {
   residents: Resident[];
@@ -224,10 +277,10 @@ export default function CitizenManagement({
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [showDetailModal]);
 
-  const handleSearchChange = (val: string) => {
+  const handleSearchChange = useCallback((val: string) => {
     setSearchTerm(val);
     setCurrentPage(1);
-  };
+  }, []);
 
   const handleStatusFilterChange = (val: string) => {
     setStatusFilter(val);
@@ -1241,74 +1294,148 @@ NGƯỜI NƯỚC NGOÀI KHAI BÁO       CHỦ CƠ SỞ LƯU TRÚ       XÁC NH�
     setFormData(initialFormState);
   };
 
-  // Filter Logic with comprehensive field search (kể cả Hộ chiếu, Quốc tịch & Mã khai báo)
-  const filteredResidents = residents.filter(res => {
-    const isForeign = isForeignResident(res);
-    const query = searchTerm.toLowerCase();
-    const matchesSearch = 
-      res.fullName.toLowerCase().includes(query) || 
-      res.cccd.toLowerCase().includes(query) || 
-      (res.passportNumber && res.passportNumber.toLowerCase().includes(query)) ||
-      (res.nationality && res.nationality.toLowerCase().includes(query)) ||
-      (res.temporaryRegistrationCode && res.temporaryRegistrationCode.toLowerCase().includes(query)) ||
-      (res.visaOrCardNumber && res.visaOrCardNumber.toLowerCase().includes(query)) ||
-      (res.sponsoringOrganization && res.sponsoringOrganization.toLowerCase().includes(query)) ||
-      (res.workPermitNumber && res.workPermitNumber.toLowerCase().includes(query)) ||
-      (res.phone && res.phone.includes(query)) ||
-      (res.hometown && res.hometown.toLowerCase().includes(query)) ||
-      (res.occupation && res.occupation.toLowerCase().includes(query)) ||
-      (res.householdId && res.householdId.toLowerCase().includes(query)) ||
-      (res.healthInsuranceNumber && res.healthInsuranceNumber.toLowerCase().includes(query)) ||
-      (res.policyGroup && res.policyGroup.toLowerCase().includes(query));
+  // Calculate dynamic segment tab counts and foreign resident statistics (Memoized on residents change only)
+  const {
+    tabCounts,
+    foreignResidentsList,
+    tamTruResidentsList,
+    tamTruExpiringSoonCount,
+    tamTruExpiredCount,
+    uniqueNationalities,
+    trcCount,
+    expiringSoonCount,
+    registeredPoliceCount
+  } = useMemo(() => {
+    let thuongTru = 0;
+    let tamVang = 0;
+    const foreignList: Resident[] = [];
+    const tamTruList: Resident[] = [];
 
-    let matchesStatus = true;
-    if (statusFilter === "Người nước ngoài") {
-      if (!isForeign) return false;
-      if (foreignNationalityFilter !== "Tất cả" && res.nationality !== foreignNationalityFilter) return false;
-      if (foreignVisaTypeFilter !== "Tất cả" && res.visaOrCardType !== foreignVisaTypeFilter) return false;
-      if (foreignExpiryFilter !== "Tất cả") {
-        const expiryInfo = getVisaExpiryStatus(res.visaValidUntil);
-        if (foreignExpiryFilter === "Sắp hết hạn" && expiryInfo.status !== "expiring_soon") return false;
-        if (foreignExpiryFilter === "Còn hạn dài" && expiryInfo.status !== "valid") return false;
-        if (foreignExpiryFilter === "Đã hết hạn" && expiryInfo.status !== "expired") return false;
+    for (let i = 0; i < residents.length; i++) {
+      const r = residents[i];
+      const isForeign = isForeignResident(r);
+      if (isForeign) {
+        foreignList.push(r);
+      } else if (r.status === "Thường trú") {
+        thuongTru++;
+      } else if (r.status === "Tạm trú") {
+        tamTruList.push(r);
+      } else if (r.status === "Tạm vắng") {
+        tamVang++;
       }
-    } else if (statusFilter === "Tạm trú") {
-      if (res.status !== "Tạm trú" || isForeign) return false;
-      if (temporaryExpiryFilter !== "Tất cả") {
-        const expStatus = getTemporaryResidenceExpiryStatus(res.temporaryExpDate);
-        if (temporaryExpiryFilter === "Sắp hết hạn (< 30 ngày)" && !expStatus.isWarning) return false;
-        if (temporaryExpiryFilter === "Đã hết hạn" && !expStatus.isExpired) return false;
-        if (temporaryExpiryFilter === "Còn hạn dài" && (expStatus.isWarning || expStatus.isExpired)) return false;
-      }
-    } else if (statusFilter !== "Tất cả") {
-      matchesStatus = res.status === statusFilter && !isForeign;
     }
 
-    const matchesGender = genderFilter === "Tất cả" || res.gender === genderFilter;
-    const matchesPolicy = policyFilter === "Tất cả" || (res.policyGroup && res.policyGroup.includes(policyFilter));
+    let expiringSoon = 0;
+    let expired = 0;
+    for (let i = 0; i < tamTruList.length; i++) {
+      const exp = tamTruList[i].temporaryExpDate;
+      if (exp) {
+        const s = getTemporaryResidenceExpiryStatus(exp);
+        if (s.isWarning) expiringSoon++;
+        else if (s.isExpired) expired++;
+      }
+    }
 
-    return matchesSearch && matchesStatus && matchesGender && matchesPolicy;
-  });
+    const nationalitiesSet = new Set<string>();
+    let trc = 0;
+    let fExpSoon = 0;
+    let registeredPolice = 0;
 
-  // Calculate dynamic segment tab counts
-  const foreignResidentsList = residents.filter(r => isForeignResident(r));
-  const tamTruResidentsList = residents.filter(r => r.status === "Tạm trú" && !isForeignResident(r));
-  const tamTruExpiringSoonCount = tamTruResidentsList.filter(r => getTemporaryResidenceExpiryStatus(r.temporaryExpDate).isWarning).length;
-  const tamTruExpiredCount = tamTruResidentsList.filter(r => getTemporaryResidenceExpiryStatus(r.temporaryExpDate).isExpired).length;
+    for (let i = 0; i < foreignList.length; i++) {
+      const fr = foreignList[i];
+      if (fr.nationality) nationalitiesSet.add(fr.nationality);
+      if (fr.visaOrCardType === "Thẻ tạm trú (TRC)") trc++;
+      if (fr.visaValidUntil && getVisaExpiryStatus(fr.visaValidUntil).status === "expiring_soon") fExpSoon++;
+      if (fr.temporaryRegistrationStatus === "Đã khai báo" || Boolean(fr.temporaryRegistrationCode)) registeredPolice++;
+    }
 
-  const tabCounts = {
-    all: residents.length,
-    thuongTru: residents.filter(r => r.status === "Thường trú" && !isForeignResident(r)).length,
-    tamTru: tamTruResidentsList.length,
-    tamVang: residents.filter(r => r.status === "Tạm vắng" && !isForeignResident(r)).length,
-    foreigners: foreignResidentsList.length
-  };
+    return {
+      tabCounts: {
+        all: residents.length,
+        thuongTru,
+        tamTru: tamTruList.length,
+        tamVang,
+        foreigners: foreignList.length
+      },
+      foreignResidentsList: foreignList,
+      tamTruResidentsList: tamTruList,
+      tamTruExpiringSoonCount: expiringSoon,
+      tamTruExpiredCount: expired,
+      uniqueNationalities: Array.from(nationalitiesSet),
+      trcCount: trc,
+      expiringSoonCount: fExpSoon,
+      registeredPoliceCount: registeredPolice
+    };
+  }, [residents]);
 
-  // Foreign resident statistics for specialized dashboard
-  const uniqueNationalities = Array.from(new Set(foreignResidentsList.map(r => r.nationality).filter(Boolean))) as string[];
-  const trcCount = foreignResidentsList.filter(r => r.visaOrCardType === "Thẻ tạm trú (TRC)").length;
-  const expiringSoonCount = foreignResidentsList.filter(r => getVisaExpiryStatus(r.visaValidUntil).status === "expiring_soon").length;
-  const registeredPoliceCount = foreignResidentsList.filter(r => r.temporaryRegistrationStatus === "Đã khai báo" || Boolean(r.temporaryRegistrationCode)).length;
+  // Memoized Filter Logic with fast-path search & debounced input
+  const filteredResidents = useMemo(() => {
+    const query = searchTerm.toLowerCase().trim();
+    const hasQuery = query.length > 0;
+
+    return residents.filter(res => {
+      const isForeign = isForeignResident(res);
+
+      let matchesStatus = true;
+      if (statusFilter === "Người nước ngoài") {
+        if (!isForeign) return false;
+        if (foreignNationalityFilter !== "Tất cả" && res.nationality !== foreignNationalityFilter) return false;
+        if (foreignVisaTypeFilter !== "Tất cả" && res.visaOrCardType !== foreignVisaTypeFilter) return false;
+        if (foreignExpiryFilter !== "Tất cả") {
+          const expiryInfo = getVisaExpiryStatus(res.visaValidUntil);
+          if (foreignExpiryFilter === "Sắp hết hạn" && expiryInfo.status !== "expiring_soon") return false;
+          if (foreignExpiryFilter === "Còn hạn dài" && expiryInfo.status !== "valid") return false;
+          if (foreignExpiryFilter === "Đã hết hạn" && expiryInfo.status !== "expired") return false;
+        }
+      } else if (statusFilter === "Tạm trú") {
+        if (res.status !== "Tạm trú" || isForeign) return false;
+        if (temporaryExpiryFilter !== "Tất cả") {
+          const expStatus = getTemporaryResidenceExpiryStatus(res.temporaryExpDate);
+          if (temporaryExpiryFilter === "Sắp hết hạn (< 30 ngày)" && !expStatus.isWarning) return false;
+          if (temporaryExpiryFilter === "Đã hết hạn" && !expStatus.isExpired) return false;
+          if (temporaryExpiryFilter === "Còn hạn dài" && (expStatus.isWarning || expStatus.isExpired)) return false;
+        }
+      } else if (statusFilter !== "Tất cả") {
+        matchesStatus = res.status === statusFilter && !isForeign;
+      }
+
+      if (!matchesStatus) return false;
+
+      if (genderFilter !== "Tất cả" && res.gender !== genderFilter) return false;
+      if (policyFilter !== "Tất cả" && (!res.policyGroup || !res.policyGroup.includes(policyFilter))) return false;
+
+      if (!hasQuery) return true;
+
+      // Fast-path text matches
+      return (
+        res.fullName.toLowerCase().includes(query) || 
+        res.cccd.toLowerCase().includes(query) || 
+        (res.phone && res.phone.includes(query)) ||
+        (res.address && res.address.toLowerCase().includes(query)) ||
+        (res.householdId && res.householdId.toLowerCase().includes(query)) ||
+        (res.occupation && res.occupation.toLowerCase().includes(query)) ||
+        (res.hometown && res.hometown.toLowerCase().includes(query)) ||
+        (res.passportNumber && res.passportNumber.toLowerCase().includes(query)) ||
+        (res.nationality && res.nationality.toLowerCase().includes(query)) ||
+        (res.temporaryRegistrationCode && res.temporaryRegistrationCode.toLowerCase().includes(query)) ||
+        (res.visaOrCardNumber && res.visaOrCardNumber.toLowerCase().includes(query)) ||
+        (res.sponsoringOrganization && res.sponsoringOrganization.toLowerCase().includes(query)) ||
+        (res.workPermitNumber && res.workPermitNumber.toLowerCase().includes(query)) ||
+        (res.healthInsuranceNumber && res.healthInsuranceNumber.toLowerCase().includes(query)) ||
+        (res.policyGroup && res.policyGroup.toLowerCase().includes(query))
+      );
+    });
+  }, [
+    residents,
+    searchTerm,
+    statusFilter,
+    foreignNationalityFilter,
+    foreignVisaTypeFilter,
+    foreignExpiryFilter,
+    temporaryExpiryFilter,
+    genderFilter,
+    policyFilter
+  ]);
 
   // Pagination Logic
   const totalItems = filteredResidents.length;
@@ -1396,18 +1523,10 @@ NGƯỜI NƯỚC NGOÀI KHAI BÁO       CHỦ CƠ SỞ LƯU TRÚ       XÁC NH�
       <div className="bg-white p-3.5 sm:p-4 rounded-2xl border border-slate-200/80 shadow-xs space-y-3">
         {/* Tier 1: Search Box & Status Pills */}
         <div className="flex flex-col lg:flex-row gap-3 items-stretch lg:items-center justify-between">
-          <div className="relative flex-1 min-w-[280px]">
-            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
-            <input 
-              id="citizen-search-input"
-              name="citizenSearch"
-              type="text" 
-              placeholder="Tìm theo họ tên, CCCD, SĐT, quê quán, nghề nghiệp, mã BHYT..."
-              value={searchTerm}
-              onChange={(e) => handleSearchChange(e.target.value)}
-              className="w-full pl-9 pr-4 py-2 border border-slate-200/90 rounded-xl text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600 bg-slate-50/50 hover:bg-white transition-all placeholder:text-slate-400"
-            />
-          </div>
+          <CitizenSearchInput 
+            defaultValue={searchTerm} 
+            onSearch={handleSearchChange} 
+          />
 
           {/* Residency Status Tabs */}
           <div className="flex items-center gap-1 bg-slate-100/80 border border-slate-200/80 p-1 rounded-xl shrink-0 overflow-x-auto shadow-2xs">
