@@ -1,119 +1,74 @@
 # BIÊN BẢN BÀN GIAO & CẬP NHẬT PHIÊN LÀM VIỆC (SESSION HANDOVER)
 **Dự án:** Cổng Dịch vụ Cư dân số & Hệ thống Quản trị Thông minh Khu phố 3, Phường An Phú  
-**Thời gian cập nhật:** 05/11/2026  
+**Thời gian cập nhật:** 07/11/2026 (14:10 UTC+7)  
 **Trạng thái phiên:** Sẵn sàng cho phiên tiếp theo (Ready for Next Session)
 
 ---
 
-## 1. THÔNG SỐ KỸ THUẬT & TRẠNG THÁI HIỆN TẠI
+## 1. THÔNG SỐ KỸ THUẬT & TRẠNG THÁI TOÀN HỆ THỐNG
 - **Mã nguồn & GitHub Repository:**
   - GitHub Remote: `https://github.com/nghiemquynh0210/khuphothongminh.git` (Nhánh: `main`)
-  - Tài khoản GitHub: `nghiemquynh0210`
-  - Đã push toàn bộ mã nguồn mới nhất lên GitHub (Synced with `main`).
-  - Trạng thái working tree cục bộ: Sạch hoàn toàn (`working tree clean`).
+  - Commit mới nhất: `65e38f6` ("feat(ui-ux): refine GIS header, remove design-system tab, install animate-ui skill & motion integration")
+  - Trạng thái Git: Đã push 100% lên GitHub `origin/main`. Working tree sạch hoàn toàn (`clean`).
+- **Nền tảng Vercel Production:**
+  - Trang chính thức: 👉 **[https://khuphothongminh.vercel.app](https://khuphothongminh.vercel.app)**
+  - Deployment ID: `dpl_84iVVHG5vQM9q3YMJfYpxdhyqjq9`
+  - Vercel Team: `khupho3-s-projects` / Project: `khuphothongminh`
+  - Trạng thái Vercel: `READY` (HTTP 200 OK).
 - **Cơ sở dữ liệu Supabase Cloud:**
   - Project Reference: `wjdgaobhipkgzveidtra` (`nghiemquynh0210's Project`, region: `ap-southeast-1`)
-  - Đã kết nối trực tiếp vào CSDL thật: 488 hộ gia đình và 11.632 nhân khẩu.
-- **Hệ sinh thái MCP Servers (Cấu hình toàn cục & Dự án):**
-  - Supabase MCP: `@supabase/mcp-server-supabase` (Personal Access Token).
-  - GitHub MCP: `@modelcontextprotocol/server-github` (`GITHUB_PAT`).
-  - Vercel MCP: `@modelcontextprotocol/server-vercel` (`VERCEL_API_TOKEN`).
-  - Chrome DevTools MCP: `chrome-devtools-mcp` (headless Chrome kiểm thử tự động).
-- **Tài khoản Vercel:**
-  - User: `nghiemquynh0210` (`nghiemquynh0210@gmail.com`), Team: `nghiemquynh0210s-projects`.
-- **Môi trường chạy:**
-  - Node.js LTS, Vite 6, React 19, TypeScript 5.8, Tailwind CSS v4.
-  - Server localhost đang chạy nền tại: `http://localhost:3000` (Task ID: `ac67b2e6-d369-4ad7-8dea-a5b3a0b2dfde/task-3523`).
-  - Kiểm tra TypeScript (`npx tsc --noEmit`): **0 Lỗi (Zero Errors)**.
-  - Trình duyệt Chrome DevTools Console: **0 Lỗi / 0 Cảnh báo đỏ**.
+  - Đồng bộ thực 2 chiều: 488 Sổ hộ khẩu, 11.632 Nhân khẩu, 119 Cơ sở kinh doanh/nhà trọ.
+- **Hệ sinh thái MCP Servers:**
+  - `github`: `@modelcontextprotocol/server-github` (kết nối trực tiếp token quản trị).
+  - `supabase`: `@supabase/mcp-server-supabase` (API token).
+  - `chrome-devtools`: Chrome headless kiểm thử giao diện tự động.
+- **Môi trường chạy cục bộ:**
+  - Vite 6, React 19, TypeScript 5.8, Tailwind CSS v4, Motion 14, @animate-ui/react 2.4.2.
+  - Server localhost đang chạy nền tại: `http://localhost:3000`.
+  - TypeScript Audit (`npm run lint:ts`): **0 Lỗi (Zero Errors)**.
 
 ---
 
-## 2. CÁC HẠNG MỤC ĐÃ HOÀN THÀNH XUẤT SẮC TRONG PHIÊN
+## 2. CÁC HẠNG MỤC CẢI TIẾN CỐT LÕI ĐÃ HOÀN THÀNH
 
-### A. Đồng bộ Hộp thông tin Chi tiết (Unified Dossier Canvas)
-Đã chuẩn hóa toàn bộ các Modal thông tin chi tiết trên 4 phân hệ cốt lõi:
-1. `src/components/BusinessManagement.tsx` (Hộ kinh doanh)
-2. `src/components/EnterpriseManagement.tsx` (Doanh nghiệp)
-3. `src/components/CitizenManagement.tsx` (Hồ sơ cư dân Đề án 06)
-4. `src/components/HouseholdManagement.tsx` (Sổ hộ tịch điện tử)
-- **Cải tiến đạt được:**
-  - Hợp nhất các card rời rạc trôi nổi thành **1 khối hồ sơ duy nhất** (`divide-y divide-slate-100`).
-  - Tích hợp **dải album ảnh thu nhỏ (Mini Photo Strip)** ngay trên thanh tiêu đề hồ sơ kèm nút `+ Thêm ảnh`, loại bỏ ô to choán diện tích.
-  - **Loại bỏ trùng lặp tiêu đề**: Tên cơ sở/doanh nghiệp đã có ở Header modal thì không lặp lại ở dòng đầu bảng dữ liệu.
-  - **Footer chuẩn 1 hàng duy nhất**: Trạng thái chuyển thành `<select>` dropdown trang nhã, không rớt dòng ở bất kỳ kích thước màn hình nào.
+### A. Tinh gọn & Chuẩn hóa Hành chính (Gov Data & Text Cleanup)
+1. **Đổi tên địa bàn hành chính:**
+   - Thay thế toàn diện mọi trường hiển thị `"TP. Thủ Đức"` thành `"TP. Hồ Chí Minh"` trên tất cả các phân hệ, biểu mẫu hành chính, danh mục dân cư và mock data.
+2. **Loại bỏ văn bản mô tả mục tiêu & nhiệm vụ dài dòng:**
+   - Đã gỡ bỏ toàn bộ các đoạn văn bản giải thích nhiệm vụ, khẩu hiệu cồng kềnh trên Header và thân trang của tất cả phân hệ: Tổng quan Cán bộ, Quản lý Dân cư, Hộ khẩu, Doanh nghiệp, Kinh doanh, Bản đồ GIS, Lịch & Nhiệm vụ, Trợ lý AI, Phản ánh 1022, Chi hội, An sinh, Tin tức, Quỹ tự quản, Cấu hình và Cổng dịch vụ cư dân.
+   - Giữ lại giao diện phẳng, tối giản, hiển thị trực diện bảng biểu và dữ liệu nghiệp vụ.
 
-### B. Nâng cấp Trải nghiệm Quản lý Dân cư & Sổ Hộ tịch
-1. **Phân hệ Hộ khẩu (`HouseholdManagement.tsx`):**
-   - Bổ sung **4 thẻ KPI chỉ số tổng quan** ở đầu trang (Tổng hộ, Thường trú, Tạm trú, Đã định vị GIS).
-   - Nút **`[Xem sổ →]`** trở thành **Primary CTA xanh emerald** nổi bật.
-   - Nút bản đồ (`[Chỉ đường]`, `[Ghim GIS]`) hạ cấp xuống nút phụ nền trắng viền xám nhẹ.
-   - Tọa độ GPS rút gọn thành badge thẩm mỹ `📍 Đã định vị GIS`.
-   - Hiển thị tóm tắt danh sách thành viên gia đình ngay trên từng dòng sổ hộ khẩu.
-2. **Phân hệ Cư dân (`CitizenManagement.tsx`):**
-   - **Liên kết 2 chiều Dân cư ↔ Hộ khẩu (Bidirectional Relational UX)**: Bấm mã hộ khẩu (như `HK-301`) trên bảng cư dân lập tức mở popup xem nhanh thông tin gia đình và tất cả thành viên mà không cần rời trang.
-   - Bổ sung nút `[Xem]` mở nhanh hồ sơ tại từng dòng bảng.
-   - Thiết kế thanh công cụ 2 tầng chống co cụm ô tìm kiếm.
+### B. Thiết kế Lại Bố cục Phân hệ Doanh nghiệp & Hộ kinh doanh
+1. **Loại bỏ ảnh mẫu trang trí:** Gỡ bỏ các khối ảnh minh họa kích thước lớn làm choán màn hình trong `EnterpriseManagement.tsx` và `BusinessManagement.tsx`.
+2. **Bố trí tab điều hướng:** Chuẩn hóa 2 tab rõ ràng `Danh mục Doanh nghiệp & Hồ sơ DNNVV` và `Báo cáo Kinh tế Địa bàn & Biến động`.
+3. **Loại bỏ bộ lọc phân loại thừa thãi:** Tối ưu thanh lọc trạng thái theo đúng yêu cầu hình ảnh thực tế.
 
-### C. Chuẩn hóa Huy hiệu Chức danh & Danh bạ Master-Detail
-- **Màu sắc chức danh:**
-  - Cấp Trưởng (Bí thư, Trưởng ban, Chi hội trưởng, Tổ trưởng ANTT...): Màu Đỏ/Rose (`bg-rose-50 text-rose-700 border-rose-200 font-bold`).
-  - Cấp Phó (Phó Bí thư, Phó ban, Chi hội phó, Tổ phó ANTT...): Màu Vàng cam/Amber (`bg-amber-50 text-amber-900 border-amber-200 font-bold`).
-  - Thành viên/Đảng viên: Màu Slate trung tính.
-- **Quy cách hiển thị:** Bắt buộc `whitespace-nowrap inline-flex` trên 1 hàng riêng biệt, không bao giờ ngắt dòng rớt chữ.
-- **Master List:** Thu gọn chiều rộng chuẩn `w-full lg:w-[270px] xl:w-[280px]` và lược bỏ mô tả dài dòng để nhường tối đa không gian cho khu vực bảng biểu chi tiết.
+### C. Tái sắp xếp Không gian Thanh tiêu đề Bản đồ GIS (`GisMap.tsx`)
+1. **Khắc phục triệt để lỗi chữ rớt dòng (Orphan text):** Tiêu đề chuẩn hóa thành `Bản đồ Không gian số GIS` (`whitespace-nowrap`), dứt điểm lỗi rớt số 3 đơn độc.
+2. **Chuẩn hóa huy hiệu định danh:** Huy hiệu kỹ thuật `GIS ĐỊA BÀN • WGS-84 / VN-2000` co giãn linh hoạt, không còn bị đứt chữ `VN-2000`.
+3. **Thanh công cụ tác vụ đồng nhất (Single-row Toolbar):** Gom toàn bộ 4 nút về đúng 1 hàng ngang duy nhất với chiều cao `h-9` (36px):
+   - `Thu gọn bảng` / `Mở bảng dữ liệu` (View Controller)
+   - `Khoanh vùng ranh giới` (Công cụ bản đồ)
+   - `Đồng bộ [0]` (Công cụ dữ liệu)
+   - `+ Ghim vị trí mới` (Primary CTA xanh emerald)
 
-### D. Bổ sung Quản lý Đa vai trò (`PartyBranch.tsx`)
-- Thêm nút **`Quản lý Đa vai trò`** kèm badge đếm số lượng nhân sự kiêm nhiệm thời gian thực ở cả Banner chính và Thanh tác vụ Chi hội.
-- Kết nối trực tiếp vào Modal phân công và tra cứu cán bộ kiêm nhiệm nhiều chức danh trong địa bàn.
+### D. Loại bỏ Phân hệ Thiết kế UI-UX (Design System Showcase)
+- Đã gỡ bỏ mục `Hệ thống UI-UX` (`design-system`) cùng icon `Palette` khỏi `Sidebar.tsx`.
+- Gỡ bỏ định nghĩa route `DASHBOARD_DESIGN_SYSTEM` khỏi `routes.tsx`.
+- Gỡ bỏ kiểu `| "design-system"` khỏi `ActiveTab` trong `types.ts`.
+- Xóa bỏ tệp `src/components/DesignSystemShowcase.tsx` và khối render trong `App.tsx`.
 
-### E. Quy chuẩn Typography & Font chữ toàn hệ thống
-- Thống nhất font chữ: **`Inter`** cho toàn bộ UI và **`JetBrains Mono`** cho số CCCD, Mã định danh, Tọa độ, Số Quyết định.
-- Quét sạch 100% các class chữ siêu nhỏ `text-[6px]..text-[9px]`. Kích thước tối thiểu toàn hệ thống là `10px`.
-
-### F. Cơ sở hạ tầng Supabase & Git
-- Đã tạo file lược đồ CSDL PostgreSQL đầy đủ tại `supabase/schema.sql` (hỗ trợ phân quyền RLS, bảng cư dân, hộ khẩu, kinh doanh, doanh nghiệp, lịch sử biến động).
-- Đã cấu hình client Supabase có fallback dữ liệu giả lập mượt mà tại `src/lib/supabase.ts`.
-- Đã khởi tạo Git repository chuẩn mực, commit an toàn, loại trừ file nhạy cảm và file tạm khỏi git.
+### E. Cài đặt AI Skill `imskyleen/animate-ui` & Tích hợp Chuyển động
+1. **Bộ tri thức Skill:** Đã lưu trữ trọn bộ tại `.agents/skills/animate-ui/` với 41 tệp hướng dẫn chuẩn xác (tokens, recipes, rules, interactions).
+2. **Cài đặt thư viện:** Bổ sung `@animate-ui/react: ^2.4.2` và `motion: ^14.10.1` vào `package.json`.
+3. **Bọc Provider toàn cục:** Đã cấu hình `<AnimateUIProvider tempo={1}>` trong `src/main.tsx`.
+4. **Gliding Tab Indicator ở Sidebar:** Menu Sidebar sử dụng `layoutId="active-sidebar-pill"` kết hợp lò xo chuẩn `spring.selection` và phản hồi chạm `whileTap={{ scale: 0.97 }}` (`spring.press`).
+5. **View Transition:** Nội dung chuyển đổi phân hệ bọc trong `motion.div` chuyển cảnh mượt mà `fade + rise 6px`.
 
 ---
 
-## 3. CHECKLIST CẦN THỰC HIỆN Ở PHIÊN TIẾP THEO
-
-### Nhiệm vụ 1: Kết nối Supabase Cloud thực tế
-1. Mở Supabase Dashboard (Project `wjdgaobhipkgzveidtra` hoặc tạo dự án mới).
-2. Vào mục **SQL Editor**, dán toàn bộ nội dung file `supabase/schema.sql` và bấm **Run**.
-3. Vào **Project Settings -> API**, copy:
-   - `Project URL`
-   - `anon public key`
-4. Mở file `.env` (trong thư mục `khuphothongminh-main/.env`) và cập nhật:
-   ```env
-   VITE_SUPABASE_URL=https://wjdgaobhipkgzveidtra.supabase.co
-   VITE_SUPABASE_ANON_KEY=eyJh......
-   ```
-5. Khởi động lại dev server, app sẽ tự động đồng bộ dữ liệu sống từ Supabase.
-
-### Nhiệm vụ 2: Đẩy (Push) mã nguồn lên GitHub
-Chọn một trong hai phương án thuận tiện nhất:
-- **Phương án A (Dùng GitHub Desktop):**
-  1. Mở ứng dụng **GitHub Desktop** trên máy.
-  2. Chọn Repository: `khuphothongminh-main`.
-  3. Bấm nút **"Publish repository"** để đẩy thẳng lên tài khoản GitHub `bdhkhupho3ap`.
-- **Phương án B (Dùng lệnh PowerShell):**
-  1. Tạo repository mới trên GitHub (ví dụ: `khu-pho-thong-minh`).
-  2. Mở PowerShell và chạy cụm lệnh:
-     ```powershell
-     $git = "C:\Users\KHUPHO3\AppData\Local\GitHubDesktop\app-3.5.12\resources\app\git\mingw64\bin\git.exe"
-     cd C:\Users\KHUPHO3\Downloads\khuphothongminh-main\khuphothongminh-main
-     & $git remote add origin https://github.com/bdhkhupho3ap/khu-pho-thong-minh.git
-     & $git branch -M main
-     & $git push -u origin main
-     ```
-
-### Nhiệm vụ 3: Duy trì & Phát triển tính năng mới
-- **Quy tắc vàng:** Luôn đọc lại file `.agents/rules/project_memory.md` để đảm bảo tuân thủ thiết kế đồng bộ từ mục A đến mục K.
-- **Các tính năng tiềm năng tiếp theo:**
-  - Tích hợp module quét ảnh / camera OCR cho CCCD & mã QR VNeID.
-  - Xuất biểu mẫu hành chính chuẩn CT07, CT08 định dạng PDF/Word.
-  - Mở rộng báo cáo tháp dân số và bản đồ nhiệt biến động nhân khẩu theo cụm dân cư.
-
+## 3. HƯỚNG DẪN DÀNH CHO PHIÊN LÀM VIỆC TIẾP THEO
+- **Khởi động Localhost (khi cần):** Chạy `npm run dev` tại thư mục `khuphothongminh-main`.
+- **Kiểm tra TypeScript:** Luôn chạy `npm run lint:ts` để đảm bảo 0 lỗi trước khi commit.
+- **Deploy Vercel:** Chạy lệnh `npx vercel --prod --yes` (dự án đã được link sẵn vào team `khupho3-s-projects` và domain `khuphothongminh.vercel.app`).
+- **Push GitHub:** Sử dụng remote token `origin/main` của tài khoản `nghiemquynh0210`.
