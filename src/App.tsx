@@ -43,6 +43,7 @@ import PlanArchitecture from "./components/PlanArchitecture";
 import LoginAndRegister from "./components/LoginAndRegister";
 import SettingsAndPermissions, { PendingRegistration } from "./components/SettingsAndPermissions";
 import AdministrativeForms from "./components/AdministrativeForms";
+import DesignSystemShowcase from "./components/DesignSystemShowcase";
 import { inferRelationToOwner, extractBirthYear, autoExtractHostelBusinesses } from "./utils/householdRecognitionUtils";
 import CitizenLandingPage from "./components/CitizenLandingPage";
 import { 
@@ -874,6 +875,7 @@ export default function App() {
       case "finance": return "Quỹ Tự quản & Đóng góp Khu phố";
       case "plan": return "Đề án & Thiết kế Kiến trúc Cơ sở dữ liệu";
       case "settings": return "Cấu hình Hệ thống & Duyệt hồ sơ";
+      case "design-system": return "Hệ Thống Thiết Kế UI-UX (Design System)";
       default: return "Hệ thống Quản lý";
     }
   };
@@ -1474,6 +1476,10 @@ export default function App() {
               onDeleteNews={handleDeleteNews}
               currentUser={currentUser}
             />
+          )}
+
+          {activeTab === "design-system" && (
+            <DesignSystemShowcase />
           )}
           </AppErrorBoundary>
         </main>

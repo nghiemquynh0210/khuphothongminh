@@ -39,6 +39,8 @@ import {
   getGoogleMapsDirectionUrl 
 } from "../utils/gisUtils";
 import Pagination from "./Pagination";
+import { PageHeader } from "./common/PageHeader";
+import { StatCard } from "./common/StatCard";
 
 // Sub-component imports
 import HouseholdDashboard from "./household/HouseholdDashboard";
@@ -814,19 +816,14 @@ export default function HouseholdManagement({
     <div className="space-y-6 font-sans text-sm bg-slate-50/50 p-4 sm:p-6 rounded-2xl border border-slate-100">
       
       {/* Top Banner Navigation & Actions */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-100 pb-5">
-        <div className="space-y-1">
-          <div className="inline-flex items-center gap-2 px-2.5 py-1 rounded-md bg-emerald-50 border border-emerald-200 text-emerald-800 text-[11px] font-bold tracking-wide uppercase">
-            <Layers className="text-emerald-600 animate-pulse" size={13} />
-            <span>SỔ HỘ TỊCH ĐIỆN TỬ • KHU PHỐ 3, PHƯỜNG AN PHÚ</span>
-            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
-            <span className="font-normal text-[11px] text-emerald-700">ĐỀ ÁN 06/CP</span>
-          </div>
-          <h1 className="text-xl md:text-2xl font-black text-slate-800 tracking-tight">Hệ thống Quản lý Hộ tịch thông minh</h1>
-          <p className="text-xs md:text-sm text-slate-500 font-normal leading-relaxed">Đồng bộ cơ sở dữ liệu quốc gia, rà soát địa chỉ GPS & kiểm duyệt liên ngành tự quản.</p>
-        </div>
-
-        {/* Action and view tabs bar - Streamlined & Unified */}
+      <PageHeader
+        badgeIcon={<Layers className="text-emerald-600 animate-pulse" size={13} />}
+        badgeText="SỔ HỘ TỊCH ĐIỆN TỬ • KHU PHỐ 3, PHƯỜNG AN PHÚ"
+        badgeSubtext="ĐỀ ÁN 06/CP"
+        title="Hệ thống Quản lý Hộ tịch thông minh"
+        description="Đồng bộ cơ sở dữ liệu quốc gia, rà soát địa chỉ GPS & kiểm duyệt liên ngành tự quản."
+        className="border-b border-slate-100 pb-5"
+        actions={
           <div className="flex flex-wrap items-center gap-2.5">
             {/* Main Module Selection */}
             <div className="flex items-center border border-slate-200 rounded-xl p-1 bg-slate-100/80 text-xs text-slate-600 shadow-2xs">
@@ -872,7 +869,8 @@ export default function HouseholdManagement({
               <span>Lập Sổ Hộ Mới</span>
             </button>
           </div>
-        </div>
+        }
+      />
 
         {/* RENDER BY ACTIVE MODULE TAB */}
       {activeTab === "recognition" && (
@@ -914,61 +912,34 @@ export default function HouseholdManagement({
 
               return (
                 <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 animate-in fade-in duration-200">
-                  <div className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200/80 shadow-2xs relative overflow-hidden flex items-center justify-between">
-                    <div>
-                      <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500 block">Tổng số hộ quản lý</span>
-                      <div className="flex items-baseline gap-1.5 mt-1">
-                        <span className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">{totalH}</span>
-                        <span className="text-xs font-bold text-slate-500">hộ</span>
-                      </div>
-                      <span className="text-[11px] text-emerald-700 font-semibold mt-1 block">Quy mô {totalResidentsInHh} nhân khẩu</span>
-                    </div>
-                    <div className="w-11 h-11 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0 border border-emerald-100 shadow-2xs">
-                      <Home size={22} />
-                    </div>
-                  </div>
-
-                  <div className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200/80 shadow-2xs relative overflow-hidden flex items-center justify-between">
-                    <div>
-                      <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500 block">Sổ hộ thường trú</span>
-                      <div className="flex items-baseline gap-1.5 mt-1">
-                        <span className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">{ttCount}</span>
-                        <span className="text-xs font-bold text-slate-500">hộ</span>
-                      </div>
-                      <span className="text-[11px] text-blue-700 font-semibold mt-1 block">Chuẩn hóa CSDL Đề án 06/CP</span>
-                    </div>
-                    <div className="w-11 h-11 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center shrink-0 border border-blue-100 shadow-2xs">
-                      <Check size={22} />
-                    </div>
-                  </div>
-
-                  <div className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200/80 shadow-2xs relative overflow-hidden flex items-center justify-between">
-                    <div>
-                      <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500 block">Sổ hộ tạm trú</span>
-                      <div className="flex items-baseline gap-1.5 mt-1">
-                        <span className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">{tamCount}</span>
-                        <span className="text-xs font-bold text-slate-500">hộ</span>
-                      </div>
-                      <span className="text-[11px] text-amber-700 font-semibold mt-1 block">Lưu trú, thuê trọ địa bàn</span>
-                    </div>
-                    <div className="w-11 h-11 rounded-2xl bg-amber-50 text-amber-600 flex items-center justify-center shrink-0 border border-amber-100 shadow-2xs">
-                      <Calendar size={22} />
-                    </div>
-                  </div>
-
-                  <div className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200/80 shadow-2xs relative overflow-hidden flex items-center justify-between">
-                    <div>
-                      <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500 block">Số hóa mốc GIS</span>
-                      <div className="flex items-baseline gap-1.5 mt-1">
-                        <span className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">{gisCount}</span>
-                        <span className="text-xs font-bold text-slate-500">/ {totalH} hộ</span>
-                      </div>
-                      <span className="text-[11px] text-indigo-700 font-semibold mt-1 block">100% đã ghim tọa độ số</span>
-                    </div>
-                    <div className="w-11 h-11 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center shrink-0 border border-indigo-100 shadow-2xs">
-                      <Compass size={22} />
-                    </div>
-                  </div>
+                  <StatCard
+                    label="Tổng số hộ quản lý"
+                    value={totalH}
+                    subtext={`Quy mô ${totalResidentsInHh} nhân khẩu`}
+                    icon={<Home size={22} />}
+                    color="emerald"
+                  />
+                  <StatCard
+                    label="Sổ hộ thường trú"
+                    value={ttCount}
+                    subtext="Chuẩn hóa CSDL Đề án 06/CP"
+                    icon={<Check size={22} />}
+                    color="blue"
+                  />
+                  <StatCard
+                    label="Sổ hộ tạm trú"
+                    value={tamCount}
+                    subtext="Lưu trú, thuê trọ địa bàn"
+                    icon={<Calendar size={22} />}
+                    color="amber"
+                  />
+                  <StatCard
+                    label="Số hóa mốc GIS"
+                    value={gisCount}
+                    subtext={`100% đã ghim tọa độ số`}
+                    icon={<Compass size={22} />}
+                    color="indigo"
+                  />
                 </div>
               );
             })()}

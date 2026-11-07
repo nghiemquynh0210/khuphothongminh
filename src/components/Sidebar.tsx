@@ -19,7 +19,8 @@ import {
   LogOut, 
   Building2, 
   Store, 
-  CalendarCheck 
+  CalendarCheck,
+  Palette
 } from "lucide-react";
 import { ActiveTab } from "../types";
 import { Link, getDashboardExtensionPath, navigate } from "../routes";
@@ -105,6 +106,7 @@ export default function Sidebar({
     { id: "welfare", label: "An sinh Xã hội", icon: Heart },
     { id: "cultural", label: "Tin tức & Sự kiện", icon: CalendarDays },
     { id: "finance", label: "Quỹ Khu phố", icon: Coins },
+    { id: "design-system", label: "Hệ thống UI-UX", icon: Palette },
     ...(currentUser?.role === "canbo" ? [{ id: "settings", label: "Cấu hình & Duyệt", icon: Settings }] : [])
   ];
 

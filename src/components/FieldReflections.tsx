@@ -27,6 +27,13 @@ import Pagination from "./Pagination";
 import { DetailRow, DetailGrid } from "./common/DetailRow";
 import { StatCard } from "./common/StatCard";
 import { PageHeader } from "./common/PageHeader";
+import { StatusBadge, Button, Input } from "./ui";
+
+const mapReportStatus = (status: string): "completed" | "in_progress" | "pending" => {
+  if (status === "Đã giải quyết") return "completed";
+  if (status === "Đang xử lý") return "in_progress";
+  return "pending";
+};
 
 interface FieldReflectionsProps {
   reports: FieldReport[];
@@ -566,9 +573,7 @@ export default function FieldReflections({ reports, onAddReport, onUpdateReportS
                         <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-slate-100 text-slate-600 uppercase font-mono tracking-wider">
                           {report.category}
                         </span>
-                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${statusColors[report.status]}`}>
-                          {report.status}
-                        </span>
+                        <StatusBadge status={mapReportStatus(report.status)} label={report.status} size="sm" />
                       </div>
 
                       <div>
@@ -690,9 +695,7 @@ export default function FieldReflections({ reports, onAddReport, onUpdateReportS
                           {report.reportedAt}
                         </td>
                         <td className="py-3.5 px-4 text-center">
-                          <span className={`text-[10px] font-extrabold px-2.5 py-0.5 rounded-full border ${statusColors[report.status]}`}>
-                            {report.status}
-                          </span>
+                          <StatusBadge status={mapReportStatus(report.status)} label={report.status} size="sm" />
                         </td>
                         <td className="py-3.5 px-4 text-center">
                           <div className="flex items-center justify-center gap-1" onClick={(e) => e.stopPropagation()}>
@@ -792,15 +795,7 @@ export default function FieldReflections({ reports, onAddReport, onUpdateReportS
                     <span className="text-[11px] font-bold px-2 py-0.5 rounded-md bg-slate-100 text-slate-700 border border-slate-200">
                       {selectedReport.category}
                     </span>
-                    <span className={`text-[11px] font-bold px-2.5 py-0.5 rounded-md border ${
-                      selectedReport.status === "Đã giải quyết" 
-                        ? "bg-emerald-50 text-emerald-800 border-emerald-200" 
-                        : selectedReport.status === "Đang xử lý"
-                        ? "bg-amber-50 text-amber-800 border-amber-200"
-                        : "bg-blue-50 text-blue-800 border-blue-200"
-                    }`}>
-                      {selectedReport.status}
-                    </span>
+                    <StatusBadge status={mapReportStatus(selectedReport.status)} label={selectedReport.status} size="sm" />
                   </div>
 
                   <h2 className="text-lg sm:text-xl font-black text-slate-900 tracking-tight leading-snug break-words">
@@ -836,15 +831,7 @@ export default function FieldReflections({ reports, onAddReport, onUpdateReportS
                   <DetailRow
                     label="Trạng thái hiện tại"
                     value={
-                      <span className={`px-2 py-0.5 rounded text-xs font-bold border ${
-                        selectedReport.status === "Đã giải quyết" 
-                          ? "bg-emerald-50 text-emerald-800 border-emerald-200" 
-                          : selectedReport.status === "Đang xử lý"
-                          ? "bg-amber-50 text-amber-800 border-amber-200"
-                          : "bg-blue-50 text-blue-800 border-blue-200"
-                      }`}>
-                        {selectedReport.status}
-                      </span>
+                      <StatusBadge status={mapReportStatus(selectedReport.status)} label={selectedReport.status} size="sm" />
                     }
                   />
                 </DetailGrid>
