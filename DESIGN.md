@@ -3,7 +3,7 @@
 Skill evon:ui-ux đọc file này trước khi dựng. Sửa tay được; file trái với code thì code thắng.
 
 ## 1. Sản phẩm
-- **Sản phẩm:** Cổng Thông tin & Hệ thống Quản trị Điều hành Khu phố Thông minh KP3 (Phường An Phú, TP. Thủ Đức).
+- **Sản phẩm:** Cổng Thông tin & Hệ thống Quản trị Điều hành Khu phố Thông minh KP3 (Phường An Phú, TP. Hồ Chí Minh).
 - **Người dùng:** Cán bộ Ban Điều Hành Khu phố 3, Cảnh sát khu vực, Tổ trưởng dân phố, Cán bộ Chi hội/Đoàn thể và Cư dân trên địa bàn (11.632 nhân khẩu, 488 hộ, 119 cơ sở kinh doanh).
 - **Việc chính:**
   1. Quản lý, tra cứu, biến động cư dân & hộ khẩu & cơ sở kinh doanh theo thời gian thực.

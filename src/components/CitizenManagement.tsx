@@ -346,8 +346,8 @@ export default function CitizenManagement({
     workplace: "",
     maritalStatus: "Đã kết hôn" as "Độc thân" | "Đã kết hôn" | "Ly hôn" | "Góa",
     address: "42/3 Lương Định Của, Phường An Phú",
-    permanentAddress: "42/3 Lương Định Của, KP3, Phường An Phú, TP. Thủ Đức, TP.HCM",
-    temporaryAddress: "42/3 Lương Định Của, KP3, Phường An Phú, TP. Thủ Đức, TP.HCM",
+    permanentAddress: "42/3 Lương Định Của, KP3, Phường An Phú, TP. Hồ Chí Minh",
+    temporaryAddress: "42/3 Lương Định Của, KP3, Phường An Phú, TP. Hồ Chí Minh",
     householdId: "HK-301",
     relationToOwner: "Thành viên",
     healthInsuranceNumber: "",
@@ -475,8 +475,8 @@ export default function CitizenManagement({
         "Nơi làm việc": "Chi bộ Khu phố 3, Phường An Phú",
         "Tình trạng hôn nhân": "Đã kết hôn",
         "Địa chỉ cư trú": "42/3 Lương Định Của, Phường An Phú",
-        "Nơi thường trú gốc": "42/3 Lương Định Của, KP3, Phường An Phú, TP. Thủ Đức, TP.HCM",
-        "Nơi ở hiện nay": "42/3 Lương Định Của, KP3, Phường An Phú, TP. Thủ Đức, TP.HCM",
+        "Nơi thường trú gốc": "42/3 Lương Định Của, KP3, Phường An Phú, TP. Hồ Chí Minh",
+        "Nơi ở hiện nay": "42/3 Lương Định Của, KP3, Phường An Phú, TP. Hồ Chí Minh",
         "Mã hộ khẩu": "HK-301",
         "Quan hệ với chủ hộ": "Chủ hộ",
         "Mã số BHYT": "HT279068001234",
@@ -503,8 +503,8 @@ export default function CitizenManagement({
         "Nơi làm việc": "Nhà thuốc An Phú Care",
         "Tình trạng hôn nhân": "Đã kết hôn",
         "Địa chỉ cư trú": "18/2 Lương Định Của, Phường An Phú",
-        "Nơi thường trú gốc": "18/2 Lương Định Của, KP3, Phường An Phú, TP. Thủ Đức, TP.HCM",
-        "Nơi ở hiện nay": "18/2 Lương Định Của, KP3, Phường An Phú, TP. Thủ Đức, TP.HCM",
+        "Nơi thường trú gốc": "18/2 Lương Định Của, KP3, Phường An Phú, TP. Hồ Chí Minh",
+        "Nơi ở hiện nay": "18/2 Lương Định Của, KP3, Phường An Phú, TP. Hồ Chí Minh",
         "Mã hộ khẩu": "HK-304",
         "Quan hệ với chủ hộ": "Vợ",
         "Mã số BHYT": "DN479073005511",
@@ -608,7 +608,7 @@ Mẫu NA17 ban hành kèm theo Thông tư số 53/2016/TT-BCA ngày 28/12/2016 c
 PHIẾU KHAI BÁO TẠM TRÚ CHO NGƯỜI NƯỚC NGOÀI
 TEMPORARY RESIDENCE DECLARATION FOR FOREIGNERS
 
-Kính gửi (To): Công an Phường An Phú, TP. Thủ Đức, TP. Hồ Chí Minh
+Kính gửi (To): Công an Phường An Phú, TP. Hồ Chí Minh
 
 1. Họ và tên / Full name (in capital letters): ${(res.fullName || "").toUpperCase()}
 2. Giới tính / Sex: ${res.gender || "Nam"}
@@ -625,7 +625,7 @@ Kính gửi (To): Công an Phường An Phú, TP. Thủ Đức, TP. Hồ Chí Mi
    - Số hiệu / Number: ${res.visaOrCardNumber || "TRC-KR-2023-0941"}
    - Thời hạn cư trú / Validity: Từ ${res.visaValidFrom || "01/01/2023"} đến ${res.visaValidUntil || "31/12/2026"}
 8. Địa chỉ tạm trú tại Việt Nam / Temporary residential address:
-   - Địa chỉ: ${res.temporaryAddress || res.address || "42 Lương Định Của, Khu phố 3, Phường An Phú, TP. Thủ Đức, TP.HCM"}
+   - Địa chỉ: ${res.temporaryAddress || res.address || "42 Lương Định Của, Khu phố 3, Phường An Phú, TP. Hồ Chí Minh"}
    - Mã hộ liên kết: ${res.householdId || "HK-301"}
 9. Mã số khai báo tạm trú trực tuyến (Cổng Dịch vụ công BCA):
    - Mã hồ sơ: ${res.temporaryRegistrationCode || "KBTT-AP-2024-ONLINE"}
@@ -634,7 +634,7 @@ Kính gửi (To): Công an Phường An Phú, TP. Thủ Đức, TP. Hồ Chí Mi
 10. Chủ cơ sở lưu trú / Người bảo lãnh cho thuê nhà / Host or Guarantor:
    - Họ tên & SĐT: ${res.landlordContact || "Ban Điều hành Khu phố 3 - 0903123456"}
 
-TP. Thủ Đức, ngày ${new Date().getDate()} tháng ${new Date().getMonth() + 1} năm ${new Date().getFullYear()}
+TP. Hồ Chí Minh, ngày ${new Date().getDate()} tháng ${new Date().getMonth() + 1} năm ${new Date().getFullYear()}
 
 NGƯỜI NƯỚC NGOÀI KHAI BÁO       CHỦ CƠ SỞ LƯU TRÚ       XÁC NHẬN CÔNG AN PHƯỜNG AN PHÚ
    (Ký, ghi rõ họ tên)         (Ký, ghi rõ họ tên)               (Ký, đóng dấu)
@@ -931,7 +931,7 @@ NGƯỜI NƯỚC NGOÀI KHAI BÁO       CHỦ CƠ SỞ LƯU TRÚ       XÁC NH�
             gender: row.gender === "Nữ" ? "Nữ" : "Nam",
             birth_date: birthDateIso,
             phone: row.phone && row.phone !== "N/A" ? row.phone.trim() : null,
-            address: (row.address || row.temporaryAddress || row.permanentAddress || "Khu phố 3, Phường An Phú, TP. Thủ Đức").trim(),
+            address: (row.address || row.temporaryAddress || row.permanentAddress || "Khu phố 3, Phường An Phú, TP. Hồ Chí Minh").trim(),
             permanent_address: row.permanentAddress?.trim() || null,
             current_address: (row.currentAddress || row.temporaryAddress || row.address)?.trim() || null,
             father_name: row.fatherName?.trim() || null,
@@ -4028,7 +4028,7 @@ NGƯỜI NƯỚC NGOÀI KHAI BÁO       CHỦ CƠ SỞ LƯU TRÚ       XÁC NH�
                 <h2 className="text-base font-bold uppercase tracking-tight text-slate-900">
                   XÁC NHẬN THÔNG TIN VỀ CƯ TRÚ
                 </h2>
-                <p className="text-xs text-slate-500 font-sans italic">Kính gửi: Công an Phường An Phú, TP. Thủ Đức, TP. Hồ Chí Minh</p>
+                <p className="text-xs text-slate-500 font-sans italic">Kính gửi: Công an Phường An Phú, TP. Hồ Chí Minh</p>
               </div>
 
               <div className="space-y-2 text-xs font-sans">
@@ -4069,7 +4069,7 @@ NGƯỜI NƯỚC NGOÀI KHAI BÁO       CHỦ CƠ SỞ LƯU TRÚ       XÁC NH�
                   <p className="font-semibold">{residentForCT07.fullName}</p>
                 </div>
                 <div className="text-center space-y-1">
-                  <p className="italic text-[11px]">TP. Thủ Đức, ngày {new Date().getDate()} tháng {new Date().getMonth() + 1} năm {new Date().getFullYear()}</p>
+                  <p className="italic text-[11px]">TP. Hồ Chí Minh, ngày {new Date().getDate()} tháng {new Date().getMonth() + 1} năm {new Date().getFullYear()}</p>
                   <p className="font-bold text-slate-900">CÔNG AN PHƯỜNG AN PHÚ</p>
                   <p className="text-[10px] text-slate-400 italic">(Ký, đóng dấu)</p>
                   <div className="h-14 flex items-center justify-center">
@@ -4155,7 +4155,7 @@ NGƯỜI NƯỚC NGOÀI KHAI BÁO       CHỦ CƠ SỞ LƯU TRÚ       XÁC NH�
                   TEMPORARY RESIDENCE DECLARATION FOR FOREIGNERS
                 </h3>
                 <p className="text-xs text-slate-500 font-sans italic pt-1">
-                  Kính gửi (To): Công an Phường An Phú, TP. Thủ Đức, TP. Hồ Chí Minh
+                  Kính gửi (To): Công an Phường An Phú, TP. Hồ Chí Minh
                 </p>
               </div>
 
@@ -4250,7 +4250,7 @@ NGƯỜI NƯỚC NGOÀI KHAI BÁO       CHỦ CƠ SỞ LƯU TRÚ       XÁC NH�
                 <div className="space-y-1 pt-1">
                   <p>
                     <strong>8. Địa chỉ cơ sở lưu trú tại Việt Nam / Temporary residential address:</strong>{" "}
-                    <span className="text-slate-900">{residentForNA17.temporaryAddress || residentForNA17.address || "42 Lương Định Của, Khu phố 3, Phường An Phú, TP. Thủ Đức, TP. Hồ Chí Minh"}</span>
+                    <span className="text-slate-900">{residentForNA17.temporaryAddress || residentForNA17.address || "42 Lương Định Của, Khu phố 3, Phường An Phú, TP. Hồ Chí Minh"}</span>
                   </p>
                   <p className="text-[11px] text-slate-500">
                     Mã hộ gia đình liên kết: <span className="font-mono font-semibold text-slate-700">{residentForNA17.householdId || "HK-301"}</span> ({residentForNA17.relationToOwner || "Người thuê trọ"})
@@ -4298,7 +4298,7 @@ NGƯỜI NƯỚC NGOÀI KHAI BÁO       CHỦ CƠ SỞ LƯU TRÚ       XÁC NH�
 
                 <div className="space-y-1">
                   <p className="italic text-[10px] text-slate-500">
-                    TP. Thủ Đức, {new Date().toLocaleDateString("vi-VN")}
+                    TP. Hồ Chí Minh, {new Date().toLocaleDateString("vi-VN")}
                   </p>
                   <p className="font-bold text-[11px] text-slate-900">CÔNG AN PHƯỜNG AN PHÚ</p>
                   <p className="text-[10px] text-slate-400 italic">Xác nhận trực tuyến</p>

@@ -302,7 +302,7 @@ export default function GisCoordinateModal({
                     </button>
 
                     <a
-                      href={getGoogleMapsDirectionUrl(parsed.lat, parsed.lng, `${address}, Phường An Phú, TP. Thủ Đức`)}
+                      href={getGoogleMapsDirectionUrl(parsed.lat, parsed.lng, `${address}, Phường An Phú, TP. Hồ Chí Minh`)}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="w-full flex items-center justify-center gap-2 bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 font-bold py-2.5 rounded-xl text-xs cursor-pointer transition-colors"

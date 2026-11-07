@@ -170,7 +170,7 @@ export default function LeafletGisMap({
     if (!mapContainerRef.current) return;
     if (mapInstanceRef.current) return; // Prevent double initialization
 
-    // Bounds restriction: keep user within An Phú & TP. Thủ Đức / Dĩ An region
+    // Bounds restriction: keep user within An Phú & TP. Hồ Chí Minh / Dĩ An region
     const southWest = L.latLng(10.7500, 106.6500);
     const northEast = L.latLng(11.0500, 106.8500);
     const bounds = L.latLngBounds(southWest, northEast);
@@ -277,7 +277,7 @@ export default function LeafletGisMap({
         lineJoin: "round"
       });
 
-      polygon.bindTooltip("<b>ĐỊA GIỚI HÀNH CHÍNH KHU PHỐ 3</b><br/>Phường An Phú, TP. Thủ Đức", {
+      polygon.bindTooltip("<b>ĐỊA GIỚI HÀNH CHÍNH KHU PHỐ 3</b><br/>Phường An Phú, TP. Hồ Chí Minh", {
         sticky: true,
         className: "bg-slate-900 text-white text-xs px-2.5 py-1.5 rounded-lg shadow-xl border border-purple-500/30"
       });

@@ -4,7 +4,7 @@ export const KP3_CENTER = {
   lat: 10.936997,
   lng: 106.744645,
   name: "Văn phòng Ban Điều hành Khu phố 3",
-  address: "Số 42 Lương Định Của, Phường An Phú, TP. Thủ Đức"
+  address: "Số 42 Lương Định Của, Phường An Phú, TP. Hồ Chí Minh"
 };
 
 // Convert decimal degrees to DMS format (e.g., 10°56'07.5"N 106°44'38.0"E)

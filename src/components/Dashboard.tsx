@@ -385,7 +385,7 @@ export default function Dashboard({
               <span>Hôm nay: {new Date().toLocaleDateString("vi-VN")}</span>
             </div>
             <div className="text-[11px] text-slate-500 font-medium">
-              Phường An Phú, TP. Thủ Đức, TP. Hồ Chí Minh
+              Phường An Phú, TP. Hồ Chí Minh
             </div>
           </div>
         </div>
@@ -939,7 +939,7 @@ export default function Dashboard({
             <span>Trung Tâm Chỉ Huy & Điều Hành Số • KP3 An Phú</span>
           </div>
           <h1 className="text-xl md:text-2xl font-black text-slate-800 tracking-tight">
-            Khu phố 3, Phường An Phú, TP. Thủ Đức
+            Khu phố 3, Phường An Phú, TP. Hồ Chí Minh
           </h1>
           <p className="text-xs md:text-sm text-slate-500 font-normal">
             Trang điều hành Trung tâm Quản lý Khu phố Thông minh - Dữ liệu thực tế thời gian thực

@@ -2163,7 +2163,7 @@ export default function HouseholdManagement({
               <div className="bg-slate-50 p-3 rounded-xl border border-slate-200/80 space-y-1">
                 <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block">Địa chỉ hộ cư trú:</span>
                 <p className="font-bold text-slate-800 text-xs sm:text-sm">{gisPinModalHousehold.address}</p>
-                <span className="text-[11px] text-slate-500 block">Khu phố 3, Phường An Phú, TP. Thủ Đức</span>
+                <span className="text-[11px] text-slate-500 block">Khu phố 3, Phường An Phú, TP. Hồ Chí Minh</span>
               </div>
 
               {/* Coordinate Input */}

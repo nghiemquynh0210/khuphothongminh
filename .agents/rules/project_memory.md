@@ -2,7 +2,7 @@
 
 AI Assistant (Antigravity) cần luôn ghi nhớ các thông số kỹ thuật sau trong mọi phiên làm việc:
 
-1. **Địa bàn:** Khu phố 3, Phường An Phú, TP. Thủ Đức, TP. Hồ Chí Minh.
+1. **Địa bàn:** Khu phố 3, Phường An Phú, TP. Hồ Chí Minh.
 2. **Database:** Supabase project `wjdgaobhipkgzveidtra` (URL: `https://wjdgaobhipkgzveidtra.supabase.co`).
    - Đã cấu hình kết nối qua Supabase MCP Server (`@supabase/mcp-server-supabase`) với Personal Access Token (PAT).
    - Đã nạp API Key `anon` và `VITE_SUPABASE_URL` vào file `.env`.

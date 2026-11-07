@@ -3364,7 +3364,7 @@ export default function BusinessManagement({
                         </div>
 
                         <div className="text-center space-y-1">
-                          <span className="text-[10px] text-slate-500 italic block">TP. Thủ Đức, ngày 15 tháng 04 năm 2023</span>
+                          <span className="text-[10px] text-slate-500 italic block">TP. Hồ Chí Minh, ngày 15 tháng 04 năm 2023</span>
                           <span className="font-bold text-slate-900 uppercase text-[11px] block">TM. ỦY BAN NHÂN DÂN</span>
                           <span className="text-[10px] font-bold text-slate-700 block">KT. CHỦ TỊCH - PHÓ CHỦ TỊCH</span>
                           <div className="pt-6">

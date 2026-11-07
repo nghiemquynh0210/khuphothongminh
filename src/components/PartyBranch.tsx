@@ -2250,7 +2250,7 @@ export default function PartyBranch({ partyMembers, residents = [] }: PartyBranc
             <span className="text-[10px] bg-emerald-50 text-emerald-800 border border-emerald-200 font-bold px-2 py-0.5 rounded font-mono uppercase tracking-wider flex items-center gap-1">
               <ShieldCheck size={11} className="text-emerald-600" /> BỘ MÁY CHÍNH TRỊ - XÃ HỘI & ĐOÀN THỂ
             </span>
-            <span className="text-xs text-slate-400 font-sans hidden sm:inline">• Khu phố 3, Phường An Phú, TP. Thủ Đức</span>
+            <span className="text-xs text-slate-400 font-sans hidden sm:inline">• Khu phố 3, Phường An Phú, TP. Hồ Chí Minh</span>
           </div>
           <h1 className="text-xl md:text-2xl font-black tracking-tight text-slate-900">Quản lý Chi bộ Đảng & Khối Đoàn thể</h1>
           <p className="text-slate-500 text-xs max-w-2xl leading-relaxed">
@@ -4226,7 +4226,7 @@ export default function PartyBranch({ partyMembers, residents = [] }: PartyBranc
                   <DetailGrid>
                     <DetailRow label="Số điện thoại" value={member.phone || matchedRes?.phone || "Chưa cập nhật"} isMono />
                     <DetailRow label="Ngày / Năm sinh" value={member.birthDate || matchedRes?.birthDate || "Chưa cập nhật"} isMono />
-                    <DetailRow label="Địa chỉ nơi cư trú" value={matchedRes?.address || "Khu phố 3, Phường An Phú, TP. Thủ Đức"} colSpan={2} />
+                    <DetailRow label="Địa chỉ nơi cư trú" value={matchedRes?.address || "Khu phố 3, Phường An Phú, TP. Hồ Chí Minh"} colSpan={2} />
                     <DetailRow label="Mã Hộ gia đình" value={matchedRes?.householdId || "N/A"} isMono />
                     <DetailRow label="Tình trạng cư trú" value={<span className="font-semibold text-emerald-800">{matchedRes?.status || "Thường trú"}</span>} />
                   </DetailGrid>

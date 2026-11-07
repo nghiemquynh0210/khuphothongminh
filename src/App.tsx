@@ -296,7 +296,7 @@ export default function App() {
             phone: r.phone || "",
             status: (r.status as "Thường trú" | "Tạm trú" | "Tạm vắng") || "Thường trú",
             occupation: r.occupation || "",
-            address: r.address || r.current_address || r.permanent_address || "Khu phố 3, Phường An Phú, TP. Thủ Đức",
+            address: r.address || r.current_address || r.permanent_address || "Khu phố 3, Phường An Phú, TP. Hồ Chí Minh",
             permanentAddress: r.permanent_address || undefined,
             temporaryAddress: r.current_address || r.address || undefined,
             currentAddress: r.current_address || r.address || undefined,

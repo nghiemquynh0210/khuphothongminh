@@ -119,7 +119,7 @@ export default function HouseholdFamilyTree({ household, onClose, onSelectMember
         {/* Footer */}
         <div className="p-4 border-t border-slate-800 bg-slate-950 flex justify-between items-center text-[10px] text-slate-500 font-mono">
           <span>Hệ thống cây phả hệ số tự động đồng bộ</span>
-          <span>Phường An Phú, TP. Thủ Đức, TP. HCM</span>
+          <span>Phường An Phú, TP. Hồ Chí Minh</span>
         </div>
       </div>
     </div>

@@ -1,5 +1,5 @@
 -- =========================================================================
--- HỆ THỐNG QUẢN LÝ THÔNG MINH KHU PHỐ 3, PHƯỜNG AN PHÚ, TP. THỦ ĐỨC
+-- HỆ THỐNG QUẢN LÝ THÔNG MINH KHU PHỐ 3, PHƯỜNG AN PHÚ, TP. HỒ CHÍ MINH
 -- SUPABASE POSTGRESQL DATABASE SCHEMA
 -- =========================================================================
 

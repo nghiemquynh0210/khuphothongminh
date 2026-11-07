@@ -94,7 +94,7 @@ const roadmapPhases: RoadmapPhase[] = [
       "Tài liệu BRD được kiểm duyệt bởi Tổ công tác chuyển đổi số Khu phố 3",
       "Bao quát đầy đủ 10 phân hệ cốt lõi, không bỏ sót bất kỳ quy trình nghiệp vụ thực tế nào"
     ],
-    prompt: "Bạn là Business Analyst và Solution Architect. Hãy phân tích nghiệp vụ hệ thống 'Khu phố thông minh' cho Khu phố 3, Phường An Phú, TP. Thủ Đức. Cung cấp tài liệu BRD hoàn chỉnh bao gồm User Story, Use Case, User Flow, chức năng và phi chức năng cho quản lý dân cư, nhà trọ, kinh doanh cá thể, chi bộ đảng, phản ánh hiện trường."
+    prompt: "Bạn là Business Analyst và Solution Architect. Hãy phân tích nghiệp vụ hệ thống 'Khu phố thông minh' cho Khu phố 3, Phường An Phú, TP. Hồ Chí Minh. Cung cấp tài liệu BRD hoàn chỉnh bao gồm User Story, Use Case, User Flow, chức năng và phi chức năng cho quản lý dân cư, nhà trọ, kinh doanh cá thể, chi bộ đảng, phản ánh hiện trường."
   },
   {
     id: 2,
@@ -811,12 +811,12 @@ export default function PlanArchitecture() {
 - **Nghị quyết số 98/2023/QH15** ngày 24/6/2023 của Quốc hội về thí điểm một số cơ chế, chính sách đặc thù phát triển Thành phố Hồ Chí Minh.
 - **Quyết định số 749/QĐ-TTg** ngày 03/6/2020 của Thủ tướng Chính phủ phê duyệt "Chương trình Chuyển đổi số quốc gia đến năm 2025, định hướng đến năm 2030".
 - **Quyết định số 3746/QĐ-UBND** của Ủy ban nhân dân Thành phố Hồ Chí Minh về chương trình chuyển đổi số của Thành phố và Đề án xây dựng Thành phố Hồ Chí Minh trở thành Đô thị thông minh giai đoạn 2020 - 2025.
-- **Kế hoạch Chuyển đổi số của UBND Thành phố Thủ Đức** về việc tăng cường ứng dụng công nghệ thông tin trong quản lý nhà nước và phát triển chính quyền số cấp cơ sở.
+- **Kế hoạch Chuyển đổi số của UBND Thành phố Hồ Chí Minh** về việc tăng cường ứng dụng công nghệ thông tin trong quản lý nhà nước và phát triển chính quyền số cấp cơ sở.
 - **Nghị quyết Đại hội Đảng bộ Phường An Phú** về việc hiện đại hóa hành chính, nâng cao hiệu quả quản lý khu dân cư sau khi sắp xếp lại bộ máy tổ chức dưới khu phố.`
     },
     {
       title: "2. Sự cần thiết đầu tư",
-      content: `Khu phố 3, Phường An Phú có diện tích lớn, nằm tại vị trí trọng điểm đô thị hóa nhanh của TP. Thủ Đức với:
+      content: `Khu phố 3, Phường An Phú có diện tích lớn, nằm tại vị trí trọng điểm đô thị hóa nhanh của TP. Hồ Chí Minh với:
 - **Hơn 650 hộ dân** và **gần 12.000 nhân khẩu**.
 - Thành phần cư dân phức tạp: Nhiều căn hộ cao cấp đan xen với các khu nhà trọ công nhân, người lao động nhập cư biến động thường xuyên.
 - **Hàng trăm hộ kinh doanh cá thể**, doanh nghiệp vừa và nhỏ hoạt động trên địa bàn.
@@ -830,7 +830,7 @@ Sau khi các **Tổ nhân dân tự quản kết thúc hoạt động** theo ch�
 - Hiện đại hóa toàn diện công tác quản trị, số hóa 100% dữ liệu quản lý dân cư, cán bộ, đoàn thể và cơ sở kinh doanh.
 - Thiết lập kênh kết nối tương tác trực tiếp, hai chiều giữa Ban Điều hành khu phố với từng người dân, hộ gia đình.
 - Ứng dụng công nghệ trí tuệ nhân tạo (AI) và bản đồ số GIS để hỗ trợ cán bộ ra quyết định, làm báo cáo nhanh chóng, chính xác.
-- Làm cơ sở thực tiễn để nhân rộng mô hình ra toàn địa bàn Phường An Phú và Thành phố Thủ Đức.`
+- Làm cơ sở thực tiễn để nhân rộng mô hình ra toàn địa bàn Phường An Phú và Thành phố Hồ Chí Minh.`
     },
     {
       title: "4. Mục tiêu cụ thể",
@@ -892,7 +892,7 @@ Sau khi các **Tổ nhân dân tự quản kết thúc hoạt động** theo ch�
     {
       title: "10. Kiến nghị và Đề xuất",
       content: `- Kính đề nghị **Ủy ban nhân dân Phường An Phú** phê duyệt chủ trương triển khai thí điểm hệ thống tại Khu phố 3; hỗ trợ kết nối thông tin với Cảnh sát khu vực để chuẩn hóa dữ liệu tạm trú.
-- Đề xuất **Phòng Thông tin & Truyền thông TP. Thủ Đức** hỗ trợ kỹ thuật hướng dẫn kết nối ứng dụng với Cổng dịch vụ công tập trung của thành phố trong giai đoạn tiếp theo.
+- Đề xuất **Phòng Thông tin & Truyền thông TP. Hồ Chí Minh** hỗ trợ kỹ thuật hướng dẫn kết nối ứng dụng với Cổng dịch vụ công tập trung của thành phố trong giai đoạn tiếp theo.
 - Đề nghị Ban điều hành Khu phố tạo điều kiện thuận lợi để các tình nguyện viên đi từng hộ dân hướng dẫn cài đặt ứng dụng và giới thiệu Trợ lý AI Khu phố đến cộng đồng.`
     }
   ];
@@ -1473,7 +1473,7 @@ Sau khi các **Tổ nhân dân tự quản kết thúc hoạt động** theo ch�
               Đề án & Kiến trúc Kỹ thuật "Khu phố thông minh"
             </h1>
             <p className="text-xs text-slate-300 mt-1 max-w-2xl">
-              Hồ sơ kế hoạch chuyển đổi số cấp cơ sở và mô hình thiết kế cơ sở dữ liệu Postgres/PostGIS, phân quyền RBAC phục vụ thực tế cho Khu phố 3, Phường An Phú, TP. Thủ Đức.
+              Hồ sơ kế hoạch chuyển đổi số cấp cơ sở và mô hình thiết kế cơ sở dữ liệu Postgres/PostGIS, phân quyền RBAC phục vụ thực tế cho Khu phố 3, Phường An Phú, TP. Hồ Chí Minh.
             </p>
           </div>
           

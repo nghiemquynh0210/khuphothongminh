@@ -22,7 +22,7 @@ export default async function handler(req: any, res: any) {
       } else if (lower.includes("phản ánh") || lower.includes("rác") || lower.includes("tiếng ồn")) {
         reply = `Cảm ơn bạn đã phản ánh tình hình khu phố! Ban quản lý Khu phố 3 đã tiếp nhận ý kiến của bạn về tình trạng này. Chúng tôi sẽ chuyển thông tin trực tiếp đến Đội Quản lý trật tự đô thị Phường An Phú để kiểm tra, xử lý và cập nhật tiến độ cho bạn trên bảng điều khiển 'Phản ánh hiện trường'. Xin cảm ơn đóng góp giúp khu phố văn minh sạch đẹp!`;
       } else if (lower.includes("bí thư") || lower.includes("trưởng khu phố") || lower.includes("liên hệ")) {
-        reply = `Dạ thông tin liên hệ của Ban tự quản Khu phố 3 An Phú như sau:\n- **Bí thư Chi bộ:** Ông Nguyễn Văn Hùng (SĐT: 0903.xxx.123)\n- **Trưởng Khu phố:** Bà Lê Thị Mai (SĐT: 0918.xxx.456)\n- **Công an khu vực:** Đại úy Trần Quốc Hải (SĐT: 0989.xxx.789)\n- **Địa chỉ Văn phòng Ban điều hành:** Tổ dân phố 12, hẻm 42 Lương Định Của, Phường An Phú, TP. Thủ Đức.`;
+        reply = `Dạ thông tin liên hệ của Ban tự quản Khu phố 3 An Phú như sau:\n- **Bí thư Chi bộ:** Ông Nguyễn Văn Hùng (SĐT: 0903.xxx.123)\n- **Trưởng Khu phố:** Bà Lê Thị Mai (SĐT: 0918.xxx.456)\n- **Công an khu vực:** Đại úy Trần Quốc Hải (SĐT: 0989.xxx.789)\n- **Địa chỉ Văn phòng Ban điều hành:** Tổ dân phố 12, hẻm 42 Lương Định Của, Phường An Phú, TP. Hồ Chí Minh.`;
       } else {
         reply = `Xin chào cư dân Khu phố 3 An Phú! Tôi là Trợ lý AI Thông minh của khu phố. Tôi có thể giúp bạn tra cứu nhanh thông tin hộ khẩu, hướng dẫn thủ tục hành chính (tạm trú, kết hôn, giấy tờ...), xem danh sách cơ sở kinh doanh hoặc tiếp nhận các phản ánh hiện trường về môi trường, an ninh trật tự. Bạn cần tôi trợ giúp gì thêm hôm nay ạ?`;
       }
@@ -39,7 +39,7 @@ export default async function handler(req: any, res: any) {
       }
     });
 
-    const systemInstruction = `Bạn là Trợ lý Ảo Thông Minh của Khu phố 3, Phường An Phú, TP. Thủ Đức, TP. Hồ Chí Minh.
+    const systemInstruction = `Bạn là Trợ lý Ảo Thông Minh của Khu phố 3, Phường An Phú, TP. Hồ Chí Minh.
 Nhiệm vụ của bạn là hỗ trợ ban điều hành khu phố và người dân giải đáp thắc mắc về:
 1. Thủ tục hành chính (đăng ký tạm trú, tạm vắng, xin giấy xác nhận cư trú, khai báo kinh doanh...).
 2. Thông tin khu phố: Khu phố 3 có 350 hộ dân, 1.420 nhân khẩu. Bí thư Chi bộ là ông Nguyễn Văn Hùng, Trưởng khu phố là bà Lê Thị Mai, Công an khu vực phụ trách là Đại úy Trần Quốc Hải.

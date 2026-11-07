@@ -283,7 +283,7 @@ export default function GisBoundaryManagerModal({
           properties: {
             name: "Ranh giới địa bàn Khu phố 3",
             ward: "Phường An Phú",
-            city: "TP. Hồ Chí Minh / TP. Thủ Đức",
+            city: "TP. Hồ Chí Minh / TP. Hồ Chí Minh",
             areaMeters: calculatedArea,
             perimeterMeters: calculatedPerimeter,
             verticesCount: workingCoords.length,
