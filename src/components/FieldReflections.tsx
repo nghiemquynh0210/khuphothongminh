@@ -443,7 +443,6 @@ export default function FieldReflections({ reports, onAddReport, onUpdateReportS
           badgeText="Cổng Tiếp Nhận Phản Ánh Hiện Trường 1022 • KP3 An Phú"
           badgeSubtext="Đề án 06/CP"
           title="Tiếp Nhận Phản Ánh & Giám Sát Hiện Trường"
-          description="Xử lý kịp thời các ý kiến, khiếu nại của cư dân về môi trường, trật tự đô thị, hạ tầng và an ninh địa bàn Khu phố 3."
           actions={
             <button 
               onClick={handleOpenNewModal}

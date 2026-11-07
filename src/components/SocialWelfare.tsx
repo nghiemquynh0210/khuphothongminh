@@ -193,7 +193,6 @@ export default function SocialWelfare({ recipients, onUpdateStatus, onAddRecipie
           badgeText="Chính Sách & Bảo Trợ Xã Hội • Khu Phố 3, Phường An Phú"
           badgeSubtext="Nghị định 20/2021/NĐ-CP"
           title="An Sinh Xã Hội & Trợ Giúp Cộng Đồng"
-          description="Quản lý và thực hiện chính sách người có công, bảo trợ thường xuyên, thẻ BHYT và chăm lo các hộ gia đình khó khăn theo quy định."
           actions={
             <button 
               onClick={() => setShowModal(true)}

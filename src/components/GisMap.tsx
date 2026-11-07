@@ -1033,9 +1033,6 @@ export default function GisMap({
           <h1 className="text-xl md:text-2xl font-black text-slate-800 tracking-tight flex items-center gap-2.5">
             Bản đồ số vệ tinh GIS Không gian Khu phố 3
           </h1>
-          <p className="text-xs md:text-sm text-slate-500 font-normal leading-relaxed">
-            Định vị và đồng bộ hóa tọa độ Sổ hộ khẩu dân cư, cơ sở kinh doanh, thiết bị kỹ thuật công cộng trên bản đồ trực tuyến.
-          </p>
         </div>
 
         <div className="flex flex-wrap items-center gap-2">

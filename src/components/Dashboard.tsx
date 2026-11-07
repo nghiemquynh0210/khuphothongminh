@@ -374,9 +374,6 @@ export default function Dashboard({
             <h1 className="text-xl md:text-2xl font-black text-slate-800 tracking-tight">
               Xin chào Quý Cư dân Khu phố 3, An Phú!
             </h1>
-            <p className="text-slate-600 text-xs md:text-sm leading-relaxed">
-              Cổng dịch vụ trực tuyến phục vụ toàn thể người dân địa phương. Tải trực tiếp biểu mẫu hành chính (cấp số nhà, CT01, đăng ký kinh doanh), gửi phản ánh hiện trường 1022 và hỏi Trợ lý AI hoàn toàn miễn phí.
-            </p>
           </div>
 
           <div className="flex flex-col sm:flex-row md:flex-col items-start md:items-end gap-2 shrink-0">
@@ -941,9 +938,6 @@ export default function Dashboard({
           <h1 className="text-xl md:text-2xl font-black text-slate-800 tracking-tight">
             Khu phố 3, Phường An Phú, TP. Hồ Chí Minh
           </h1>
-          <p className="text-xs md:text-sm text-slate-500 font-normal">
-            Trang điều hành Trung tâm Quản lý Khu phố Thông minh - Dữ liệu thực tế thời gian thực
-          </p>
         </div>
         <div className="flex items-center gap-2.5 bg-white px-3.5 py-2 rounded-xl border border-slate-200 shadow-2xs text-xs font-mono text-slate-600 shrink-0">
           <Clock size={15} className="text-emerald-600" />

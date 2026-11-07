@@ -395,9 +395,6 @@ export default function AdministrativeForms({
           <h1 className="text-xl md:text-2xl font-black text-slate-800 tracking-tight">
             Kho Biểu Mẫu Hành Chính Điện Tử Khu Phố 3
           </h1>
-          <p className="text-slate-600 text-xs md:text-sm leading-relaxed">
-            Hỗ trợ cư dân và cán bộ khu phố tải trực tiếp các mẫu đơn hành chính chính thức: Cấp số nhà, Tờ khai CT01, Đăng ký hộ kinh doanh cá thể, xác nhận cư trú và chính sách xã hội theo chuẩn Nghị định 30/2020/NĐ-CP.
-          </p>
         </div>
 
         <div className="mt-4 pt-3.5 border-t border-slate-200/80 flex flex-wrap gap-4 md:gap-8 text-xs text-slate-600">

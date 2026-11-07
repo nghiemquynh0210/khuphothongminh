@@ -821,7 +821,6 @@ export default function HouseholdManagement({
         badgeText="SỔ HỘ TỊCH ĐIỆN TỬ • KHU PHỐ 3, PHƯỜNG AN PHÚ"
         badgeSubtext="ĐỀ ÁN 06/CP"
         title="Hệ thống Quản lý Hộ tịch thông minh"
-        description="Đồng bộ cơ sở dữ liệu quốc gia, rà soát địa chỉ GPS & kiểm duyệt liên ngành tự quản."
         className="border-b border-slate-100 pb-5"
         actions={
           <div className="flex flex-wrap items-center gap-2.5">

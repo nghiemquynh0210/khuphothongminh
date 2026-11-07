@@ -1453,7 +1453,6 @@ NGƯỜI NƯỚC NGOÀI KHAI BÁO       CHỦ CƠ SỞ LƯU TRÚ       XÁC NH�
           badgeText="CSDL DÂN CƯ ĐỀ ÁN 06/CP • KHU PHỐ 3, PHƯỜNG AN PHÚ"
           badgeSubtext="VNeID CƠ SỞ"
           title="Sổ Quản Lý Dân Cư Khu Phố"
-          description={`Tổng cộng ${residents.length} nhân khẩu • Tích hợp 26 trường thông tin định danh, cư trú, chính sách & bảo hiểm y tế theo Đề án 06/CP.`}
           actions={
             <>
               <button 

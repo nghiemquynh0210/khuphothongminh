@@ -1508,9 +1508,6 @@ export default function BusinessManagement({
             </span>
             <h1 className="text-xl sm:text-2xl font-black tracking-tight text-white">Quản lý Cơ sở Kinh doanh KP3</h1>
           </div>
-          <p className="text-xs sm:text-sm text-slate-300">
-            Quản lý mạng lưới cơ sở kinh doanh tại chỗ, hộ kinh doanh cá thể, dịch vụ ăn uống, đời sống nhân dân, cơ sở lưu trú / nhà trọ, an toàn PCCC, ATTP và hồ sơ địa chính
-          </p>
         </div>
 
         <div className="flex flex-wrap items-center gap-2.5">

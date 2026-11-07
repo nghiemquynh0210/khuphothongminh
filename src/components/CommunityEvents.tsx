@@ -235,9 +235,6 @@ export default function CommunityEvents({
           <h1 className="text-xl md:text-2xl font-black text-slate-800 tracking-tight">
             Kênh Tin Tức & Quản Lý Sự Kiện Khu Phố
           </h1>
-          <p className="text-xs md:text-sm text-slate-500 font-normal">
-            Cập nhật chỉ thị, thông báo hành chính, y tế khẩn cấp và theo dõi lịch sinh hoạt công cộng tại Khu phố 3
-          </p>
         </div>
         
         {/* Buttons to Trigger Modals */}

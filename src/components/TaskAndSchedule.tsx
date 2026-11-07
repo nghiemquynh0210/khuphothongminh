@@ -453,9 +453,6 @@ export default function TaskAndSchedule() {
               <CalendarCheck className="text-indigo-600" size={24} />
               Lịch Công Tác Điện Tử & Phân Công Nhiệm Vụ
             </h1>
-            <p className="text-xs md:text-sm text-slate-500 font-normal max-w-2xl">
-              Hệ thống điều hành tác nghiệp số: Giao việc trực tiếp đến 5 Tổ dân phố (TDP 11 - 15), quản lý tiến độ, cảnh báo hạn chót và giám sát lịch sinh hoạt chi bộ, ANTT toàn diện.
-            </p>
           </div>
 
           <div className="flex items-center gap-1.5 bg-slate-100 p-1 rounded-xl border border-slate-200 shrink-0">

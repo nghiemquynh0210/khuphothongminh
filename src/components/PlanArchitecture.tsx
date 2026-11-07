@@ -1472,9 +1472,6 @@ Sau khi các **Tổ nhân dân tự quản kết thúc hoạt động** theo ch�
             <h1 className="text-xl md:text-2xl font-extrabold tracking-tight">
               Đề án & Kiến trúc Kỹ thuật "Khu phố thông minh"
             </h1>
-            <p className="text-xs text-slate-300 mt-1 max-w-2xl">
-              Hồ sơ kế hoạch chuyển đổi số cấp cơ sở và mô hình thiết kế cơ sở dữ liệu Postgres/PostGIS, phân quyền RBAC phục vụ thực tế cho Khu phố 3, Phường An Phú, TP. Hồ Chí Minh.
-            </p>
           </div>
           
           {/* Main Select Mode Toggle */}

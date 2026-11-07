@@ -207,7 +207,6 @@ export default function CitizenLandingPage({
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div>
                   <h1 className="text-2xl sm:text-3xl font-black tracking-tight">{currentNavItem.label}</h1>
-                  <p className="text-sm sm:text-base text-blue-100 mt-1 max-w-2xl">{currentNavItem.description}</p>
                 </div>
                 <Link
                   to={ROUTES.HOME}

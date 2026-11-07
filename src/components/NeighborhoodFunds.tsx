@@ -458,9 +458,6 @@ export default function NeighborhoodFunds({
           <h1 className="text-xl md:text-2xl font-black text-slate-800 tracking-tight">
             Quản Lý Đóng Góp & Thu Chi Quỹ Khu Phố
           </h1>
-          <p className="text-xs md:text-sm text-slate-500 font-normal">
-            Theo dõi công khai minh bạch các quỹ tự quản địa phương: Khuyến học, Vì người nghèo, An ninh quốc phòng và Bảo trì hẻm.
-          </p>
         </div>
         
         <div className="flex flex-wrap items-center gap-2.5 w-full sm:w-auto shrink-0">

@@ -125,7 +125,6 @@ export default function AiAssistant() {
             <span className="font-normal text-[11px] text-emerald-700">GEMINI 2.5 FLASH</span>
           </div>
           <h1 className="text-xl md:text-2xl font-black text-slate-800 tracking-tight">Trợ lý Cư dân Trí tuệ Nhân tạo</h1>
-          <p className="text-xs md:text-sm text-slate-500 font-normal leading-relaxed">Tra cứu chính xác thủ tục hành chính địa phương, điều lệ quy chế và danh bạ hỗ trợ khẩn cấp.</p>
         </div>
         <div className="flex items-center gap-2 text-xs bg-indigo-50 border border-indigo-100 text-indigo-700 px-3 py-1.5 rounded-lg">
           <Sparkles size={14} className="text-indigo-600 animate-pulse" />

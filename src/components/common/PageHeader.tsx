@@ -41,11 +41,6 @@ export function PageHeader({
         <h1 className="text-xl md:text-2xl font-black text-slate-800 tracking-tight">
           {title}
         </h1>
-        {description && (
-          <p className="text-slate-500 text-xs md:text-sm font-normal leading-relaxed">
-            {description}
-          </p>
-        )}
       </div>
 
       {actions && (

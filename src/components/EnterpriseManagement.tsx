@@ -781,9 +781,6 @@ export default function EnterpriseManagement({
               Phân hệ Quản lý Doanh nghiệp Vừa & Nhỏ (DNNVV) KP3
             </h1>
           </div>
-          <p className="text-xs sm:text-sm text-slate-300 max-w-3xl">
-            Nắm bắt tình hình hoạt động kinh tế địa bàn, quản lý đầu mối liên hệ công vụ, lao động, chuyên gia nước ngoài, biến động cơ sở và hỗ trợ Chi bộ - Ban Điều hành Khu phố 3
-          </p>
         </div>
 
         <div className="flex flex-wrap items-center gap-2.5 shrink-0">

@@ -60,9 +60,6 @@ export default function DesignSystemShowcase() {
           <h1 className="text-xl md:text-2xl font-extrabold tracking-tight">
             Hệ Thống Thiết Kế Giao Diện (Design System) — KP3 An Phú
           </h1>
-          <p className="text-xs md:text-sm text-slate-200 max-w-2xl">
-            Tài liệu quy chuẩn 7 nguyên tố UI (D1 Primitives), bảng màu đạt chuẩn WCAG AAA, thang typography Inter + JetBrains Mono cho toàn bộ 16 phân hệ quản lý đô thị thông minh.
-          </p>
         </div>
         <div className="flex items-center gap-2 self-start md:self-center">
           <Button

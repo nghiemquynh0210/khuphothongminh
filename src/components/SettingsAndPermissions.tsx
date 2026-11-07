@@ -345,7 +345,6 @@ export default function SettingsAndPermissions({
             </div>
             <div>
               <h1 className="text-xl md:text-2xl font-black tracking-tight text-white">Cổng Bảo Mật & Quản Trị Hệ Thống</h1>
-              <p className="text-xs md:text-sm text-indigo-200 mt-1">Quản lý duyệt hồ sơ nhân khẩu trực tuyến, ma trận phân quyền và lộ trình triển khai</p>
             </div>
           </div>
 

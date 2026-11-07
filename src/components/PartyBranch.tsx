@@ -2253,9 +2253,6 @@ export default function PartyBranch({ partyMembers, residents = [] }: PartyBranc
             <span className="text-xs text-slate-400 font-sans hidden sm:inline">• Khu phố 3, Phường An Phú, TP. Hồ Chí Minh</span>
           </div>
           <h1 className="text-xl md:text-2xl font-black tracking-tight text-slate-900">Quản lý Chi bộ Đảng & Khối Đoàn thể</h1>
-          <p className="text-slate-500 text-xs max-w-2xl leading-relaxed">
-            Hệ thống tổ chức bộ máy Chi bộ Đảng, Ban Điều hành Khu phố, Tổ bảo vệ ANTT và các tổ chức chính trị - xã hội cơ sở. Liên kết đồng bộ đa vai trò cùng CSDL Dân cư Đề án 06.
-          </p>
         </div>
 
         <div className="flex flex-wrap items-center gap-2.5 shrink-0 w-full md:w-auto">
