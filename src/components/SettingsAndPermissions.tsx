@@ -1080,7 +1080,6 @@ export default function SettingsAndPermissions({
                             </span>
                           )}
                         </h5>
-                        <p className="text-[11px] text-slate-400 mt-0.5">{info.desc}</p>
                       </div>
                     </div>
 

@@ -21,7 +21,6 @@ export default function CitizenScheduleSection({
         <SectionHeader
           icon={<Calendar size={20} />}
           title="Lịch hoạt động"
-          subtitle="Sự kiện sắp và đang diễn ra — cùng nguồn dữ liệu với phân hệ Tin tức & Sự kiện."
           action={
             <button onClick={() => onNavigateToTab("cultural")} className={btnGhost}>
               Xem đầy đủ <ChevronRight size={16} aria-hidden="true" />

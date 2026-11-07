@@ -21,7 +21,6 @@ export default function CitizenNoticesSection({
         <SectionHeader
           icon={<Bell size={20} />}
           title="Thông báo Khu phố"
-          subtitle="Thông báo chỉ đạo, lịch tiếp dân và cảnh báo khẩn đã được Ban Điều hành phê duyệt."
         />
         {displayNotices.length === 0 ? (
           <EmptyState

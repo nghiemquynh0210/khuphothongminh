@@ -7,6 +7,11 @@
   resolved "https://registry.npmjs.org/@adobe/css-tools/-/css-tools-4.5.0.tgz"
   integrity sha512-6OzddxPio9UiWTCemp4N8cYLV2ZN1ncRnV1cVGtve7dhPOtRkleRyx32GQCYSwDYgaHU3USMm84tNsvKzRCa1Q==
 
+"@animate-ui/react@^2.4.2":
+  version "2.4.2"
+  resolved "https://registry.npmjs.org/@animate-ui/react/-/react-2.4.2.tgz"
+  integrity sha512-UQT32Dumycq9glo5/nKH78rccB3AF8yyu/wJBGcJQn4WwCEYLe3G5Gstfxb44Y3zXtSETn6vyUehivDflkvq8Q==
+
 "@asamuzakjp/css-color@^5.1.11":
   version "5.1.11"
   resolved "https://registry.npmjs.org/@asamuzakjp/css-color/-/css-color-5.1.11.tgz"
@@ -1865,13 +1870,13 @@ fraction.js@^5.3.4:
   resolved "https://registry.npmjs.org/fraction.js/-/fraction.js-5.3.4.tgz"
   integrity sha512-1X1NTtiJphryn/uLQz3whtY6jK3fTqoE3ohKs0tT+Ujr1W59oopxmoEh7Lu5p6vBaPbgoM0bzveAW4Qi5RyWDQ==
 
-framer-motion@^12.42.2:
-  version "12.42.2"
-  resolved "https://registry.npmjs.org/framer-motion/-/framer-motion-12.42.2.tgz"
-  integrity sha512-5XY9luDiu0oHfHBjpDthFMh0ES+122w6p/papSJBweMkO8Sn+PW2QaEgRblQBpWFnuvZS5qvarpt/hO2pjGmnw==
+framer-motion@14.10.1:
+  version "14.10.1"
+  resolved "https://registry.npmjs.org/framer-motion/-/framer-motion-14.10.1.tgz"
+  integrity sha512-hT8WLczAcreOHG4EHymMtATztwUc3al1/88/stal3tpxYkMefGNzIPHHgFFHW3iLnrNY36BrKKJDuT2V7o8Tfw==
   dependencies:
-    motion-dom "^12.42.2"
-    motion-utils "^12.39.0"
+    motion-dom "14.10.1"
+    motion-utils "14.7.0"
     tslib "^2.4.0"
 
 fresh@~0.5.2:
@@ -2333,24 +2338,24 @@ minimatch@^10.2.2, minimatch@^10.2.4, minimatch@^10.2.5:
   dependencies:
     brace-expansion "^5.0.8"
 
-motion-dom@^12.42.2:
-  version "12.42.2"
-  resolved "https://registry.npmjs.org/motion-dom/-/motion-dom-12.42.2.tgz"
-  integrity sha512-5gIMWLp/PycBtJRJWRgjxke5n8dlvkSn2DrYW+tr3XcqAZY1xZh6BJyooJXCM8wdfM7wfMjkBJNLge1CKPUIRA==
+motion-dom@14.10.1:
+  version "14.10.1"
+  resolved "https://registry.npmjs.org/motion-dom/-/motion-dom-14.10.1.tgz"
+  integrity sha512-NzVzM7y3JJl3rYlVN4yM6kbziab/tHNBEV6gqOoAQIg8npHlIMhW2oPnzr0HkP+rR8xMoiX9+zSZ4BLaVuJadw==
   dependencies:
-    motion-utils "^12.39.0"
+    motion-utils "14.7.0"
 
-motion-utils@^12.39.0:
-  version "12.39.0"
-  resolved "https://registry.npmjs.org/motion-utils/-/motion-utils-12.39.0.tgz"
-  integrity sha512-8nadJAJjTtqRkmRF36FoJTrywK9nnFmnPwnSMyxaOCU7GDjN9RTMJIxx9De8ErM+vpPhMccr/6fo5WciyQLnMQ==
+motion-utils@14.7.0:
+  version "14.7.0"
+  resolved "https://registry.npmjs.org/motion-utils/-/motion-utils-14.7.0.tgz"
+  integrity sha512-woO0/Nb7ys75f94fjvQi/6leiHGvZUYkeHUPEZ3vxsV+9OpEVhkxp01x8MlRwX0zt31EqgXsKDAoBoJLC148Tw==
 
-motion@^12.23.24:
-  version "12.42.2"
-  resolved "https://registry.npmjs.org/motion/-/motion-12.42.2.tgz"
-  integrity sha512-Atvv11yUKIid41cVrRBDVX5m8tF8kNpExRSlbpt6APClhDjtwQssgFHhQzejxw7/7YYbjHSPKBVbHo05BuJT5Q==
+motion@^14.0.0, motion@^14.10.1:
+  version "14.10.1"
+  resolved "https://registry.npmjs.org/motion/-/motion-14.10.1.tgz"
+  integrity sha512-CRlxgrRmG5SNu5jxyYmiw3Oo6IrPq8xhQ0EmOm6WS6tx956G6O4WqVBA8ovrIwt4Sb/A9M0j2T2Vca7ze5PkRQ==
   dependencies:
-    framer-motion "^12.42.2"
+    framer-motion "14.10.1"
     tslib "^2.4.0"
 
 mrmime@^2.0.0:
@@ -2588,7 +2593,7 @@ raw-body@~2.5.3:
     iconv-lite "~0.4.24"
     unpipe "~1.0.0"
 
-"react-dom@^16.0.0 || ^17.0.0 || ^18.0.0 || ^19.0.0", "react-dom@^18.0.0 || ^19.0.0", react-dom@^19.0.1, "react-dom@>=16.8.0 || ^19.0 || ^19.0.0-rc":
+"react-dom@^16.0.0 || ^17.0.0 || ^18.0.0 || ^19.0.0", "react-dom@^18.0.0 || ^19.0.0", react-dom@^19.0.0, react-dom@^19.0.1, "react-dom@>=16.8.0 || ^19.0 || ^19.0.0-rc":
   version "19.2.7"
   resolved "https://registry.npmjs.org/react-dom/-/react-dom-19.2.7.tgz"
   integrity sha512-t0BRVXvbiE/o20Hfw669rLbMCDWtYZLvmJigy2f0MxsXF+71pxhR3xOkspmsO8h3ZlNzyibAmtCa3l4lYKk6gQ==
@@ -2618,7 +2623,7 @@ react-refresh@^0.18.0:
   resolved "https://registry.npmjs.org/react-refresh/-/react-refresh-0.18.0.tgz"
   integrity sha512-QgT5//D3jfjJb6Gsjxv0Slpj23ip+HtOpnNgnb2S5zU3CB26G/IDPGoy4RJB42wzFE46DRsstbW6tKHoKbhAxw==
 
-"react@^16.5.1 || ^17.0.0 || ^18.0.0 || ^19.0.0", "react@^16.8.0 || ^17.0.0 || ^18.0.0 || ^19.0.0", "react@^16.9.0 || ^17.0.0 || ^18 || ^19", "react@^18.0 || ^19", "react@^18.0.0 || ^19.0.0", react@^19.0.1, react@^19.2.7, "react@>=16.8.0 || ^19.0 || ^19.0.0-rc":
+"react@^16.5.1 || ^17.0.0 || ^18.0.0 || ^19.0.0", "react@^16.8.0 || ^17.0.0 || ^18.0.0 || ^19.0.0", "react@^16.9.0 || ^17.0.0 || ^18 || ^19", "react@^18.0 || ^19", "react@^18.0.0 || ^19.0.0", react@^19.0.0, react@^19.0.1, react@^19.2.7, "react@>=16.8.0 || ^19.0 || ^19.0.0-rc":
   version "19.2.7"
   resolved "https://registry.npmjs.org/react/-/react-19.2.7.tgz"
   integrity sha512-HNe9WslTbXmFK8o8cmwgAeJFSBvt1bPdHCVKtaaV+WlAN36mpT4hcRpwbf3fY56ar2oIXzsBpOAiIRHAdY0OlQ==

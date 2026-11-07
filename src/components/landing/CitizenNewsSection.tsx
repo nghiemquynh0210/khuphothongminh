@@ -21,7 +21,6 @@ export default function CitizenNewsSection({
         <SectionHeader
           icon={<Compass size={20} />}
           title="Tin tức & Đời sống Khu phố"
-          subtitle="Cập nhật tin tức chính sách, phong trào thi đua và hoạt động cộng đồng Khu phố 3."
           action={
             <button onClick={() => onNavigateToTab("cultural")} className={btnGhost}>
               Xem sự kiện <ChevronRight size={16} aria-hidden="true" />

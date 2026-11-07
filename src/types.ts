@@ -327,8 +327,7 @@ export type ActiveTab =
   | "cultural"
   | "finance"
   | "plan"
-  | "settings"
-  | "design-system";
+  | "settings";
 
 export interface TargetGisItem {
   id?: string;

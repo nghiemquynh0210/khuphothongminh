@@ -97,9 +97,6 @@ export default function CitizenQuickServices({
                 <span className="flex items-center gap-1 font-bold text-sm sm:text-base text-gov-navy group-hover:text-gov-blue">
                   {card.title} <ChevronRight size={16} className="hidden sm:inline" aria-hidden="true" />
                 </span>
-                <span className="block text-xs sm:text-sm text-slate-500 mt-1 leading-snug">
-                  {card.desc}
-                </span>
               </span>
             </Link>
           ))}

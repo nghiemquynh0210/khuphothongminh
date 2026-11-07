@@ -9,7 +9,7 @@ export function SectionHeader({
 }: {
   icon: React.ReactNode;
   title: string;
-  subtitle: string;
+  subtitle?: string;
   action?: React.ReactNode;
 }) {
   return (
@@ -19,7 +19,7 @@ export function SectionHeader({
           <span className="text-gov-blue" aria-hidden="true">{icon}</span>
           <h2 className="text-lg sm:text-xl font-black text-gov-navy tracking-tight">{title}</h2>
         </div>
-        <p className="text-sm text-slate-500 mt-1">{subtitle}</p>
+        {subtitle && <p className="text-sm text-slate-500 mt-1">{subtitle}</p>}
       </div>
       {action}
     </div>

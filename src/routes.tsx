@@ -33,7 +33,6 @@ export const ROUTES = {
   DASHBOARD_FINANCE: "/dashboard/finance",
   DASHBOARD_PLAN: "/dashboard/plan",
   DASHBOARD_SETTINGS: "/dashboard/settings",
-  DASHBOARD_DESIGN_SYSTEM: "/dashboard/design-system",
 } as const;
 
 export type RoutePath = typeof ROUTES[keyof typeof ROUTES];
@@ -138,8 +137,7 @@ export function getTabFromDashboardPath(pathname: string): string | null {
     "cultural",
     "finance",
     "plan",
-    "settings",
-    "design-system"
+    "settings"
   ];
 
   if (validTabs.includes(clean)) {

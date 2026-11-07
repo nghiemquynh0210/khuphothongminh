@@ -34,13 +34,10 @@ import {
   ChevronLeft,
   ChevronsLeft,
   ChevronsRight,
-  Camera,
   Upload,
   Navigation,
   Compass,
-  Check,
-  Image as ImageIcon,
-  Maximize2
+  Check
 } from "lucide-react";
 import { Business, BusinessChangeLog, Resident, Household, ForeignWorker, BusinessFile, TargetGisItem } from "../types";
 import { 
@@ -225,8 +222,6 @@ export default function EnterpriseManagement({
   const [newForeignWorkersCount, setNewForeignWorkersCount] = useState<number>(0);
   const [newSupportNeeds, setNewSupportNeeds] = useState<string[]>([]);
   const [newSupportNotes, setNewSupportNotes] = useState("");
-  const [newImage, setNewImage] = useState("");
-  const [newAdditionalImages, setNewAdditionalImages] = useState<string[]>([]);
 
   // Edit Enterprise Form state
   const [editName, setEditName] = useState("");
@@ -256,11 +251,6 @@ export default function EnterpriseManagement({
   const [editForeignWorkersCount, setEditForeignWorkersCount] = useState<number>(0);
   const [editSupportNeeds, setEditSupportNeeds] = useState<string[]>([]);
   const [editSupportNotes, setEditSupportNotes] = useState("");
-  const [editImage, setEditImage] = useState("");
-  const [editImages, setEditImages] = useState<string[]>([]);
-
-  // Lightbox preview modal state
-  const [viewingImagePreview, setViewingImagePreview] = useState<{ url: string; caption: string } | null>(null);
 
   // Toast state
   const [toast, setToast] = useState<{ message: string; type: "success" | "error" | "warning" } | null>(null);
@@ -436,8 +426,6 @@ export default function EnterpriseManagement({
     setEditForeignWorkersCount(ent.foreignWorkersCount || (ent.foreignWorkers?.length || 0));
     setEditSupportNeeds(ent.supportNeeds || []);
     setEditSupportNotes(ent.supportNotes || "");
-    setEditImage(ent.image || "");
-    setEditImages(ent.images || (ent.image ? [ent.image] : []));
     setShowEditModal(true);
   };
 
@@ -507,10 +495,8 @@ export default function EnterpriseManagement({
       supportNeeds: newSupportNeeds,
       supportNotes: newSupportNotes.trim(),
       safetyCertified: true,
-      image: newImage || "https://images.unsplash.com/photo-1497366216548-37526070297c?w=400",
-      images: newAdditionalImages.length > 0 
-        ? (newImage ? [newImage, ...newAdditionalImages] : newAdditionalImages)
-        : (newImage ? [newImage] : []),
+      image: "",
+      images: [],
       changeHistory: [
         {
           id: `CHG-${nextId}-INIT`,
@@ -541,19 +527,12 @@ export default function EnterpriseManagement({
     setNewFocalPointPhone("");
     setNewSupportNeeds([]);
     setNewSupportNotes("");
-    setNewImage("");
-    setNewAdditionalImages([]);
   };
 
   // Handle Update Enterprise
   const handleUpdateEnterprise = (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedEnterprise) return;
-
-    const finalImage = editImage || selectedEnterprise.image;
-    const finalImages = editImages.length > 0 
-      ? editImages 
-      : (finalImage ? [finalImage] : selectedEnterprise.images || []);
 
     const updated: Business = {
       ...selectedEnterprise,
@@ -583,9 +562,7 @@ export default function EnterpriseManagement({
       temporaryWorkersCount: editTemporaryWorkers,
       foreignWorkersCount: editForeignWorkersCount,
       supportNeeds: editSupportNeeds,
-      supportNotes: editSupportNotes.trim(),
-      image: finalImage,
-      images: finalImages
+      supportNotes: editSupportNotes.trim()
     };
 
     if (onUpdateBusinesses) {
@@ -594,80 +571,6 @@ export default function EnterpriseManagement({
     setSelectedEnterprise(updated);
     setShowEditModal(false);
     showToast(`Đã cập nhật hồ sơ doanh nghiệp "${updated.name}" thành công!`, "success");
-  };
-
-  // Direct change avatar photo in Detail Panel
-  const handleChangeAvatarPhoto = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (!selectedEnterprise || !e.target.files || !e.target.files[0]) return;
-    const file = e.target.files[0];
-    if (!file.type.startsWith("image/")) {
-      showToast("Vui lòng chọn tệp hình ảnh hợp lệ (PNG, JPG, WebP)!", "error");
-      return;
-    }
-    const reader = new FileReader();
-    reader.onload = () => {
-      const newImg = reader.result as string;
-      const existingImages = selectedEnterprise.images || (selectedEnterprise.image ? [selectedEnterprise.image] : []);
-      const updatedImages = existingImages.includes(newImg) ? existingImages : [newImg, ...existingImages];
-      const updated: Business = {
-        ...selectedEnterprise,
-        image: newImg,
-        images: updatedImages
-      };
-      if (onUpdateBusinesses) {
-        onUpdateBusinesses(businesses.map(b => b.id === selectedEnterprise.id ? updated : b));
-      }
-      setSelectedEnterprise(updated);
-      showToast("Đã cập nhật ảnh đại diện doanh nghiệp thành công!", "success");
-    };
-    reader.readAsDataURL(file);
-  };
-
-  // Direct upload photo to gallery in Detail Panel
-  const handleAddGalleryPhoto = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (!selectedEnterprise || !e.target.files || !e.target.files[0]) return;
-    const file = e.target.files[0];
-    if (!file.type.startsWith("image/")) {
-      showToast("Vui lòng chọn tệp hình ảnh hợp lệ (PNG, JPG, WebP)!", "error");
-      return;
-    }
-    const reader = new FileReader();
-    reader.onload = () => {
-      const newImg = reader.result as string;
-      const existing = selectedEnterprise.images || (selectedEnterprise.image ? [selectedEnterprise.image] : []);
-      const updatedImages = [...existing, newImg];
-      const updated: Business = {
-        ...selectedEnterprise,
-        images: updatedImages
-      };
-      if (onUpdateBusinesses) {
-        onUpdateBusinesses(businesses.map(b => b.id === selectedEnterprise.id ? updated : b));
-      }
-      setSelectedEnterprise(updated);
-      showToast("Đã thêm ảnh vào album ảnh cơ sở doanh nghiệp!", "success");
-    };
-    reader.readAsDataURL(file);
-  };
-
-  // Remove photo from gallery in Detail Panel
-  const handleRemoveGalleryPhoto = (indexToRemove: number, e: React.MouseEvent) => {
-    e.stopPropagation();
-    if (!selectedEnterprise) return;
-    const existing = selectedEnterprise.images || (selectedEnterprise.image ? [selectedEnterprise.image] : []);
-    const updatedImages = existing.filter((_, idx) => idx !== indexToRemove);
-    const updated: Business = {
-      ...selectedEnterprise,
-      images: updatedImages,
-      // If we removed the current avatar, fallback to the next available image
-      image: selectedEnterprise.image === existing[indexToRemove] 
-        ? (updatedImages[0] || "") 
-        : selectedEnterprise.image
-    };
-    if (onUpdateBusinesses) {
-      onUpdateBusinesses(businesses.map(b => b.id === selectedEnterprise.id ? updated : b));
-    }
-    setSelectedEnterprise(updated);
-    showToast("Đã xóa ảnh khỏi album!", "success");
   };
 
   // Handle Save Change Log
@@ -840,11 +743,6 @@ export default function EnterpriseManagement({
               Bí thư / Trưởng KP
             </span>
           </button>
-        </div>
-
-        <div className="text-[11px] text-slate-500 hidden md:flex items-center gap-1.5 px-3 py-1 bg-indigo-50/50 rounded-lg border border-indigo-100 text-indigo-900">
-          <Sparkles size={13} className="text-indigo-600" />
-          <span>Theo dõi độc lập tổ chức kinh tế, MST, đầu mối công vụ & NĐ 80/2021</span>
         </div>
       </div>
 
@@ -1079,42 +977,35 @@ export default function EnterpriseManagement({
                     className="bg-white rounded-2xl border border-slate-200/90 shadow-2xs hover:shadow-md hover:border-indigo-300 transition-all duration-200 flex flex-col justify-between overflow-hidden cursor-pointer group"
                   >
                     <div>
-                      {/* Image header */}
-                      <div className="relative h-36 bg-slate-100 overflow-hidden">
-                        <img 
-                          src={ent.image || "https://images.unsplash.com/photo-1497366216548-37526070297c?w=400"} 
-                          alt={ent.name} 
-                          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                        />
-                        <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent"></div>
-                        
-                        {/* Top Badges */}
-                        <div className="absolute top-2.5 left-2.5 right-2.5 flex justify-between items-center text-[10px] font-bold">
-                          <span className="font-mono bg-slate-900/80 backdrop-blur-xs text-white px-2 py-0.5 rounded-md border border-white/20">
-                            {ent.internalCode || `DN-KP3-${ent.id}`}
-                          </span>
-                          <span className={`px-2 py-0.5 rounded-full ${
-                            ent.status === "Đang hoạt động" ? "bg-emerald-500 text-white" :
-                            ent.status === "Chờ duyệt" ? "bg-amber-500 text-white" :
-                            "bg-rose-500 text-white"
-                          }`}>
-                            {ent.status}
-                          </span>
+                      {/* Clean Administrative Header (No Image) */}
+                      <div className="p-4 bg-slate-50/70 border-b border-slate-100 flex items-start justify-between gap-2.5">
+                        <div className="flex items-center gap-2.5 min-w-0">
+                          <div className="w-10 h-10 rounded-xl bg-indigo-50 border border-indigo-100 text-indigo-700 flex items-center justify-center shrink-0 shadow-2xs">
+                            <Building2 size={20} />
+                          </div>
+                          <div className="min-w-0">
+                            <span className="font-mono text-[10px] text-slate-500 font-bold block truncate">
+                              {ent.internalCode || `DN-KP3-${ent.id}`}
+                            </span>
+                            <span className="text-[10px] text-indigo-700 font-bold uppercase tracking-wider block truncate">
+                              {ent.businessType || "Công ty TNHH"}
+                            </span>
+                          </div>
                         </div>
-
-                        {/* Bottom Name on image */}
-                        <div className="absolute bottom-2.5 left-2.5 right-2.5 text-white">
-                          <span className="text-[10px] text-indigo-300 font-bold block uppercase tracking-wider">
-                            {ent.businessType || "Công ty TNHH"}
-                          </span>
-                          <h3 className="font-bold text-sm leading-snug line-clamp-1 text-white">
-                            {ent.name}
-                          </h3>
-                        </div>
+                        <span className={`px-2 py-0.5 rounded-full text-[10.5px] font-bold border shrink-0 ${
+                          ent.status === "Đang hoạt động" ? "bg-emerald-50 text-emerald-800 border-emerald-200" :
+                          ent.status === "Chờ duyệt" ? "bg-amber-50 text-amber-800 border-amber-200" :
+                          "bg-rose-50 text-rose-800 border-rose-200"
+                        }`}>
+                          {ent.status}
+                        </span>
                       </div>
 
                       {/* Card Content */}
-                      <div className="p-3.5 space-y-2.5 text-xs">
+                      <div className="p-4 space-y-2.5 text-xs">
+                        <h3 className="font-bold text-sm leading-snug line-clamp-1 text-slate-900 group-hover:text-indigo-700 transition-colors">
+                          {ent.name}
+                        </h3>
                         {/* MST & Scale */}
                         <div className="flex items-center justify-between text-[11px] pb-2 border-b border-slate-100">
                           <span className="text-slate-500 font-mono">
@@ -1223,8 +1114,8 @@ export default function EnterpriseManagement({
                         >
                           <td className="py-3 px-4">
                             <div className="flex items-center gap-2.5">
-                              <div className="w-9 h-9 rounded-lg overflow-hidden shrink-0 border border-slate-200 bg-slate-100">
-                                <img src={ent.image || "https://images.unsplash.com/photo-1497366216548-37526070297c?w=200"} alt="" className="w-full h-full object-cover" />
+                              <div className="w-9 h-9 rounded-lg bg-indigo-50 border border-indigo-100 text-indigo-700 flex items-center justify-center shrink-0 shadow-2xs">
+                                <Building2 size={18} />
                               </div>
                               <div className="min-w-0">
                                 <strong className="text-slate-900 block font-bold truncate max-w-xs">{ent.name}</strong>
@@ -1555,8 +1446,8 @@ export default function EnterpriseManagement({
                     <tr key={b.id} className="hover:bg-slate-50/80 transition-colors">
                       <td className="py-3 px-4">
                         <div className="flex items-center gap-2">
-                          <div className="w-8 h-8 rounded-lg overflow-hidden shrink-0 border border-slate-200">
-                            <img src={b.image || "https://images.unsplash.com/photo-1497366216548-37526070297c?w=200"} alt="" className="w-full h-full object-cover" />
+                          <div className="w-8 h-8 rounded-lg bg-indigo-50 border border-indigo-100 text-indigo-700 flex items-center justify-center shrink-0 shadow-2xs">
+                            <Building2 size={16} />
                           </div>
                           <div>
                             <strong className="text-slate-900 block font-bold leading-tight">{b.name}</strong>
@@ -1824,23 +1715,8 @@ export default function EnterpriseManagement({
 
               <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 pr-10">
                 {/* Enterprise Avatar Photo with hover change overlay */}
-                <div className="relative w-14 h-14 sm:w-16 sm:h-16 rounded-2xl border border-slate-200 shadow-2xs overflow-hidden shrink-0 group bg-slate-100">
-                  <img 
-                    src={selectedEnterprise.image || "https://images.unsplash.com/photo-1497366216548-37526070297c?w=400"} 
-                    alt={selectedEnterprise.name}
-                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                    referrerPolicy="no-referrer"
-                  />
-                  <label className="absolute inset-0 bg-slate-950/70 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center text-white cursor-pointer">
-                    <Camera size={16} className="text-white mb-0.5" />
-                    <span className="text-[10px] font-bold">Đổi ảnh</span>
-                    <input 
-                      type="file" 
-                      accept="image/*" 
-                      className="hidden" 
-                      onChange={handleChangeAvatarPhoto}
-                    />
-                  </label>
+                <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-2xl bg-indigo-50 border border-indigo-100 text-indigo-700 flex items-center justify-center shrink-0 shadow-2xs">
+                  <Building2 size={30} />
                 </div>
 
                 {/* Metadata & Title */}
@@ -1875,23 +1751,12 @@ export default function EnterpriseManagement({
                     {selectedEnterprise.name}
                   </h2>
 
-                  {/* Address subtext & Zoom photo button */}
+                  {/* Address subtext & Maps button */}
                   <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-slate-600 pt-0.5">
                     <span className="flex items-center gap-1 font-medium text-slate-700">
                       <MapPin size={13} className="text-indigo-600 shrink-0" />
                       <span className="truncate max-w-md">{selectedEnterprise.address}</span>
                     </span>
-
-                    <button 
-                      type="button"
-                      onClick={() => setViewingImagePreview({
-                        url: selectedEnterprise.image || "https://images.unsplash.com/photo-1497366216548-37526070297c?w=400",
-                        caption: selectedEnterprise.name
-                      })}
-                      className="inline-flex items-center gap-1 text-[11px] text-indigo-600 hover:text-indigo-800 font-semibold cursor-pointer"
-                    >
-                      <Maximize2 size={11} /> Xem ảnh đại diện lớn
-                    </button>
 
                     {selectedEnterprise.coordinates && (
                       <a
@@ -1960,49 +1825,11 @@ export default function EnterpriseManagement({
                 <div className="bg-white rounded-2xl border border-slate-200/90 shadow-2xs overflow-hidden animate-in fade-in duration-200 divide-y divide-slate-100">
                   {/* Unified Section 1: Pháp lý & Album ảnh thu nhỏ */}
                   <div className="p-4 sm:p-5 space-y-4">
-                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-100">
-                      <div>
-                        <h4 className="text-xs font-bold text-slate-900 uppercase tracking-wider flex items-center gap-2">
-                          <Briefcase size={15} className="text-indigo-600" />
-                          Hồ sơ Doanh nghiệp, Mã số thuế & Pháp lý
-                        </h4>
-                        <p className="text-[11px] text-slate-500 mt-0.5">Dữ liệu doanh nghiệp SMEs & MST đăng ký trên địa bàn KP3</p>
-                      </div>
-
-                      {/* Mini Photo Strip */}
-                      <div className="flex items-center gap-2 shrink-0">
-                        {(() => {
-                          const galleryPhotos = selectedEnterprise.images && selectedEnterprise.images.length > 0 
-                            ? selectedEnterprise.images 
-                            : (selectedEnterprise.image ? [selectedEnterprise.image] : ["https://images.unsplash.com/photo-1497366216548-37526070297c?w=400"]);
-                          return (
-                            <div className="flex items-center gap-1.5">
-                              {galleryPhotos.slice(0, 3).map((imgUrl, i) => (
-                                <div 
-                                  key={i} 
-                                  onClick={() => setViewingImagePreview({ url: imgUrl, caption: `${selectedEnterprise.name} - Ảnh ${i + 1}` })}
-                                  className="w-9 h-9 rounded-lg overflow-hidden border border-slate-200 shrink-0 cursor-pointer hover:ring-2 hover:ring-indigo-500 transition-all shadow-2xs"
-                                  title={`Xem ảnh ${i + 1}`}
-                                >
-                                  <img src={imgUrl} alt={`Thumb ${i + 1}`} className="w-full h-full object-cover" />
-                                </div>
-                              ))}
-                              {galleryPhotos.length > 3 && (
-                                <span className="text-[10px] font-bold text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded">+{galleryPhotos.length - 3}</span>
-                              )}
-                              <label className="text-[11px] text-indigo-600 hover:text-indigo-800 font-bold cursor-pointer flex items-center gap-0.5 bg-indigo-50 hover:bg-indigo-100 px-2.5 py-1 rounded-lg border border-indigo-200 transition-colors ml-1" title="Tải thêm ảnh vào hồ sơ">
-                                <Plus size={11} /> Thêm ảnh
-                                <input 
-                                  type="file" 
-                                  accept="image/*" 
-                                  className="hidden" 
-                                  onChange={handleAddGalleryPhoto} 
-                                />
-                              </label>
-                            </div>
-                          );
-                        })()}
-                      </div>
+                    <div className="pb-3 border-b border-slate-100">
+                      <h4 className="text-xs font-bold text-slate-900 uppercase tracking-wider flex items-center gap-2">
+                        <Briefcase size={15} className="text-indigo-600" />
+                        Hồ sơ Doanh nghiệp, Mã số thuế & Pháp lý
+                      </h4>
                     </div>
 
                     <DetailGrid>
@@ -2799,109 +2626,6 @@ export default function EnterpriseManagement({
                 </div>
               </div>
 
-              {/* Group 6: Ảnh đại diện & Album ảnh cơ sở */}
-              <div className="space-y-3 pt-2 border-t border-slate-100">
-                <h4 className="font-bold text-slate-800 uppercase tracking-wider text-xs border-b border-slate-100 pb-1 flex items-center justify-between">
-                  <span className="flex items-center gap-1.5">
-                    <ImageIcon size={14} className="text-indigo-600" /> 6. Ảnh đại diện & Album ảnh cơ sở doanh nghiệp
-                  </span>
-                </h4>
-                
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  {/* Ảnh đại diện */}
-                  <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 space-y-2">
-                    <label className="text-[11px] font-bold text-slate-700 block">
-                      Ảnh đại diện chính
-                    </label>
-                    <div className="flex items-center gap-3">
-                      <div className="w-16 h-16 rounded-xl border border-slate-200 overflow-hidden bg-white shrink-0 relative group">
-                        <img 
-                          src={newImage || "https://images.unsplash.com/photo-1497366216548-37526070297c?w=400"} 
-                          alt="Avatar preview" 
-                          className="w-full h-full object-cover"
-                        />
-                        {newImage && (
-                          <button
-                            type="button"
-                            onClick={() => setNewImage("")}
-                            className="absolute top-0.5 right-0.5 p-0.5 bg-rose-600 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
-                            title="Xóa ảnh"
-                          >
-                            <X size={10} />
-                          </button>
-                        )}
-                      </div>
-                      <div className="flex-1 space-y-1.5">
-                        <label className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded-lg text-xs font-bold border border-indigo-200 cursor-pointer transition-colors">
-                          <Camera size={13} />
-                          <span>Tải ảnh đại diện</span>
-                          <input 
-                            type="file" 
-                            accept="image/*" 
-                            className="hidden" 
-                            onChange={(e) => {
-                              if (e.target.files && e.target.files[0]) {
-                                const file = e.target.files[0];
-                                const reader = new FileReader();
-                                reader.onload = () => setNewImage(reader.result as string);
-                                reader.readAsDataURL(file);
-                              }
-                            }}
-                          />
-                        </label>
-                        <p className="text-[10px] text-slate-500">Hỗ trợ JPG, PNG, WebP</p>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Album ảnh cơ sở */}
-                  <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 space-y-2">
-                    <div className="flex justify-between items-center">
-                      <label className="text-[11px] font-bold text-slate-700 block">
-                        Album ảnh cơ sở ({newAdditionalImages.length})
-                      </label>
-                      <label className="text-[10px] text-indigo-600 hover:text-indigo-800 font-bold cursor-pointer flex items-center gap-0.5">
-                        <Plus size={11} /> Thêm ảnh
-                        <input 
-                          type="file" 
-                          accept="image/*" 
-                          className="hidden" 
-                          onChange={(e) => {
-                            if (e.target.files && e.target.files[0]) {
-                              const file = e.target.files[0];
-                              const reader = new FileReader();
-                              reader.onload = () => {
-                                setNewAdditionalImages(prev => [...prev, reader.result as string]);
-                              };
-                              reader.readAsDataURL(file);
-                            }
-                          }}
-                        />
-                      </label>
-                    </div>
-
-                    {newAdditionalImages.length === 0 ? (
-                      <p className="text-[10px] text-slate-400 italic py-2">Chưa thêm ảnh phụ nào vào album</p>
-                    ) : (
-                      <div className="flex items-center gap-1.5 overflow-x-auto pb-1">
-                        {newAdditionalImages.map((img, idx) => (
-                          <div key={idx} className="relative w-12 h-12 rounded-lg border border-slate-200 overflow-hidden shrink-0 group">
-                            <img src={img} alt="album" className="w-full h-full object-cover" />
-                            <button
-                              type="button"
-                              onClick={() => setNewAdditionalImages(prev => prev.filter((_, i) => i !== idx))}
-                              className="absolute top-0.5 right-0.5 p-0.5 bg-rose-600 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
-                            >
-                              <X size={9} />
-                            </button>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </div>
-
               {/* Form Buttons */}
               <div className="pt-3 border-t border-slate-100 flex justify-end gap-2.5">
                 <button
@@ -3251,136 +2975,6 @@ export default function EnterpriseManagement({
                 </div>
               </div>
 
-              {/* Group 6: Ảnh đại diện & Album ảnh cơ sở */}
-              <div className="space-y-3 pt-2 border-t border-slate-100">
-                <h4 className="font-bold text-slate-800 uppercase tracking-wider text-xs border-b border-slate-100 pb-1 flex items-center justify-between">
-                  <span className="flex items-center gap-1.5">
-                    <ImageIcon size={14} className="text-indigo-600" /> 6. Ảnh đại diện & Album ảnh cơ sở doanh nghiệp
-                  </span>
-                </h4>
-                
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  {/* Ảnh đại diện */}
-                  <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 space-y-2">
-                    <label className="text-[11px] font-bold text-slate-700 block">
-                      Ảnh đại diện chính
-                    </label>
-                    <div className="flex items-center gap-3">
-                      <div className="w-16 h-16 rounded-xl border border-slate-200 overflow-hidden bg-white shrink-0 relative group">
-                        <img 
-                          src={editImage || selectedEnterprise.image || "https://images.unsplash.com/photo-1497366216548-37526070297c?w=400"} 
-                          alt="Avatar preview" 
-                          className="w-full h-full object-cover"
-                        />
-                        {editImage && (
-                          <button
-                            type="button"
-                            onClick={() => setEditImage("")}
-                            className="absolute top-0.5 right-0.5 p-0.5 bg-rose-600 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
-                            title="Xóa ảnh"
-                          >
-                            <X size={10} />
-                          </button>
-                        )}
-                      </div>
-                      <div className="flex-1 space-y-1.5">
-                        <label className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded-lg text-xs font-bold border border-indigo-200 cursor-pointer transition-colors">
-                          <Camera size={13} />
-                          <span>Đổi ảnh đại diện</span>
-                          <input 
-                            type="file" 
-                            accept="image/*" 
-                            className="hidden" 
-                            onChange={(e) => {
-                              if (e.target.files && e.target.files[0]) {
-                                const file = e.target.files[0];
-                                const reader = new FileReader();
-                                reader.onload = () => {
-                                  const url = reader.result as string;
-                                  setEditImage(url);
-                                  if (!editImages.includes(url)) {
-                                    setEditImages(prev => [url, ...prev]);
-                                  }
-                                };
-                                reader.readAsDataURL(file);
-                              }
-                            }}
-                          />
-                        </label>
-                        <p className="text-[10px] text-slate-500">Hỗ trợ JPG, PNG, WebP</p>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Album ảnh cơ sở */}
-                  <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 space-y-2">
-                    <div className="flex justify-between items-center">
-                      <label className="text-[11px] font-bold text-slate-700 block">
-                        Album ảnh cơ sở ({editImages.length})
-                      </label>
-                      <label className="text-[10px] text-indigo-600 hover:text-indigo-800 font-bold cursor-pointer flex items-center gap-0.5">
-                        <Plus size={11} /> Thêm ảnh
-                        <input 
-                          type="file" 
-                          accept="image/*" 
-                          className="hidden" 
-                          onChange={(e) => {
-                            if (e.target.files && e.target.files[0]) {
-                              const file = e.target.files[0];
-                              const reader = new FileReader();
-                              reader.onload = () => {
-                                setEditImages(prev => [...prev, reader.result as string]);
-                              };
-                              reader.readAsDataURL(file);
-                            }
-                          }}
-                        />
-                      </label>
-                    </div>
-
-                    {editImages.length === 0 ? (
-                      <p className="text-[10px] text-slate-400 italic py-2">Chưa có ảnh trong album cơ sở</p>
-                    ) : (
-                      <div className="flex items-center gap-1.5 overflow-x-auto pb-1">
-                        {editImages.map((img, idx) => {
-                          const isAvatar = (editImage || selectedEnterprise.image) === img;
-                          return (
-                            <div key={idx} className="relative w-12 h-12 rounded-lg border border-slate-200 overflow-hidden shrink-0 group">
-                              <img src={img} alt="album" className="w-full h-full object-cover" />
-                              {isAvatar && (
-                                <span className="absolute bottom-0 left-0 right-0 bg-indigo-900/90 text-[10px] font-bold text-white text-center">
-                                  Chính
-                                </span>
-                              )}
-                              <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-1">
-                                {!isAvatar && (
-                                  <button
-                                    type="button"
-                                    onClick={() => setEditImage(img)}
-                                    title="Chọn làm ảnh đại diện"
-                                    className="p-1 bg-indigo-600 text-white rounded text-xs"
-                                  >
-                                    <Camera size={9} />
-                                  </button>
-                                )}
-                                <button
-                                  type="button"
-                                  onClick={() => setEditImages(prev => prev.filter((_, i) => i !== idx))}
-                                  title="Xóa ảnh"
-                                  className="p-1 bg-rose-600 text-white rounded text-xs"
-                                >
-                                  <X size={9} />
-                                </button>
-                              </div>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </div>
-
               {/* Form Buttons */}
               <div className="pt-3 border-t border-slate-100 flex justify-end gap-2.5">
                 <button
@@ -3589,32 +3183,6 @@ export default function EnterpriseManagement({
                   <span>Lưu & Dẫn đường ngay</span>
                 </button>
               </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* IMAGE PREVIEW LIGHTBOX CHO DOANH NGHIỆP */}
-      {viewingImagePreview && (
-        <div 
-          onClick={() => setViewingImagePreview(null)}
-          className="fixed inset-0 bg-slate-950/90 flex items-center justify-center z-[100] p-4 backdrop-blur-sm animate-in fade-in duration-150 cursor-pointer"
-        >
-          <div className="relative max-w-4xl max-h-[90vh] flex flex-col items-center" onClick={(e) => e.stopPropagation()}>
-            <img 
-              src={viewingImagePreview.url} 
-              alt={viewingImagePreview.caption}
-              className="max-h-[80vh] w-auto rounded-xl shadow-2xl object-contain border border-white/10" 
-            />
-            <div className="mt-3 flex items-center justify-between w-full px-2 text-white">
-              <span className="text-xs font-bold">{viewingImagePreview.caption}</span>
-              <button
-                type="button"
-                onClick={() => setViewingImagePreview(null)}
-                className="bg-white/10 hover:bg-white/20 text-white px-3 py-1 rounded-lg text-xs font-semibold cursor-pointer"
-              >
-                Đóng
-              </button>
             </div>
           </div>
         </div>

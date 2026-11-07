@@ -38,7 +38,6 @@ export default function CitizenFormsSection({
         <SectionHeader
           icon={<FileText size={20} />}
           title="Kho biểu mẫu"
-          subtitle="Biểu mẫu công khai trong hệ thống. Bấm “Hướng dẫn” để xem hồ sơ cần chuẩn bị."
           action={
             <button onClick={() => onNavigateToTab("forms")} className={btnGhost}>
               Mở trang biểu mẫu đầy đủ <ChevronRight size={16} aria-hidden="true" />

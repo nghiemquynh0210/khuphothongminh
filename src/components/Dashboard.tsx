@@ -442,7 +442,6 @@ export default function Dashboard({
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 border-b border-slate-100 pb-3">
             <div>
               <h2 className="text-base font-extrabold text-slate-800">Dịch Vụ Cư Dân Số Trực Tuyến</h2>
-              <p className="text-xs text-slate-500 mt-0.5">Tiếp cận nhanh các tiện ích công cộng và phản ánh đời sống thường nhật</p>
             </div>
             <span className="text-[11px] font-bold text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-full border border-emerald-100">
               Tiện ích trực tuyến
@@ -458,16 +457,13 @@ export default function Dashboard({
               <div className="w-10 h-10 rounded-xl bg-emerald-600 text-white flex items-center justify-center shrink-0 group-hover:scale-110 transition-transform shadow-xs">
                 <FileText size={20} />
               </div>
-              <div className="space-y-1 min-w-0">
+              <div className="space-y-1 min-w-0 flex-1">
                 <div className="flex items-center justify-between">
                   <h4 className="font-bold text-slate-900 text-sm group-hover:text-emerald-800 transition-colors">
                     Tải Biểu Mẫu Hành Chính
                   </h4>
                   <ChevronRight size={14} className="text-emerald-600 transition-colors shrink-0" />
                 </div>
-                <p className="text-xs text-slate-600 leading-snug">
-                  Đơn xin cấp số nhà, Tờ khai cư trú CT01, Đăng ký hộ kinh doanh cá thể, xác nhận cư trú.
-                </p>
               </div>
             </button>
 
@@ -479,16 +475,13 @@ export default function Dashboard({
               <div className="w-10 h-10 rounded-xl bg-emerald-100/80 text-emerald-700 flex items-center justify-center shrink-0 group-hover:scale-110 transition-transform">
                 <MessageSquare size={20} />
               </div>
-              <div className="space-y-1 min-w-0">
+              <div className="space-y-1 min-w-0 flex-1">
                 <div className="flex items-center justify-between">
                   <h4 className="font-bold text-slate-800 text-sm group-hover:text-emerald-800 transition-colors">
                     Gửi Phản Ánh Hiện Trường 1022
                   </h4>
                   <ChevronRight size={14} className="text-slate-400 group-hover:text-emerald-600 transition-colors shrink-0" />
                 </div>
-                <p className="text-xs text-slate-500 leading-snug">
-                  Báo cáo rác thải, ngập nước, lấn chiếm hẻm, tiếng ồn kèm hình ảnh trực tiếp tới Ban Điều hành.
-                </p>
               </div>
             </button>
 
@@ -500,16 +493,13 @@ export default function Dashboard({
               <div className="w-10 h-10 rounded-xl bg-indigo-100/80 text-indigo-700 flex items-center justify-center shrink-0 group-hover:scale-110 transition-transform">
                 <Bot size={20} />
               </div>
-              <div className="space-y-1 min-w-0">
+              <div className="space-y-1 min-w-0 flex-1">
                 <div className="flex items-center justify-between">
                   <h4 className="font-bold text-slate-800 text-sm group-hover:text-indigo-800 transition-colors">
                     Hỏi Đáp Trợ Lý AI Khu Phố
                   </h4>
                   <ChevronRight size={14} className="text-slate-400 group-hover:text-indigo-600 transition-colors shrink-0" />
                 </div>
-                <p className="text-xs text-slate-500 leading-snug">
-                  Giải đáp 24/7 về thủ tục hành chính, đăng ký tạm trú, lịch thu gom rác, chính sách cấp cơ sở.
-                </p>
               </div>
             </button>
 
@@ -521,16 +511,13 @@ export default function Dashboard({
               <div className="w-10 h-10 rounded-xl bg-teal-100/80 text-teal-700 flex items-center justify-center shrink-0 group-hover:scale-110 transition-transform">
                 <Map size={20} />
               </div>
-              <div className="space-y-1 min-w-0">
+              <div className="space-y-1 min-w-0 flex-1">
                 <div className="flex items-center justify-between">
                   <h4 className="font-bold text-slate-800 text-sm group-hover:text-teal-800 transition-colors">
                     Bản Đồ Số Không Gian GIS
                   </h4>
                   <ChevronRight size={14} className="text-slate-400 group-hover:text-teal-600 transition-colors shrink-0" />
                 </div>
-                <p className="text-xs text-slate-500 leading-snug">
-                  Xem bản đồ trực quan nhà ở, cửa hàng kinh doanh, điểm phản ánh và thông tin địa giới khu phố 3.
-                </p>
               </div>
             </button>
 
@@ -542,16 +529,13 @@ export default function Dashboard({
               <div className="w-10 h-10 rounded-xl bg-amber-100/80 text-amber-700 flex items-center justify-center shrink-0 group-hover:scale-110 transition-transform">
                 <Coins size={20} />
               </div>
-              <div className="space-y-1 min-w-0">
+              <div className="space-y-1 min-w-0 flex-1">
                 <div className="flex items-center justify-between">
                   <h4 className="font-bold text-slate-800 text-sm group-hover:text-amber-800 transition-colors">
                     Quỹ Tự Quản & Đóng Góp
                   </h4>
                   <ChevronRight size={14} className="text-slate-400 group-hover:text-amber-600 transition-colors shrink-0" />
                 </div>
-                <p className="text-xs text-slate-500 leading-snug">
-                  Minh bạch thu chi Quỹ Khuyến học, Vì người nghèo, An ninh quốc phòng và tra cứu tình trạng nộp quỹ.
-                </p>
               </div>
             </button>
 
@@ -563,16 +547,13 @@ export default function Dashboard({
               <div className="w-10 h-10 rounded-xl bg-rose-100/80 text-rose-700 flex items-center justify-center shrink-0 group-hover:scale-110 transition-transform">
                 <Heart size={20} />
               </div>
-              <div className="space-y-1 min-w-0">
+              <div className="space-y-1 min-w-0 flex-1">
                 <div className="flex items-center justify-between">
                   <h4 className="font-bold text-slate-800 text-sm group-hover:text-rose-800 transition-colors">
                     An Sinh Xã Hội & Trợ Cấp
                   </h4>
                   <ChevronRight size={14} className="text-slate-400 group-hover:text-rose-600 transition-colors shrink-0" />
                 </div>
-                <p className="text-xs text-slate-500 leading-snug">
-                  Theo dõi chính sách chăm sóc người cao tuổi, thẻ BHYT miễn phí, quà tết hộ nghèo và cận nghèo.
-                </p>
               </div>
             </button>
 
@@ -584,16 +565,13 @@ export default function Dashboard({
               <div className="w-10 h-10 rounded-xl bg-emerald-100/80 text-emerald-700 flex items-center justify-center shrink-0 group-hover:scale-110 transition-transform">
                 <ShieldAlert size={20} />
               </div>
-              <div className="space-y-1 min-w-0">
+              <div className="space-y-1 min-w-0 flex-1">
                 <div className="flex items-center justify-between">
                   <h4 className="font-bold text-slate-800 text-sm group-hover:text-emerald-800 transition-colors">
                     Chi Hội & Đoàn Thể Cơ Sở
                   </h4>
                   <ChevronRight size={14} className="text-slate-400 group-hover:text-emerald-600 transition-colors shrink-0" />
                 </div>
-                <p className="text-xs text-slate-500 leading-snug">
-                  Chi bộ Đảng, Ban điều hành khu phố, Tổ trưởng dân phố, Mặt trận, Phụ nữ, Cựu chiến binh, Đa vai trò.
-                </p>
               </div>
             </button>
           </div>
@@ -609,9 +587,6 @@ export default function Dashboard({
                   Kho Biểu Mẫu Hành Chính Tải Trực Tiếp (Dành Cho Cán Bộ & Cư Dân)
                 </h3>
               </div>
-              <p className="text-xs text-slate-500 mt-0.5">
-                Cung cấp đầy đủ các mẫu đơn chuẩn Word (.DOC) tải về tức thì: Cấp số nhà, Tờ khai CT01, Đăng ký hộ kinh doanh cá thể, xác nhận cư trú...
-              </p>
             </div>
             <div className="flex items-center gap-2">
               <button
@@ -1181,9 +1156,6 @@ export default function Dashboard({
                 Chỉ Số Quản Lý Dân Cư & Cảnh Báo Điều Hành KP3
               </h3>
             </div>
-            <p className="text-xs text-slate-300">
-              Đối soát tự động từ 11.632 nhân khẩu, 488 hộ gia đình và 118 cơ sở kinh doanh - Dữ liệu thực tế thời gian thực
-            </p>
           </div>
           <div className="flex items-center gap-2">
             <span className="px-3 py-1 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-400/30 text-xs font-semibold">

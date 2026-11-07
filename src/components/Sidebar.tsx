@@ -19,11 +19,14 @@ import {
   LogOut, 
   Building2, 
   Store, 
-  CalendarCheck,
-  Palette
+  CalendarCheck
 } from "lucide-react";
+import { motion } from "motion/react";
+import { spring } from "@animate-ui/react/utils/motion";
 import { ActiveTab } from "../types";
 import { Link, getDashboardExtensionPath, navigate } from "../routes";
+
+const MotionLink = motion.create(Link);
 
 interface SidebarProps {
   activeTab: ActiveTab;
@@ -106,7 +109,6 @@ export default function Sidebar({
     { id: "welfare", label: "An sinh Xã hội", icon: Heart },
     { id: "cultural", label: "Tin tức & Sự kiện", icon: CalendarDays },
     { id: "finance", label: "Quỹ Khu phố", icon: Coins },
-    { id: "design-system", label: "Hệ thống UI-UX", icon: Palette },
     ...(currentUser?.role === "canbo" ? [{ id: "settings", label: "Cấu hình & Duyệt", icon: Settings }] : [])
   ];
 
@@ -170,11 +172,13 @@ export default function Sidebar({
             const itemPath = getDashboardExtensionPath(item.id);
 
             return (
-              <Link
+              <MotionLink
                 key={item.id}
                 id={`nav-${item.id}`}
                 to={itemPath}
                 aria-current={isActive ? "page" : undefined}
+                whileTap={{ scale: 0.97 }}
+                transition={spring.press}
                 onClick={() => {
                   setActiveTab(item.id as ActiveTab);
                   navigate(itemPath);
@@ -183,22 +187,31 @@ export default function Sidebar({
                     setIsOpen(false);
                   }
                 }}
-                className={`w-full flex items-center gap-3 px-3 py-2 lg:py-2.5 rounded-lg text-sm font-medium transition-all cursor-pointer group relative interactive-tap
+                className={`w-full flex items-center gap-3 px-3 py-2 lg:py-2.5 rounded-lg text-sm font-medium transition-colors cursor-pointer group relative interactive-tap
                   ${isActive 
-                    ? "bg-emerald-600/20 text-emerald-400 border-l-4 border-emerald-500 font-semibold shadow-inner" 
+                    ? "text-emerald-400 font-semibold" 
                     : "text-slate-400 hover:bg-slate-800 hover:text-slate-100"
                   }
                 `}
                 title={`${item.label} (${itemPath})`}
               >
-                <IconComponent 
-                  size={20} 
-                  className={`shrink-0 transition-transform group-hover:scale-105 ${isActive ? "text-emerald-400" : "text-slate-400 group-hover:text-slate-100"}`} 
-                />
-                
-                {isOpen && (
-                  <span className="truncate">{item.label}</span>
+                {isActive && (
+                  <motion.div
+                    layoutId="active-sidebar-pill"
+                    transition={spring.selection}
+                    className="absolute inset-0 bg-emerald-600/20 rounded-lg border-l-4 border-emerald-500 shadow-inner -z-0"
+                  />
                 )}
+                <span className="relative z-10 flex items-center gap-3 w-full">
+                  <IconComponent 
+                    size={20} 
+                    className={`shrink-0 transition-transform group-hover:scale-105 ${isActive ? "text-emerald-400" : "text-slate-400 group-hover:text-slate-100"}`} 
+                  />
+                  
+                  {isOpen && (
+                    <span className="truncate">{item.label}</span>
+                  )}
+                </span>
 
                 {/* Tooltip on compact mode */}
                 {!isOpen && (
@@ -206,7 +219,7 @@ export default function Sidebar({
                     {item.label} ({itemPath})
                   </span>
                 )}
-              </Link>
+              </MotionLink>
             );
           })}
         </nav>

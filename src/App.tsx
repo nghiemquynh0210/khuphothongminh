@@ -1,4 +1,5 @@
 import React, { useState, useEffect, Component, type ReactNode, type ErrorInfo } from "react";
+import { motion } from "motion/react";
 import { 
   initialResidents, 
   initialHouseholds, 
@@ -43,7 +44,6 @@ import PlanArchitecture from "./components/PlanArchitecture";
 import LoginAndRegister from "./components/LoginAndRegister";
 import SettingsAndPermissions, { PendingRegistration } from "./components/SettingsAndPermissions";
 import AdministrativeForms from "./components/AdministrativeForms";
-import DesignSystemShowcase from "./components/DesignSystemShowcase";
 import { inferRelationToOwner, extractBirthYear, autoExtractHostelBusinesses } from "./utils/householdRecognitionUtils";
 import CitizenLandingPage from "./components/CitizenLandingPage";
 import { 
@@ -875,7 +875,6 @@ export default function App() {
       case "finance": return "Quỹ Tự quản & Đóng góp Khu phố";
       case "plan": return "Đề án & Thiết kế Kiến trúc Cơ sở dữ liệu";
       case "settings": return "Cấu hình Hệ thống & Duyệt hồ sơ";
-      case "design-system": return "Hệ Thống Thiết Kế UI-UX (Design System)";
       default: return "Hệ thống Quản lý";
     }
   };
@@ -1250,6 +1249,13 @@ export default function App() {
         {/* Dynamic view routing based on tab state */}
         <main className="flex-1 p-3.5 sm:p-5 lg:p-6 overflow-y-auto max-w-7xl w-full mx-auto min-w-0">
           <AppErrorBoundary fallbackTab={activeTab} onReset={() => setActiveTab(activeTab)}>
+            <motion.div
+              key={activeTab}
+              initial={{ opacity: 0, y: 6 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
+              className="w-full"
+            >
           {activeTab === "dashboard" && (
             <Dashboard 
               residents={residents} 
@@ -1477,10 +1483,7 @@ export default function App() {
               currentUser={currentUser}
             />
           )}
-
-          {activeTab === "design-system" && (
-            <DesignSystemShowcase />
-          )}
+            </motion.div>
           </AppErrorBoundary>
         </main>
       </div>

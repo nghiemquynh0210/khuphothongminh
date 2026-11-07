@@ -60,9 +60,6 @@ export default function CitizenHero({
           <h1 className="text-3xl sm:text-4xl lg:text-5xl font-black leading-tight tracking-tight">
             Kết nối người dân – Xây dựng khu phố văn minh
           </h1>
-          <p className="text-base sm:text-lg text-blue-100 leading-relaxed max-w-2xl">
-            Gửi phản ánh hiện trường, tra cứu biểu mẫu hành chính, theo dõi hoạt động cộng đồng và thông tin liên hệ Ban Điều hành Khu phố 3 — ngay trên điện thoại.
-          </p>
 
           <div className="flex flex-col sm:flex-row gap-3">
             <Link

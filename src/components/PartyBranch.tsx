@@ -2479,9 +2479,6 @@ export default function PartyBranch({ partyMembers, residents = [] }: PartyBranc
                 <h2 className="text-xl md:text-2xl font-black text-slate-900 tracking-tight">
                   {selectedAssociation.name}
                 </h2>
-                <p className="text-xs text-slate-600 leading-relaxed max-w-2xl">
-                  {selectedAssociation.description}
-                </p>
               </div>
 
               {/* Action Buttons */}
@@ -3038,17 +3035,6 @@ export default function PartyBranch({ partyMembers, residents = [] }: PartyBranc
                   onChange={(e) => setNewAssocLeaderRole(e.target.value)}
                   className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:border-emerald-500"
                 />
-              </div>
-
-              <div className="space-y-1">
-                <label className="text-xs font-bold text-slate-600 block">Mô tả mục tiêu & nhiệm vụ</label>
-                <textarea 
-                  rows={3}
-                  placeholder="Mô tả tóm tắt tôn chỉ mục đích hoạt động..."
-                  value={newAssocDesc}
-                  onChange={(e) => setNewAssocDesc(e.target.value)}
-                  className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:border-emerald-500"
-                ></textarea>
               </div>
 
               <div className="pt-4 border-t border-slate-100 flex justify-end gap-2.5">
@@ -3964,17 +3950,6 @@ export default function PartyBranch({ partyMembers, residents = [] }: PartyBranc
                 />
               </div>
 
-              <div className="space-y-1">
-                <label className="text-xs font-bold text-slate-600 block">Mô tả mục tiêu & nhiệm vụ</label>
-                <textarea 
-                  rows={3}
-                  placeholder="Mô tả tóm tắt tôn chỉ mục đích hoạt động..."
-                  value={editAssocDesc}
-                  onChange={(e) => setEditAssocDesc(e.target.value)}
-                  className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:border-emerald-500"
-                ></textarea>
-              </div>
-
               <div className="pt-4 border-t border-slate-100 flex justify-end gap-2.5">
                 <button 
                   type="button" 
@@ -4563,7 +4538,6 @@ export default function PartyBranch({ partyMembers, residents = [] }: PartyBranc
                                       {group.category}
                                     </span>
                                   </div>
-                                  <p className="text-[11px] text-slate-500 mt-0.5 line-clamp-1">{group.description}</p>
                                 </div>
                               </label>
 
