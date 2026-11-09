@@ -1,12 +1,12 @@
 import React, { useState, useMemo } from "react";
-import { 
-  Users, 
-  Home, 
-  Briefcase, 
-  MessageSquare, 
-  TrendingUp, 
-  PlusCircle, 
-  ShieldAlert, 
+import {
+  Users,
+  Home,
+  Briefcase,
+  MessageSquare,
+  TrendingUp,
+  PlusCircle,
+  ShieldAlert,
   Activity,
   ArrowUpRight,
   Bell,
@@ -33,24 +33,24 @@ import {
   Filter,
   Globe
 } from "lucide-react";
-import { 
-  ResponsiveContainer, 
-  BarChart, 
-  Bar, 
-  XAxis, 
-  YAxis, 
-  CartesianGrid, 
-  Tooltip, 
-  Legend, 
-  PieChart, 
-  Pie, 
-  Cell 
+import {
+  ResponsiveContainer,
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  Legend,
+  PieChart,
+  Pie,
+  Cell
 } from "recharts";
 import { Resident, Household, Business, FieldReport, AdministrativeForm } from "../types";
 import { initialAdministrativeForms } from "../mockForms";
-import { 
-  extractBirthYear, 
-  getTemporaryResidenceExpiryStatus 
+import {
+  extractBirthYear,
+  getTemporaryResidenceExpiryStatus
 } from "../utils/householdRecognitionUtils";
 import { formatVNNumber } from "../utils/numberFormat";
 
@@ -71,14 +71,14 @@ interface DashboardProps {
   } | null;
 }
 
-export default function Dashboard({ 
-  residents, 
-  households, 
-  businesses, 
-  reports, 
+export default function Dashboard({
+  residents,
+  households,
+  businesses,
+  reports,
   forms = initialAdministrativeForms,
   setActiveTab,
-  currentUser 
+  currentUser
 }: DashboardProps) {
   // Consolidated single-pass demographics and business analytics (Memoized)
   const {
@@ -126,7 +126,7 @@ export default function Dashboard({
       if (r.gender === "Nam") mCount++;
       else if (r.gender === "Nữ") fCount++;
 
-      const isForeign = 
+      const isForeign =
         (r.nationality && r.nationality !== "Việt Nam") ||
         Boolean(r.passportNumber) ||
         (r.cccd && (r.cccd.toLowerCase().includes("hộ chiếu") || r.cccd.toLowerCase().includes("passport"))) ||
@@ -169,10 +169,10 @@ export default function Dashboard({
     let roomsCount = 0;
 
     (businesses || []).forEach(b => {
-      const isEnterprise = 
-        b.businessType === "Công ty TNHH" || 
-        b.businessType === "Công ty Cổ phần" || 
-        b.businessType === "Doanh nghiệp tư nhân" || 
+      const isEnterprise =
+        b.businessType === "Công ty TNHH" ||
+        b.businessType === "Công ty Cổ phần" ||
+        b.businessType === "Doanh nghiệp tư nhân" ||
         (b.name && (b.name.toLowerCase().includes("công ty") || b.name.toLowerCase().includes("tnhh") || b.name.toLowerCase().includes("cổ phần")));
 
       if (isEnterprise) enterprisesCount++;
@@ -273,8 +273,8 @@ export default function Dashboard({
 
     let foundH = households.find(h => h.code.toLowerCase() === q);
     if (!foundH) {
-      const foundRes = residents.find(r => 
-        r.cccd.toLowerCase().includes(q) || 
+      const foundRes = residents.find(r =>
+        r.cccd.toLowerCase().includes(q) ||
         r.fullName.toLowerCase().includes(q)
       );
       if (foundRes && foundRes.householdId) {
@@ -291,25 +291,25 @@ export default function Dashboard({
     }
   };
 
-  const searchedMembers = searchedHousehold 
-    ? (residents.filter(r => r.householdId === searchedHousehold.code).length > 0 
-        ? residents.filter(r => r.householdId === searchedHousehold.code)
-        : searchedHousehold.members.map((m, idx) => ({
-            id: "M-" + idx,
-            fullName: m.name,
-            gender: "Nam" as const,
-            birthDate: "01/01/" + m.birthYear,
-            cccd: m.cccd || "Đang cập nhật",
-            phone: m.phone || "---",
-            status: (searchedHousehold.type === "Tạm trú" ? "Tạm trú" : "Thường trú") as any,
-            occupation: "Cư dân",
-            address: searchedHousehold.address,
-            householdId: searchedHousehold.code,
-            relationToOwner: m.relation,
-            avatar: "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150",
-            joinDate: "01/01/2020"
-          }))
-      )
+  const searchedMembers = searchedHousehold
+    ? (residents.filter(r => r.householdId === searchedHousehold.code).length > 0
+      ? residents.filter(r => r.householdId === searchedHousehold.code)
+      : searchedHousehold.members.map((m, idx) => ({
+        id: "M-" + idx,
+        fullName: m.name,
+        gender: "Nam" as const,
+        birthDate: "01/01/" + m.birthYear,
+        cccd: m.cccd || "Đang cập nhật",
+        phone: m.phone || "---",
+        status: (searchedHousehold.type === "Tạm trú" ? "Tạm trú" : "Thường trú") as any,
+        occupation: "Cư dân",
+        address: searchedHousehold.address,
+        householdId: searchedHousehold.code,
+        relationToOwner: m.relation,
+        avatar: "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150",
+        joinDate: "01/01/2020"
+      }))
+    )
     : [];
 
   // Interactive Administrative Forms on Dashboard
@@ -349,7 +349,7 @@ export default function Dashboard({
 
   const filteredDashboardForms = forms.filter(f => {
     const matchCat = dashboardFormCategory === "Tất cả" || f.category === dashboardFormCategory;
-    const matchSearch = 
+    const matchSearch =
       f.title.toLowerCase().includes(dashboardFormSearch.toLowerCase()) ||
       f.code.toLowerCase().includes(dashboardFormSearch.toLowerCase()) ||
       f.description.toLowerCase().includes(dashboardFormSearch.toLowerCase());
@@ -423,7 +423,7 @@ export default function Dashboard({
             </div>
           </div>
 
-          <div 
+          <div
             onClick={() => setActiveTab("forms")}
             className="bg-white p-4 rounded-2xl border border-slate-100 hover:border-emerald-300 hover:shadow-md transition-all flex items-center gap-3.5 cursor-pointer group"
           >
@@ -619,11 +619,10 @@ export default function Dashboard({
                 <button
                   key={cat}
                   onClick={() => setDashboardFormCategory(cat)}
-                  className={`px-2.5 py-1.5 rounded-lg text-[11px] font-medium transition-all whitespace-nowrap cursor-pointer ${
-                    dashboardFormCategory === cat
-                      ? "bg-emerald-600 text-white font-bold"
-                      : "bg-slate-100 hover:bg-slate-200/70 text-slate-600"
-                  }`}
+                  className={`px-2.5 py-1.5 rounded-lg text-[11px] font-medium transition-all whitespace-nowrap cursor-pointer ${dashboardFormCategory === cat
+                    ? "bg-emerald-600 text-white font-bold"
+                    : "bg-slate-100 hover:bg-slate-200/70 text-slate-600"
+                    }`}
                 >
                   {cat}
                 </button>
@@ -734,7 +733,7 @@ export default function Dashboard({
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {reports.slice(0, 3).map((r) => (
-              <div 
+              <div
                 key={r.id}
                 onClick={() => setActiveTab("reports")}
                 className="p-4 border border-slate-100 rounded-2xl bg-slate-50/40 hover:bg-white hover:border-emerald-300 hover:shadow-md transition-all flex flex-col justify-between gap-3 cursor-pointer group"
@@ -745,10 +744,10 @@ export default function Dashboard({
                       {r.category}
                     </span>
                     <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full shrink-0
-                      ${r.status === "Đã giải quyết" 
-                        ? "bg-emerald-100 text-emerald-800" 
-                        : r.status === "Đang xử lý" 
-                          ? "bg-amber-100 text-amber-800" 
+                      ${r.status === "Đã giải quyết"
+                        ? "bg-emerald-100 text-emerald-800"
+                        : r.status === "Đang xử lý"
+                          ? "bg-amber-100 text-amber-800"
                           : "bg-slate-200 text-slate-700"
                       }
                     `}>
@@ -925,7 +924,7 @@ export default function Dashboard({
       {/* Metric Cards Row */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
         {/* Card 1 */}
-        <div 
+        <div
           onClick={() => handleAdminCardClick("residents")}
           className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-100 hover:border-emerald-500 hover:shadow-lg transition-all duration-300 cursor-pointer shadow-sm group interactive-card interactive-tap"
         >
@@ -950,7 +949,7 @@ export default function Dashboard({
         </div>
 
         {/* Card 2 */}
-        <div 
+        <div
           onClick={() => setActiveTab("households")}
           className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-100 hover:border-emerald-500 hover:shadow-lg transition-all duration-300 cursor-pointer shadow-sm group interactive-card interactive-tap"
         >
@@ -973,7 +972,7 @@ export default function Dashboard({
         </div>
 
         {/* Card 3: Doanh nghiệp (DNNVV) */}
-        <div 
+        <div
           onClick={() => setActiveTab("enterprises")}
           className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-100 hover:border-indigo-500 hover:shadow-lg transition-all duration-300 cursor-pointer shadow-sm group interactive-card interactive-tap"
         >
@@ -998,7 +997,7 @@ export default function Dashboard({
         </div>
 
         {/* Card 4: Cơ sở Kinh doanh & Hộ cá thể */}
-        <div 
+        <div
           onClick={() => setActiveTab("businesses")}
           className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-100 hover:border-amber-500 hover:shadow-lg transition-all duration-300 cursor-pointer shadow-sm group interactive-card interactive-tap"
         >
@@ -1023,7 +1022,7 @@ export default function Dashboard({
         </div>
 
         {/* Card 5: Phản ánh chưa xử lý */}
-        <div 
+        <div
           onClick={() => setActiveTab("reports")}
           className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-100 hover:border-rose-500 hover:shadow-lg transition-all duration-300 cursor-pointer shadow-sm group interactive-card interactive-tap"
         >
@@ -1069,7 +1068,7 @@ export default function Dashboard({
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
                 <XAxis dataKey="name" stroke="#94a3b8" fontSize={11} tickLine={false} />
                 <YAxis stroke="#94a3b8" fontSize={11} tickLine={false} />
-                <Tooltip 
+                <Tooltip
                   cursor={{ fill: '#f8fafc' }}
                   contentStyle={{ backgroundColor: '#0f172a', borderRadius: '8px', color: '#fff', border: 'none' }}
                 />
@@ -1096,7 +1095,7 @@ export default function Dashboard({
               <span className="w-2.5 h-2.5 rounded-full bg-slate-500 shrink-0"></span>
               <span className="text-slate-600">Tạm vắng: <strong>{tamVangCount.toLocaleString("vi-VN")}</strong></span>
             </div>
-            <div 
+            <div
               onClick={() => setActiveTab("residents")}
               className="flex items-center gap-1.5 cursor-pointer text-purple-700 hover:text-purple-900 font-semibold transition-colors"
               title="Xem danh sách người cư trú nước ngoài tại Khu phố 3"
@@ -1146,7 +1145,7 @@ export default function Dashboard({
         </div>
       </div>
 
-      {/* Khối Chỉ Số Quản Lý Dân Cư & Cảnh Báo Điều Hành KP3 */}
+      {/* Quản Lý Dân Cư & Cảnh Báo Điều Hành KP3 */}
       <div className="bg-gradient-to-br from-slate-900 via-slate-800 to-emerald-950 rounded-3xl p-6 text-white shadow-md space-y-4">
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 border-b border-white/10 pb-3">
           <div className="space-y-0.5">
@@ -1154,7 +1153,7 @@ export default function Dashboard({
               <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse"></span>
               <h3 className="text-base font-extrabold uppercase tracking-tight text-white flex items-center gap-2">
                 <ShieldAlert size={18} className="text-emerald-400" />
-                Chỉ Số Quản Lý Dân Cư & Cảnh Báo Điều Hành KP3
+                Quản Lý Dân Cư & Cảnh Báo Điều Hành KP3
               </h3>
             </div>
           </div>
@@ -1188,7 +1187,7 @@ export default function Dashboard({
             </div>
             <div className="pt-2 border-t border-white/10 text-[10px] text-slate-400 flex justify-between items-center">
               <span>Tổng: {totalResidentsCount.toLocaleString("vi-VN")} người</span>
-              <button 
+              <button
                 onClick={() => setActiveTab("residents")}
                 className="text-emerald-400 hover:text-emerald-300 font-bold transition-colors cursor-pointer"
               >
@@ -1223,7 +1222,7 @@ export default function Dashboard({
             </div>
             <div className="pt-2 border-t border-white/10 text-[10px] text-slate-400 flex justify-between items-center">
               <span>{formatVNNumber(tamTruCount)} hồ sơ tạm trú</span>
-              <button 
+              <button
                 onClick={() => setActiveTab("residents")}
                 className="text-amber-400 hover:text-amber-300 font-bold transition-colors cursor-pointer"
               >
@@ -1254,7 +1253,7 @@ export default function Dashboard({
             </div>
             <div className="pt-2 border-t border-white/10 text-[10px] text-slate-400 flex justify-between items-center">
               <span>Đã liên kết CSDL cư dân</span>
-              <button 
+              <button
                 onClick={() => setActiveTab("businesses")}
                 className="text-sky-400 hover:text-sky-300 font-bold transition-colors cursor-pointer"
               >
@@ -1285,7 +1284,7 @@ export default function Dashboard({
             </div>
             <div className="pt-2 border-t border-white/10 text-[10px] text-slate-400 flex justify-between items-center">
               <span>TB {avgPerHousehold} người/hộ</span>
-              <button 
+              <button
                 onClick={() => setActiveTab("households")}
                 className="text-indigo-400 hover:text-indigo-300 font-bold transition-colors cursor-pointer"
               >
@@ -1329,7 +1328,7 @@ export default function Dashboard({
 
         {/* Search Bar Input */}
         <div className="space-y-3">
-          <form 
+          <form
             onSubmit={(e) => {
               e.preventDefault();
               handleSearchHousehold(householdSearchQuery);
@@ -1368,11 +1367,10 @@ export default function Dashboard({
                   setHouseholdSearchQuery(h.code);
                   handleSearchHousehold(h.code);
                 }}
-                className={`px-2.5 py-1 rounded-lg border text-xs font-mono font-semibold transition-all cursor-pointer ${
-                  searchedHousehold?.code === h.code
-                    ? "bg-emerald-600 text-white border-emerald-600 shadow-xs"
-                    : "bg-slate-50 text-slate-700 border-slate-200 hover:border-emerald-400 hover:bg-emerald-50/40"
-                }`}
+                className={`px-2.5 py-1 rounded-lg border text-xs font-mono font-semibold transition-all cursor-pointer ${searchedHousehold?.code === h.code
+                  ? "bg-emerald-600 text-white border-emerald-600 shadow-xs"
+                  : "bg-slate-50 text-slate-700 border-slate-200 hover:border-emerald-400 hover:bg-emerald-50/40"
+                  }`}
               >
                 {h.code} ({h.ownerName})
               </button>
@@ -1497,7 +1495,7 @@ export default function Dashboard({
               <h2 className="font-bold text-slate-900">Báo cáo Phản ánh Mới nhận</h2>
               <p className="text-xs text-slate-400 mt-0.5">Theo dõi thời gian thực phản hồi từ công dân</p>
             </div>
-            <button 
+            <button
               onClick={() => setActiveTab("reports")}
               className="text-xs font-semibold text-emerald-600 hover:text-emerald-700 flex items-center gap-1 cursor-pointer"
             >
@@ -1513,8 +1511,8 @@ export default function Dashboard({
                 "Đã giải quyết": "bg-emerald-50 text-emerald-600 border-emerald-100"
               };
               return (
-                <div 
-                  key={report.id} 
+                <div
+                  key={report.id}
                   onClick={() => setActiveTab("reports")}
                   className="p-4 rounded-xl border border-slate-50 hover:border-slate-100 hover:bg-slate-50/50 transition-all cursor-pointer flex justify-between items-center"
                 >
@@ -1543,7 +1541,7 @@ export default function Dashboard({
           </div>
 
           <div className="grid grid-cols-1 gap-2.5">
-            <button 
+            <button
               onClick={() => setActiveTab("residents")}
               className="w-full flex items-center justify-between p-3.5 rounded-xl bg-gradient-to-r from-emerald-500/10 to-emerald-600/5 text-emerald-900 hover:from-emerald-500/15 border border-emerald-500/20 text-left transition-all group cursor-pointer"
             >
@@ -1559,7 +1557,7 @@ export default function Dashboard({
               <ArrowUpRight size={16} className="text-emerald-500 transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
             </button>
 
-            <button 
+            <button
               onClick={() => setActiveTab("ai")}
               className="w-full flex items-center justify-between p-3.5 rounded-xl bg-gradient-to-r from-indigo-500/10 to-indigo-600/5 text-indigo-900 hover:from-indigo-500/15 border border-indigo-500/20 text-left transition-all group cursor-pointer"
             >
@@ -1575,7 +1573,7 @@ export default function Dashboard({
               <ArrowUpRight size={16} className="text-indigo-500 transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
             </button>
 
-            <button 
+            <button
               onClick={() => setActiveTab("forms")}
               className="w-full flex items-center justify-between p-3.5 rounded-xl bg-gradient-to-r from-teal-500/10 to-teal-600/5 text-teal-900 hover:from-teal-500/15 border border-teal-500/20 text-left transition-all group cursor-pointer"
             >
@@ -1591,7 +1589,7 @@ export default function Dashboard({
               <ArrowUpRight size={16} className="text-teal-500 transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
             </button>
 
-            <button 
+            <button
               onClick={() => setActiveTab("gis")}
               className="w-full flex items-center justify-between p-3.5 rounded-xl bg-gradient-to-r from-slate-500/10 to-slate-600/5 text-slate-900 hover:from-slate-500/15 border border-slate-300/20 text-left transition-all group cursor-pointer"
             >
@@ -1607,7 +1605,7 @@ export default function Dashboard({
               <ArrowUpRight size={16} className="text-slate-500 transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
             </button>
 
-            <button 
+            <button
               onClick={() => setActiveTab("party")}
               className="w-full flex items-center justify-between p-3.5 rounded-xl bg-gradient-to-r from-emerald-600/10 to-teal-600/5 text-emerald-950 hover:from-emerald-600/15 border border-emerald-600/20 text-left transition-all group cursor-pointer"
             >

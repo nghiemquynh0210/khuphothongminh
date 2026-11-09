@@ -1083,7 +1083,6 @@ export default function PartyBranch({ partyMembers, residents = [] }: PartyBranc
 
   const [selectedAssociationId, setSelectedAssociationId] = useState<string>("ASC_BDH");
   const [searchTerm, setSearchTerm] = useState("");
-  const [categoryFilter, setCategoryFilter] = useState<string>("Tất cả");
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 8;
 
@@ -1202,11 +1201,6 @@ export default function PartyBranch({ partyMembers, residents = [] }: PartyBranc
     setCurrentPage(1);
   };
 
-  const handleCategoryFilterChange = (val: string) => {
-    setCategoryFilter(val);
-    setCurrentPage(1);
-  };
-
   // Horizontal scroll container reference for associations
   const assocScrollRef = useRef<HTMLDivElement>(null);
 
@@ -1220,7 +1214,6 @@ export default function PartyBranch({ partyMembers, residents = [] }: PartyBranc
   // State for creating new Association
   const [showAddAssocModal, setShowAddAssocModal] = useState(false);
   const [newAssocName, setNewAssocName] = useState("");
-  const [newAssocCategory, setNewAssocCategory] = useState<"Chính trị - Xã hội" | "An ninh - Quốc phòng" | "Đoàn thể nhân dân" | "Hội quần chúng">("Đoàn thể nhân dân");
   const [newAssocDesc, setNewAssocDesc] = useState("");
   const [newAssocLeaderCccd, setNewAssocLeaderCccd] = useState("");
   const [newAssocLeaderRole, setNewAssocLeaderRole] = useState("Chi hội trưởng");
@@ -1584,7 +1577,7 @@ export default function PartyBranch({ partyMembers, residents = [] }: PartyBranc
     const newAssoc: Association = {
       id: "ASC" + (associations.length + 1).toString().padStart(3, "0"),
       name: newAssocName,
-      category: newAssocCategory,
+      category: "Đoàn thể nhân dân",
       description: newAssocDesc || "Không có mô tả chi tiết.",
       leaderName: leaderName,
       leaderCccd: newAssocLeaderCccd || "N/A",
@@ -1617,7 +1610,6 @@ export default function PartyBranch({ partyMembers, residents = [] }: PartyBranc
   const [showEditAssocModal, setShowEditAssocModal] = useState(false);
   const [assocToEdit, setAssocToEdit] = useState<Association | null>(null);
   const [editAssocName, setEditAssocName] = useState("");
-  const [editAssocCategory, setEditAssocCategory] = useState<"Chính trị - Xã hội" | "An ninh - Quốc phòng" | "Đoàn thể nhân dân" | "Hội quần chúng">("Đoàn thể nhân dân");
   const [editAssocDesc, setEditAssocDesc] = useState("");
   const [editAssocLeaderCccd, setEditAssocLeaderCccd] = useState("");
   const [editAssocLeaderRole, setEditAssocLeaderRole] = useState("Chi hội trưởng");
@@ -1629,7 +1621,6 @@ export default function PartyBranch({ partyMembers, residents = [] }: PartyBranc
   const handleOpenEditAssoc = (assoc: Association) => {
     setAssocToEdit(assoc);
     setEditAssocName(assoc.name);
-    setEditAssocCategory(assoc.category);
     setEditAssocDesc(assoc.description);
     setEditAssocLeaderCccd(assoc.leaderCccd !== "N/A" ? assoc.leaderCccd : "");
     const leaderMember = assoc.members.find(m => m.cccd === assoc.leaderCccd);
@@ -1675,7 +1666,7 @@ export default function PartyBranch({ partyMembers, residents = [] }: PartyBranc
     const updatedAssoc: Association = {
       ...assocToEdit,
       name: editAssocName.trim(),
-      category: editAssocCategory,
+      category: assocToEdit.category,
       description: editAssocDesc.trim() || "Không có mô tả chi tiết.",
       leaderName: leaderName,
       leaderCccd: editAssocLeaderCccd || "N/A",
@@ -1870,10 +1861,11 @@ export default function PartyBranch({ partyMembers, residents = [] }: PartyBranc
 
   // Filter Associations
   const filteredAssociations = associations.filter(a => {
-    const matchesSearch = a.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
-                          a.description.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesCategory = categoryFilter === "Tất cả" || a.category === categoryFilter;
-    return matchesSearch && matchesCategory;
+    const query = searchTerm.trim().toLowerCase();
+    if (!query) return true;
+    return a.name.toLowerCase().includes(query) || 
+           a.description.toLowerCase().includes(query) ||
+           a.leaderName.toLowerCase().includes(query);
   });
 
   // Pagination Logic
@@ -2253,28 +2245,6 @@ export default function PartyBranch({ partyMembers, residents = [] }: PartyBranc
       .replace(/\bĐỘI\b/g, "Đội");
   };
 
-  // Standardized badge color mapping across all categories
-  const getAssocCategoryBadgeColor = (category: string) => {
-    switch (category) {
-      case "Chính trị - Xã hội":
-        return "bg-rose-50 text-rose-700 border-rose-200";
-      case "Chính quyền cơ sở":
-        return "bg-amber-50 text-amber-800 border-amber-200";
-      case "An ninh - Quốc phòng":
-        return "bg-red-50 text-red-700 border-red-200";
-      case "Chính sách xã hội":
-        return "bg-purple-50 text-purple-700 border-purple-200";
-      case "Đoàn thể nhân dân":
-        return "bg-blue-50 text-blue-700 border-blue-200";
-      case "Phong trào tự quản":
-        return "bg-teal-50 text-teal-800 border-teal-200";
-      case "Hội quần chúng":
-        return "bg-indigo-50 text-indigo-700 border-indigo-200";
-      default:
-        return "bg-slate-100 text-slate-700 border-slate-200";
-    }
-  };
-
   return (
     <div id="association-management-view" className="space-y-6 animate-in fade-in duration-200">
       {/* Top Banner Header: Executive Government Portal Theme (Light Slate Gradient) */}
@@ -2373,25 +2343,8 @@ export default function PartyBranch({ partyMembers, residents = [] }: PartyBranc
             )}
           </div>
 
-          {/* Category Filter Pills */}
-          <div className="flex items-center gap-1 overflow-x-auto pb-1 no-scrollbar scrollbar-none">
-            {["Tất cả", "Chính trị - Xã hội", "Chính quyền cơ sở", "An ninh - Quốc phòng", "Đoàn thể nhân dân", "Phong trào tự quản", "Hội quần chúng", "Chính sách xã hội"].map(cat => (
-              <button
-                key={cat}
-                onClick={() => handleCategoryFilterChange(cat)}
-                className={`px-2 py-0.5 rounded-md text-[10px] font-medium whitespace-nowrap transition-all shrink-0 cursor-pointer ${
-                  categoryFilter === cat 
-                    ? "bg-emerald-700 text-white font-semibold shadow-2xs" 
-                    : "bg-slate-100 text-slate-600 hover:bg-slate-200/80"
-                }`}
-              >
-                {cat === "Tất cả" ? "Tất cả" : cat.replace(" - ", "/")}
-              </button>
-            ))}
-          </div>
-
           {/* Vertical Chi hội List - Thu gọn chiều ngang và chiều dọc tối đa cho danh sách */}
-          <div className="space-y-1.5 max-h-[calc(100vh-230px)] min-h-[500px] overflow-y-auto pr-1 scrollbar-thin">
+          <div className="space-y-1.5 max-h-[calc(100vh-210px)] min-h-[500px] overflow-y-auto pr-1 scrollbar-thin">
             {filteredAssociations.length === 0 ? (
               <div className="bg-slate-50 p-6 rounded-xl border border-dashed border-slate-200 text-center text-slate-400 text-xs">
                 Không tìm thấy chi hội phù hợp
@@ -2399,7 +2352,6 @@ export default function PartyBranch({ partyMembers, residents = [] }: PartyBranc
             ) : (
               filteredAssociations.map((assoc) => {
                 const isSelected = selectedAssociation.id === assoc.id;
-                const catBadgeColor = getAssocCategoryBadgeColor(assoc.category);
                 const displayName = formatAssocName(assoc.name);
 
                 return (
@@ -2417,15 +2369,17 @@ export default function PartyBranch({ partyMembers, residents = [] }: PartyBranc
                       <div className="absolute left-0 top-0 bottom-0 w-1.5 bg-emerald-600 rounded-l-xl"></div>
                     )}
 
-                    <div className="pl-1 space-y-1">
-                      {/* Row 1: Tên Chi hội / Tổ chức đưa lên trên đồng bộ chuẩn size & font chữ + Thao tác nhanh */}
+                    <div className="pl-1 space-y-1.5">
+                      {/* Row 1: Tên Chi hội / Tổ chức & Thao tác nhanh */}
                       <div className="flex items-center justify-between gap-1.5">
-                        <span 
-                          className={`inline-flex items-center h-6 px-2.5 rounded-lg border text-xs font-bold font-sans tracking-tight truncate max-w-[190px] leading-none shrink-0 ${catBadgeColor}`}
+                        <h3 
+                          className={`text-xs font-bold font-sans leading-tight truncate max-w-[190px] ${
+                            isSelected ? "text-emerald-950 font-extrabold" : "text-slate-800 group-hover:text-emerald-700"
+                          }`}
                           title={displayName}
                         >
                           {displayName}
-                        </span>
+                        </h3>
                         <div className="flex items-center gap-0.5 opacity-60 group-hover:opacity-100 transition-opacity shrink-0">
                           <button
                             type="button"
@@ -2452,14 +2406,9 @@ export default function PartyBranch({ partyMembers, residents = [] }: PartyBranc
                         </div>
                       </div>
 
-                      {/* Row 2: Phân nhóm / Thể loại */}
-                      <div className="text-[11px] text-slate-600 font-medium truncate pt-0.5" title={`Phân loại: ${assoc.category}`}>
-                        {assoc.category}
-                      </div>
-
-                      {/* Row 3: Leader & Member count */}
-                      <div className="flex items-center justify-between text-[11px] pt-1 text-slate-500">
-                        <span className="truncate max-w-[150px]" title={`Trưởng: ${assoc.leaderName}`}>
+                      {/* Row 2: Leader & Member count */}
+                      <div className="flex items-center justify-between text-[11px] text-slate-500">
+                        <span className="truncate max-w-[155px]" title={`Trưởng: ${assoc.leaderName}`}>
                           Trưởng: <strong className="text-slate-700 font-medium">{assoc.leaderName}</strong>
                         </span>
                         <span className={`font-bold px-1.5 py-0.2 rounded-full text-[10px] shrink-0 ${
@@ -2485,9 +2434,6 @@ export default function PartyBranch({ partyMembers, residents = [] }: PartyBranc
             <div className="flex flex-col sm:flex-row justify-between items-start gap-4 pb-4 border-b border-slate-100">
               <div className="space-y-1.5">
                 <div className="flex items-center gap-2">
-                  <span className={`px-2.5 py-0.5 rounded text-[10px] font-bold border uppercase tracking-wide ${getAssocCategoryBadgeColor(selectedAssociation.category)}`}>
-                    {selectedAssociation.category}
-                  </span>
                   <span className="text-[10px] text-slate-400 font-mono">
                     Mã: {selectedAssociation.id}
                   </span>
@@ -3014,20 +2960,6 @@ export default function PartyBranch({ partyMembers, residents = [] }: PartyBranc
                   onChange={(e) => setNewAssocName(e.target.value)}
                   className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:border-emerald-500"
                 />
-              </div>
-
-              <div className="space-y-1">
-                <label className="text-xs font-bold text-slate-600 block">Phân nhóm / Thể loại *</label>
-                <select
-                  value={newAssocCategory}
-                  onChange={(e) => setNewAssocCategory(e.target.value as any)}
-                  className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:border-emerald-500 bg-white"
-                >
-                  <option value="Đoàn thể nhân dân">Đoàn thể nhân dân</option>
-                  <option value="Chính trị - Xã hội">Chính trị - Xã hội</option>
-                  <option value="An ninh - Quốc phòng">An ninh - Quốc phòng</option>
-                  <option value="Hội quần chúng">Hội quần chúng</option>
-                </select>
               </div>
 
               <div className="space-y-1">
@@ -3930,20 +3862,6 @@ export default function PartyBranch({ partyMembers, residents = [] }: PartyBranc
               </div>
 
               <div className="space-y-1">
-                <label className="text-xs font-bold text-slate-600 block">Phân nhóm / Thể loại *</label>
-                <select
-                  value={editAssocCategory}
-                  onChange={(e) => setEditAssocCategory(e.target.value as any)}
-                  className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:border-emerald-500 bg-white"
-                >
-                  <option value="Đoàn thể nhân dân">Đoàn thể nhân dân</option>
-                  <option value="Chính trị - Xã hội">Chính trị - Xã hội</option>
-                  <option value="An ninh - Quốc phòng">An ninh - Quốc phòng</option>
-                  <option value="Hội quần chúng">Hội quần chúng</option>
-                </select>
-              </div>
-
-              <div className="space-y-1">
                 <label className="text-xs font-bold text-slate-600 block">Người đứng đầu (Chọn từ danh sách Cư dân)</label>
                 <select
                   value={editAssocLeaderCccd}
@@ -4010,11 +3928,8 @@ export default function PartyBranch({ partyMembers, residents = [] }: PartyBranc
                 <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 text-left space-y-1">
                   <div className="font-bold text-slate-800 text-sm">{assocToDelete.name}</div>
                   <div className="text-[11px] text-slate-500 flex items-center justify-between">
-                    <span>Phân loại: <strong className="text-slate-700">{assocToDelete.category}</strong></span>
                     <span>Quy mô: <strong className="text-rose-600">{assocToDelete.members.length} thành viên</strong></span>
-                  </div>
-                  <div className="text-[11px] text-slate-500">
-                    Người phụ trách: <strong className="text-slate-700">{assocToDelete.leaderName}</strong>
+                    <span>Người phụ trách: <strong className="text-slate-700">{assocToDelete.leaderName}</strong></span>
                   </div>
                 </div>
                 <p className="text-[11px] text-amber-700 bg-amber-50 p-2.5 rounded-lg border border-amber-200 text-left">
@@ -4338,9 +4253,6 @@ export default function PartyBranch({ partyMembers, residents = [] }: PartyBranc
                             {roleItem.decisionNumber ? ` • QĐ: ${roleItem.decisionNumber}` : ""}
                           </span>
                         </div>
-                        <span className="text-[10px] text-slate-400 shrink-0 font-medium">
-                          {roleItem.assocCategory}
-                        </span>
                       </div>
                     ))}
                   </div>
@@ -4554,9 +4466,6 @@ export default function PartyBranch({ partyMembers, residents = [] }: PartyBranc
                                 <div>
                                   <div className="font-bold text-slate-900 text-xs flex items-center gap-1.5">
                                     <span>{group.name}</span>
-                                    <span className="text-[10px] font-medium text-slate-500 bg-slate-100 px-1.5 py-0.2 rounded">
-                                      {group.category}
-                                    </span>
                                   </div>
                                 </div>
                               </label>
@@ -4602,7 +4511,7 @@ export default function PartyBranch({ partyMembers, residents = [] }: PartyBranc
                     >
                       {TARGET_GROUPS.map(g => (
                         <option key={g.id} value={g.id}>
-                          {g.name} ({g.category}) - Vai trò mặc định: {g.defaultRole}
+                          {g.name} - Vai trò mặc định: {g.defaultRole}
                         </option>
                       ))}
                     </select>
