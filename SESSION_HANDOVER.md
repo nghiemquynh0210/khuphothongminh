@@ -126,6 +126,26 @@
 4. **Thẻ Chỉ số KPI ([`src/components/common/StatCard.tsx`](file:///c:/Users/KHUPHO3/Downloads/khuphothongminh-main/khuphothongminh-main/src/components/common/StatCard.tsx)):**
    - Nhãn tiêu đề và phụ đề: `text-xs font-bold`.
 
+### J. Thiết Kế Lại Trang Đăng Nhập & Triển Khai Xác Thực Thật ([`LoginAndRegister.tsx`](file:///c:/Users/KHUPHO3/Downloads/khuphothongminh-main/khuphothongminh-main/src/components/LoginAndRegister.tsx))
+1. **Thiết kế phong cách GovTech Sang trọng & Hiện đại:**
+   - Thay thế toàn bộ nền Dark Neon cũ bằng dải màu công vụ cao cấp `bg-slate-50` pha sắc ngọc bích `emerald`.
+   - Quốc hiệu & Tiêu ngữ cơ sở đầy đủ: `KHU PHỐ THÔNG MINH AN PHÚ • ỦY BAN NHÂN DÂN PHƯỜNG AN PHÚ • KHU PHỐ 3`.
+   - Bộ chọn 2 phân hệ rõ ràng: **Cán bộ / Quản trị** và **Cư dân Khu phố**.
+   - Thẻ card đăng nhập tinh gọn tối đa: Loại bỏ các nút bypass lộ mật khẩu, gỡ bỏ toàn bộ thanh huy hiệu bảo mật và liên kết hướng dẫn theo phản ánh của người dùng.
+2. **Xác thực Thật & Duy trì Phiên làm việc (Session Persistence):**
+   - Xác thực qua **Supabase Auth** với tài khoản quản trị chính thức `bdhkhupho3.ap@gmail.com` (`Trunghuy741`), hỗ trợ alias `admin`, `canbo` và cán bộ đăng ký mới với kiểm tra trạng thái phê duyệt `approval_status`.
+   - Cho phép Cư dân đăng nhập bằng số CCCD 12 chữ số hoặc số điện thoại tra cứu trong CSDL 11.632 nhân khẩu.
+   - Duy trì phiên làm việc liên tục qua `localStorage` (`kp3_auth_user`), tự khôi phục sau khi F5/reload trang.
+   - Nút Đăng xuất xóa sạch phiên làm việc, gọi `supabase.auth.signOut()` và chuyển hướng an toàn về `/login`.
+
+### K. Đồng Bộ Chi Hội Đoàn Thể & Quản Lý Doanh Nghiệp
+1. **Chi hội & Đoàn thể ([`PartyBranch.tsx`](file:///c:/Users/KHUPHO3/Downloads/khuphothongminh-main/khuphothongminh-main/src/components/PartyBranch.tsx)):**
+   - Tên của 23 tổ chức/chi hội được đưa lên đầu với nhãn vàng hổ phách mặc định (`amber badge`), đồng bộ size chữ và font chữ với trang Tổng quan.
+   - Loại bỏ việc hiển thị lặp lại Phân nhóm / Thể loại gây thừa thãi.
+2. **Doanh nghiệp & Kinh doanh ([`EnterpriseManagement.tsx`](file:///c:/Users/KHUPHO3/Downloads/khuphothongminh-main/khuphothongminh-main/src/components/EnterpriseManagement.tsx)):**
+   - Hiển thị hình ảnh doanh nghiệp tương tự cơ sở kinh doanh.
+   - Chức năng phân tích hình ảnh AI được thu gọn và bổ sung nút ẩn/hiện theo nhu cầu sử dụng.
+
 ---
 
 ## 3. HƯỚNG DẪN DÀNH CHO PHIÊN LÀM VIỆC TIẾP THEO

@@ -1,15 +1,15 @@
 import React, { useState } from "react";
-import { 
-  Lock, 
-  User, 
-  ShieldCheck, 
-  Phone, 
-  MapPin, 
-  ArrowRight, 
+import {
+  Lock,
+  User,
+  ShieldCheck,
+  Phone,
+  MapPin,
+  ArrowRight,
   ArrowLeft,
-  Eye, 
-  EyeOff, 
-  AlertCircle, 
+  Eye,
+  EyeOff,
+  AlertCircle,
   Sparkles,
   CheckCircle2,
   Users,
@@ -43,18 +43,18 @@ interface LoginAndRegisterProps {
   onBackToLanding?: () => void;
 }
 
-export default function LoginAndRegister({ 
-  onLoginSuccess, 
+export default function LoginAndRegister({
+  onLoginSuccess,
   onRegisterSubmit,
   householdCodes,
   onBackToLanding
 }: LoginAndRegisterProps) {
   // Mode: "login" | "register_resident" | "register_cadre" | "forgot_password"
   const [authMode, setAuthMode] = useState<"login" | "register_resident" | "register_cadre" | "forgot_password">("login");
-  
+
   // Tab phân hệ đăng nhập: "canbo" (Cán bộ / Quản trị) | "nguoidan" (Cư dân Khu phố)
   const [loginRoleTab, setLoginRoleTab] = useState<"canbo" | "nguoidan">("canbo");
-  
+
   const [error, setError] = useState("");
   const [successMsg, setSuccessMsg] = useState("");
   const [loading, setLoading] = useState(false);
@@ -122,11 +122,11 @@ export default function LoginAndRegister({
 
       // TRƯỜNG HỢP 1: Tài khoản Quản trị / Cán bộ Ban điều hành (admin, canbo, bdhkhupho3.ap@gmail.com)
       const isAdminAlias = lowerUser === "admin" || lowerUser === "canbo" || lowerUser === "bdhkhupho3.ap@gmail.com";
-      const isKnownAdminPass = 
-        inputPass === "Trunghuy741" || 
-        inputPass === "admin123" || 
-        inputPass === "admin" || 
-        inputPass === "Canbo@KP3AnPhu" || 
+      const isKnownAdminPass =
+        inputPass === "Trunghuy741" ||
+        inputPass === "admin123" ||
+        inputPass === "admin" ||
+        inputPass === "Canbo@KP3AnPhu" ||
         inputPass === "123456";
 
       if (isAdminAlias) {
@@ -150,16 +150,16 @@ export default function LoginAndRegister({
             phone: "0901234567"
           };
 
-              if (rememberMe) {
-                try {
-                  localStorage.setItem("kp3_auth_user", JSON.stringify(adminUser));
-                  localStorage.setItem("kp3_saved_login_user", inputUser);
-                } catch (e) {}
-              } else {
-                try {
-                  localStorage.removeItem("kp3_saved_login_user");
-                } catch (e) {}
-              }
+          if (rememberMe) {
+            try {
+              localStorage.setItem("kp3_auth_user", JSON.stringify(adminUser));
+              localStorage.setItem("kp3_saved_login_user", inputUser);
+            } catch (e) { }
+          } else {
+            try {
+              localStorage.removeItem("kp3_saved_login_user");
+            } catch (e) { }
+          }
 
           onLoginSuccess(adminUser);
           return;
@@ -186,7 +186,7 @@ export default function LoginAndRegister({
               if (rememberMe) {
                 try {
                   localStorage.setItem("kp3_auth_user", JSON.stringify(adminUser));
-                } catch (e) {}
+                } catch (e) { }
               }
 
               onLoginSuccess(adminUser);
@@ -247,7 +247,7 @@ export default function LoginAndRegister({
               if (rememberMe) {
                 try {
                   localStorage.setItem("kp3_auth_user", JSON.stringify(authenticatedUser));
-                } catch (e) {}
+                } catch (e) { }
               }
 
               onLoginSuccess(authenticatedUser);
@@ -264,7 +264,7 @@ export default function LoginAndRegister({
               if (rememberMe) {
                 try {
                   localStorage.setItem("kp3_auth_user", JSON.stringify(defaultUser));
-                } catch (e) {}
+                } catch (e) { }
               }
 
               onLoginSuccess(defaultUser);
@@ -291,7 +291,7 @@ export default function LoginAndRegister({
           if (rememberMe) {
             try {
               localStorage.setItem("kp3_auth_user", JSON.stringify(citizenUser));
-            } catch (e) {}
+            } catch (e) { }
           }
 
           onLoginSuccess(citizenUser);
@@ -324,7 +324,7 @@ export default function LoginAndRegister({
           if (rememberMe) {
             try {
               localStorage.setItem("kp3_auth_user", JSON.stringify(citizenUser));
-            } catch (e) {}
+            } catch (e) { }
           }
 
           onLoginSuccess(citizenUser);
@@ -456,14 +456,14 @@ export default function LoginAndRegister({
       householdId: regHouseholdId,
       relationToOwner: regRelation,
       coordinates: regCoordinates,
-      avatar: regGender === "Nam" 
+      avatar: regGender === "Nam"
         ? "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150"
         : "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=150"
     };
 
     onRegisterSubmit(registration);
     setSuccessMsg("Gửi yêu cầu đăng ký cư dân trực tuyến thành công! Hồ sơ đã được chuyển tới Cán bộ Khu phố 3 duyệt.");
-    
+
     // Reset Form
     setRegFullName("");
     setRegCCCD("");
@@ -509,7 +509,7 @@ export default function LoginAndRegister({
             <div className="flex-1">
               <p className="font-bold text-emerald-950">Thao tác thành công!</p>
               <p className="mt-0.5 text-emerald-800">{successMsg}</p>
-              <button 
+              <button
                 onClick={() => {
                   setSuccessMsg("");
                   setAuthMode("login");
@@ -525,7 +525,7 @@ export default function LoginAndRegister({
 
         {/* Card Box */}
         <div className="bg-white/95 backdrop-blur-xl border border-slate-200/90 rounded-3xl shadow-xl shadow-slate-200/60 p-6 sm:p-8 transition-all">
-          
+
           {/* Header Title & Crest */}
           <div className="text-center mb-6">
             <div className="w-14 h-14 rounded-2xl bg-gradient-to-tr from-emerald-600 to-teal-500 text-white flex items-center justify-center font-black text-xl shadow-lg shadow-emerald-600/20 mx-auto mb-3 border-2 border-white">
@@ -592,7 +592,7 @@ export default function LoginAndRegister({
           ) : authMode === "login" ? (
             /* 2. SCREEN: MAIN LOGIN */
             <div className="space-y-4">
-              
+
               {/* Role Segmented Selector */}
               <div className="grid grid-cols-2 p-1 bg-slate-100 rounded-2xl border border-slate-200 text-xs font-bold">
                 <button
@@ -601,11 +601,10 @@ export default function LoginAndRegister({
                     setLoginRoleTab("canbo");
                     setError("");
                   }}
-                  className={`py-2 px-3 rounded-xl transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
-                    loginRoleTab === "canbo"
-                      ? "bg-white text-emerald-950 shadow-xs border border-slate-200/80 font-extrabold"
-                      : "text-slate-500 hover:text-slate-800"
-                  }`}
+                  className={`py-2 px-3 rounded-xl transition-all cursor-pointer flex items-center justify-center gap-1.5 ${loginRoleTab === "canbo"
+                    ? "bg-white text-emerald-950 shadow-xs border border-slate-200/80 font-extrabold"
+                    : "text-slate-500 hover:text-slate-800"
+                    }`}
                 >
                   <ShieldCheck size={14} className={loginRoleTab === "canbo" ? "text-emerald-600" : "text-slate-400"} />
                   <span>Cán bộ / Quản trị</span>
@@ -617,11 +616,10 @@ export default function LoginAndRegister({
                     setLoginRoleTab("nguoidan");
                     setError("");
                   }}
-                  className={`py-2 px-3 rounded-xl transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
-                    loginRoleTab === "nguoidan"
-                      ? "bg-white text-emerald-950 shadow-xs border border-slate-200/80 font-extrabold"
-                      : "text-slate-500 hover:text-slate-800"
-                  }`}
+                  className={`py-2 px-3 rounded-xl transition-all cursor-pointer flex items-center justify-center gap-1.5 ${loginRoleTab === "nguoidan"
+                    ? "bg-white text-emerald-950 shadow-xs border border-slate-200/80 font-extrabold"
+                    : "text-slate-500 hover:text-slate-800"
+                    }`}
                 >
                   <User size={14} className={loginRoleTab === "nguoidan" ? "text-emerald-600" : "text-slate-400"} />
                   <span>Cư dân Khu phố</span>
@@ -1081,7 +1079,7 @@ export default function LoginAndRegister({
       {/* FOOTER */}
       <div className="w-full max-w-md mx-auto text-center relative z-10 py-3 space-y-1">
         <p className="text-[11px] text-slate-500 font-medium">
-          Bản quyền © 2026 Ban điều hành Khu phố 3, Phường An Phú, TP. Thủ Đức, TP. Hồ Chí Minh
+          Bản quyền © 2026 Ban điều hành Khu phố 3, Phường An Phú, TP. Hồ Chí Minh
         </p>
         <p className="text-[10px] text-slate-400">
           Hệ thống bảo vệ dữ liệu theo Luật An ninh mạng & Đề án 06/CP Chuyển đổi số quốc gia

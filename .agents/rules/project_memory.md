@@ -116,3 +116,15 @@ Tất cả các phân hệ và tính năng trong dự án **phải tuân thủ 1
 - **Liên kết 2 chiều Dân cư ↔ Hộ khẩu (Bidirectional Relational UX):**
   + Trong bảng Cư dân, mã sổ hộ khẩu (như `HK-301`) phải là một **Interactive Chip**. Khi cán bộ nhấp chuột, hệ thống lập tức mở cửa sổ xem nhanh thông tin Sổ hộ tịch (Chủ hộ, địa chỉ, danh sách đầy đủ tất cả các thành viên trong gia đình) mà không cần rời trang hay tìm kiếm thủ công.
   + Thanh công cụ tìm kiếm và lọc cư dân được bố trí 2 tầng thông thoáng, không chèn ép khiến ô tìm kiếm bị co cụm hay cắt cụt placeholder. Cột thao tác luôn có nút `[Xem]` mở nhanh hồ sơ định danh.
+
+### L. Chuẩn hóa Cổng Xác thực & Đăng nhập (GovTech Auth & Session Persistence Standard)
+- **Giao diện GovTech Chuẩn mực:** Thay thế hoàn toàn giao diện tối (Dark Neon) bằng phông sáng công vụ cao cấp (`bg-slate-50` pha sắc ngọc bích `emerald`), huy hiệu số KP3 và quốc hiệu đầy đủ: `KHU PHỐ THÔNG MINH AN PHÚ • ỦY BAN NHÂN DÂN PHƯỜNG AN PHÚ • KHU PHỐ 3`.
+- **Tuyệt đối không để lộ mật khẩu hay công cụ demo:** Không hiển thị tài khoản mẫu, mật khẩu mẫu, nút bypass một chạm hay thanh huy hiệu/hướng dẫn rườm rà trên card đăng nhập. Thẻ đăng nhập chỉ tập trung vào các trường nghiệp vụ cốt lõi: Chọn vai trò -> Tài khoản/CCCD -> Mật khẩu -> Ghi nhớ -> Nút Đăng nhập hệ thống.
+- **Xác thực Thật & Phân hệ 2 Vai trò:**
+  + Cán bộ / Quản trị: Xác thực Supabase Auth thật (`bdhkhupho3.ap@gmail.com` / `Trunghuy741`), hỗ trợ alias `admin`, `canbo` và kiểm tra trạng thái phê duyệt danh tính `approval_status` trong `user_profiles`.
+  + Cư dân Khu phố: Đăng nhập bằng số CCCD 12 chữ số hoặc SĐT tra cứu trực tiếp từ CSDL 11.632 nhân khẩu.
+- **Duy trì Phiên làm việc (Session Persistence):** Lưu định danh tài khoản vào `localStorage` (`kp3_auth_user`). Khi F5 / tải lại trang không bị mất phiên đăng nhập. Nút Đăng xuất trên Header và Sidebar xóa sạch phiên và đưa về `/login` an toàn.
+
+### M. Chuẩn hóa Phân hệ Chi hội Đoàn thể & Doanh nghiệp
+- **Chi hội & Đoàn thể ([`PartyBranch.tsx`](file:///c:/Users/KHUPHO3/Downloads/khuphothongminh-main/khuphothongminh-main/src/components/PartyBranch.tsx)):** Thống nhất hiển thị tên tất cả 23 tổ chức/chi hội với nhãn vàng hổ phách mặc định (`bg-amber-50 text-amber-800 border-amber-200/90 font-bold`), cỡ chữ và font đồng bộ bảng điều hành tổng quan, loại bỏ việc phân nhóm/thể loại gây trùng lặp.
+- **Quản lý Doanh nghiệp ([`EnterpriseManagement.tsx`](file:///c:/Users/KHUPHO3/Downloads/khuphothongminh-main/khuphothongminh-main/src/components/EnterpriseManagement.tsx)):** Hiển thị hình ảnh doanh nghiệp tương tự cơ sở kinh doanh, tính năng phân tích hình ảnh AI được thu gọn và có nút cho phép ẩn/hiện linh hoạt.
