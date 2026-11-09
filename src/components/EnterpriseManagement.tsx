@@ -37,7 +37,10 @@ import {
   Upload,
   Navigation,
   Compass,
-  Check
+  Check,
+  Camera,
+  Eye,
+  Image as ImageIcon
 } from "lucide-react";
 import { Business, BusinessChangeLog, Resident, Household, ForeignWorker, BusinessFile, TargetGisItem } from "../types";
 import { 
@@ -91,6 +94,32 @@ export const getEnterpriseScaleLabel = (b: Business): "Siêu nhỏ (< 5 LĐ)" | 
   if (count <= 20) return "Nhỏ (5 - 20 LĐ)";
   if (count <= 50) return "Vừa (20 - 50 LĐ)";
   return "Lớn (> 50 LĐ)";
+};
+
+// Default curated corporate & office images for enterprises (DNNVV)
+export const ENTERPRISE_DEFAULT_IMAGES = [
+  "https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?w=600", // Tòa nhà kính văn phòng hiện đại
+  "https://images.unsplash.com/photo-1497366216548-37526070297c?w=600", // Không gian làm việc công nghệ hiện đại
+  "https://images.unsplash.com/photo-1497215728101-856f4ea42174?w=600", // Trụ sở công ty khang trang
+  "https://images.unsplash.com/photo-1577495508048-b635879837f1?w=600", // Kiến trúc trụ sở văn phòng
+  "https://images.unsplash.com/photo-1554469384-e58fac16e23a?w=600", // Khu liên hợp văn phòng
+  "https://images.unsplash.com/photo-1504384308090-c894fdcc538d?w=600", // Studio & công nghệ cao
+  "https://images.unsplash.com/photo-1581091226825-a6a2a5aee158?w=600", // Xưởng sản xuất công nghiệp hiện đại
+  "https://images.unsplash.com/photo-1497366811353-6870744d04b2?w=600"  // Phòng họp điều hành doanh nghiệp
+];
+
+export const getEnterpriseImage = (ent?: Business | null): string => {
+  if (!ent) return ENTERPRISE_DEFAULT_IMAGES[0];
+  if (ent.image && typeof ent.image === "string" && ent.image.trim() !== "") {
+    return ent.image;
+  }
+  if (ent.images && Array.isArray(ent.images) && ent.images.length > 0 && ent.images[0] && ent.images[0].trim() !== "") {
+    return ent.images[0];
+  }
+  const hash = (ent.id || ent.name || "DN")
+    .split("")
+    .reduce((acc, char) => acc + char.charCodeAt(0), 0);
+  return ENTERPRISE_DEFAULT_IMAGES[hash % ENTERPRISE_DEFAULT_IMAGES.length];
 };
 
 export default function EnterpriseManagement({
@@ -254,6 +283,56 @@ export default function EnterpriseManagement({
   const [editForeignWorkersCount, setEditForeignWorkersCount] = useState<number>(0);
   const [editSupportNeeds, setEditSupportNeeds] = useState<string[]>([]);
   const [editSupportNotes, setEditSupportNotes] = useState("");
+
+  // Image handling & preview lightbox states
+  const [newImage, setNewImage] = useState("");
+  const [editImage, setEditImage] = useState("");
+  const [viewingImagePreview, setViewingImagePreview] = useState<{ url: string; caption: string } | null>(null);
+
+  const handleChangeAvatarPhoto = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0] && selectedEnterprise) {
+      const file = e.target.files[0];
+      const reader = new FileReader();
+      reader.onload = () => {
+        const url = reader.result as string;
+        const currentImages = selectedEnterprise.images || [];
+        const updated: Business = {
+          ...selectedEnterprise,
+          image: url,
+          images: currentImages.includes(url) ? currentImages : [url, ...currentImages]
+        };
+        if (onUpdateBusinesses) {
+          onUpdateBusinesses(businesses.map(b => b.id === selectedEnterprise.id ? updated : b));
+        }
+        setSelectedEnterprise(updated);
+        showToast("Đã cập nhật ảnh đại diện doanh nghiệp thành công!", "success");
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const handleAddGalleryPhoto = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0] && selectedEnterprise) {
+      const file = e.target.files[0];
+      const reader = new FileReader();
+      reader.onload = () => {
+        const url = reader.result as string;
+        const currentImages = selectedEnterprise.images || (selectedEnterprise.image ? [selectedEnterprise.image] : []);
+        const updatedImages = [url, ...currentImages];
+        const updated: Business = {
+          ...selectedEnterprise,
+          image: selectedEnterprise.image || url,
+          images: updatedImages
+        };
+        if (onUpdateBusinesses) {
+          onUpdateBusinesses(businesses.map(b => b.id === selectedEnterprise.id ? updated : b));
+        }
+        setSelectedEnterprise(updated);
+        showToast("Đã thêm ảnh vào bộ sưu tập doanh nghiệp thành công!", "success");
+      };
+      reader.readAsDataURL(file);
+    }
+  };
 
   // Toast state
   const [toast, setToast] = useState<{ message: string; type: "success" | "error" | "warning" } | null>(null);
@@ -429,6 +508,7 @@ export default function EnterpriseManagement({
     setEditForeignWorkersCount(ent.foreignWorkersCount || (ent.foreignWorkers?.length || 0));
     setEditSupportNeeds(ent.supportNeeds || []);
     setEditSupportNotes(ent.supportNotes || "");
+    setEditImage(ent.image || "");
     setShowEditModal(true);
   };
 
@@ -498,8 +578,8 @@ export default function EnterpriseManagement({
       supportNeeds: newSupportNeeds,
       supportNotes: newSupportNotes.trim(),
       safetyCertified: true,
-      image: "",
-      images: [],
+      image: newImage || getEnterpriseImage({ id: nextId, name: newName } as Business),
+      images: newImage ? [newImage] : [getEnterpriseImage({ id: nextId, name: newName } as Business)],
       changeHistory: [
         {
           id: `CHG-${nextId}-INIT`,
@@ -530,6 +610,7 @@ export default function EnterpriseManagement({
     setNewFocalPointPhone("");
     setNewSupportNeeds([]);
     setNewSupportNotes("");
+    setNewImage("");
   };
 
   // Handle Update Enterprise
@@ -565,7 +646,11 @@ export default function EnterpriseManagement({
       temporaryWorkersCount: editTemporaryWorkers,
       foreignWorkersCount: editForeignWorkersCount,
       supportNeeds: editSupportNeeds,
-      supportNotes: editSupportNotes.trim()
+      supportNotes: editSupportNotes.trim(),
+      image: editImage || selectedEnterprise.image,
+      images: editImage && !(selectedEnterprise.images || []).includes(editImage)
+        ? [editImage, ...(selectedEnterprise.images || [])]
+        : selectedEnterprise.images
     };
 
     if (onUpdateBusinesses) {
@@ -960,33 +1045,52 @@ export default function EnterpriseManagement({
                     onClick={() => handleOpenDetailModal(ent)}
                     className="bg-white rounded-2xl border border-slate-200/90 shadow-2xs hover:shadow-md hover:border-indigo-300 transition-all duration-200 flex flex-col justify-between overflow-hidden cursor-pointer group"
                   >
-                    <div>
-                      {/* Clean Administrative Header (No Image) */}
-                      <div className="p-4 bg-slate-50/70 border-b border-slate-100 flex items-start justify-between gap-2.5">
-                        <div className="flex items-center gap-2.5 min-w-0">
-                          <div className="w-10 h-10 rounded-xl bg-indigo-50 border border-indigo-100 text-indigo-700 flex items-center justify-center shrink-0 shadow-2xs">
-                            <Building2 size={20} />
-                          </div>
-                          <div className="min-w-0">
-                            <span className="font-mono text-[10px] text-slate-500 font-bold block truncate">
-                              {ent.internalCode || `DN-KP3-${ent.id}`}
-                            </span>
-                            <span className="text-[10px] text-indigo-700 font-bold uppercase tracking-wider block truncate">
-                              {ent.businessType || "Công ty TNHH"}
-                            </span>
-                          </div>
-                        </div>
-                        <span className={`px-2 py-0.5 rounded-full text-[10.5px] font-bold border shrink-0 ${
+                    <div className="p-3.5 space-y-3">
+                      {/* 1. Header with Badges: Loại hình & Trạng thái */}
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="text-[10.5px] font-bold px-2.5 py-0.5 rounded-full border bg-indigo-50 text-indigo-800 border-indigo-200/80 flex items-center gap-1.5 shadow-2xs shrink-0 truncate max-w-[65%]">
+                          <Building2 size={12} className="text-indigo-600 shrink-0" />
+                          <span className="truncate">{ent.businessType || "Công ty TNHH"}</span>
+                        </span>
+                        <span className={`text-[10.5px] font-bold px-2.5 py-0.5 rounded-full border flex items-center gap-1.5 shrink-0 whitespace-nowrap ${
                           ent.status === "Đang hoạt động" ? "bg-emerald-50 text-emerald-800 border-emerald-200" :
                           ent.status === "Chờ duyệt" ? "bg-amber-50 text-amber-800 border-amber-200" :
                           "bg-rose-50 text-rose-800 border-rose-200"
                         }`}>
-                          {ent.status}
+                          <span className={`w-1.5 h-1.5 rounded-full ${ent.status === "Đang hoạt động" ? "bg-emerald-500 animate-pulse" : ent.status === "Tạm ngưng" ? "bg-rose-500" : "bg-amber-500"}`} />
+                          <span>{ent.status}</span>
                         </span>
                       </div>
 
+                      {/* 2. Image Thumbnail (Hiển thị hình ảnh tương tự cơ sở kinh doanh) */}
+                      <div className="relative h-32 rounded-xl overflow-hidden bg-slate-100 border border-slate-200/70 shadow-inner">
+                        <img 
+                          src={getEnterpriseImage(ent)} 
+                          alt={ent.name}
+                          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                          onError={(e) => {
+                            (e.target as HTMLImageElement).src = "https://images.unsplash.com/photo-1497366216548-37526070297c?w=500";
+                          }}
+                        />
+                        <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-black/15 pointer-events-none" />
+                        
+                        {/* Mã doanh nghiệp đặt góc trên phải ảnh */}
+                        <div className="absolute top-2 right-2">
+                          <span className="text-[10px] font-mono font-semibold px-2 py-0.5 rounded-md bg-black/60 text-white backdrop-blur-xs shadow-xs border border-white/20">
+                            {ent.internalCode || `DN-KP3-${ent.id}`}
+                          </span>
+                        </div>
+
+                        {/* Quy mô doanh nghiệp ở góc dưới trái ảnh */}
+                        <div className="absolute bottom-2 left-2">
+                          <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-indigo-700/90 text-white backdrop-blur-xs flex items-center gap-1 shadow-xs">
+                            <Briefcase size={11} /> {scale}
+                          </span>
+                        </div>
+                      </div>
+
                       {/* Card Content */}
-                      <div className="p-4 space-y-2.5 text-xs">
+                      <div className="space-y-2.5 text-xs pt-1">
                         <h3 className="font-bold text-sm leading-snug line-clamp-1 text-slate-900 group-hover:text-indigo-700 transition-colors">
                           {ent.name}
                         </h3>
@@ -1097,12 +1201,19 @@ export default function EnterpriseManagement({
                           className="hover:bg-slate-50/80 transition-colors cursor-pointer"
                         >
                           <td className="py-3 px-4">
-                            <div className="flex items-center gap-2.5">
-                              <div className="w-9 h-9 rounded-lg bg-indigo-50 border border-indigo-100 text-indigo-700 flex items-center justify-center shrink-0 shadow-2xs">
-                                <Building2 size={18} />
+                            <div className="flex items-center gap-3">
+                              <div className="w-10 h-10 rounded-xl overflow-hidden bg-slate-100 border border-slate-200 shrink-0 shadow-2xs">
+                                <img 
+                                  src={getEnterpriseImage(ent)} 
+                                  alt={ent.name} 
+                                  className="w-full h-full object-cover" 
+                                  onError={(e) => {
+                                    (e.target as HTMLImageElement).src = "https://images.unsplash.com/photo-1497366216548-37526070297c?w=200";
+                                  }}
+                                />
                               </div>
                               <div className="min-w-0">
-                                <strong className="text-slate-900 block font-bold truncate max-w-xs">{ent.name}</strong>
+                                <strong className="text-slate-900 block font-bold truncate max-w-xs text-xs hover:text-indigo-600 transition-colors">{ent.name}</strong>
                                 <span className="text-[10px] text-slate-500 block truncate">{ent.address}</span>
                               </div>
                             </div>
@@ -1698,9 +1809,27 @@ export default function EnterpriseManagement({
               </button>
 
               <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 pr-10">
-                {/* Enterprise Avatar Photo with hover change overlay */}
-                <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-2xl bg-indigo-50 border border-indigo-100 text-indigo-700 flex items-center justify-center shrink-0 shadow-2xs">
-                  <Building2 size={30} />
+                {/* Enterprise Avatar / Photo with upload trigger (Tương tự cơ sở kinh doanh) */}
+                <div className="relative w-14 h-14 sm:w-16 sm:h-16 rounded-2xl border border-slate-200 shadow-2xs overflow-hidden shrink-0 group bg-slate-100">
+                  <img 
+                    src={getEnterpriseImage(selectedEnterprise)} 
+                    alt={selectedEnterprise.name}
+                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                    referrerPolicy="no-referrer"
+                    onError={(e) => {
+                      (e.target as HTMLImageElement).src = "https://images.unsplash.com/photo-1497366216548-37526070297c?w=400";
+                    }}
+                  />
+                  <label className="absolute inset-0 bg-slate-950/65 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center text-white cursor-pointer">
+                    <Camera size={16} className="text-white mb-0.5" />
+                    <span className="text-[10px] font-bold">Đổi ảnh</span>
+                    <input 
+                      type="file" 
+                      accept="image/*" 
+                      className="hidden" 
+                      onChange={handleChangeAvatarPhoto}
+                    />
+                  </label>
                 </div>
 
                 {/* Metadata & Title */}
@@ -1809,11 +1938,42 @@ export default function EnterpriseManagement({
                 <div className="bg-white rounded-2xl border border-slate-200/90 shadow-2xs overflow-hidden animate-in fade-in duration-200 divide-y divide-slate-100">
                   {/* Unified Section 1: Pháp lý & Album ảnh thu nhỏ */}
                   <div className="p-4 sm:p-5 space-y-4">
-                    <div className="pb-3 border-b border-slate-100">
-                      <h4 className="text-xs font-bold text-slate-900 uppercase tracking-wider flex items-center gap-2">
-                        <Briefcase size={15} className="text-indigo-600" />
-                        Hồ sơ Doanh nghiệp, Mã số thuế & Pháp lý
-                      </h4>
+                    <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between pb-3 border-b border-slate-100 gap-3">
+                      <div>
+                        <h4 className="text-xs font-bold text-slate-900 uppercase tracking-wider flex items-center gap-2">
+                          <Briefcase size={15} className="text-indigo-600" />
+                          Hồ sơ Doanh nghiệp, Mã số thuế & Pháp lý
+                        </h4>
+                        <p className="text-[11px] text-slate-400 mt-0.5">Hồ sơ quản lý hành chính doanh nghiệp trên địa bàn KP3</p>
+                      </div>
+
+                      {/* Dải ảnh doanh nghiệp tương tự cơ sở kinh doanh */}
+                      <div className="flex items-center gap-2 shrink-0 self-end sm:self-center">
+                        <div className="flex items-center gap-1.5">
+                          {(selectedEnterprise.images || [getEnterpriseImage(selectedEnterprise)]).slice(0, 3).map((imgUrl, i) => (
+                            <div 
+                              key={i} 
+                              onClick={() => setViewingImagePreview({ url: imgUrl, caption: `${selectedEnterprise.name} - Ảnh ${i + 1}` })}
+                              className="w-10 h-10 rounded-lg overflow-hidden border border-slate-200 shrink-0 cursor-pointer hover:ring-2 hover:ring-indigo-500 transition-all shadow-2xs group relative"
+                              title={`Xem ảnh ${i + 1}`}
+                            >
+                              <img src={imgUrl} alt="Thumbnail" className="w-full h-full object-cover group-hover:scale-105 transition-transform" />
+                              <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white">
+                                <Eye size={12} />
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                        <label className="text-[11px] text-indigo-700 hover:text-indigo-900 font-bold cursor-pointer flex items-center gap-1 bg-indigo-50 hover:bg-indigo-100 px-2.5 py-1.5 rounded-lg border border-indigo-200 transition-colors">
+                          <Plus size={12} /> Ảnh
+                          <input 
+                            type="file" 
+                            accept="image/*" 
+                            className="hidden" 
+                            onChange={handleAddGalleryPhoto} 
+                          />
+                        </label>
+                      </div>
                     </div>
 
                     <DetailGrid>
@@ -2330,6 +2490,51 @@ export default function EnterpriseManagement({
                   </div>
                 </div>
 
+                {/* Hình ảnh Trụ sở / Văn phòng Doanh nghiệp */}
+                <div className="bg-slate-50/70 p-3 rounded-xl border border-slate-200">
+                  <label className="text-[11px] font-bold text-slate-700 block mb-1.5 flex items-center gap-1.5">
+                    <ImageIcon size={13} className="text-indigo-600" />
+                    <span>Hình ảnh Trụ sở / Văn phòng Doanh nghiệp</span>
+                  </label>
+                  <div className="flex items-center gap-3">
+                    <div className="w-14 h-14 rounded-xl border border-slate-200 bg-white overflow-hidden shrink-0 shadow-2xs flex items-center justify-center">
+                      {newImage ? (
+                        <img src={newImage} alt="Preview" className="w-full h-full object-cover" />
+                      ) : (
+                        <Building2 size={24} className="text-slate-300" />
+                      )}
+                    </div>
+                    <div className="space-y-1">
+                      <label className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 rounded-lg text-xs font-semibold cursor-pointer transition-colors shadow-2xs">
+                        <Camera size={13} className="text-indigo-600" />
+                        <span>{newImage ? "Đổi ảnh khác" : "Chọn ảnh từ thiết bị"}</span>
+                        <input 
+                          type="file" 
+                          accept="image/*" 
+                          className="hidden" 
+                          onChange={(e) => {
+                            if (e.target.files && e.target.files[0]) {
+                              const reader = new FileReader();
+                              reader.onload = () => setNewImage(reader.result as string);
+                              reader.readAsDataURL(e.target.files[0]);
+                            }
+                          }} 
+                        />
+                      </label>
+                      {newImage && (
+                        <button 
+                          type="button" 
+                          onClick={() => setNewImage("")} 
+                          className="text-[11px] text-rose-600 hover:text-rose-800 ml-2 font-medium cursor-pointer"
+                        >
+                          Xóa ảnh
+                        </button>
+                      )}
+                      <p className="text-[10px] text-slate-400">Nếu để trống, hệ thống sẽ tự động gán hình ảnh văn phòng hiện đại chuẩn mực.</p>
+                    </div>
+                  </div>
+                </div>
+
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                   <div>
                     <label className="text-[11px] font-bold text-slate-700 block mb-1">Loại hình tổ chức *</label>
@@ -2685,6 +2890,51 @@ export default function EnterpriseManagement({
                       onChange={(e) => setEditInternalCode(e.target.value)}
                       className="w-full px-3 py-2 border border-slate-200 rounded-xl bg-white text-xs font-mono"
                     />
+                  </div>
+                </div>
+
+                {/* Hình ảnh Trụ sở / Văn phòng Doanh nghiệp */}
+                <div className="bg-slate-50/70 p-3 rounded-xl border border-slate-200">
+                  <label className="text-[11px] font-bold text-slate-700 block mb-1.5 flex items-center gap-1.5">
+                    <ImageIcon size={13} className="text-indigo-600" />
+                    <span>Hình ảnh Trụ sở / Văn phòng Doanh nghiệp</span>
+                  </label>
+                  <div className="flex items-center gap-3">
+                    <div className="w-14 h-14 rounded-xl border border-slate-200 bg-white overflow-hidden shrink-0 shadow-2xs flex items-center justify-center">
+                      {editImage ? (
+                        <img src={editImage} alt="Preview" className="w-full h-full object-cover" />
+                      ) : (
+                        <Building2 size={24} className="text-slate-300" />
+                      )}
+                    </div>
+                    <div className="space-y-1">
+                      <label className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 rounded-lg text-xs font-semibold cursor-pointer transition-colors shadow-2xs">
+                        <Camera size={13} className="text-indigo-600" />
+                        <span>{editImage ? "Đổi ảnh khác" : "Chọn ảnh từ thiết bị"}</span>
+                        <input 
+                          type="file" 
+                          accept="image/*" 
+                          className="hidden" 
+                          onChange={(e) => {
+                            if (e.target.files && e.target.files[0]) {
+                              const reader = new FileReader();
+                              reader.onload = () => setEditImage(reader.result as string);
+                              reader.readAsDataURL(e.target.files[0]);
+                            }
+                          }} 
+                        />
+                      </label>
+                      {editImage && (
+                        <button 
+                          type="button" 
+                          onClick={() => setEditImage("")} 
+                          className="text-[11px] text-rose-600 hover:text-rose-800 ml-2 font-medium cursor-pointer"
+                        >
+                          Xóa ảnh
+                        </button>
+                      )}
+                      <p className="text-[10px] text-slate-400">Ảnh trụ sở, văn phòng hoặc biển hiệu nhận diện doanh nghiệp.</p>
+                    </div>
                   </div>
                 </div>
 
@@ -3167,6 +3417,31 @@ export default function EnterpriseManagement({
                   <span>Lưu & Dẫn đường ngay</span>
                 </button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* IMAGE PREVIEW LIGHTBOX */}
+      {viewingImagePreview && (
+        <div 
+          onClick={() => setViewingImagePreview(null)}
+          className="fixed inset-0 bg-slate-950/90 flex items-center justify-center z-50 p-4 backdrop-blur-sm animate-in fade-in duration-150 cursor-pointer"
+        >
+          <div className="relative max-w-4xl max-h-[90vh] flex flex-col items-center" onClick={(e) => e.stopPropagation()}>
+            <img 
+              src={viewingImagePreview.url} 
+              alt={viewingImagePreview.caption}
+              className="max-h-[80vh] w-auto rounded-xl shadow-2xl object-contain border border-white/10" 
+            />
+            <div className="mt-3 flex items-center justify-between w-full px-2 text-white">
+              <span className="text-xs font-bold">{viewingImagePreview.caption}</span>
+              <button
+                type="button"
+                onClick={() => setViewingImagePreview(null)}
+                className="bg-white/10 hover:bg-white/20 text-white px-3 py-1 rounded-lg text-xs font-semibold cursor-pointer"
+              >
+                Đóng
+              </button>
             </div>
           </div>
         </div>
