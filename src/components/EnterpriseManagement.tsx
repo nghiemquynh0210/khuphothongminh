@@ -40,6 +40,7 @@ import {
   Check,
   Camera,
   Eye,
+  EyeOff,
   Image as ImageIcon
 } from "lucide-react";
 import { Business, BusinessChangeLog, Resident, Household, ForeignWorker, BusinessFile, TargetGisItem } from "../types";
@@ -133,6 +134,25 @@ export default function EnterpriseManagement({
 }: EnterpriseManagementProps) {
   // Navigation tabs: Danh mục vs Báo cáo kinh tế địa bàn
   const [activeMainTab, setActiveMainTab] = useState<"list" | "economicReport">("list");
+
+  // Subsystem tab bar visibility (hideable / collapsible preference)
+  const [isSubTabsHidden, setIsSubTabsHidden] = useState<boolean>(() => {
+    try {
+      return localStorage.getItem("kp3_enterprise_hide_subtabs") === "true";
+    } catch {
+      return false;
+    }
+  });
+
+  const toggleSubTabs = () => {
+    setIsSubTabsHidden(prev => {
+      const next = !prev;
+      try {
+        localStorage.setItem("kp3_enterprise_hide_subtabs", String(next));
+      } catch {}
+      return next;
+    });
+  };
   
   // Modals
   const [selectedEnterprise, setSelectedEnterprise] = useState<Business | null>(null);
@@ -768,7 +788,49 @@ export default function EnterpriseManagement({
         badgeSubtext="DNNVV"
         title="Quản lý Doanh nghiệp Vừa & Nhỏ (DNNVV) KP3"
         actions={
-          <div className="flex flex-wrap items-center gap-2.5 shrink-0">
+          <div className="flex flex-wrap items-center gap-2 shrink-0">
+            {/* Quick Switch View Pill when tabs are hidden */}
+            {isSubTabsHidden && (
+              <button
+                type="button"
+                onClick={() => setActiveMainTab(activeMainTab === "list" ? "economicReport" : "list")}
+                className="flex items-center gap-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 px-3 py-2 rounded-xl font-bold text-xs border border-indigo-200 transition-all cursor-pointer shadow-2xs hover:shadow-xs"
+                title={`Chuyển sang ${activeMainTab === "list" ? "Báo cáo Kinh tế Địa bàn" : "Danh mục Doanh nghiệp"}`}
+              >
+                {activeMainTab === "list" ? (
+                  <>
+                    <FileText size={14} className="text-indigo-600" />
+                    <span>Báo cáo Kinh tế</span>
+                  </>
+                ) : (
+                  <>
+                    <Building2 size={14} className="text-indigo-600" />
+                    <span>Danh mục DN ({formatVNNumber(enterprises.length)})</span>
+                  </>
+                )}
+              </button>
+            )}
+
+            {/* Toggle show/hide sub-tabs button */}
+            <button
+              type="button"
+              onClick={toggleSubTabs}
+              className="flex items-center gap-1.5 bg-white hover:bg-slate-50 text-slate-600 hover:text-slate-900 px-2.5 py-2 rounded-xl font-bold text-xs border border-slate-200 transition-all cursor-pointer shadow-2xs hover:shadow-xs"
+              title={isSubTabsHidden ? "Hiện thanh chuyển phân hệ (Danh mục / Báo cáo)" : "Ẩn thanh chuyển phân hệ để mở rộng không gian"}
+            >
+              {isSubTabsHidden ? (
+                <>
+                  <Eye size={14} className="text-emerald-600" />
+                  <span className="hidden sm:inline">Hiện thanh tab</span>
+                </>
+              ) : (
+                <>
+                  <EyeOff size={14} className="text-slate-500" />
+                  <span className="hidden sm:inline">Ẩn thanh tab</span>
+                </>
+              )}
+            </button>
+
             <button
               type="button"
               onClick={handleExportCSV}
@@ -788,46 +850,59 @@ export default function EnterpriseManagement({
         }
       />
 
-      {/* Main Subsystem Tabs */}
-      <div className="flex flex-wrap items-center justify-between gap-3 bg-white p-2 rounded-2xl border border-slate-200/90 shadow-2xs">
-        <div className="flex items-center gap-1.5 bg-slate-100/80 p-1 rounded-xl">
-          <button
-            type="button"
-            onClick={() => setActiveMainTab("list")}
-            className={`px-4 py-2 rounded-lg text-xs sm:text-sm font-bold flex items-center gap-2 transition-all cursor-pointer ${
-              activeMainTab === "list"
-                ? "bg-white text-indigo-900 shadow-sm"
-                : "text-slate-600 hover:text-slate-900 hover:bg-white/50"
-            }`}
-          >
-            <Building2 size={16} className={activeMainTab === "list" ? "text-indigo-600" : "text-slate-400"} />
-            <span>Danh mục Doanh nghiệp & Hồ sơ DNNVV</span>
-            <span className={`text-[10px] px-2 py-0.5 rounded-full font-extrabold ${
-              activeMainTab === "list" ? "bg-indigo-50 text-indigo-700" : "bg-slate-200 text-slate-600"
-            }`}>
-              {formatVNNumber(enterprises.length)}
-            </span>
-          </button>
+      {/* Main Subsystem Tabs - Compact & Collapsible */}
+      {!isSubTabsHidden && (
+        <div className="flex items-center justify-between gap-2 bg-slate-100/90 p-1 rounded-xl border border-slate-200/90 shadow-2xs transition-all">
+          <div className="flex items-center gap-1 overflow-x-auto">
+            <button
+              type="button"
+              onClick={() => setActiveMainTab("list")}
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer whitespace-nowrap ${
+                activeMainTab === "list"
+                  ? "bg-white text-indigo-900 shadow-2xs border border-slate-200/50"
+                  : "text-slate-600 hover:text-slate-900 hover:bg-white/60"
+              }`}
+            >
+              <Building2 size={14} className={activeMainTab === "list" ? "text-indigo-600" : "text-slate-400"} />
+              <span>Danh mục Doanh nghiệp & Hồ sơ DNNVV</span>
+              <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-extrabold ${
+                activeMainTab === "list" ? "bg-indigo-50 text-indigo-700" : "bg-slate-200 text-slate-600"
+              }`}>
+                {formatVNNumber(enterprises.length)}
+              </span>
+            </button>
 
+            <button
+              type="button"
+              onClick={() => setActiveMainTab("economicReport")}
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer whitespace-nowrap ${
+                activeMainTab === "economicReport"
+                  ? "bg-gradient-to-r from-indigo-600 to-blue-600 text-white shadow-2xs"
+                  : "text-slate-600 hover:text-slate-900 hover:bg-white/60"
+              }`}
+            >
+              <FileText size={14} className={activeMainTab === "economicReport" ? "text-white" : "text-slate-400"} />
+              <span>Báo cáo Kinh tế Địa bàn & Biến động</span>
+              <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-extrabold ${
+                activeMainTab === "economicReport" ? "bg-white/20 text-white" : "bg-slate-200 text-slate-600"
+              }`}>
+                Bí thư / Trưởng KP
+              </span>
+            </button>
+          </div>
+
+          {/* Quick Hide Action */}
           <button
             type="button"
-            onClick={() => setActiveMainTab("economicReport")}
-            className={`px-4 py-2 rounded-lg text-xs sm:text-sm font-bold flex items-center gap-2 transition-all cursor-pointer ${
-              activeMainTab === "economicReport"
-                ? "bg-gradient-to-r from-indigo-600 to-blue-600 text-white shadow-sm"
-                : "text-slate-600 hover:text-slate-900 hover:bg-white/50"
-            }`}
+            onClick={toggleSubTabs}
+            className="flex items-center gap-1 text-[11px] font-semibold text-slate-500 hover:text-slate-800 px-2.5 py-1 rounded-lg hover:bg-white/80 transition-all cursor-pointer shrink-0"
+            title="Ẩn thanh tab này để mở rộng không gian làm việc"
           >
-            <FileText size={16} className={activeMainTab === "economicReport" ? "text-white" : "text-slate-400"} />
-            <span>Báo cáo Kinh tế Địa bàn & Biến động</span>
-            <span className={`text-[10px] px-2 py-0.5 rounded-full font-extrabold ${
-              activeMainTab === "economicReport" ? "bg-white/20 text-white" : "bg-slate-200 text-slate-600"
-            }`}>
-              Bí thư / Trưởng KP
-            </span>
+            <EyeOff size={13} className="text-slate-400" />
+            <span className="hidden sm:inline">Ẩn thanh này</span>
           </button>
         </div>
-      </div>
+      )}
 
       {/* VIEW 1: DANH MỤC DOANH NGHIỆP & HỒ SƠ */}
       {activeMainTab === "list" ? (
