@@ -185,7 +185,7 @@ export const TARGET_GROUPS: TargetGroupConfig[] = [
   },
   {
     id: "ASC_NCT",
-    name: "Chi Hội Người cao tuổi",
+    name: "Chi hội Người cao tuổi",
     section: "Đoàn thể",
     defaultRole: "Hội viên Người cao tuổi",
     roles: ["Chi hội trưởng", "Chi hội phó", "Ủy viên BCH", "Hội viên tiêu biểu", "Hội viên Người cao tuổi"],
@@ -310,7 +310,7 @@ export const TARGET_GROUPS: TargetGroupConfig[] = [
   },
   {
     id: "ASC_ANTT",
-    name: "TỔ ANTT cơ sở",
+    name: "Tổ ANTT cơ sở",
     section: "Nhóm khác",
     defaultRole: "Đội viên ANTT cơ sở",
     roles: ["Tổ trưởng ANTT cơ sở", "Tổ phó ANTT cơ sở", "Đội viên ANTT cơ sở"],
@@ -513,7 +513,7 @@ export default function PartyBranch({ partyMembers, residents = [] }: PartyBranc
     },
     {
       id: "ASC_ANTT",
-      name: "TỔ ANTT cơ sở",
+      name: "Tổ ANTT cơ sở",
       category: "An ninh - Quốc phòng",
       description: "Lực lượng nòng cốt bảo vệ an ninh trật tự, tuần tra, giữ gìn bình yên các tuyến hẻm nội khu theo Luật mới.",
       leaderName: "Phạm Minh Tuấn",
@@ -859,7 +859,7 @@ export default function PartyBranch({ partyMembers, residents = [] }: PartyBranc
     },
     {
       id: "ASC_NCT",
-      name: "Chi Hội Người cao tuổi",
+      name: "Chi hội Người cao tuổi",
       category: "Đoàn thể nhân dân",
       description: "Hội người cao tuổi sống vui, sống khỏe, nêu gương sáng trong gia đình và khu dân cư.",
       leaderName: "Nguyễn Văn Hùng",
@@ -2242,6 +2242,39 @@ export default function PartyBranch({ partyMembers, residents = [] }: PartyBranc
     return matchesSearch && matchesRole;
   });
 
+  // Helper to normalize and synchronize association name typography & casing
+  const formatAssocName = (name: string): string => {
+    if (!name) return "";
+    return name
+      .replace(/\bTỔ\b/g, "Tổ")
+      .replace(/\bCHI HỘI\b/g, "Chi hội")
+      .replace(/\bChi Hội\b/g, "Chi hội")
+      .replace(/\bBAN\b/g, "Ban")
+      .replace(/\bĐỘI\b/g, "Đội");
+  };
+
+  // Standardized badge color mapping across all categories
+  const getAssocCategoryBadgeColor = (category: string) => {
+    switch (category) {
+      case "Chính trị - Xã hội":
+        return "bg-rose-50 text-rose-700 border-rose-200";
+      case "Chính quyền cơ sở":
+        return "bg-amber-50 text-amber-800 border-amber-200";
+      case "An ninh - Quốc phòng":
+        return "bg-red-50 text-red-700 border-red-200";
+      case "Chính sách xã hội":
+        return "bg-purple-50 text-purple-700 border-purple-200";
+      case "Đoàn thể nhân dân":
+        return "bg-blue-50 text-blue-700 border-blue-200";
+      case "Phong trào tự quản":
+        return "bg-teal-50 text-teal-800 border-teal-200";
+      case "Hội quần chúng":
+        return "bg-indigo-50 text-indigo-700 border-indigo-200";
+      default:
+        return "bg-slate-100 text-slate-700 border-slate-200";
+    }
+  };
+
   return (
     <div id="association-management-view" className="space-y-6 animate-in fade-in duration-200">
       {/* Top Banner Header: Executive Government Portal Theme (Light Slate Gradient) */}
@@ -2342,7 +2375,7 @@ export default function PartyBranch({ partyMembers, residents = [] }: PartyBranc
 
           {/* Category Filter Pills */}
           <div className="flex items-center gap-1 overflow-x-auto pb-1 no-scrollbar scrollbar-none">
-            {["Tất cả", "Chính trị - Xã hội", "Chính quyền cơ sở", "An ninh - Quốc phòng", "Đoàn thể nhân dân", "Hội quần chúng", "Chính sách xã hội"].map(cat => (
+            {["Tất cả", "Chính trị - Xã hội", "Chính quyền cơ sở", "An ninh - Quốc phòng", "Đoàn thể nhân dân", "Phong trào tự quản", "Hội quần chúng", "Chính sách xã hội"].map(cat => (
               <button
                 key={cat}
                 onClick={() => handleCategoryFilterChange(cat)}
@@ -2366,13 +2399,8 @@ export default function PartyBranch({ partyMembers, residents = [] }: PartyBranc
             ) : (
               filteredAssociations.map((assoc) => {
                 const isSelected = selectedAssociation.id === assoc.id;
-                const catBadgeColor = 
-                  assoc.category === "Chính trị - Xã hội" ? "bg-rose-50 text-rose-700 border-rose-200" :
-                  assoc.category === "Chính quyền cơ sở" ? "bg-amber-50 text-amber-800 border-amber-200" :
-                  assoc.category === "An ninh - Quốc phòng" ? "bg-red-50 text-red-700 border-red-200" :
-                  assoc.category === "Chính sách xã hội" ? "bg-purple-50 text-purple-700 border-purple-200" :
-                  assoc.category === "Đoàn thể nhân dân" ? "bg-blue-50 text-blue-700 border-blue-200" : 
-                  "bg-slate-100 text-slate-700 border-slate-200";
+                const catBadgeColor = getAssocCategoryBadgeColor(assoc.category);
+                const displayName = formatAssocName(assoc.name);
 
                 return (
                   <div
@@ -2390,13 +2418,13 @@ export default function PartyBranch({ partyMembers, residents = [] }: PartyBranc
                     )}
 
                     <div className="pl-1 space-y-1">
-                      {/* Row 1: Tên Chi hội / Tổ chức đưa lên trên với màu phân nhóm + Thao tác nhanh */}
+                      {/* Row 1: Tên Chi hội / Tổ chức đưa lên trên đồng bộ chuẩn size & font chữ + Thao tác nhanh */}
                       <div className="flex items-center justify-between gap-1.5">
                         <span 
-                          className={`text-xs font-bold px-2 py-0.5 rounded-md border truncate max-w-[190px] ${catBadgeColor}`}
-                          title={assoc.name}
+                          className={`inline-flex items-center h-6 px-2.5 rounded-lg border text-xs font-bold font-sans tracking-tight truncate max-w-[190px] leading-none shrink-0 ${catBadgeColor}`}
+                          title={displayName}
                         >
-                          {assoc.name}
+                          {displayName}
                         </span>
                         <div className="flex items-center gap-0.5 opacity-60 group-hover:opacity-100 transition-opacity shrink-0">
                           <button
@@ -2457,20 +2485,9 @@ export default function PartyBranch({ partyMembers, residents = [] }: PartyBranc
             <div className="flex flex-col sm:flex-row justify-between items-start gap-4 pb-4 border-b border-slate-100">
               <div className="space-y-1.5">
                 <div className="flex items-center gap-2">
-                  {(() => {
-                    const catColor = 
-                      selectedAssociation.category === "Chính trị - Xã hội" ? "bg-rose-50 text-rose-800 border-rose-200" :
-                      selectedAssociation.category === "Chính quyền cơ sở" ? "bg-amber-50 text-amber-800 border-amber-200" :
-                      selectedAssociation.category === "An ninh - Quốc phòng" ? "bg-red-50 text-red-800 border-red-200" :
-                      selectedAssociation.category === "Chính sách xã hội" ? "bg-purple-50 text-purple-800 border-purple-200" :
-                      selectedAssociation.category === "Đoàn thể nhân dân" ? "bg-blue-50 text-blue-800 border-blue-200" : 
-                      "bg-emerald-50 text-emerald-800 border-emerald-200";
-                    return (
-                      <span className={`px-2.5 py-0.5 rounded text-[10px] font-bold border uppercase tracking-wide ${catColor}`}>
-                        {selectedAssociation.category}
-                      </span>
-                    );
-                  })()}
+                  <span className={`px-2.5 py-0.5 rounded text-[10px] font-bold border uppercase tracking-wide ${getAssocCategoryBadgeColor(selectedAssociation.category)}`}>
+                    {selectedAssociation.category}
+                  </span>
                   <span className="text-[10px] text-slate-400 font-mono">
                     Mã: {selectedAssociation.id}
                   </span>
@@ -2480,7 +2497,7 @@ export default function PartyBranch({ partyMembers, residents = [] }: PartyBranc
                   </span>
                 </div>
                 <h2 className="text-xl md:text-2xl font-black text-slate-900 tracking-tight">
-                  {selectedAssociation.name}
+                  {formatAssocName(selectedAssociation.name)}
                 </h2>
               </div>
 
