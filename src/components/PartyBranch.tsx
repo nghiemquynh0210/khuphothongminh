@@ -2370,16 +2370,18 @@ export default function PartyBranch({ partyMembers, residents = [] }: PartyBranc
                     )}
 
                     <div className="pl-1 space-y-1.5">
-                      {/* Row 1: Tên Chi hội / Tổ chức & Thao tác nhanh */}
+                      {/* Row 1: Tên Chi hội / Tổ chức (Màu hiển thị mặc định chuẩn vàng amber đồng bộ) & Thao tác nhanh */}
                       <div className="flex items-center justify-between gap-1.5">
-                        <h3 
-                          className={`text-xs font-bold font-sans leading-tight truncate max-w-[190px] ${
-                            isSelected ? "text-emerald-950 font-extrabold" : "text-slate-800 group-hover:text-emerald-700"
+                        <span 
+                          className={`inline-flex items-center h-6 px-2.5 rounded-lg border text-xs font-bold font-sans tracking-tight truncate max-w-[190px] leading-none shrink-0 transition-all ${
+                            isSelected
+                              ? "bg-amber-100 text-amber-900 border-amber-300 shadow-2xs font-extrabold ring-1 ring-amber-300/40"
+                              : "bg-amber-50 text-amber-800 border-amber-200/90 font-bold group-hover:border-amber-300"
                           }`}
                           title={displayName}
                         >
                           {displayName}
-                        </h3>
+                        </span>
                         <div className="flex items-center gap-0.5 opacity-60 group-hover:opacity-100 transition-opacity shrink-0">
                           <button
                             type="button"
