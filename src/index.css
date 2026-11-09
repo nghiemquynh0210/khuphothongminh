@@ -26,7 +26,7 @@
 
 /* 1. Base Document & Smooth Scrolling */
 html {
-  font-size: 14.5px; /* Giảm 01 size chữ chuẩn toàn hệ thống (~90.6%) tối ưu hiển thị hành chính công mật độ cao */
+  font-size: 16px; /* Tăng 01 size chữ chuẩn toàn hệ thống (16px base) tối ưu độ rõ nét và trải nghiệm đọc */
   scroll-behavior: smooth;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
@@ -57,42 +57,42 @@ h1, h2, h3, h4, h5, h6 {
 
 /* Typography Hierarchy Scale Standard */
 .app-heading-1 {
-  font-size: 1.125rem; /* ~16.3px with base 14.5px */
+  font-size: 1.25rem; /* ~20px with base 16px */
   font-weight: 900;
   letter-spacing: -0.025em;
   color: #1e293b; /* slate-800 */
 }
 @media (min-width: 768px) {
   .app-heading-1 {
-    font-size: 1.35rem; /* ~19.5px */
+    font-size: 1.5rem; /* ~24px */
   }
 }
 
 .app-heading-2 {
-  font-size: 0.9375rem; /* ~13.5px */
+  font-size: 1rem; /* ~16px */
   font-weight: 700;
   letter-spacing: -0.02em;
   color: #0f172a; /* slate-900 */
 }
 @media (min-width: 768px) {
   .app-heading-2 {
-    font-size: 1.05rem; /* ~15.2px */
+    font-size: 1.125rem; /* ~18px */
   }
 }
 
 .app-heading-3 {
-  font-size: 0.75rem; /* ~10.8px */
+  font-size: 0.8125rem; /* ~13px */
   font-weight: 700;
   color: #0f172a;
 }
 @media (min-width: 768px) {
   .app-heading-3 {
-    font-size: 0.8125rem; /* ~11.8px */
+    font-size: 0.875rem; /* ~14px */
   }
 }
 
 .app-badge-pill {
-  font-size: 9.5px;
+  font-size: 11px;
   font-weight: 700;
   white-space: nowrap;
   letter-spacing: 0.01em;

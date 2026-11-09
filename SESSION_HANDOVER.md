@@ -111,6 +111,21 @@
    - `npm run build`: Vite build hoàn tất thành công trong ~8 giây.
    - Chrome DevTools: Render hoàn hảo, không có lỗi console.
 
+### I. Điều Chỉnh Tăng Cỡ Chữ Lên 01 Size Toàn Hệ Thống (Typography Scale Up)
+1. **Thiết lập Base Root 16px ([`src/index.css`](file:///c:/Users/KHUPHO3/Downloads/khuphothongminh-main/khuphothongminh-main/src/index.css)):**
+   - Nâng `html { font-size: 16px; }` (tăng +1.5px, ~+10.3% so với mức 14.5px trước đó), đưa toàn bộ tỷ lệ `rem` trên app về kích thước chuẩn dễ đọc, rõ ràng.
+2. **Cân chỉnh Heading & Badge Hierarchy:**
+   - `.app-heading-1`: tăng lên `1.25rem` (~20px), desktop `1.5rem` (~24px).
+   - `.app-heading-2`: tăng lên `1rem` (~16px), desktop `1.125rem` (~18px).
+   - `.app-heading-3`: tăng lên `0.8125rem` (~13px), desktop `0.875rem` (~14px).
+   - `.app-badge-pill`: tăng lên `11px` (rõ nét, không bị nhòe).
+3. **Cân chỉnh Modal Thông tin Chi tiết ([`src/components/common/DetailRow.tsx`](file:///c:/Users/KHUPHO3/Downloads/khuphothongminh-main/khuphothongminh-main/src/components/common/DetailRow.tsx)):**
+   - Nhãn (Label): `text-xs font-medium` (`min-w-[140px] sm:min-w-[160px]`).
+   - Giá trị (Value): `text-xs sm:text-sm font-semibold text-slate-900`.
+   - Padding dòng: `py-2` thoáng đãng, dễ theo dõi.
+4. **Thẻ Chỉ số KPI ([`src/components/common/StatCard.tsx`](file:///c:/Users/KHUPHO3/Downloads/khuphothongminh-main/khuphothongminh-main/src/components/common/StatCard.tsx)):**
+   - Nhãn tiêu đề và phụ đề: tăng lên `text-xs font-bold`.
+
 ---
 
 ## 3. HƯỚNG DẪN DÀNH CHO PHIÊN LÀM VIỆC TIẾP THEO

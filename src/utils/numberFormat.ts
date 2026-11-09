@@ -38,3 +38,4 @@ export function formatTextNumbers(text: string): string {
 }
 
 export default formatVNNumber;
+

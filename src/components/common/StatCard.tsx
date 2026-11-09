@@ -68,7 +68,7 @@ export function StatCard({
       data-elevation="none"
     >
       <div className="space-y-1 min-w-0 flex-1">
-        <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block truncate">
+        <span className="text-xs font-bold text-slate-500 uppercase tracking-wider block truncate">
           {label}
         </span>
         <div className="flex items-baseline gap-2">
@@ -78,7 +78,7 @@ export function StatCard({
           {badge}
         </div>
         {formattedSubtext && (
-          <p className="text-[11px] text-slate-400 font-medium truncate mt-0.5">
+          <p className="text-xs text-slate-400 font-medium truncate mt-0.5">
             {formattedSubtext}
           </p>
         )}
