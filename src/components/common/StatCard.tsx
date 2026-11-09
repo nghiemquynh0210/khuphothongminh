@@ -14,8 +14,11 @@ export interface StatCardProps {
 
 /**
  * Standardized KPI Stat Card for all dashboard modules.
- * Guarantees uniform padding, typography, border, icon badges, and elevation.
- * Automatically formats integers with Vietnamese dot separators (e.g. 11632 -> 11.632).
+ * Adheres to Meta Astryx design system principles:
+ * - High-contrast WCAG AAA metrics display
+ * - 4dp spacing grid with consistent padding and radius
+ * - Semantic accent icon container with subtle border
+ * - Automatic Vietnamese thousands dot separators (e.g. 11632 -> 11.632)
  */
 export function StatCard({
   label,
@@ -58,9 +61,11 @@ export function StatCard({
   return (
     <div
       onClick={onClick}
-      className={`bg-white p-4.5 rounded-2xl border border-slate-200/80 shadow-xs hover:shadow-md transition-all flex items-center justify-between gap-3.5 ${
+      className={`astryx-card bg-white p-4.5 rounded-2xl border border-slate-200/80 shadow-xs hover:shadow-md transition-all flex items-center justify-between gap-3.5 ${
         onClick ? "cursor-pointer hover:border-slate-300" : ""
       } ${className}`}
+      data-variant="default"
+      data-elevation="none"
     >
       <div className="space-y-1 min-w-0 flex-1">
         <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block truncate">

@@ -28,7 +28,10 @@
   },
   "dependencies": {
     "@animate-ui/react": "^2.4.2",
+    "@astryxdesign/core": "^0.7.11",
+    "@astryxdesign/theme-neutral": "^0.7.11",
     "@google/genai": "^2.4.0",
+    "@stylexjs/stylex": "^0.19.1",
     "@supabase/supabase-js": "^2.117.3",
     "@tailwindcss/vite": "^4.1.14",
     "@types/leaflet": "^1.9.22",
@@ -47,6 +50,7 @@
     "xlsx": "^0.18.5"
   },
   "devDependencies": {
+    "@astryxdesign/cli": "^0.7.11",
     "@eslint/js": "^10.0.1",
     "@testing-library/dom": "^10.4.2",
     "@testing-library/jest-dom": "^7.0.1",

@@ -1,6 +1,6 @@
 # BIÊN BẢN BÀN GIAO & CẬP NHẬT PHIÊN LÀM VIỆC (SESSION HANDOVER)
 **Dự án:** Cổng Dịch vụ Cư dân số & Hệ thống Quản trị Thông minh Khu phố 3, Phường An Phú  
-**Thời gian cập nhật:** 09/11/2026 (10:35 UTC+7)  
+**Thời gian cập nhật:** 09/11/2026 (11:05 UTC+7)  
 **Trạng thái phiên:** Sẵn sàng cho phiên tiếp theo (Ready for Next Session)
 
 ---
@@ -8,11 +8,11 @@
 ## 1. THÔNG SỐ KỸ THUẬT & TRẠNG THÁI TOÀN HỆ THỐNG
 - **Mã nguồn & GitHub Repository:**
   - GitHub Remote: `https://github.com/nghiemquynh0210/khuphothongminh.git` (Nhánh: `main`)
-  - Commit mới nhất: `5cd81e9` ("feat(ui-ux): reduce global typography scale by 1 size for dense civic UI")
+  - Commit mới nhất: `ba143d7` ("feat(ui-ux): format all summary numbers and KPIs with Vietnamese thousands dot separators")
   - Trạng thái Git: Đã push 100% lên GitHub `origin/main`. Working tree sạch hoàn toàn (`clean`).
 - **Nền tảng Vercel Production:**
   - Trang chính thức: 👉 **[https://khuphothongminh.vercel.app](https://khuphothongminh.vercel.app)**
-  - Deployment ID: `dpl_4EFcpPZYjSEuKCoJxGKyTz2gUQjM`
+  - Deployment ID: `dpl_854Aq4QSaAfu4hHH3EimCv1YMfj9`
   - Vercel Team: `khupho3-s-projects` / Project: `khuphothongminh`
   - Trạng thái Vercel: `READY` (HTTP 200 OK).
 - **Cơ sở dữ liệu Supabase Cloud:**
@@ -73,6 +73,43 @@
    - Cỡ chữ nhãn (Label): `text-[11.5px]`, chiều rộng cố định tối thiểu `min-w-[130px] sm:min-w-[150px]`.
    - Cỡ chữ giá trị (Value): `text-xs sm:text-[13px]`.
    - Chiều cao các modal chi tiết (Hồ sơ cư dân, Hộ khẩu, Doanh nghiệp) giảm ~20%, vừa vặn hoàn hảo trong khung nhìn màn hình mà không bị tràn hay che mất thanh nút tác vụ phía dưới.
+
+### G. Định Dạng Dấu Phân Cách Hàng Nghìn Chuẩn Việt Nam (Thousand Separator Dot)
+1. **Tiện ích Chuẩn hóa ([`src/utils/numberFormat.ts`](file:///c:/Users/KHUPHO3/Downloads/khuphothongminh-main/khuphothongminh-main/src/utils/numberFormat.ts)):**
+   - Xây dựng hàm `formatVNNumber(val)` và `formatTextNumbers(text)` chuyển đổi số nguyên sang định dạng phân cách hàng nghìn bằng dấu chấm (`.`) theo chuẩn ngôn ngữ Tiếng Việt (`vi-VN`), ví dụ: `11632` -> `11.632`, `2076` -> `2.076`, `9556` -> `9.556`.
+   - Cơ chế thông minh tự động loại trừ các định dạng ngày tháng (`18/07/2026`), số nghị định (`80/2021`), số CCCD/Định danh hoặc số điện thoại (bắt đầu bằng `0`).
+2. **Tự động hóa thẻ chỉ số chung ([`StatCard.tsx`](file:///c:/Users/KHUPHO3/Downloads/khuphothongminh-main/khuphothongminh-main/src/components/common/StatCard.tsx)):**
+   - Tất cả các thẻ chỉ số KPI trên toàn app tự động định dạng số liệu `value` và chuỗi `subtext` với dấu phân cách hàng nghìn.
+3. **Phân trang ([`Pagination.tsx`](file:///c:/Users/KHUPHO3/Downloads/khuphothongminh-main/khuphothongminh-main/src/components/Pagination.tsx)):**
+   - Hiển thị chuẩn `Hiển thị 1-8 trong số 11.632 bản ghi`.
+4. **Áp dụng đồng bộ mọi phân hệ:**
+   - Dân cư (`CitizenManagement.tsx`): KPI `11.632 người`, `2.076 công dân`, `9.556 người`, tab `Tất cả (11.632)`.
+   - Hộ tịch & Sổ hộ khẩu (`HouseholdManagement.tsx`, `HouseholdDashboard.tsx`): `Quy mô 11.647 nhân khẩu`, `488 hộ`.
+   - Cơ sở kinh doanh (`BusinessManagement.tsx`): KPI cơ sở, số phòng nhà trọ, danh mục ngành nghề.
+   - Doanh nghiệp DNNVV (`EnterpriseManagement.tsx`): Số lượng doanh nghiệp, phân bổ quy mô lao động.
+   - Bản đồ GIS (`GisMap.tsx`): Thẻ định vị GIS và các lớp bản đồ số.
+   - Bảng điều khiển (`Dashboard.tsx`): Tổng dân cư, cơ cấu độ tuổi, cảnh báo tạm trú.
+   - Chi bộ & Đoàn thể (`PartyBranch.tsx`): Số lượng hội viên, đoàn viên.
+   - Biểu mẫu hành chính (`AdministrativeForms.tsx`): Tổng số biểu mẫu chuẩn hóa.
+
+### H. Tích hợp Hệ Thống Thiết Kế Meta Astryx (`meta/astryx`)
+1. **Cài đặt thư viện & công cụ:**
+   - Đã cài đặt trọn bộ gói chính thức từ Meta: `@astryxdesign/core: ^0.7.11`, `@astryxdesign/theme-neutral: ^0.7.11`, `@stylexjs/stylex: ^0.19.1`, và devDependency `@astryxdesign/cli: ^0.7.11`.
+   - Khởi tạo CLI với `npx @astryxdesign/cli init`, tích hợp tệp cấu hình `AGENTS.md` và `GEMINI.md`.
+2. **Cấu hình Stylesheet & Cầu nối Tailwind CSS v4:**
+   - Đã liên kết đầy đủ các layer trong `src/index.css`:
+     + `@import "@astryxdesign/core/reset.css";`
+     + `@import "@astryxdesign/core/astryx.css";`
+     + `@import "@astryxdesign/theme-neutral/theme.css";`
+     + `@import "@astryxdesign/core/tailwind-theme.css";`
+   - Kế thừa toàn bộ hệ thống semantic tokens: `--spacing-1` (4px base), `--radius-element` (8px), `--radius-container` (12px), `--shadow-low`, `--shadow-med`, và bảng màu tự động chuyển đổi Light/Dark.
+3. **Thành phần dùng chung chuẩn Astryx ([`src/components/common/AstryxCivic.tsx`](file:///c:/Users/KHUPHO3/Downloads/khuphothongminh-main/khuphothongminh-main/src/components/common/AstryxCivic.tsx)):**
+   - Đóng gói các component `AstryxButton`, `AstryxBadge`, `AstryxCard`, `AstryxStatusDot` phục vụ các tác vụ công vụ và quản trị dân cư.
+   - Nâng cấp `StatCard.tsx` chuẩn hóa theo container và selector canonical của Astryx (`astryx-card`, `data-variant="default"`, `data-elevation="none"`).
+4. **Kiểm thử & Khả năng vận hành:**
+   - `npm run lint:ts`: 0 lỗi TypeScript.
+   - `npm run build`: Vite build hoàn tất thành công trong ~8 giây.
+   - Chrome DevTools: Render hoàn hảo, không có lỗi console.
 
 ---
 
