@@ -53,6 +53,7 @@ import {
 import { Resident, PartyMember, Association, AssociationMember } from "../types";
 import Pagination from "./Pagination";
 import { DetailRow, DetailGrid } from "./common/DetailRow";
+import { formatVNNumber } from "../utils/numberFormat";
 
 export interface TargetGroupConfig {
   id: string;
@@ -2434,7 +2435,7 @@ export default function PartyBranch({ partyMembers, residents = [] }: PartyBranc
                         <span className={`font-bold px-1.5 py-0.2 rounded-full text-[10px] shrink-0 ${
                           isSelected ? "bg-emerald-600 text-white" : "bg-slate-100 text-slate-600"
                         }`}>
-                          {assoc.members.length} tv
+                          {formatVNNumber(assoc.members.length)} tv
                         </span>
                       </div>
                     </div>
@@ -2563,11 +2564,11 @@ export default function PartyBranch({ partyMembers, residents = [] }: PartyBranc
             <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2.5 pb-3 border-b border-slate-100">
               <div className="flex items-center gap-2">
                 <h3 className="text-sm font-bold text-slate-900 uppercase tracking-wider">
-                  Danh sách hội viên ({selectedAssociation.members.length})
+                  Danh sách hội viên ({formatVNNumber(selectedAssociation.members.length)})
                 </h3>
                 {filteredMembers.length !== selectedAssociation.members.length && (
                   <span className="text-xs text-slate-400 font-normal">
-                    (Lọc: {filteredMembers.length})
+                    (Lọc: {formatVNNumber(filteredMembers.length)})
                   </span>
                 )}
               </div>

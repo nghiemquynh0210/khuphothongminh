@@ -27,6 +27,7 @@ import {
 } from "lucide-react";
 import { AdministrativeForm } from "../types";
 import { initialAdministrativeForms } from "../mockForms";
+import { formatVNNumber } from "../utils/numberFormat";
 
 interface AdministrativeFormsProps {
   forms?: AdministrativeForm[];
@@ -400,7 +401,7 @@ export default function AdministrativeForms({
         <div className="mt-4 pt-3.5 border-t border-slate-200/80 flex flex-wrap gap-4 md:gap-8 text-xs text-slate-600">
           <div className="flex items-center gap-2 font-medium">
             <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
-            <span>Tổng số: <strong className="text-slate-800 font-bold">{currentForms.length} Biểu mẫu chuẩn hóa</strong></span>
+            <span>Tổng số: <strong className="text-slate-800 font-bold">{formatVNNumber(currentForms.length)} Biểu mẫu chuẩn hóa</strong></span>
           </div>
           <div className="flex items-center gap-2 font-medium">
             <CheckCircle2 size={14} className="text-emerald-600" />

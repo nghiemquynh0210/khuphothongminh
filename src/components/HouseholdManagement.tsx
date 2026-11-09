@@ -41,6 +41,7 @@ import {
 import Pagination from "./Pagination";
 import { PageHeader } from "./common/PageHeader";
 import { StatCard } from "./common/StatCard";
+import { formatVNNumber } from "../utils/numberFormat";
 
 // Sub-component imports
 import HouseholdDashboard from "./household/HouseholdDashboard";
@@ -913,28 +914,28 @@ export default function HouseholdManagement({
                 <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 animate-in fade-in duration-200">
                   <StatCard
                     label="Tổng số hộ quản lý"
-                    value={totalH}
-                    subtext={`Quy mô ${totalResidentsInHh} nhân khẩu`}
+                    value={formatVNNumber(totalH)}
+                    subtext={`Quy mô ${formatVNNumber(totalResidentsInHh)} nhân khẩu`}
                     icon={<Home size={22} />}
                     color="emerald"
                   />
                   <StatCard
                     label="Sổ hộ thường trú"
-                    value={ttCount}
+                    value={formatVNNumber(ttCount)}
                     subtext="Chuẩn hóa CSDL Đề án 06/CP"
                     icon={<Check size={22} />}
                     color="blue"
                   />
                   <StatCard
                     label="Sổ hộ tạm trú"
-                    value={tamCount}
+                    value={formatVNNumber(tamCount)}
                     subtext="Lưu trú, thuê trọ địa bàn"
                     icon={<Calendar size={22} />}
                     color="amber"
                   />
                   <StatCard
                     label="Số hóa mốc GIS"
-                    value={gisCount}
+                    value={formatVNNumber(gisCount)}
                     subtext={`100% đã ghim tọa độ số`}
                     icon={<Compass size={22} />}
                     color="indigo"
@@ -1013,7 +1014,7 @@ export default function HouseholdManagement({
           <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden flex flex-col w-full">
             <div className="p-4 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
               <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">
-                {showSoftDeleted ? "Lưu trữ thùng rác sổ hộ khẩu" : "Danh sách sổ chính thống"} ({filteredHouseholds.length})
+                {showSoftDeleted ? "Lưu trữ thùng rác sổ hộ khẩu" : "Danh sách sổ chính thống"} ({formatVNNumber(filteredHouseholds.length)})
               </span>
             </div>
 

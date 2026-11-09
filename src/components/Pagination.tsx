@@ -1,5 +1,6 @@
 import React from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
+import { formatVNNumber } from "../utils/numberFormat";
 
 interface PaginationProps {
   id?: string;
@@ -21,7 +22,7 @@ export default function Pagination({
   if (totalPages <= 1) {
     return (
       <div id={id} className="flex items-center justify-between px-6 py-4 bg-white border-t border-slate-100 text-xs text-slate-500">
-        <span>Hiển thị tất cả <b>{totalItems}</b> bản ghi</span>
+        <span>Hiển thị tất cả <b>{formatVNNumber(totalItems)}</b> bản ghi</span>
       </div>
     );
   }
@@ -62,7 +63,7 @@ export default function Pagination({
   return (
     <div id={id} className="flex flex-col sm:flex-row items-center justify-between gap-4 px-6 py-4 bg-white border-t border-slate-100 text-xs text-slate-500">
       <div>
-        Hiển thị <b className="text-slate-800">{startItem}-{endItem}</b> trong số <b className="text-slate-800">{totalItems}</b> bản ghi
+        Hiển thị <b className="text-slate-800">{formatVNNumber(startItem)}-{formatVNNumber(endItem)}</b> trong số <b className="text-slate-800">{formatVNNumber(totalItems)}</b> bản ghi
       </div>
 
       <div className="flex items-center gap-1.5">

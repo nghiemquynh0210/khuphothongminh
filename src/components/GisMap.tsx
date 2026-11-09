@@ -58,6 +58,7 @@ import {
 import { TargetGisItem } from "../types";
 import GisBoundaryManagerModal, { DEFAULT_KP3_BOUNDARY, BoundaryStyle, BOUNDARY_PRESETS } from "./gis/GisBoundaryManagerModal";
 import LeafletGisMap from "./gis/LeafletGisMap";
+import { formatVNNumber } from "../utils/numberFormat";
 
 // API Key retrieval from multiple possible sources
 const API_KEY =
@@ -1146,7 +1147,7 @@ export default function GisMap({
           </div>
           <div>
             <p className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Hộ khẩu định vị</p>
-            <p className="text-sm font-extrabold text-slate-800">{counts.household} / {households.length} hộ</p>
+            <p className="text-sm font-extrabold text-slate-800">{formatVNNumber(counts.household)} / {formatVNNumber(households.length)} hộ</p>
           </div>
         </div>
 
@@ -1156,7 +1157,7 @@ export default function GisMap({
           </div>
           <div>
             <p className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Doanh nghiệp GIS</p>
-            <p className="text-sm font-extrabold text-slate-800">{counts.business} / {businesses.length}</p>
+            <p className="text-sm font-extrabold text-slate-800">{formatVNNumber(counts.business)} / {formatVNNumber(businesses.length)}</p>
           </div>
         </div>
 
@@ -1166,7 +1167,7 @@ export default function GisMap({
           </div>
           <div>
             <p className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Camera An ninh</p>
-            <p className="text-sm font-extrabold text-slate-800">{counts.camera} mắt</p>
+            <p className="text-sm font-extrabold text-slate-800">{formatVNNumber(counts.camera)} mắt</p>
           </div>
         </div>
 
@@ -1176,7 +1177,7 @@ export default function GisMap({
           </div>
           <div>
             <p className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Thiết bị PCCC</p>
-            <p className="text-sm font-extrabold text-slate-800">{counts.fire} trụ</p>
+            <p className="text-sm font-extrabold text-slate-800">{formatVNNumber(counts.fire)} trụ</p>
           </div>
         </div>
       </div>
@@ -1263,7 +1264,7 @@ export default function GisMap({
               <label className="flex items-center justify-between p-2 rounded-lg border border-slate-50 hover:bg-slate-50 transition-colors cursor-pointer text-[11px] font-medium text-slate-700">
                 <div className="flex items-center gap-2">
                   <Home size={13} className="text-indigo-600" />
-                  <span>Sổ Hộ Khẩu Dân Cư ({counts.household})</span>
+                  <span>Sổ Hộ Khẩu Dân Cư ({formatVNNumber(counts.household)})</span>
                 </div>
                 <input 
                   id="gis-layer-household"
@@ -1279,7 +1280,7 @@ export default function GisMap({
               <label className="flex items-center justify-between p-2 rounded-lg border border-slate-50 hover:bg-slate-50 transition-colors cursor-pointer text-[11px] font-medium text-slate-700">
                 <div className="flex items-center gap-2">
                   <Building size={13} className="text-cyan-600" />
-                  <span>Cơ sở Kinh doanh ({counts.business})</span>
+                  <span>Cơ sở Kinh doanh ({formatVNNumber(counts.business)})</span>
                 </div>
                 <input 
                   id="gis-layer-business"
@@ -1295,7 +1296,7 @@ export default function GisMap({
               <label className="flex items-center justify-between p-2 rounded-lg border border-slate-50 hover:bg-slate-50 transition-colors cursor-pointer text-[11px] font-medium text-slate-700">
                 <div className="flex items-center gap-2">
                   <Camera size={13} className="text-emerald-500" />
-                  <span>Camera An ninh ({counts.camera})</span>
+                  <span>Camera An ninh ({formatVNNumber(counts.camera)})</span>
                 </div>
                 <input 
                   id="gis-layer-camera"
@@ -1311,7 +1312,7 @@ export default function GisMap({
               <label className="flex items-center justify-between p-2 rounded-lg border border-slate-50 hover:bg-slate-50 transition-colors cursor-pointer text-[11px] font-medium text-slate-700">
                 <div className="flex items-center gap-2">
                   <Flame size={13} className="text-rose-500" />
-                  <span>Thiết bị PCCC ({counts.fire})</span>
+                  <span>Thiết bị PCCC ({formatVNNumber(counts.fire)})</span>
                 </div>
                 <input 
                   id="gis-layer-fire"
@@ -1327,7 +1328,7 @@ export default function GisMap({
               <label className="flex items-center justify-between p-2 rounded-lg border border-slate-50 hover:bg-slate-50 transition-colors cursor-pointer text-[11px] font-medium text-slate-700">
                 <div className="flex items-center gap-2">
                   <Lightbulb size={13} className="text-amber-500" />
-                  <span>Đèn chiếu sáng Smart LED ({counts.light})</span>
+                  <span>Đèn chiếu sáng Smart LED ({formatVNNumber(counts.light)})</span>
                 </div>
                 <input 
                   id="gis-layer-light"

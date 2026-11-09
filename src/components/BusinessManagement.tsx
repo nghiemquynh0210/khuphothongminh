@@ -80,6 +80,7 @@ import {
 import Pagination from "./Pagination";
 import * as XLSX from "xlsx";
 import { DetailRow, DetailGrid } from "./common/DetailRow";
+import { formatVNNumber } from "../utils/numberFormat";
 import { 
   isResidentInAccommodation, 
   parseAccommodationInfo, 
@@ -1547,7 +1548,7 @@ export default function BusinessManagement({
           <div>
             <span className="text-[11px] font-semibold text-slate-400 block uppercase tracking-wider">Tổng cơ sở kinh doanh</span>
             <div className="flex items-baseline gap-1.5">
-              <span className="text-lg sm:text-xl font-black text-slate-800">{businesses.length}</span>
+              <span className="text-lg sm:text-xl font-black text-slate-800">{formatVNNumber(businesses.length)}</span>
               <span className="text-[10px] text-slate-500">cơ sở</span>
             </div>
           </div>
@@ -1560,8 +1561,8 @@ export default function BusinessManagement({
           <div>
             <span className="text-[11px] font-semibold text-amber-800 block uppercase tracking-wider">Nhà trọ & Lưu trú</span>
             <div className="flex items-baseline gap-1.5">
-              <span className="text-lg sm:text-xl font-black text-amber-900">{totalAccomCount}</span>
-              <span className="text-[10px] text-amber-700 font-bold">({totalRooms} phòng)</span>
+              <span className="text-lg sm:text-xl font-black text-amber-900">{formatVNNumber(totalAccomCount)}</span>
+              <span className="text-[10px] text-amber-700 font-bold">({formatVNNumber(totalRooms)} phòng)</span>
             </div>
           </div>
         </div>
@@ -1573,8 +1574,8 @@ export default function BusinessManagement({
           <div>
             <span className="text-[11px] font-semibold text-indigo-800 block uppercase tracking-wider">Hồ sơ Sổ đỏ đính kèm</span>
             <div className="flex items-baseline gap-1.5">
-              <span className="text-lg sm:text-xl font-black text-indigo-900">{totalSoDoFiles}</span>
-              <span className="text-[10px] text-indigo-700 font-bold">/ {businesses.length} cơ sở</span>
+              <span className="text-lg sm:text-xl font-black text-indigo-900">{formatVNNumber(totalSoDoFiles)}</span>
+              <span className="text-[10px] text-indigo-700 font-bold">/ {formatVNNumber(businesses.length)} cơ sở</span>
             </div>
           </div>
         </div>
@@ -1586,7 +1587,7 @@ export default function BusinessManagement({
           <div>
             <span className="text-[11px] font-semibold text-emerald-800 block uppercase tracking-wider">Đạt chuẩn PCCC</span>
             <div className="flex items-baseline gap-1.5">
-              <span className="text-lg sm:text-xl font-black text-emerald-900">{totalCertifiedPccc}</span>
+              <span className="text-lg sm:text-xl font-black text-emerald-900">{formatVNNumber(totalCertifiedPccc)}</span>
               <span className="text-[10px] text-emerald-700 font-bold">cơ sở</span>
             </div>
           </div>
@@ -1621,12 +1622,12 @@ export default function BusinessManagement({
               onChange={(e) => handleCategoryFilterChange(e.target.value)}
               className="px-2.5 py-1.5 border border-slate-200 rounded-xl text-xs bg-white focus:outline-none focus:border-indigo-500 font-medium max-w-[150px] truncate"
             >
-              <option value="Tất cả">Tất cả ngành nghề ({businesses.length})</option>
+              <option value="Tất cả">Tất cả ngành nghề ({formatVNNumber(businesses.length)})</option>
               {INDUSTRY_SECTORS.map((sec) => {
                 const count = sectorStats.find(s => s.id === sec.id)?.count || 0;
                 return (
                   <option key={sec.id} value={sec.id}>
-                    {sec.icon} {sec.name} ({count})
+                    {sec.icon} {sec.name} ({formatVNNumber(count)})
                   </option>
                 );
               })}

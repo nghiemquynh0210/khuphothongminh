@@ -49,6 +49,7 @@ import {
 } from "../utils/gisUtils";
 import Pagination from "./Pagination";
 import { DetailRow, DetailGrid } from "./common/DetailRow";
+import { formatVNNumber } from "../utils/numberFormat";
 
 interface EnterpriseManagementProps {
   businesses: Business[];
@@ -722,7 +723,7 @@ export default function EnterpriseManagement({
             <span className={`text-[10px] px-2 py-0.5 rounded-full font-extrabold ${
               activeMainTab === "list" ? "bg-indigo-50 text-indigo-700" : "bg-slate-200 text-slate-600"
             }`}>
-              {enterprises.length}
+              {formatVNNumber(enterprises.length)}
             </span>
           </button>
 
@@ -758,7 +759,7 @@ export default function EnterpriseManagement({
               <div>
                 <span className="text-[10.5px] font-semibold text-slate-400 block uppercase tracking-wider">Tổng doanh nghiệp</span>
                 <div className="flex items-baseline gap-1.5">
-                  <span className="text-xl font-black text-slate-900">{enterprises.length}</span>
+                  <span className="text-xl font-black text-slate-900">{formatVNNumber(enterprises.length)}</span>
                   <span className="text-[10px] text-slate-500">đơn vị</span>
                 </div>
               </div>
@@ -771,7 +772,7 @@ export default function EnterpriseManagement({
               <div>
                 <span className="text-[10.5px] font-semibold text-slate-400 block uppercase tracking-wider">Công ty TNHH</span>
                 <div className="flex items-baseline gap-1.5">
-                  <span className="text-xl font-black text-blue-900">{tnhhCount}</span>
+                  <span className="text-xl font-black text-blue-900">{formatVNNumber(tnhhCount)}</span>
                   <span className="text-[10px] text-blue-700 font-bold">({((tnhhCount / (enterprises.length || 1)) * 100).toFixed(0)}%)</span>
                 </div>
               </div>
@@ -784,7 +785,7 @@ export default function EnterpriseManagement({
               <div>
                 <span className="text-[10.5px] font-semibold text-slate-400 block uppercase tracking-wider">Cổ phần & DNTN</span>
                 <div className="flex items-baseline gap-1.5">
-                  <span className="text-xl font-black text-teal-900">{cpCount + dntnCount}</span>
+                  <span className="text-xl font-black text-teal-900">{formatVNNumber(cpCount + dntnCount)}</span>
                   <span className="text-[10px] text-teal-700">cơ sở</span>
                 </div>
               </div>
@@ -797,8 +798,8 @@ export default function EnterpriseManagement({
               <div>
                 <span className="text-[10.5px] font-semibold text-purple-800 block uppercase tracking-wider">Lực lượng lao động</span>
                 <div className="flex items-baseline gap-1.5">
-                  <span className="text-xl font-black text-purple-950">{totalEmployees}</span>
-                  <span className="text-[10px] text-purple-700 font-bold">({totalForeignWorkers} NN)</span>
+                  <span className="text-xl font-black text-purple-950">{formatVNNumber(totalEmployees)}</span>
+                  <span className="text-[10px] text-purple-700 font-bold">({formatVNNumber(totalForeignWorkers)} NN)</span>
                 </div>
               </div>
             </div>
@@ -810,7 +811,7 @@ export default function EnterpriseManagement({
               <div>
                 <span className="text-[10.5px] font-semibold text-amber-800 block uppercase tracking-wider">Đề xuất hỗ trợ</span>
                 <div className="flex items-baseline gap-1.5">
-                  <span className="text-xl font-black text-amber-950">{totalSupportNeeds}</span>
+                  <span className="text-xl font-black text-amber-950">{formatVNNumber(totalSupportNeeds)}</span>
                   <span className="text-[10px] text-amber-700 font-bold">doanh nghiệp</span>
                 </div>
               </div>

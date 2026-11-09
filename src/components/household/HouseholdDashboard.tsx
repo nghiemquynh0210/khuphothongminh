@@ -1,6 +1,7 @@
 import React from "react";
 import { Users, UserCheck, ShieldAlert, Award, FileText, CheckCircle, TrendingUp, Calendar } from "lucide-react";
 import { Household, Resident } from "../../types";
+import { formatVNNumber } from "../../utils/numberFormat";
 
 interface HouseholdDashboardProps {
   households: Household[];
@@ -51,7 +52,7 @@ export default function HouseholdDashboard({ households, residents }: HouseholdD
             <div className="p-1.5 bg-emerald-50 text-emerald-600 rounded-lg"><FileText size={14} /></div>
           </div>
           <div>
-            <div className="text-2xl font-black text-slate-800">{totalHouseholds}</div>
+            <div className="text-2xl font-black text-slate-800">{formatVNNumber(totalHouseholds)}</div>
             <p className="text-[10px] text-emerald-600 font-semibold flex items-center gap-0.5 mt-0.5">
               <TrendingUp size={11} /> 100% Đồng bộ pháp lý
             </p>
@@ -66,7 +67,7 @@ export default function HouseholdDashboard({ households, residents }: HouseholdD
             <div className="p-1.5 bg-indigo-50 text-indigo-600 rounded-lg"><UserCheck size={14} /></div>
           </div>
           <div>
-            <div className="text-2xl font-black text-slate-800">{thuongTruCount}</div>
+            <div className="text-2xl font-black text-slate-800">{formatVNNumber(thuongTruCount)}</div>
             <p className="text-[10px] text-slate-400 mt-0.5">Chiếm {getPercent(thuongTruCount)}% tổng dân số</p>
           </div>
         </div>
@@ -79,7 +80,7 @@ export default function HouseholdDashboard({ households, residents }: HouseholdD
             <div className="p-1.5 bg-amber-50 text-amber-600 rounded-lg"><ShieldAlert size={14} /></div>
           </div>
           <div>
-            <div className="text-2xl font-black text-slate-800">{tamTruCount}</div>
+            <div className="text-2xl font-black text-slate-800">{formatVNNumber(tamTruCount)}</div>
             <p className="text-[10px] text-slate-400 mt-0.5">Chiếm {getPercent(tamTruCount)}% tổng dân số</p>
           </div>
         </div>
@@ -92,7 +93,7 @@ export default function HouseholdDashboard({ households, residents }: HouseholdD
             <div className="p-1.5 bg-teal-50 text-teal-600 rounded-lg"><Users size={14} /></div>
           </div>
           <div>
-            <div className="text-2xl font-black text-slate-800">{totalResidents}</div>
+            <div className="text-2xl font-black text-slate-800">{formatVNNumber(totalResidents)}</div>
             <p className="text-[10px] text-teal-600 font-semibold flex items-center gap-0.5 mt-0.5">
               <CheckCircle size={11} /> Bình quân {totalHouseholds > 0 ? (totalResidents / totalHouseholds).toFixed(1) : 0} người/hộ
             </p>

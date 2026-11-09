@@ -1,4 +1,5 @@
 import React from "react";
+import { formatVNNumber, formatTextNumbers } from "../../utils/numberFormat";
 
 export interface StatCardProps {
   label: string;
@@ -14,6 +15,7 @@ export interface StatCardProps {
 /**
  * Standardized KPI Stat Card for all dashboard modules.
  * Guarantees uniform padding, typography, border, icon badges, and elevation.
+ * Automatically formats integers with Vietnamese dot separators (e.g. 11632 -> 11.632).
  */
 export function StatCard({
   label,
@@ -35,6 +37,24 @@ export function StatCard({
     slate: "bg-slate-100 text-slate-700 border-slate-200/80"
   };
 
+  // Format value: if number, use formatVNNumber; if string, format any raw numbers inside
+  const formattedValue = React.useMemo(() => {
+    if (typeof value === "number") {
+      return formatVNNumber(value);
+    }
+    if (typeof value === "string") {
+      return formatTextNumbers(value);
+    }
+    return value;
+  }, [value]);
+
+  const formattedSubtext = React.useMemo(() => {
+    if (typeof subtext === "string") {
+      return formatTextNumbers(subtext);
+    }
+    return subtext;
+  }, [subtext]);
+
   return (
     <div
       onClick={onClick}
@@ -48,13 +68,13 @@ export function StatCard({
         </span>
         <div className="flex items-baseline gap-2">
           <span className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight leading-none">
-            {value}
+            {formattedValue}
           </span>
           {badge}
         </div>
-        {subtext && (
+        {formattedSubtext && (
           <p className="text-[11px] text-slate-400 font-medium truncate mt-0.5">
-            {subtext}
+            {formattedSubtext}
           </p>
         )}
       </div>

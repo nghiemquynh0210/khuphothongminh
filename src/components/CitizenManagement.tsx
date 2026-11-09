@@ -55,6 +55,7 @@ import { supabase, isSupabaseConfigured } from "../lib/supabase";
 import { DetailRow, DetailGrid } from "./common/DetailRow";
 import { StatCard } from "./common/StatCard";
 import { PageHeader } from "./common/PageHeader";
+import { formatVNNumber } from "../utils/numberFormat";
 
 export const isForeignResident = (r: Resident): boolean => {
   return r.isForeigner === true || (Boolean(r.nationality) && r.nationality !== "Việt Nam") || Boolean(r.passportNumber);
@@ -1461,7 +1462,7 @@ NGƯỜI NƯỚC NGOÀI KHAI BÁO       CHỦ CƠ SỞ LƯU TRÚ       XÁC NH�
                 className="flex items-center gap-2 bg-slate-50 hover:bg-slate-100 border border-slate-200/90 text-slate-700 px-3.5 py-2.5 rounded-xl font-bold text-xs transition-all shadow-xs cursor-pointer hover:shadow-sm"
                 title="Xuất file Excel chứa đầy đủ 26 trường thông tin của toàn bộ nhân khẩu"
               >
-                <Download size={15} className="text-slate-600" /> Xuất Excel ({residents.length})
+                <Download size={15} className="text-slate-600" /> Xuất Excel ({formatVNNumber(residents.length)})
               </button>
               <button 
                 id="btn-import-excel"
@@ -1490,28 +1491,28 @@ NGƯỜI NƯỚC NGOÀI KHAI BÁO       CHỦ CƠ SỞ LƯU TRÚ       XÁC NH�
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <StatCard
           label="Tổng nhân khẩu"
-          value={`${residents.length} người`}
+          value={`${formatVNNumber(residents.length)} người`}
           icon={<Users size={20} />}
           color="emerald"
           subtext="Đồng bộ CSDL Đề án 06/CP"
         />
         <StatCard
           label="Thường trú"
-          value={`${tabCounts.thuongTru} công dân`}
+          value={`${formatVNNumber(tabCounts.thuongTru)} công dân`}
           icon={<CheckCircle2 size={20} />}
           color="blue"
           subtext="Có hộ khẩu thường trú KP3"
         />
         <StatCard
           label="Tạm trú thực tế"
-          value={`${tabCounts.tamTru} người`}
+          value={`${formatVNNumber(tabCounts.tamTru)} người`}
           icon={<Clock size={20} />}
           color="amber"
           subtext="Lưu trú, phòng trọ trên địa bàn"
         />
         <StatCard
           label="Người nước ngoài"
-          value={`${tabCounts.foreigners} cư dân`}
+          value={`${formatVNNumber(tabCounts.foreigners)} cư dân`}
           icon={<Globe size={20} />}
           color="purple"
           subtext="Đăng ký tạm trú / Thị thực"
@@ -1538,7 +1539,7 @@ NGƯỜI NƯỚC NGOÀI KHAI BÁO       CHỦ CƠ SỞ LƯU TRÚ       XÁC NH�
                   : "text-slate-500 hover:text-slate-800 font-medium"
               }`}
             >
-              Tất cả ({tabCounts.all})
+              Tất cả ({formatVNNumber(tabCounts.all)})
             </button>
             <button
               type="button"
@@ -1549,7 +1550,7 @@ NGƯỜI NƯỚC NGOÀI KHAI BÁO       CHỦ CƠ SỞ LƯU TRÚ       XÁC NH�
                   : "text-slate-500 hover:text-slate-800 font-medium"
               }`}
             >
-              Thường trú ({tabCounts.thuongTru})
+              Thường trú ({formatVNNumber(tabCounts.thuongTru)})
             </button>
             <button
               type="button"
@@ -1560,10 +1561,10 @@ NGƯỜI NƯỚC NGOÀI KHAI BÁO       CHỦ CƠ SỞ LƯU TRÚ       XÁC NH�
                   : "text-slate-500 hover:text-slate-800 font-medium"
               }`}
             >
-              <span>Tạm trú ({tabCounts.tamTru})</span>
+              <span>Tạm trú ({formatVNNumber(tabCounts.tamTru)})</span>
               {tamTruExpiringSoonCount > 0 && (
                 <span className="px-1.5 py-0.2 rounded-full text-[10px] font-bold bg-amber-500 text-white animate-pulse" title={`Có ${tamTruExpiringSoonCount} cư dân tạm trú sắp hết hạn trước 1 tháng`}>
-                  ⚠️ {tamTruExpiringSoonCount}
+                  ⚠️ {formatVNNumber(tamTruExpiringSoonCount)}
                 </span>
               )}
             </button>
@@ -1576,7 +1577,7 @@ NGƯỜI NƯỚC NGOÀI KHAI BÁO       CHỦ CƠ SỞ LƯU TRÚ       XÁC NH�
                   : "text-slate-500 hover:text-slate-800 font-medium"
               }`}
             >
-              Tạm vắng ({tabCounts.tamVang})
+              Tạm vắng ({formatVNNumber(tabCounts.tamVang)})
             </button>
             <button
               type="button"
@@ -1588,7 +1589,7 @@ NGƯỜI NƯỚC NGOÀI KHAI BÁO       CHỦ CƠ SỞ LƯU TRÚ       XÁC NH�
               }`}
             >
               <Globe size={13} className={statusFilter === "Người nước ngoài" ? "text-purple-200" : "text-purple-600"} />
-              Người nước ngoài ({tabCounts.foreigners})
+              Người nước ngoài ({formatVNNumber(tabCounts.foreigners)})
             </button>
           </div>
         </div>
@@ -1607,10 +1608,10 @@ NGƯỜI NƯỚC NGOÀI KHAI BÁO       CHỦ CƠ SỞ LƯU TRÚ       XÁC NH�
                 }}
                 className="px-3 py-1.5 border border-amber-300 rounded-xl text-xs bg-amber-50/90 text-amber-950 font-bold focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 shrink-0"
               >
-                <option value="Tất cả">Thời hạn tạm trú: Tất cả ({tabCounts.tamTru})</option>
-                <option value="Sắp hết hạn (< 30 ngày)">⚠️ Sắp hết hạn trước 1 tháng ({tamTruExpiringSoonCount})</option>
-                <option value="Đã hết hạn">🚨 Đã hết hạn tạm trú ({tamTruExpiredCount})</option>
-                <option value="Còn hạn dài">Còn hạn dài ({Math.max(0, tabCounts.tamTru - tamTruExpiringSoonCount - tamTruExpiredCount)})</option>
+                <option value="Tất cả">Thời hạn tạm trú: Tất cả ({formatVNNumber(tabCounts.tamTru)})</option>
+                <option value="Sắp hết hạn (< 30 ngày)">⚠️ Sắp hết hạn trước 1 tháng ({formatVNNumber(tamTruExpiringSoonCount)})</option>
+                <option value="Đã hết hạn">🚨 Đã hết hạn tạm trú ({formatVNNumber(tamTruExpiredCount)})</option>
+                <option value="Còn hạn dài">Còn hạn dài ({formatVNNumber(Math.max(0, tabCounts.tamTru - tamTruExpiringSoonCount - tamTruExpiredCount))})</option>
               </select>
             )}
 

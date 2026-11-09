@@ -52,6 +52,7 @@ import {
   extractBirthYear, 
   getTemporaryResidenceExpiryStatus 
 } from "../utils/householdRecognitionUtils";
+import { formatVNNumber } from "../utils/numberFormat";
 
 interface DashboardProps {
   residents: Resident[];
@@ -417,7 +418,7 @@ export default function Dashboard({
             </div>
             <div>
               <span className="text-[11px] text-slate-400 font-medium block">Cơ sở kinh doanh & lưu trú</span>
-              <span className="text-xl font-black text-slate-800">{businesses.length}</span>
+              <span className="text-xl font-black text-slate-800">{formatVNNumber(businesses.length)}</span>
               <span className="text-[10px] text-slate-500 block font-mono">Doanh nghiệp & Hộ KD</span>
             </div>
           </div>
@@ -967,7 +968,7 @@ export default function Dashboard({
           </div>
           <div className="mt-3 pt-2.5 border-t border-slate-50 flex justify-between text-[11px] text-slate-500">
             <span>TB: <strong className="text-slate-700">{avgPerHousehold}</strong> người/hộ</span>
-            <span>{totalHouseholdsCount} hộ số hóa</span>
+            <span>{formatVNNumber(totalHouseholdsCount)} hộ số hóa</span>
           </div>
         </div>
 
@@ -980,7 +981,7 @@ export default function Dashboard({
             <div className="space-y-1.5">
               <span className="text-[11px] font-medium text-indigo-600 uppercase tracking-wider block font-bold">Doanh nghiệp (DNNVV)</span>
               <div className="flex items-baseline gap-1.5">
-                <span className="text-2xl sm:text-3xl font-bold text-slate-900">{totalEnterprisesCount}</span>
+                <span className="text-2xl sm:text-3xl font-bold text-slate-900">{formatVNNumber(totalEnterprisesCount)}</span>
                 <span className="text-indigo-500 text-[10px] font-semibold flex items-center gap-0.5">
                   Độc lập <TrendingUp size={11} />
                 </span>
@@ -1005,7 +1006,7 @@ export default function Dashboard({
             <div className="space-y-1.5">
               <span className="text-[11px] font-medium text-slate-500 uppercase tracking-wider block">Cơ sở Kinh doanh</span>
               <div className="flex items-baseline gap-1.5">
-                <span className="text-2xl sm:text-3xl font-bold text-slate-900">{totalEstablishmentsCount}</span>
+                <span className="text-2xl sm:text-3xl font-bold text-slate-900">{formatVNNumber(totalEstablishmentsCount)}</span>
                 <span className="text-amber-600 text-[10px] font-semibold flex items-center gap-0.5">
                   Tại chỗ
                 </span>
@@ -1016,8 +1017,8 @@ export default function Dashboard({
             </div>
           </div>
           <div className="mt-3 pt-2.5 border-t border-slate-50 flex justify-between text-[11px] text-slate-500">
-            <span>{totalHostelsCount} nhà trọ ({totalRoomsCount} phòng)</span>
-            <span>{totalEstablishmentsCount - totalHostelsCount} Hộ KD khác</span>
+            <span>{formatVNNumber(totalHostelsCount)} nhà trọ ({formatVNNumber(totalRoomsCount)} phòng)</span>
+            <span>{formatVNNumber(totalEstablishmentsCount - totalHostelsCount)} Hộ KD khác</span>
           </div>
         </div>
 
@@ -1030,7 +1031,7 @@ export default function Dashboard({
             <div className="space-y-1.5">
               <span className="text-[11px] font-medium text-slate-500 uppercase tracking-wider block">Phản ánh hiện trường</span>
               <div className="flex items-baseline gap-1.5">
-                <span className="text-2xl sm:text-3xl font-bold text-rose-600">{pendingReportsCount}</span>
+                <span className="text-2xl sm:text-3xl font-bold text-rose-600">{formatVNNumber(pendingReportsCount)}</span>
                 <span className="text-rose-500 text-[10px] font-semibold animate-pulse">Cần xử lý</span>
               </div>
             </div>
@@ -1101,7 +1102,7 @@ export default function Dashboard({
               title="Xem danh sách người cư trú nước ngoài tại Khu phố 3"
             >
               <Globe size={13} className="text-purple-600 shrink-0" />
-              <span>NNN: <strong>{foreignCount}</strong> (Luật 47) →</span>
+              <span>NNN: <strong>{formatVNNumber(foreignCount)}</strong> (Luật 47) →</span>
             </div>
           </div>
         </div>
@@ -1206,22 +1207,22 @@ export default function Dashboard({
               <div className="flex justify-between items-center">
                 <span className="text-slate-400">Sắp hết hạn (≤30 ngày):</span>
                 <span className={`px-2 py-0.5 rounded-md font-mono font-bold text-xs ${expiringTamTruCount > 0 ? "bg-amber-500/20 text-amber-300 border border-amber-400/30 animate-pulse" : "text-slate-300"}`}>
-                  {expiringTamTruCount} người
+                  {formatVNNumber(expiringTamTruCount)} người
                 </span>
               </div>
               <div className="flex justify-between items-center">
                 <span className="text-slate-400">Đã quá hạn tạm trú:</span>
                 <span className={`px-2 py-0.5 rounded-md font-mono font-bold text-xs ${expiredTamTruCount > 0 ? "bg-rose-500/20 text-rose-300 border border-rose-400/30" : "text-slate-300"}`}>
-                  {expiredTamTruCount} người
+                  {formatVNNumber(expiredTamTruCount)} người
                 </span>
               </div>
               <div className="flex justify-between items-center">
                 <span className="text-slate-400">Hồ sơ tạm trú an toàn:</span>
-                <strong className="text-emerald-300 font-mono">{Math.max(0, tamTruCount - expiringTamTruCount - expiredTamTruCount).toLocaleString("vi-VN")}</strong>
+                <strong className="text-emerald-300 font-mono">{formatVNNumber(Math.max(0, tamTruCount - expiringTamTruCount - expiredTamTruCount))}</strong>
               </div>
             </div>
             <div className="pt-2 border-t border-white/10 text-[10px] text-slate-400 flex justify-between items-center">
-              <span>{tamTruCount.toLocaleString("vi-VN")} hồ sơ tạm trú</span>
+              <span>{formatVNNumber(tamTruCount)} hồ sơ tạm trú</span>
               <button 
                 onClick={() => setActiveTab("residents")}
                 className="text-amber-400 hover:text-amber-300 font-bold transition-colors cursor-pointer"
@@ -1240,15 +1241,15 @@ export default function Dashboard({
             <div className="space-y-1.5 text-xs text-slate-200">
               <div className="flex justify-between items-center">
                 <span className="text-slate-400">Số cơ sở trọ số hóa:</span>
-                <strong className="text-white font-mono">{totalHostelsCount} cơ sở</strong>
+                <strong className="text-white font-mono">{formatVNNumber(totalHostelsCount)} cơ sở</strong>
               </div>
               <div className="flex justify-between items-center">
                 <span className="text-slate-400">Tổng quy mô phòng:</span>
-                <strong className="text-sky-300 font-mono">{totalRoomsCount} phòng</strong>
+                <strong className="text-sky-300 font-mono">{formatVNNumber(totalRoomsCount)} phòng</strong>
               </div>
               <div className="flex justify-between items-center">
                 <span className="text-slate-400">Khách tạm trú thực tế:</span>
-                <strong className="text-emerald-300 font-mono">{tamTruCount.toLocaleString("vi-VN")} người</strong>
+                <strong className="text-emerald-300 font-mono">{formatVNNumber(tamTruCount)} người</strong>
               </div>
             </div>
             <div className="pt-2 border-t border-white/10 text-[10px] text-slate-400 flex justify-between items-center">
@@ -1271,11 +1272,11 @@ export default function Dashboard({
             <div className="space-y-1.5 text-xs text-slate-200">
               <div className="flex justify-between items-center">
                 <span className="text-slate-400">Tổng số Sổ hộ khẩu:</span>
-                <strong className="text-white font-mono">{totalHouseholdsCount} hộ (HK-xxx)</strong>
+                <strong className="text-white font-mono">{formatVNNumber(totalHouseholdsCount)} hộ (HK-xxx)</strong>
               </div>
               <div className="flex justify-between items-center">
                 <span className="text-slate-400">Nhân khẩu thường trú:</span>
-                <strong className="text-indigo-300 font-mono">{thuongTruCount.toLocaleString("vi-VN")} người</strong>
+                <strong className="text-indigo-300 font-mono">{formatVNNumber(thuongTruCount)} người</strong>
               </div>
               <div className="flex justify-between items-center">
                 <span className="text-slate-400">Nhận diện gia phả:</span>
