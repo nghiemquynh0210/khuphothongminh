@@ -33,6 +33,8 @@ import {
 import { TaskItem, ScheduleEvent } from "../types";
 import { DetailRow, DetailGrid } from "./common/DetailRow";
 import { StatCard } from "./common/StatCard";
+import { PageHeader } from "./common/PageHeader";
+import { formatVNNumber } from "../utils/numberFormat";
 
 // Default seed data for Community Tasks
 export const INITIAL_TASKS: TaskItem[] = [
@@ -442,19 +444,12 @@ export default function TaskAndSchedule() {
   return (
     <div id="task-and-schedule-module" className="space-y-6">
       {/* Header title & Sub-tab switcher */}
-      <div className="bg-gradient-to-r from-slate-50 via-white to-indigo-50/40 p-5 md:p-6 rounded-2xl border border-slate-200 shadow-2xs relative">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-          <div className="space-y-1">
-            <div className="inline-flex items-center gap-2 px-2.5 py-1 rounded-md bg-indigo-50 border border-indigo-200 text-indigo-800 text-[11px] font-bold tracking-wide uppercase">
-              <Sparkles size={13} className="text-indigo-600" />
-              <span>Ban Điều Hành & Cán Bộ • Khu Phố 3, Phường An Phú</span>
-            </div>
-            <h1 className="text-xl md:text-2xl font-black text-slate-800 tracking-tight flex items-center gap-2.5">
-              <CalendarCheck className="text-indigo-600" size={24} />
-              Lịch Công Tác Điện Tử & Phân Công Nhiệm Vụ
-            </h1>
-          </div>
-
+      <PageHeader
+        badgeIcon={<Sparkles size={14} className="text-emerald-600" />}
+        badgeText="BAN ĐIỀU HÀNH & CÁN BỘ • KHU PHỐ 3, PHƯỜNG AN PHÚ"
+        badgeSubtext="ĐIỀU HÀNH TÁC NGHIỆP"
+        title="Lịch Công Tác Điện Tử & Phân Công Nhiệm Vụ"
+        actions={
           <div className="flex items-center gap-1.5 bg-slate-100 p-1 rounded-xl border border-slate-200 shrink-0">
             <button
               id="btn-subtab-tasks"
@@ -473,49 +468,55 @@ export default function TaskAndSchedule() {
               onClick={() => setActiveSubTab("schedules")}
               className={`px-3.5 py-2 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-2 ${
                 activeSubTab === "schedules"
-                  ? "bg-white text-indigo-800 shadow-xs border border-slate-200"
+                  ? "bg-white text-emerald-800 shadow-xs border border-slate-200"
                   : "text-slate-600 hover:text-slate-900 hover:bg-white/60"
               }`}
             >
-              <CalendarIcon size={14} className={activeSubTab === "schedules" ? "text-indigo-600" : "text-slate-400"} />
+              <CalendarIcon size={14} className={activeSubTab === "schedules" ? "text-emerald-600" : "text-slate-400"} />
               <span>Lịch Họp & Sự Kiện ({schedules.length})</span>
             </button>
           </div>
-        </div>
-      </div>
+        }
+      />
 
       {/* 4 KPI Summary Cards - Standardized StatCard Component */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 md:gap-4">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
         <StatCard
           label="Tổng việc giao"
           value={taskKpi.total}
-          icon={<CheckSquare size={20} />}
-          color="blue"
+          badge="nhiệm vụ"
+          highlighted={true}
+          icon={CheckSquare}
+          color="emerald"
           subtext="Nhiệm vụ tác nghiệp toàn KP3"
+          subtextRight="Kế hoạch công tác"
         />
         <StatCard
           label="Đang triển khai"
           value={taskKpi.inProgress}
-          icon={<Clock size={20} />}
-          color="indigo"
-          badge={<span className="text-[10px] font-bold text-indigo-700 bg-indigo-50 px-1.5 py-0.5 rounded border border-indigo-200">{taskKpi.pendingReview} chờ duyệt</span>}
+          badge={`${taskKpi.pendingReview} chờ duyệt`}
+          icon={Clock}
+          color="blue"
           subtext="Tổ dân phố & Lực lượng phụ trách"
+          subtextRight="Đang thực hiện"
         />
         <StatCard
           label="Việc khẩn cấp"
           value={taskKpi.urgent}
-          icon={<Flame size={20} />}
+          badge="ưu tiên cao"
+          icon={Flame}
           color="rose"
-          badge={<span className="text-[10px] font-bold text-rose-700 bg-rose-50 px-1.5 py-0.5 rounded border border-rose-200">Ưu tiên cao</span>}
           subtext="Cần xử lý dứt điểm trong tuần"
+          subtextRight="Hạn chót gấp"
         />
         <StatCard
           label="Đã hoàn thành"
           value={taskKpi.completed}
-          icon={<CheckCircle2 size={20} />}
-          color="emerald"
-          badge={<span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200">Đạt {taskKpi.completionRate}%</span>}
+          badge={`Đạt ${taskKpi.completionRate}%`}
+          icon={CheckCircle2}
+          color="purple"
           subtext="Nghiệm thu đạt chỉ tiêu"
+          subtextRight="Hoàn tất"
         />
       </div>
 

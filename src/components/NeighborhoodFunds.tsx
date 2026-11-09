@@ -33,6 +33,8 @@ import {
 import { FundContribution } from "../types";
 import Pagination from "./Pagination";
 import { StatCard } from "./common/StatCard";
+import { PageHeader } from "./common/PageHeader";
+import { formatVNNumber } from "../utils/numberFormat";
 import VietQrModal from "./funds/VietQrModal";
 import HouseholdFundLookup from "./funds/HouseholdFundLookup";
 
@@ -449,77 +451,77 @@ export default function NeighborhoodFunds({
       )}
       
       {/* Top Banner / Executive Master Header */}
-      <div className="bg-gradient-to-r from-slate-50 via-white to-indigo-50/40 p-5 md:p-6 rounded-2xl border border-slate-200 shadow-2xs flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-        <div className="space-y-1">
-          <div className="inline-flex items-center gap-2 px-2.5 py-1 rounded-md bg-indigo-50 border border-indigo-200 text-indigo-800 text-[11px] font-bold tracking-wide uppercase">
-            <Coins size={13} className="text-indigo-600" />
-            <span>Kế Toán & Tài Chính Minh Bạch • Khu Phố 3, Phường An Phú</span>
+      <PageHeader
+        badgeIcon={<Coins size={14} className="text-emerald-600" />}
+        badgeText="KẾ TOÁN & TÀI CHÍNH MINH BẠCH • KHU PHỐ 3, PHƯỜNG AN PHÚ"
+        badgeSubtext="QUỸ CỘNG ĐỒNG"
+        title="Quản Lý Đóng Góp & Thu Chi Quỹ Khu Phố"
+        actions={
+          <div className="flex flex-wrap items-center gap-2.5 w-full sm:w-auto shrink-0">
+            <button 
+              onClick={handleExportToExcel}
+              className="flex-1 sm:flex-none flex items-center justify-center gap-2 bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 px-3.5 py-2 rounded-xl font-bold text-xs sm:text-sm transition-all shadow-2xs cursor-pointer hover:shadow-xs"
+            >
+              <FileSpreadsheet size={15} className="text-emerald-600" /> Xuất file Excel (CSV)
+            </button>
+            
+            {activeSubTab === "thu" ? (
+              <button 
+                onClick={() => setShowAddThuModal(true)}
+                className="flex-1 sm:flex-none flex items-center justify-center gap-2 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white px-4 py-2 rounded-xl font-bold text-xs sm:text-sm transition-all shadow-xs cursor-pointer"
+              >
+                <Plus size={15} /> Ghi nhận Phiếu Thu
+              </button>
+            ) : activeSubTab === "chi" ? (
+              <button 
+                onClick={() => setShowAddChiModal(true)}
+                className="flex-1 sm:flex-none flex items-center justify-center gap-2 bg-gradient-to-r from-rose-600 to-rose-700 hover:opacity-90 text-white px-4 py-2 rounded-xl font-bold text-xs sm:text-sm transition-all shadow-xs cursor-pointer"
+              >
+                <Plus size={15} /> Tạo Phiếu Chi quỹ
+              </button>
+            ) : null}
           </div>
-          <h1 className="text-xl md:text-2xl font-black text-slate-800 tracking-tight">
-            Quản Lý Đóng Góp & Thu Chi Quỹ Khu Phố
-          </h1>
-        </div>
-        
-        <div className="flex flex-wrap items-center gap-2.5 w-full sm:w-auto shrink-0">
-          <button 
-            onClick={handleExportToExcel}
-            className="flex-1 sm:flex-none flex items-center justify-center gap-2 bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 px-3.5 py-2.5 rounded-xl font-bold text-xs transition-all shadow-2xs cursor-pointer"
-          >
-            <FileSpreadsheet size={15} className="text-emerald-400" /> Xuất file Excel (CSV)
-          </button>
-          
-          {activeSubTab === "thu" ? (
-            <button 
-              onClick={() => setShowAddThuModal(true)}
-              className="flex-1 sm:flex-none flex items-center justify-center gap-2 bg-gradient-to-r from-indigo-500 to-indigo-600 hover:opacity-90 text-white px-4 py-2.5 rounded-xl font-bold text-xs transition-all shadow-md cursor-pointer border border-indigo-400/20"
-            >
-              <Plus size={15} /> Ghi nhận Phiếu Thu
-            </button>
-          ) : activeSubTab === "chi" ? (
-            <button 
-              onClick={() => setShowAddChiModal(true)}
-              className="flex-1 sm:flex-none flex items-center justify-center gap-2 bg-gradient-to-r from-rose-600 to-rose-700 hover:opacity-90 text-white px-4 py-2.5 rounded-xl font-bold text-xs transition-all shadow-md cursor-pointer border border-rose-400/20"
-            >
-              <Plus size={15} /> Tạo Phiếu Chi quỹ
-            </button>
-          ) : null}
-        </div>
-      </div>
+        }
+      />
 
       {/* Financial Overview Statistics Tiles - Standardized StatCard Component */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
         <StatCard
           label="Tồn quỹ hiện tại"
-          value={`${balanceFund.toLocaleString("vi-VN")}đ`}
-          icon={<Coins size={22} />}
-          color={balanceFund >= 0 ? "indigo" : "rose"}
-          subtext={balanceFund >= 0 ? "An toàn ngân sách cộng đồng" : "Thâm hụt - Cần cân đối thu chi"}
-          badge={
-            <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${balanceFund >= 0 ? "bg-emerald-50 text-emerald-800 border border-emerald-200" : "bg-rose-50 text-rose-800 border border-rose-200"}`}>
-              {balanceFund >= 0 ? "Thặng dư" : "Thâm hụt"}
-            </span>
-          }
+          value={formatVNNumber(balanceFund)}
+          badge="VNĐ"
+          highlighted={true}
+          icon={Coins}
+          color={balanceFund >= 0 ? "emerald" : "rose"}
+          subtext={balanceFund >= 0 ? "An toàn ngân sách cộng đồng" : "Thâm hụt - Cần cân đối"}
+          subtextRight={balanceFund >= 0 ? "Thặng dư" : "Thâm hụt"}
         />
         <StatCard
           label="Tổng thu nộp quỹ"
-          value={`${totalRevenue.toLocaleString("vi-VN")}đ`}
-          icon={<ArrowUpRight size={22} />}
-          color="emerald"
+          value={formatVNNumber(totalRevenue)}
+          badge="VNĐ"
+          icon={ArrowUpRight}
+          color="blue"
           subtext={`Từ ${contributions.filter(c => c.status === "Đã nộp").length} hộ đã đóng góp`}
+          subtextRight="Đã vào quỹ"
         />
         <StatCard
           label="Tổng chi hoạt động"
-          value={`${totalExpense.toLocaleString("vi-VN")}đ`}
-          icon={<ArrowDownRight size={22} />}
+          value={formatVNNumber(totalExpense)}
+          badge="VNĐ"
+          icon={ArrowDownRight}
           color="rose"
-          subtext={`Đã quyết toán ${expenditures.length} mục chi công khai`}
+          subtext={`Đã quyết toán ${expenditures.length} mục chi`}
+          subtextRight="Công khai"
         />
         <StatCard
           label="Tỉ lệ hoàn thành thu"
-          value={`${collectionRate}%`}
-          icon={<TrendingUp size={22} />}
+          value={collectionRate}
+          badge="%"
+          icon={TrendingUp}
           color="amber"
-          subtext={`${contributions.filter(c => c.status === "Đã nộp").length} / ${contributions.length} chỉ tiêu hoàn tất`}
+          subtext={`${contributions.filter(c => c.status === "Đã nộp").length} / ${contributions.length} chỉ tiêu`}
+          subtextRight="Tiến độ nộp"
         />
       </div>
 

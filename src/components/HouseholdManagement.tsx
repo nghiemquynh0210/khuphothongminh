@@ -814,7 +814,7 @@ export default function HouseholdManagement({
   };
 
   return (
-    <div className="space-y-6 font-sans text-sm bg-slate-50/50 p-4 sm:p-6 rounded-2xl border border-slate-100">
+    <div id="household-management-view" className="space-y-6">
       
       {/* Top Banner Navigation & Actions */}
       <PageHeader
@@ -822,7 +822,6 @@ export default function HouseholdManagement({
         badgeText="SỔ HỘ TỊCH ĐIỆN TỬ • KHU PHỐ 3, PHƯỜNG AN PHÚ"
         badgeSubtext="ĐỀ ÁN 06/CP"
         title="Hệ thống Quản lý Hộ tịch thông minh"
-        className="border-b border-slate-100 pb-5"
         actions={
           <div className="flex flex-wrap items-center gap-2.5">
             {/* Main Module Selection */}
@@ -914,31 +913,40 @@ export default function HouseholdManagement({
                 <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 animate-in fade-in duration-200">
                   <StatCard
                     label="Tổng số hộ quản lý"
-                    value={formatVNNumber(totalH)}
+                    value={totalH}
+                    badge="hộ điện tử"
+                    highlighted={true}
                     subtext={`Quy mô ${formatVNNumber(totalResidentsInHh)} nhân khẩu`}
-                    icon={<Home size={22} />}
+                    subtextRight={`TB ${(totalResidentsInHh / (totalH || 1)).toFixed(1)} người/hộ`}
+                    icon={Home}
                     color="emerald"
                   />
                   <StatCard
                     label="Sổ hộ thường trú"
-                    value={formatVNNumber(ttCount)}
-                    subtext="Chuẩn hóa CSDL Đề án 06/CP"
-                    icon={<Check size={22} />}
+                    value={ttCount}
+                    badge={`${((ttCount / (totalH || 1)) * 100).toFixed(0)}%`}
+                    subtext="CSDL Đề án 06/CP"
+                    subtextRight="Hộ khẩu gốc"
+                    icon={Check}
                     color="blue"
                   />
                   <StatCard
                     label="Sổ hộ tạm trú"
-                    value={formatVNNumber(tamCount)}
+                    value={tamCount}
+                    badge={`${((tamCount / (totalH || 1)) * 100).toFixed(0)}%`}
                     subtext="Lưu trú, thuê trọ địa bàn"
-                    icon={<Calendar size={22} />}
+                    subtextRight="Biến động cư trú"
+                    icon={Calendar}
                     color="amber"
                   />
                   <StatCard
                     label="Số hóa mốc GIS"
-                    value={formatVNNumber(gisCount)}
-                    subtext={`100% đã ghim tọa độ số`}
-                    icon={<Compass size={22} />}
-                    color="indigo"
+                    value={gisCount}
+                    badge={`${((gisCount / (totalH || 1)) * 100).toFixed(0)}%`}
+                    subtext="Tọa độ không gian GIS"
+                    subtextRight="100% đã ghim mốc"
+                    icon={Compass}
+                    color="purple"
                   />
                 </div>
               );

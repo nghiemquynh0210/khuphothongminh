@@ -2246,12 +2246,13 @@ export default function PartyBranch({ partyMembers, residents = [] }: PartyBranc
     <div id="association-management-view" className="space-y-6 animate-in fade-in duration-200">
       {/* Top Banner Header: Executive Government Portal Theme (Light Slate Gradient) */}
       <div className="bg-gradient-to-r from-slate-50 via-white to-emerald-50/40 p-5 md:p-6 rounded-2xl text-slate-800 shadow-2xs flex flex-col md:flex-row justify-between items-start md:items-center gap-4 border border-slate-200">
-        <div className="space-y-1.5">
-          <div className="flex items-center gap-2">
-            <span className="text-[10px] bg-emerald-50 text-emerald-800 border border-emerald-200 font-bold px-2 py-0.5 rounded font-mono uppercase tracking-wider flex items-center gap-1">
-              <ShieldCheck size={11} className="text-emerald-600" /> BỘ MÁY CHÍNH TRỊ - XÃ HỘI & ĐOÀN THỂ
-            </span>
-            <span className="text-xs text-slate-400 font-sans hidden sm:inline">• Khu phố 3, Phường An Phú, TP. Hồ Chí Minh</span>
+        <div className="space-y-1.5 min-w-0">
+          <div className="inline-flex items-center gap-2 px-2.5 py-1 rounded-md bg-emerald-50 border border-emerald-200 text-emerald-800 text-[11px] font-bold tracking-wide uppercase">
+            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+            <ShieldCheck size={13} className="text-emerald-600" />
+            <span>BỘ MÁY CHÍNH TRỊ - XÃ HỘI & ĐOÀN THỂ</span>
+            <span className="text-emerald-300">•</span>
+            <span className="font-normal text-[11px] text-emerald-700 hidden sm:inline">KHU PHỐ 3, AN PHÚ</span>
           </div>
           <h1 className="text-xl md:text-2xl font-black tracking-tight text-slate-900">Quản lý Chi bộ Đảng & Khối Đoàn thể</h1>
         </div>

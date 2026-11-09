@@ -81,6 +81,8 @@ import Pagination from "./Pagination";
 import * as XLSX from "xlsx";
 import { DetailRow, DetailGrid } from "./common/DetailRow";
 import { formatVNNumber } from "../utils/numberFormat";
+import { StatCard } from "./common/StatCard";
+import { PageHeader } from "./common/PageHeader";
 import { 
   isResidentInAccommodation, 
   parseAccommodationInfo, 
@@ -1501,97 +1503,81 @@ export default function BusinessManagement({
       )}
 
       {/* Upper header */}
-      <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 text-white p-6 rounded-2xl shadow-md border border-slate-800">
-        <div className="space-y-1">
-          <div className="flex items-center gap-2">
-            <span className="p-1.5 bg-emerald-500/20 text-emerald-400 rounded-lg">
-              <Store size={20} />
-            </span>
-            <h1 className="text-xl sm:text-2xl font-black tracking-tight text-white">Quản lý Cơ sở Kinh doanh KP3</h1>
-          </div>
-        </div>
+      <PageHeader
+        badgeIcon={<Store size={14} className="text-emerald-600" />}
+        badgeText="KINH TẾ CƠ SỞ & HỘ KINH DOANH • KP3 AN PHÚ"
+        badgeSubtext="ĐỀ ÁN 06/CP"
+        title="Quản lý Cơ sở Kinh doanh KP3"
+        actions={
+          <>
+            <button 
+              type="button"
+              onClick={handleAutoDetectHostels}
+              disabled={isDetectingHostels}
+              className="flex items-center gap-1.5 bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-300 px-3.5 py-2.5 rounded-xl font-bold text-xs transition-all cursor-pointer shadow-xs disabled:opacity-50"
+              title="Tự động phân tích cư dân để nhận diện và thêm các cơ sở nhà trọ / lưu trú"
+            >
+              <Sparkles size={15} className={`text-amber-600 ${isDetectingHostels ? "animate-spin" : ""}`} />
+              <span>Tự động nhận diện Nhà trọ</span>
+            </button>
+            <button 
+              type="button"
+              onClick={handleExportBusinessesCsv}
+              className="flex items-center gap-1.5 bg-white hover:bg-slate-50 text-slate-700 px-3.5 py-2.5 rounded-xl font-bold text-xs border border-slate-200 transition-all cursor-pointer shadow-xs"
+              title="Xuất danh sách cơ sở kinh doanh dạng CSV"
+            >
+              <Download size={15} className="text-slate-600" /> Xuất File CSV
+            </button>
+            <button 
+              type="button"
+              onClick={() => setShowAddModal(true)}
+              className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2.5 rounded-xl font-bold text-xs transition-all shadow-xs cursor-pointer hover:shadow-md"
+            >
+              <Plus size={16} /> Đăng ký Cơ sở Mới
+            </button>
+          </>
+        }
+      />
 
-        <div className="flex flex-wrap items-center gap-2.5">
-          <button 
-            type="button"
-            onClick={handleAutoDetectHostels}
-            disabled={isDetectingHostels}
-            className="flex items-center gap-1.5 bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/40 px-3.5 py-2.5 rounded-xl font-bold text-xs sm:text-sm transition-all cursor-pointer shadow-xs hover:border-amber-400 disabled:opacity-50"
-            title="Tự động phân tích cư dân để nhận diện và thêm các cơ sở nhà trọ / lưu trú"
-          >
-            <Sparkles size={16} className={`text-amber-400 ${isDetectingHostels ? "animate-spin" : ""}`} />
-            <span>Tự động nhận diện Nhà trọ</span>
-          </button>
-          <button 
-            type="button"
-            onClick={handleExportBusinessesCsv}
-            className="flex items-center gap-1.5 bg-white/10 hover:bg-white/20 text-white px-3.5 py-2.5 rounded-xl font-bold text-xs sm:text-sm border border-white/20 transition-all cursor-pointer"
-            title="Xuất danh sách cơ sở kinh doanh dạng CSV"
-          >
-            <Download size={15} /> Xuất File CSV
-          </button>
-          <button 
-            type="button"
-            onClick={() => setShowAddModal(true)}
-            className="flex items-center gap-2 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white px-4 py-2.5 rounded-xl font-bold text-xs sm:text-sm transition-all shadow-md cursor-pointer hover:shadow-emerald-500/20"
-          >
-            <Plus size={16} /> Đăng ký Cơ sở Kinh doanh Mới
-          </button>
-        </div>
-      </div>
-          {/* KPI Stats Overview Bar */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
-        <div className="bg-white p-3.5 sm:p-4 rounded-xl border border-slate-100 shadow-xs flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center shrink-0">
-            <Briefcase size={20} />
-          </div>
-          <div>
-            <span className="text-[11px] font-semibold text-slate-400 block uppercase tracking-wider">Tổng cơ sở kinh doanh</span>
-            <div className="flex items-baseline gap-1.5">
-              <span className="text-lg sm:text-xl font-black text-slate-800">{formatVNNumber(businesses.length)}</span>
-              <span className="text-[10px] text-slate-500">cơ sở</span>
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-white p-3.5 sm:p-4 rounded-xl border border-amber-100 bg-amber-50/20 shadow-xs flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-amber-100 text-amber-700 flex items-center justify-center shrink-0">
-            <Building size={20} />
-          </div>
-          <div>
-            <span className="text-[11px] font-semibold text-amber-800 block uppercase tracking-wider">Nhà trọ & Lưu trú</span>
-            <div className="flex items-baseline gap-1.5">
-              <span className="text-lg sm:text-xl font-black text-amber-900">{formatVNNumber(totalAccomCount)}</span>
-              <span className="text-[10px] text-amber-700 font-bold">({formatVNNumber(totalRooms)} phòng)</span>
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-white p-3.5 sm:p-4 rounded-xl border border-indigo-100 bg-indigo-50/20 shadow-xs flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-indigo-100 text-indigo-700 flex items-center justify-center shrink-0">
-            <FileText size={20} />
-          </div>
-          <div>
-            <span className="text-[11px] font-semibold text-indigo-800 block uppercase tracking-wider">Hồ sơ Sổ đỏ đính kèm</span>
-            <div className="flex items-baseline gap-1.5">
-              <span className="text-lg sm:text-xl font-black text-indigo-900">{formatVNNumber(totalSoDoFiles)}</span>
-              <span className="text-[10px] text-indigo-700 font-bold">/ {formatVNNumber(businesses.length)} cơ sở</span>
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-white p-3.5 sm:p-4 rounded-xl border border-emerald-100 bg-emerald-50/20 shadow-xs flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-emerald-100 text-emerald-700 flex items-center justify-center shrink-0">
-            <ShieldCheck size={20} />
-          </div>
-          <div>
-            <span className="text-[11px] font-semibold text-emerald-800 block uppercase tracking-wider">Đạt chuẩn PCCC</span>
-            <div className="flex items-baseline gap-1.5">
-              <span className="text-lg sm:text-xl font-black text-emerald-900">{formatVNNumber(totalCertifiedPccc)}</span>
-              <span className="text-[10px] text-emerald-700 font-bold">cơ sở</span>
-            </div>
-          </div>
-        </div>
+      {/* KPI Stats Overview Bar */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <StatCard
+          label="Tổng cơ sở kinh doanh"
+          value={businesses.length}
+          badge="Tại chỗ"
+          icon={<Briefcase size={22} />}
+          color="blue"
+          subtext="Hộ kinh doanh cá thể & cơ sở"
+          subtextRight="CSDL KP3"
+          highlighted={true}
+        />
+        <StatCard
+          label="Nhà trọ & Lưu trú"
+          value={totalAccomCount}
+          badge={`${formatVNNumber(totalRooms)} phòng`}
+          icon={<Building size={22} />}
+          color="amber"
+          subtext="Cơ sở phòng trọ lưu trú"
+          subtextRight="An ninh lưu trú"
+        />
+        <StatCard
+          label="Hồ sơ Sổ đỏ đính kèm"
+          value={totalSoDoFiles}
+          badge={`/ ${formatVNNumber(businesses.length)}`}
+          icon={<FileText size={22} />}
+          color="indigo"
+          subtext="Giấy chứng nhận QSDĐ"
+          subtextRight="Địa chính ODT"
+        />
+        <StatCard
+          label="Đạt chuẩn an toàn PCCC"
+          value={totalCertifiedPccc}
+          badge="cơ sở"
+          icon={<ShieldCheck size={22} />}
+          color="emerald"
+          subtext="Đạt điều kiện PCCC"
+          subtextRight="Kiểm tra định kỳ"
+        />
       </div>
 
       {/* Filters bar */}

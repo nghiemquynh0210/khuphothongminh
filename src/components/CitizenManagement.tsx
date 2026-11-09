@@ -1448,74 +1448,81 @@ NGƯỜI NƯỚC NGOÀI KHAI BÁO       CHỦ CƠ SỞ LƯU TRÚ       XÁC NH�
   return (
     <div id="citizen-management-view" className="space-y-6">
       {/* Header and Action Buttons */}
-      <div className="bg-white p-5 sm:p-6 rounded-2xl border border-slate-200/80 shadow-xs">
-        <PageHeader
-          badgeIcon={<Users size={14} className="text-emerald-600" />}
-          badgeText="CSDL DÂN CƯ ĐỀ ÁN 06/CP • KHU PHỐ 3, PHƯỜNG AN PHÚ"
-          badgeSubtext="VNeID CƠ SỞ"
-          title="Sổ Quản Lý Dân Cư Khu Phố"
-          actions={
-            <>
-              <button 
-                id="btn-export-excel"
-                onClick={handleExportFullExcel}
-                className="flex items-center gap-2 bg-slate-50 hover:bg-slate-100 border border-slate-200/90 text-slate-700 px-3.5 py-2.5 rounded-xl font-bold text-xs transition-all shadow-xs cursor-pointer hover:shadow-sm"
-                title="Xuất file Excel chứa đầy đủ 26 trường thông tin của toàn bộ nhân khẩu"
-              >
-                <Download size={15} className="text-slate-600" /> Xuất Excel ({formatVNNumber(residents.length)})
-              </button>
-              <button 
-                id="btn-import-excel"
-                onClick={() => {
-                  setShowImportModal(true);
-                  setParsedData([]);
-                  setImportFileName("");
-                }}
-                className="flex items-center gap-2 bg-white hover:bg-slate-50 border border-emerald-300 text-emerald-700 px-3.5 py-2.5 rounded-xl font-bold text-xs transition-all shadow-xs cursor-pointer hover:shadow-sm hover:border-emerald-400"
-              >
-                <FileSpreadsheet size={15} className="text-emerald-600" /> Nhập Excel / Dán bảng
-              </button>
-              <button 
-                id="btn-add-resident"
-                onClick={handleOpenAddModal}
-                className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2.5 rounded-xl font-bold text-xs transition-all shadow-xs cursor-pointer hover:shadow-md"
-              >
-                <Plus size={15} /> Thêm Hồ sơ Cư dân Mới
-              </button>
-            </>
-          }
-        />
-      </div>
+      <PageHeader
+        badgeIcon={<Users size={14} className="text-emerald-600" />}
+        badgeText="CSDL DÂN CƯ ĐỀ ÁN 06/CP • KHU PHỐ 3, PHƯỜNG AN PHÚ"
+        badgeSubtext="VNeID CƠ SỞ"
+        title="Sổ Quản Lý Dân Cư Khu Phố"
+        actions={
+          <>
+            <button 
+              id="btn-export-excel"
+              onClick={handleExportFullExcel}
+              className="flex items-center gap-2 bg-slate-50 hover:bg-slate-100 border border-slate-200/90 text-slate-700 px-3.5 py-2.5 rounded-xl font-bold text-xs transition-all shadow-xs cursor-pointer hover:shadow-sm"
+              title="Xuất file Excel chứa đầy đủ 26 trường thông tin của toàn bộ nhân khẩu"
+            >
+              <Download size={15} className="text-slate-600" /> Xuất Excel ({formatVNNumber(residents.length)})
+            </button>
+            <button 
+              id="btn-import-excel"
+              onClick={() => {
+                setShowImportModal(true);
+                setParsedData([]);
+                setImportFileName("");
+              }}
+              className="flex items-center gap-2 bg-white hover:bg-slate-50 border border-emerald-300 text-emerald-700 px-3.5 py-2.5 rounded-xl font-bold text-xs transition-all shadow-xs cursor-pointer hover:shadow-sm hover:border-emerald-400"
+            >
+              <FileSpreadsheet size={15} className="text-emerald-600" /> Nhập Excel / Dán bảng
+            </button>
+            <button 
+              id="btn-add-resident"
+              onClick={handleOpenAddModal}
+              className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2.5 rounded-xl font-bold text-xs transition-all shadow-xs cursor-pointer hover:shadow-md"
+            >
+              <Plus size={15} /> Thêm Hồ sơ Cư dân Mới
+            </button>
+          </>
+        }
+      />
 
       {/* 4 Standardized StatCard KPI blocks */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <StatCard
-          label="Tổng nhân khẩu"
-          value={`${formatVNNumber(residents.length)} người`}
-          icon={<Users size={20} />}
+          label="Tổng số Dân cư"
+          value={residents.length}
+          badge="CSDL ↗"
+          icon={<Users size={22} />}
           color="emerald"
           subtext="Đồng bộ CSDL Đề án 06/CP"
+          subtextRight="Khu phố 3"
+          highlighted={true}
         />
         <StatCard
           label="Thường trú"
-          value={`${formatVNNumber(tabCounts.thuongTru)} công dân`}
-          icon={<CheckCircle2 size={20} />}
+          value={tabCounts.thuongTru}
+          badge="công dân"
+          icon={<CheckCircle2 size={22} />}
           color="blue"
           subtext="Có hộ khẩu thường trú KP3"
+          subtextRight="Hộ tịch điện tử"
         />
         <StatCard
           label="Tạm trú thực tế"
-          value={`${formatVNNumber(tabCounts.tamTru)} người`}
-          icon={<Clock size={20} />}
+          value={tabCounts.tamTru}
+          badge="người"
+          icon={<Clock size={22} />}
           color="amber"
-          subtext="Lưu trú, phòng trọ trên địa bàn"
+          subtext="Lưu trú, phòng trọ địa bàn"
+          subtextRight="Khai báo lưu trú"
         />
         <StatCard
           label="Người nước ngoài"
-          value={`${formatVNNumber(tabCounts.foreigners)} cư dân`}
-          icon={<Globe size={20} />}
+          value={tabCounts.foreigners}
+          badge="cư dân"
+          icon={<Globe size={22} />}
           color="purple"
           subtext="Đăng ký tạm trú / Thị thực"
+          subtextRight="Quản lý cư trú"
         />
       </div>
 

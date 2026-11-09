@@ -437,52 +437,59 @@ export default function FieldReflections({ reports, onAddReport, onUpdateReportS
   return (
     <div id="field-reflections-view" className="space-y-6">
       {/* Page Header */}
-      <div className="bg-gradient-to-r from-slate-50 via-white to-emerald-50/40 p-5 md:p-6 rounded-2xl border border-slate-200/90 shadow-2xs">
-        <PageHeader
-          badgeIcon={<MessageSquare size={13} className="text-emerald-600" />}
-          badgeText="Cổng Tiếp Nhận Phản Ánh Hiện Trường 1022 • KP3 An Phú"
-          badgeSubtext="Đề án 06/CP"
-          title="Tiếp Nhận Phản Ánh & Giám Sát Hiện Trường"
-          actions={
-            <button 
-              onClick={handleOpenNewModal}
-              className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2.5 rounded-xl font-bold text-xs transition-all shadow-xs cursor-pointer"
-            >
-              <Plus size={15} /> Gửi Phản Ánh Mới
-            </button>
-          }
-        />
-      </div>
+      <PageHeader
+        badgeIcon={<MessageSquare size={13} className="text-emerald-600" />}
+        badgeText="CỔNG TIẾP NHẬN PHẢN ÁNH HIỆN TRƯỜNG 1022 • KP3 AN PHÚ"
+        badgeSubtext="ĐỀ ÁN 06/CP"
+        title="Tiếp Nhận Phản Ánh & Giám Sát Hiện Trường"
+        actions={
+          <button 
+            onClick={handleOpenNewModal}
+            className="flex items-center gap-2 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white px-4 py-2 rounded-xl font-bold text-xs sm:text-sm transition-all shadow-xs cursor-pointer"
+          >
+            <Plus size={15} /> Gửi Phản Ánh Mới
+          </button>
+        }
+      />
 
       {/* Stats Counter Cards - Standardized StatCard Component */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
         <StatCard
-          label="Tổng phản ánh ghi nhận"
-          value={`${reports.length} phản ánh`}
-          icon={<MessageSquare size={20} />}
-          color="blue"
-          subtext="Tổng số phản ánh từ công dân"
+          label="Tổng phản ánh"
+          value={reports.length}
+          badge="vụ việc"
+          highlighted={true}
+          icon={MessageSquare}
+          color="emerald"
+          subtext="Tổng phản ánh từ công dân"
+          subtextRight="Hệ thống 1022"
         />
         <StatCard
-          label="Mới tiếp nhận / Chờ duyệt"
-          value={`${reports.filter(r => r.status === "Đã tiếp nhận").length} tin`}
-          icon={<Clock size={20} />}
-          color="amber"
+          label="Mới tiếp nhận"
+          value={reports.filter(r => r.status === "Đã tiếp nhận").length}
+          badge="chờ duyệt"
+          icon={Clock}
+          color="rose"
           subtext="Cần xác minh hiện trường"
+          subtextRight="Ưu tiên xử lý"
         />
         <StatCard
           label="Đang xử lý hiện trường"
-          value={`${reports.filter(r => r.status === "Đang xử lý").length} vụ việc`}
-          icon={<TrendingUp size={20} />}
-          color="indigo"
-          subtext="Lực lượng chức năng đang giải quyết"
+          value={reports.filter(r => r.status === "Đang xử lý").length}
+          badge="vụ việc"
+          icon={TrendingUp}
+          color="amber"
+          subtext="Tổ công tác phối hợp"
+          subtextRight="Đang tiến hành"
         />
         <StatCard
-          label="Đã giải quyết hoàn thành"
-          value={`${reports.filter(r => r.status === "Đã giải quyết").length} hoàn tất`}
-          icon={<CheckCircle size={20} />}
-          color="emerald"
-          subtext={`Tỷ lệ đạt ${reports.length > 0 ? Math.round((reports.filter(r => r.status === "Đã giải quyết").length / reports.length) * 100) : 100}%`}
+          label="Đã giải quyết hoàn tất"
+          value={reports.filter(r => r.status === "Đã giải quyết").length}
+          badge={`${reports.length > 0 ? Math.round((reports.filter(r => r.status === "Đã giải quyết").length / reports.length) * 100) : 100}%`}
+          icon={CheckCircle}
+          color="blue"
+          subtext="Đạt chuẩn hài lòng người dân"
+          subtextRight="Đã đóng hồ sơ"
         />
       </div>
 

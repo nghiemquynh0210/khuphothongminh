@@ -50,6 +50,8 @@ import {
 import Pagination from "./Pagination";
 import { DetailRow, DetailGrid } from "./common/DetailRow";
 import { formatVNNumber } from "../utils/numberFormat";
+import PageHeader from "./common/PageHeader";
+import StatCard from "./common/StatCard";
 
 interface EnterpriseManagementProps {
   businesses: Business[];
@@ -674,37 +676,32 @@ export default function EnterpriseManagement({
 
   return (
     <div id="enterprise-management-view" className="space-y-6">
-      {/* Upper header */}
-      <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 text-white p-6 rounded-2xl shadow-md border border-slate-800">
-        <div className="space-y-1">
-          <div className="flex items-center gap-2">
-            <span className="p-2 bg-indigo-500/20 text-indigo-400 rounded-xl border border-indigo-400/30">
-              <Building2 size={22} />
-            </span>
-            <h1 className="text-xl sm:text-2xl font-black tracking-tight text-white">
-              Phân hệ Quản lý Doanh nghiệp Vừa & Nhỏ (DNNVV) KP3
-            </h1>
+      {/* Standard Executive Header */}
+      <PageHeader
+        badgeIcon={<Building2 size={14} className="text-emerald-600" />}
+        badgeText="CSDL DOANH NGHIỆP • KP3 AN PHÚ"
+        badgeSubtext="DNNVV"
+        title="Quản lý Doanh nghiệp Vừa & Nhỏ (DNNVV) KP3"
+        actions={
+          <div className="flex flex-wrap items-center gap-2.5 shrink-0">
+            <button
+              type="button"
+              onClick={handleExportCSV}
+              className="flex items-center gap-1.5 bg-white hover:bg-slate-50 text-slate-700 px-3.5 py-2 rounded-xl font-bold text-xs sm:text-sm border border-slate-200 transition-all cursor-pointer shadow-2xs hover:shadow-xs"
+              title="Xuất file báo cáo doanh nghiệp định dạng CSV/Excel"
+            >
+              <Download size={15} /> Xuất CSV
+            </button>
+            <button 
+              type="button"
+              onClick={() => setShowAddModal(true)}
+              className="flex items-center gap-2 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white px-4 py-2 rounded-xl font-bold text-xs sm:text-sm transition-all shadow-xs cursor-pointer"
+            >
+              <Plus size={16} /> Đăng ký Doanh nghiệp Mới
+            </button>
           </div>
-        </div>
-
-        <div className="flex flex-wrap items-center gap-2.5 shrink-0">
-          <button
-            type="button"
-            onClick={handleExportCSV}
-            className="flex items-center gap-1.5 bg-white/10 hover:bg-white/20 text-white px-3.5 py-2.5 rounded-xl font-bold text-xs sm:text-sm border border-white/20 transition-all cursor-pointer shadow-xs"
-            title="Xuất file báo cáo doanh nghiệp định dạng CSV/Excel"
-          >
-            <Download size={15} /> Xuất CSV
-          </button>
-          <button 
-            type="button"
-            onClick={() => setShowAddModal(true)}
-            className="flex items-center gap-2 bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-500 hover:to-blue-500 text-white px-4 py-2.5 rounded-xl font-bold text-xs sm:text-sm transition-all shadow-md cursor-pointer hover:shadow-indigo-500/20"
-          >
-            <Plus size={16} /> Đăng ký Doanh nghiệp Mới
-          </button>
-        </div>
-      </div>
+        }
+      />
 
       {/* Main Subsystem Tabs */}
       <div className="flex flex-wrap items-center justify-between gap-3 bg-white p-2 rounded-2xl border border-slate-200/90 shadow-2xs">
@@ -751,71 +748,57 @@ export default function EnterpriseManagement({
       {activeMainTab === "list" ? (
         <>
           {/* KPI Summary Cards */}
-          <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 sm:gap-4">
-            <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-2xs flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-indigo-50 text-indigo-700 flex items-center justify-center shrink-0 border border-indigo-100">
-                <Building2 size={20} />
-              </div>
-              <div>
-                <span className="text-[10.5px] font-semibold text-slate-400 block uppercase tracking-wider">Tổng doanh nghiệp</span>
-                <div className="flex items-baseline gap-1.5">
-                  <span className="text-xl font-black text-slate-900">{formatVNNumber(enterprises.length)}</span>
-                  <span className="text-[10px] text-slate-500">đơn vị</span>
-                </div>
-              </div>
-            </div>
+          <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 sm:gap-4">
+            <StatCard
+              label="Tổng doanh nghiệp"
+              value={enterprises.length}
+              badge="đơn vị"
+              icon={Building2}
+              color="emerald"
+              highlighted={true}
+              subtext="DNNVV đăng ký hoạt động"
+              subtextRight="100% có MST"
+            />
 
-            <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-2xs flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-blue-50 text-blue-700 flex items-center justify-center shrink-0 border border-blue-100">
-                <Briefcase size={20} />
-              </div>
-              <div>
-                <span className="text-[10.5px] font-semibold text-slate-400 block uppercase tracking-wider">Công ty TNHH</span>
-                <div className="flex items-baseline gap-1.5">
-                  <span className="text-xl font-black text-blue-900">{formatVNNumber(tnhhCount)}</span>
-                  <span className="text-[10px] text-blue-700 font-bold">({((tnhhCount / (enterprises.length || 1)) * 100).toFixed(0)}%)</span>
-                </div>
-              </div>
-            </div>
+            <StatCard
+              label="Công ty TNHH"
+              value={tnhhCount}
+              badge={`${((tnhhCount / (enterprises.length || 1)) * 100).toFixed(0)}%`}
+              icon={Briefcase}
+              color="blue"
+              subtext="TNHH 1 TV & 2 TV"
+              subtextRight={`${formatVNNumber(tnhhCount)} cty`}
+            />
 
-            <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-2xs flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-teal-50 text-teal-700 flex items-center justify-center shrink-0 border border-teal-100">
-                <TrendingUp size={20} />
-              </div>
-              <div>
-                <span className="text-[10.5px] font-semibold text-slate-400 block uppercase tracking-wider">Cổ phần & DNTN</span>
-                <div className="flex items-baseline gap-1.5">
-                  <span className="text-xl font-black text-teal-900">{formatVNNumber(cpCount + dntnCount)}</span>
-                  <span className="text-[10px] text-teal-700">cơ sở</span>
-                </div>
-              </div>
-            </div>
+            <StatCard
+              label="Cổ phần & DNTN"
+              value={cpCount + dntnCount}
+              badge="cơ sở"
+              icon={TrendingUp}
+              color="purple"
+              subtext="Kinh tế tư nhân KP3"
+              subtextRight={`${formatVNNumber(cpCount)} CP / ${formatVNNumber(dntnCount)} DNTN`}
+            />
 
-            <div className="bg-white p-4 rounded-xl border border-purple-100 bg-purple-50/20 shadow-2xs flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-purple-100 text-purple-700 flex items-center justify-center shrink-0">
-                <Users2 size={20} />
-              </div>
-              <div>
-                <span className="text-[10.5px] font-semibold text-purple-800 block uppercase tracking-wider">Lực lượng lao động</span>
-                <div className="flex items-baseline gap-1.5">
-                  <span className="text-xl font-black text-purple-950">{formatVNNumber(totalEmployees)}</span>
-                  <span className="text-[10px] text-purple-700 font-bold">({formatVNNumber(totalForeignWorkers)} NN)</span>
-                </div>
-              </div>
-            </div>
+            <StatCard
+              label="Lực lượng lao động"
+              value={totalEmployees}
+              badge="nhân sự"
+              icon={Users2}
+              color="amber"
+              subtext={`Lao động VN: ${formatVNNumber(totalEmployees - totalForeignWorkers)}`}
+              subtextRight={`${formatVNNumber(totalForeignWorkers)} người NN`}
+            />
 
-            <div className="bg-white p-4 rounded-xl border border-amber-100 bg-amber-50/20 shadow-2xs flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-amber-100 text-amber-800 flex items-center justify-center shrink-0">
-                <HelpCircle size={20} />
-              </div>
-              <div>
-                <span className="text-[10.5px] font-semibold text-amber-800 block uppercase tracking-wider">Đề xuất hỗ trợ</span>
-                <div className="flex items-baseline gap-1.5">
-                  <span className="text-xl font-black text-amber-950">{formatVNNumber(totalSupportNeeds)}</span>
-                  <span className="text-[10px] text-amber-700 font-bold">doanh nghiệp</span>
-                </div>
-              </div>
-            </div>
+            <StatCard
+              label="Đề xuất hỗ trợ"
+              value={totalSupportNeeds}
+              badge="kiến nghị"
+              icon={HelpCircle}
+              color="rose"
+              subtext="Mặt bằng, vốn & pháp lý"
+              subtextRight="Cần tháo gỡ"
+            />
           </div>
 
           {/* Search & Filter Toolbar */}

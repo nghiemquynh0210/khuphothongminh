@@ -22,6 +22,8 @@ import {
 import { CommunityEvent } from "../types";
 import Pagination from "./Pagination";
 import { StatCard } from "./common/StatCard";
+import { PageHeader } from "./common/PageHeader";
+import { formatVNNumber } from "../utils/numberFormat";
 
 interface CommunityEventsProps {
   events: CommunityEvent[];
@@ -226,66 +228,70 @@ export default function CommunityEvents({
     <div id="news-and-events-view" className="space-y-6 animate-in fade-in duration-200">
       
       {/* Top Banner / Executive Master Header */}
-      <div className="bg-gradient-to-r from-slate-50 via-white to-teal-50/40 p-5 md:p-6 rounded-2xl border border-slate-200 shadow-2xs flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-        <div className="space-y-1">
-          <div className="inline-flex items-center gap-2 px-2.5 py-1 rounded-md bg-teal-50 border border-teal-200 text-teal-800 text-[11px] font-bold tracking-wide uppercase">
-            <Megaphone size={13} className="text-teal-600" />
-            <span>Thông Báo & Hoạt Động Phong Trào • Khu Phố 3, Phường An Phú</span>
+      <PageHeader
+        badgeIcon={<Megaphone size={14} className="text-emerald-600" />}
+        badgeText="THÔNG BÁO & HOẠT ĐỘNG PHONG TRÀO • KHU PHỐ 3, PHƯỜNG AN PHÚ"
+        badgeSubtext="TRUYỀN THÔNG SỐ"
+        title="Kênh Tin Tức & Quản Lý Sự Kiện Khu Phố"
+        actions={
+          <div className="flex gap-2.5 shrink-0 w-full sm:w-auto">
+            {activeSubTab === "news" ? (
+              <button 
+                onClick={() => setShowNewsModal(true)}
+                className="w-full sm:w-auto flex items-center justify-center gap-2 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white px-4 py-2 rounded-xl font-bold text-xs sm:text-sm transition-all shadow-xs cursor-pointer"
+              >
+                <Megaphone size={14} /> Đăng Thông báo mới
+              </button>
+            ) : (
+              <button 
+                onClick={() => setShowEventModal(true)}
+                className="w-full sm:w-auto flex items-center justify-center gap-2 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white px-4 py-2 rounded-xl font-bold text-xs sm:text-sm transition-all shadow-xs cursor-pointer"
+              >
+                <Plus size={15} /> Đăng ký Sự kiện & Đặt chỗ
+              </button>
+            )}
           </div>
-          <h1 className="text-xl md:text-2xl font-black text-slate-800 tracking-tight">
-            Kênh Tin Tức & Quản Lý Sự Kiện Khu Phố
-          </h1>
-        </div>
-        
-        {/* Buttons to Trigger Modals */}
-        <div className="flex gap-2.5 shrink-0 w-full sm:w-auto">
-          {activeSubTab === "news" ? (
-            <button 
-              onClick={() => setShowNewsModal(true)}
-              className="w-full sm:w-auto flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2.5 rounded-xl font-bold text-xs transition-all shadow-xs cursor-pointer"
-            >
-              <Megaphone size={14} /> Đăng Thông báo mới
-            </button>
-          ) : (
-            <button 
-              onClick={() => setShowEventModal(true)}
-              className="w-full sm:w-auto flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2.5 rounded-xl font-bold text-xs transition-all shadow-xs cursor-pointer"
-            >
-              <Plus size={15} /> Đăng ký Sự kiện & Đặt chỗ
-            </button>
-          )}
-        </div>
-      </div>
+        }
+      />
 
       {/* Stats Counter Cards - Standardized StatCard Component */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
         <StatCard
           label="Tổng bản tin & thông báo"
-          value={`${newsList.length} bản tin`}
-          icon={<Newspaper size={20} />}
-          color="blue"
+          value={newsList.length}
+          badge="bản tin"
+          highlighted={true}
+          icon={Newspaper}
+          color="emerald"
           subtext="Thông báo hành chính, y tế & đời sống"
+          subtextRight="Kênh tin tức"
         />
         <StatCard
           label="Thông báo khẩn cấp"
-          value={`${newsList.filter(n => n.category === "Thông báo khẩn").length} khẩn cấp`}
-          icon={<AlertTriangle size={20} />}
+          value={newsList.filter(n => n.category === "Thông báo khẩn").length}
+          badge="tin khẩn"
+          icon={AlertTriangle}
           color="rose"
           subtext="Cần cư dân theo dõi & phổ biến ngay"
+          subtextRight="Ưu tiên cao"
         />
         <StatCard
           label="Lịch sự kiện & sinh hoạt"
-          value={`${events.length} sự kiện`}
-          icon={<CalendarDays size={20} />}
-          color="emerald"
+          value={events.length}
+          badge="sự kiện"
+          icon={CalendarDays}
+          color="blue"
           subtext="Nhà văn hóa & Không gian cộng đồng"
+          subtextRight="Kế hoạch năm"
         />
         <StatCard
           label="Dự kiến công dân tham gia"
-          value={`${events.reduce((s, e) => s + (e.expectedAttendees || 0), 0)} lượt`}
-          icon={<Users size={20} />}
-          color="indigo"
-          subtext="Quy mô sinh hoạt cộng đồng toàn khu phố"
+          value={formatVNNumber(events.reduce((s, e) => s + (e.expectedAttendees || 0), 0))}
+          badge="lượt"
+          icon={Users}
+          color="purple"
+          subtext="Quy mô sinh hoạt toàn khu phố"
+          subtextRight="Cộng đồng KP3"
         />
       </div>
 

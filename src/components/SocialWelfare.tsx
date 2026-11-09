@@ -187,52 +187,59 @@ export default function SocialWelfare({ recipients, onUpdateStatus, onAddRecipie
   return (
     <div id="social-welfare-view" className="space-y-6">
       {/* Top Banner / Executive Master Header */}
-      <div className="bg-gradient-to-r from-slate-50 via-white to-rose-50/40 p-5 md:p-6 rounded-2xl border border-slate-200/90 shadow-2xs">
-        <PageHeader
-          badgeIcon={<Heart size={13} className="text-rose-600" />}
-          badgeText="Chính Sách & Bảo Trợ Xã Hội • Khu Phố 3, Phường An Phú"
-          badgeSubtext="Nghị định 20/2021/NĐ-CP"
-          title="An Sinh Xã Hội & Trợ Giúp Cộng Đồng"
-          actions={
-            <button 
-              onClick={() => setShowModal(true)}
-              className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2.5 rounded-xl font-bold text-xs transition-all shadow-xs cursor-pointer"
-            >
-              <Plus size={15} /> Đề xuất Diện Trợ cấp mới
-            </button>
-          }
-        />
-      </div>
+      <PageHeader
+        badgeIcon={<Heart size={13} className="text-rose-600" />}
+        badgeText="CHÍNH SÁCH & BẢO TRỢ XÃ HỘI • KHU PHỐ 3, PHƯỜNG AN PHÚ"
+        badgeSubtext="NGHỊ ĐỊNH 20/2021/NĐ-CP"
+        title="An Sinh Xã Hội & Trợ Giúp Cộng Đồng"
+        actions={
+          <button 
+            onClick={() => setShowModal(true)}
+            className="flex items-center gap-2 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white px-4 py-2 rounded-xl font-bold text-xs sm:text-sm transition-all shadow-xs cursor-pointer"
+          >
+            <Plus size={15} /> Đề xuất Diện Trợ cấp mới
+          </button>
+        }
+      />
 
       {/* Stats Counter Cards - Standardized StatCard Component */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
         <StatCard
           label="Người có công & Gia đình LS"
-          value="12 đối tượng"
-          icon={<Heart size={20} />}
+          value={12}
+          badge="đối tượng"
+          highlighted={true}
+          icon={Heart}
           color="rose"
           subtext="Liệt sĩ, Thương binh, Người có công"
+          subtextRight="Chế độ ưu đãi"
         />
         <StatCard
           label="Hộ nghèo & Cận nghèo"
-          value="4 hộ gia đình"
-          icon={<Gift size={20} />}
+          value={4}
+          badge="hộ gia đình"
+          icon={Gift}
           color="emerald"
-          subtext="Hỗ trợ thường xuyên theo chuẩn nghèo"
+          subtext="Hỗ trợ theo chuẩn nghèo đa chiều"
+          subtextRight="An sinh KP3"
         />
         <StatCard
           label="Ngân sách chi trả tháng này"
-          value="32.400.000đ"
-          icon={<FileCheck size={20} />}
+          value="32.400.000"
+          badge="VNĐ"
+          icon={FileCheck}
           color="indigo"
           subtext="Kinh phí ngân sách chi trả trực tiếp"
+          subtextRight="Đã giải ngân"
         />
         <StatCard
           label="Hồ sơ mới chờ duyệt"
-          value={`${recipients.filter(r => r.status === "Chờ duyệt hồ sơ").length} hồ sơ`}
-          icon={<Sparkles size={20} />}
+          value={recipients.filter(r => r.status === "Chờ duyệt hồ sơ").length}
+          badge="hồ sơ"
+          icon={Sparkles}
           color="amber"
-          subtext="Hồ sơ cơ sở đề xuất đang thẩm tra"
+          subtext="Hồ sơ cơ sở đề xuất thẩm tra"
+          subtextRight="Đang xét duyệt"
         />
       </div>
 

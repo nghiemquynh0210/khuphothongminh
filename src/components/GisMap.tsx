@@ -1023,15 +1023,16 @@ export default function GisMap({
   return (
     <div id="gis-map-view" className="space-y-5">
       {/* Header section */}
-      <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 bg-white p-4 sm:p-5 rounded-2xl border border-slate-200/90 shadow-2xs">
-        <div className="space-y-1 min-w-0">
-          <div className="inline-flex items-center gap-2 px-2.5 py-0.5 rounded-md bg-emerald-50 border border-emerald-200 text-emerald-800 text-[11px] font-bold tracking-wide uppercase whitespace-nowrap">
+      <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 bg-gradient-to-r from-slate-50 via-white to-emerald-50/40 p-5 md:p-6 rounded-2xl border border-slate-200 shadow-2xs">
+        <div className="space-y-1.5 min-w-0">
+          <div className="inline-flex items-center gap-2 px-2.5 py-1 rounded-md bg-emerald-50 border border-emerald-200 text-emerald-800 text-[11px] font-bold tracking-wide uppercase whitespace-nowrap">
+            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
             <Globe className="text-emerald-600 animate-spin" style={{ animationDuration: "12s" }} size={13} />
             <span>GIS ĐỊA BÀN • WGS-84 / VN-2000</span>
-            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
-            <span className="font-normal text-[10px] text-emerald-700 hidden sm:inline">KHU PHỐ 3, AN PHÚ</span>
+            <span className="text-emerald-300">•</span>
+            <span className="font-normal text-[11px] text-emerald-700 hidden sm:inline">KHU PHỐ 3, AN PHÚ</span>
           </div>
-          <h1 className="text-lg sm:text-xl md:text-2xl font-black text-slate-800 tracking-tight whitespace-nowrap">
+          <h1 className="text-xl md:text-2xl font-black text-slate-800 tracking-tight whitespace-nowrap">
             Bản đồ Không gian số GIS
           </h1>
         </div>
