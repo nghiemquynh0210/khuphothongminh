@@ -23,7 +23,6 @@ import {
   ShieldAlert,
   CreditCard,
   FileCheck2,
-  HelpCircle,
   X
 } from "lucide-react";
 import { PendingRegistration } from "./SettingsAndPermissions";
@@ -78,7 +77,6 @@ export default function LoginAndRegister({
   });
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
-  const [showHelpModal, setShowHelpModal] = useState(false);
 
   // Forgot password state
   const [forgotEmail, setForgotEmail] = useState("");
@@ -732,29 +730,6 @@ export default function LoginAndRegister({
                 </button>
               </form>
 
-              {/* Security Assurance Badge */}
-              <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-200/80 text-[11px] text-slate-600 flex items-center justify-between">
-                <span className="flex items-center gap-1.5 font-medium text-slate-700">
-                  <ShieldCheck size={14} className="text-emerald-600 shrink-0" />
-                  <span>Bảo mật theo Luật An ninh mạng & Đề án 06/CP</span>
-                </span>
-                <span className="text-[10px] text-emerald-700 font-bold bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200/70">
-                  Hệ thống số hóa
-                </span>
-              </div>
-
-              {/* Help & Technical Guidance Link */}
-              <div className="text-center pt-0.5">
-                <button
-                  type="button"
-                  onClick={() => setShowHelpModal(true)}
-                  className="text-[11px] text-slate-500 hover:text-emerald-700 transition-colors inline-flex items-center gap-1 cursor-pointer font-medium"
-                >
-                  <HelpCircle size={13} className="text-slate-400" />
-                  <span>Hướng dẫn đăng nhập & Hỗ trợ kỹ thuật</span>
-                </button>
-              </div>
-
               {/* Bottom Nav Links */}
               <div className="pt-3 border-t border-slate-100 flex items-center justify-between text-xs font-semibold">
                 <button
@@ -1102,94 +1077,6 @@ export default function LoginAndRegister({
         </div>
 
       </div>
-
-      {/* Help Modal */}
-      {showHelpModal && (
-        <div className="fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl max-w-md w-full border border-slate-200 shadow-2xl p-5 space-y-4 animate-in zoom-in-95 duration-150">
-            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
-              <div className="flex items-center gap-2">
-                <div className="w-8 h-8 rounded-lg bg-emerald-50 text-emerald-700 flex items-center justify-center font-bold">
-                  <HelpCircle size={18} />
-                </div>
-                <div>
-                  <h3 className="text-sm font-bold text-slate-900">Hướng dẫn đăng nhập hệ thống</h3>
-                  <p className="text-[11px] text-slate-500">Khu phố 3, Phường An Phú, TP. Hồ Chí Minh</p>
-                </div>
-              </div>
-              <button
-                type="button"
-                onClick={() => setShowHelpModal(false)}
-                className="text-slate-400 hover:text-slate-600 p-1 rounded-lg hover:bg-slate-100 cursor-pointer"
-              >
-                <X size={18} />
-              </button>
-            </div>
-
-            <div className="space-y-3 text-xs text-slate-600">
-              <div className="p-3 rounded-xl bg-emerald-50/60 border border-emerald-100 space-y-1">
-                <div className="font-bold text-emerald-900 flex items-center gap-1.5">
-                  <ShieldCheck size={14} className="text-emerald-700" />
-                  1. Dành cho Cán bộ & Ban Điều hành:
-                </div>
-                <p className="text-[11px] leading-relaxed text-slate-700">
-                  Sử dụng Email công vụ do Ban điều hành cấp hoặc tài khoản quản trị <code className="bg-white px-1 py-0.5 rounded border border-emerald-200 font-bold text-emerald-800">admin</code> (mật khẩu: <code className="bg-white px-1 py-0.5 rounded border border-emerald-200 text-slate-700 font-mono">Trunghuy741</code>).
-                </p>
-                <p className="text-[11px] text-slate-600">
-                  Cán bộ mới có thể đăng ký tài khoản tại mục <strong>"Đăng ký Cán bộ mới"</strong> để gửi hồ sơ chờ Thường trực phê duyệt.
-                </p>
-              </div>
-
-              <div className="p-3 rounded-xl bg-blue-50/60 border border-blue-100 space-y-1">
-                <div className="font-bold text-blue-900 flex items-center gap-1.5">
-                  <CreditCard size={14} className="text-blue-700" />
-                  2. Dành cho Cư dân Khu phố:
-                </div>
-                <p className="text-[11px] leading-relaxed text-slate-700">
-                  Đăng nhập bằng <strong>Số Căn cước công dân (12 chữ số)</strong> hoặc Số điện thoại trong CSDL. Mật khẩu lần đầu là 6 chữ số cuối CCCD (hoặc <code className="bg-white px-1 py-0.5 rounded border border-blue-200 text-slate-700 font-mono">user123</code> đối với tài khoản mẫu).
-                </p>
-                <p className="text-[11px] text-slate-600">
-                  Cư dân chưa có trong danh bộ vui lòng chọn <strong>"Khai báo Cư dân mới"</strong> để số hóa hồ sơ nhân khẩu.
-                </p>
-              </div>
-
-              <div className="p-3 rounded-xl bg-slate-50 border border-slate-200/80 text-[11px] space-y-1">
-                <div className="font-bold text-slate-800">3. Thông tin hỗ trợ kỹ thuật:</div>
-                <p className="text-slate-600 leading-relaxed">
-                  • Thường trực Ban điều hành: <strong>Bí thư Chi bộ Nguyễn Văn Hùng</strong><br />
-                  • Kỹ thuật & Quản trị số: <strong>Nguyễn Trung Huy</strong> (bdhkhupho3.ap@gmail.com)
-                </p>
-              </div>
-            </div>
-
-            <div className="pt-1 flex gap-2">
-              <button
-                type="button"
-                onClick={() => {
-                  if (loginRoleTab === "canbo") {
-                    setUsername("admin");
-                    setPassword("Trunghuy741");
-                  } else {
-                    setUsername("nguoidan");
-                    setPassword("user123");
-                  }
-                  setShowHelpModal(false);
-                }}
-                className="flex-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 py-2 rounded-xl text-xs font-bold transition-all border border-emerald-200 cursor-pointer text-center"
-              >
-                Điền tài khoản mẫu ({loginRoleTab === "canbo" ? "admin" : "nguoidan"})
-              </button>
-              <button
-                type="button"
-                onClick={() => setShowHelpModal(false)}
-                className="px-4 bg-slate-100 hover:bg-slate-200 text-slate-700 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer"
-              >
-                Đóng
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* FOOTER */}
       <div className="w-full max-w-md mx-auto text-center relative z-10 py-3 space-y-1">
