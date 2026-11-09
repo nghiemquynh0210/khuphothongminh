@@ -85,19 +85,17 @@ export default function CitizenHeader({
           })}
         </nav>
 
-        {/* Right action area: Link to /dashboard & Mobile Trigger */}
+        {/* Right action area: Link to staff portal / login & Mobile Trigger */}
         <div className="flex items-center gap-2 shrink-0">
-          <Link
-            to={ROUTES.DASHBOARD}
-            onClick={() => {
-              onOpenStaff();
-            }}
+          <button
+            type="button"
+            onClick={onOpenStaff}
             className="hidden sm:inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-slate-400 border border-slate-200 bg-white shadow-2xs hover:bg-slate-100 hover:text-slate-900 h-9 px-3.5 cursor-pointer text-slate-700"
-            title="Đến Bảng Điều Hành Cán Bộ (/dashboard)"
+            title="Đến Cổng Đăng nhập Cán bộ (/login)"
           >
             <LockKeyhole size={14} className="text-slate-500" aria-hidden="true" />
             <span>Cổng dành cho cán bộ</span>
-          </Link>
+          </button>
 
           {/* Mobile hamburger button */}
           <button
@@ -149,8 +147,8 @@ export default function CitizenHeader({
             })}
           </nav>
           <div className="pt-2 border-t border-slate-100">
-            <Link
-              to={ROUTES.DASHBOARD}
+            <button
+              type="button"
               onClick={() => {
                 setMobileMenuOpen(false);
                 onOpenStaff();
@@ -158,8 +156,8 @@ export default function CitizenHeader({
               className="w-full inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-colors bg-gov-navy text-white hover:bg-gov-navy/90 h-10 px-4 cursor-pointer"
             >
               <LockKeyhole size={15} aria-hidden="true" />
-              <span>Cổng dành cho cán bộ (/dashboard)</span>
-            </Link>
+              <span>Cổng dành cho cán bộ</span>
+            </button>
           </div>
         </div>
       )}

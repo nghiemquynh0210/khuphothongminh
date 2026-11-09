@@ -1,10 +1,10 @@
 import React, { useState, useEffect, useMemo, useCallback } from "react";
-import { 
-  Search, 
-  Plus, 
-  Phone, 
-  Calendar, 
-  MapPin, 
+import {
+  Search,
+  Plus,
+  Phone,
+  Calendar,
+  MapPin,
   CheckCircle,
   Briefcase,
   Printer,
@@ -126,10 +126,10 @@ const CitizenSearchInput = React.memo(function CitizenSearchInput({
   return (
     <div className="relative flex-1 min-w-[280px]">
       <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
-      <input 
+      <input
         id="citizen-search-input"
         name="citizenSearch"
-        type="text" 
+        type="text"
         placeholder={placeholder || "Tìm theo họ tên, CCCD, SĐT, quê quán, nghề nghiệp, mã BHYT..."}
         value={val}
         onChange={(e) => setVal(e.target.value)}
@@ -162,9 +162,9 @@ interface CitizenManagementProps {
   onNavigateToGis?: (item: TargetGisItem) => void;
 }
 
-export default function CitizenManagement({ 
-  residents, 
-  onAddResident, 
+export default function CitizenManagement({
+  residents,
+  onAddResident,
   onDeleteResident,
   onUpdateResidents,
   onUpdateHouseholds,
@@ -655,7 +655,7 @@ NGƯỜI NƯỚC NGOÀI KHAI BÁO       CHỦ CƠ SỞ LƯU TRÚ       XÁC NH�
   // Dynamic row mapper for Excel & Paste text
   const mapRawRowToResident = (row: any, idx: number) => {
     const findVal = (keys: string[]) => {
-      const foundKey = Object.keys(row).find(k => 
+      const foundKey = Object.keys(row).find(k =>
         keys.some(key => k.toLowerCase().trim().replace(/_/g, " ") === key.toLowerCase().trim().replace(/_/g, " "))
       );
       return foundKey ? String(row[foundKey]).trim() : "";
@@ -1123,7 +1123,7 @@ NGƯỜI NƯỚC NGOÀI KHAI BÁO       CHỦ CƠ SỞ LƯU TRÚ       XÁC NH�
     if (isEditMode && editingResidentId) {
       const oldRes = residents.find(r => r.id === editingResidentId);
       if (!oldRes) return;
-      
+
       const updatedRes: Resident = {
         ...oldRes,
         fullName: formData.fullName,
@@ -1409,8 +1409,8 @@ NGƯỜI NƯỚC NGOÀI KHAI BÁO       CHỦ CƠ SỞ LƯU TRÚ       XÁC NH�
 
       // Fast-path text matches
       return (
-        res.fullName.toLowerCase().includes(query) || 
-        res.cccd.toLowerCase().includes(query) || 
+        res.fullName.toLowerCase().includes(query) ||
+        res.cccd.toLowerCase().includes(query) ||
         (res.phone && res.phone.includes(query)) ||
         (res.address && res.address.toLowerCase().includes(query)) ||
         (res.householdId && res.householdId.toLowerCase().includes(query)) ||
@@ -1452,10 +1452,10 @@ NGƯỜI NƯỚC NGOÀI KHAI BÁO       CHỦ CƠ SỞ LƯU TRÚ       XÁC NH�
         badgeIcon={<Users size={14} className="text-emerald-600" />}
         badgeText="CSDL DÂN CƯ ĐỀ ÁN 06/CP • KHU PHỐ 3, PHƯỜNG AN PHÚ"
         badgeSubtext="VNeID CƠ SỞ"
-        title="Sổ Quản Lý Dân Cư Khu Phố"
+        title="Quản Lý Dân Cư Khu Phố"
         actions={
           <>
-            <button 
+            <button
               id="btn-export-excel"
               onClick={handleExportFullExcel}
               className="flex items-center gap-2 bg-slate-50 hover:bg-slate-100 border border-slate-200/90 text-slate-700 px-3.5 py-2.5 rounded-xl font-bold text-xs transition-all shadow-xs cursor-pointer hover:shadow-sm"
@@ -1463,7 +1463,7 @@ NGƯỜI NƯỚC NGOÀI KHAI BÁO       CHỦ CƠ SỞ LƯU TRÚ       XÁC NH�
             >
               <Download size={15} className="text-slate-600" /> Xuất Excel ({formatVNNumber(residents.length)})
             </button>
-            <button 
+            <button
               id="btn-import-excel"
               onClick={() => {
                 setShowImportModal(true);
@@ -1474,7 +1474,7 @@ NGƯỜI NƯỚC NGOÀI KHAI BÁO       CHỦ CƠ SỞ LƯU TRÚ       XÁC NH�
             >
               <FileSpreadsheet size={15} className="text-emerald-600" /> Nhập Excel / Dán bảng
             </button>
-            <button 
+            <button
               id="btn-add-resident"
               onClick={handleOpenAddModal}
               className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2.5 rounded-xl font-bold text-xs transition-all shadow-xs cursor-pointer hover:shadow-md"
@@ -1530,9 +1530,9 @@ NGƯỜI NƯỚC NGOÀI KHAI BÁO       CHỦ CƠ SỞ LƯU TRÚ       XÁC NH�
       <div className="bg-white p-3.5 sm:p-4 rounded-2xl border border-slate-200/80 shadow-xs space-y-3">
         {/* Tier 1: Search Box & Status Pills */}
         <div className="flex flex-col lg:flex-row gap-3 items-stretch lg:items-center justify-between">
-          <CitizenSearchInput 
-            defaultValue={searchTerm} 
-            onSearch={handleSearchChange} 
+          <CitizenSearchInput
+            defaultValue={searchTerm}
+            onSearch={handleSearchChange}
           />
 
           {/* Residency Status Tabs */}
@@ -1540,33 +1540,30 @@ NGƯỜI NƯỚC NGOÀI KHAI BÁO       CHỦ CƠ SỞ LƯU TRÚ       XÁC NH�
             <button
               type="button"
               onClick={() => handleStatusFilterChange("Tất cả")}
-              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
-                statusFilter === "Tất cả"
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${statusFilter === "Tất cả"
                   ? "bg-white text-slate-800 shadow-xs border border-slate-200/50"
                   : "text-slate-500 hover:text-slate-800 font-medium"
-              }`}
+                }`}
             >
               Tất cả ({formatVNNumber(tabCounts.all)})
             </button>
             <button
               type="button"
               onClick={() => handleStatusFilterChange("Thường trú")}
-              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
-                statusFilter === "Thường trú"
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${statusFilter === "Thường trú"
                   ? "bg-white text-emerald-700 shadow-xs border border-emerald-200"
                   : "text-slate-500 hover:text-slate-800 font-medium"
-              }`}
+                }`}
             >
               Thường trú ({formatVNNumber(tabCounts.thuongTru)})
             </button>
             <button
               type="button"
               onClick={() => handleStatusFilterChange("Tạm trú")}
-              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
-                statusFilter === "Tạm trú"
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${statusFilter === "Tạm trú"
                   ? "bg-white text-amber-700 shadow-xs border border-amber-200"
                   : "text-slate-500 hover:text-slate-800 font-medium"
-              }`}
+                }`}
             >
               <span>Tạm trú ({formatVNNumber(tabCounts.tamTru)})</span>
               {tamTruExpiringSoonCount > 0 && (
@@ -1578,22 +1575,20 @@ NGƯỜI NƯỚC NGOÀI KHAI BÁO       CHỦ CƠ SỞ LƯU TRÚ       XÁC NH�
             <button
               type="button"
               onClick={() => handleStatusFilterChange("Tạm vắng")}
-              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
-                statusFilter === "Tạm vắng"
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${statusFilter === "Tạm vắng"
                   ? "bg-white text-slate-700 shadow-xs border border-slate-200"
                   : "text-slate-500 hover:text-slate-800 font-medium"
-              }`}
+                }`}
             >
               Tạm vắng ({formatVNNumber(tabCounts.tamVang)})
             </button>
             <button
               type="button"
               onClick={() => handleStatusFilterChange("Người nước ngoài")}
-              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
-                statusFilter === "Người nước ngoài"
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${statusFilter === "Người nước ngoài"
                   ? "bg-purple-600 text-white shadow-xs"
                   : "text-purple-700 hover:text-purple-900 font-medium hover:bg-purple-50"
-              }`}
+                }`}
             >
               <Globe size={13} className={statusFilter === "Người nước ngoài" ? "text-purple-200" : "text-purple-600"} />
               Người nước ngoài ({formatVNNumber(tabCounts.foreigners)})
@@ -1623,7 +1618,7 @@ NGƯỜI NƯỚC NGOÀI KHAI BÁO       CHỦ CƠ SỞ LƯU TRÚ       XÁC NH�
             )}
 
             {/* Gender Filter */}
-            <select 
+            <select
               id="citizen-gender-filter"
               name="citizenGenderFilter"
               value={genderFilter}
@@ -1636,7 +1631,7 @@ NGƯỜI NƯỚC NGOÀI KHAI BÁO       CHỦ CƠ SỞ LƯU TRÚ       XÁC NH�
             </select>
 
             {/* Policy / Organization Filter */}
-            <select 
+            <select
               id="citizen-policy-filter"
               name="citizenPolicyFilter"
               value={policyFilter}
@@ -1703,11 +1698,10 @@ NGƯỜI NƯỚC NGOÀI KHAI BÁO       CHỦ CƠ SỞ LƯU TRÚ       XÁC NH�
                 setTemporaryExpiryFilter("Sắp hết hạn (< 30 ngày)");
                 setCurrentPage(1);
               }}
-              className={`flex-1 sm:flex-none px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
-                temporaryExpiryFilter === "Sắp hết hạn (< 30 ngày)"
+              className={`flex-1 sm:flex-none px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-1.5 ${temporaryExpiryFilter === "Sắp hết hạn (< 30 ngày)"
                   ? "bg-amber-600 text-white shadow-xs"
                   : "bg-white hover:bg-amber-100 text-amber-900 border border-amber-300 shadow-2xs"
-              }`}
+                }`}
             >
               <span>Xem DS sắp hết hạn</span>
               <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-amber-500 text-white">
@@ -1803,9 +1797,8 @@ NGƯỜI NƯỚC NGOÀI KHAI BÁO       CHỦ CƠ SỞ LƯU TRÚ       XÁC NH�
             </div>
 
             <div className="bg-white/10 backdrop-blur-xs p-3.5 rounded-xl border border-white/10 flex items-center gap-3">
-              <div className={`w-10 h-10 rounded-xl flex items-center justify-center font-bold shrink-0 ${
-                expiringSoonCount > 0 ? "bg-amber-500/30 text-amber-300" : "bg-emerald-500/30 text-emerald-300"
-              }`}>
+              <div className={`w-10 h-10 rounded-xl flex items-center justify-center font-bold shrink-0 ${expiringSoonCount > 0 ? "bg-amber-500/30 text-amber-300" : "bg-emerald-500/30 text-emerald-300"
+                }`}>
                 {expiringSoonCount > 0 ? <AlertTriangle size={20} /> : <CheckCircle2 size={20} />}
               </div>
               <div className="min-w-0">
@@ -1923,20 +1916,19 @@ NGƯỜI NƯỚC NGOÀI KHAI BÁO       CHỦ CƠ SỞ LƯU TRÚ       XÁC NH�
                     const hostelInfo = parseAccommodationInfo(res.address || res.currentAddress || res.temporaryAddress);
 
                     return (
-                      <tr 
+                      <tr
                         key={res.id}
                         id={`resident-row-${res.id}`}
                         onClick={() => handleOpenDetailModal(res)}
-                        className={`hover:bg-emerald-50/30 cursor-pointer transition-colors group ${
-                          isSelected ? "bg-emerald-50/50" : ""
-                        }`}
+                        className={`hover:bg-emerald-50/30 cursor-pointer transition-colors group ${isSelected ? "bg-emerald-50/50" : ""
+                          }`}
                       >
                         <td className="py-3.5 px-4">
                           <div className="flex items-center gap-3">
                             <div className="relative shrink-0">
-                              <img 
-                                src={res.avatar || "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150"} 
-                                alt={res.fullName} 
+                              <img
+                                src={res.avatar || "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150"}
+                                alt={res.fullName}
                                 className="w-10 h-10 rounded-full object-cover border border-slate-200 shrink-0 group-hover:border-emerald-400 transition-colors"
                                 referrerPolicy="no-referrer"
                               />
@@ -2037,7 +2029,7 @@ NGƯỜI NƯỚC NGOÀI KHAI BÁO       CHỦ CƠ SỞ LƯU TRÚ       XÁC NH�
                                 <span>{hostelInfo.hostelName}</span>
                               </span>
                               {hostelInfo.phone && (
-                                <a 
+                                <a
                                   href={`tel:${hostelInfo.phone}`}
                                   onClick={(e) => e.stopPropagation()}
                                   className="inline-flex items-center gap-0.5 text-[9.5px] text-emerald-700 font-mono font-semibold hover:underline bg-emerald-50 px-1 py-0.2 rounded border border-emerald-200"
@@ -2058,7 +2050,7 @@ NGƯỜI NƯỚC NGOÀI KHAI BÁO       CHỦ CƠ SỞ LƯU TRÚ       XÁC NH�
                         <td className="py-3.5 px-4">
                           <div className="font-medium text-slate-800 truncate max-w-[190px]">{res.occupation || "Chưa cập nhật"}</div>
                           <div className="text-[10px] text-slate-500 truncate max-w-[190px] mt-0.5">
-                            {isForeign 
+                            {isForeign
                               ? (res.sponsoringOrganization || res.workplace || "Cư trú tự do")
                               : `${res.education ? res.education : "Học vấn: Chưa cập nhật"}${res.workplace ? ` • ${res.workplace}` : ""}`}
                           </div>
@@ -2134,11 +2126,10 @@ NGƯỜI NƯỚC NGOÀI KHAI BÁO       CHỦ CƠ SỞ LƯU TRÚ       XÁC NH�
                                 e.stopPropagation();
                                 setActiveDropdownId(activeDropdownId === res.id ? null : res.id);
                               }}
-                              className={`p-1 rounded-lg transition-all cursor-pointer border ${
-                                activeDropdownId === res.id 
-                                  ? "bg-emerald-100 text-emerald-900 border-emerald-300 shadow-xs" 
+                              className={`p-1 rounded-lg transition-all cursor-pointer border ${activeDropdownId === res.id
+                                  ? "bg-emerald-100 text-emerald-900 border-emerald-300 shadow-xs"
                                   : "text-slate-400 hover:text-slate-800 hover:bg-slate-100 border-transparent hover:border-slate-200"
-                              }`}
+                                }`}
                               title="Tùy chọn thao tác"
                             >
                               <MoreHorizontal size={16} />
@@ -2146,7 +2137,7 @@ NGƯỜI NƯỚC NGOÀI KHAI BÁO       CHỦ CƠ SỞ LƯU TRÚ       XÁC NH�
 
                             {/* Dropdown Menu Popup */}
                             {activeDropdownId === res.id && (
-                              <div 
+                              <div
                                 className="absolute right-0 top-full mt-1.5 w-48 bg-white rounded-xl shadow-xl border border-slate-200 py-1.5 z-50 animate-in fade-in zoom-in-95 duration-100 text-left"
                                 onClick={(e) => e.stopPropagation()}
                               >
@@ -2258,7 +2249,7 @@ NGƯỜI NƯỚC NGOÀI KHAI BÁO       CHỦ CƠ SỞ LƯU TRÚ       XÁC NH�
                 const hostelInfo = parseAccommodationInfo(res.address || res.currentAddress || res.temporaryAddress);
 
                 return (
-                  <div 
+                  <div
                     key={res.id}
                     id={`resident-card-${res.id}`}
                     onClick={() => handleOpenDetailModal(res)}
@@ -2266,9 +2257,9 @@ NGƯỜI NƯỚC NGOÀI KHAI BÁO       CHỦ CƠ SỞ LƯU TRÚ       XÁC NH�
                   >
                     <div className="flex items-start gap-3">
                       <div className="relative">
-                        <img 
-                          src={res.avatar || "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150"} 
-                          alt={res.fullName} 
+                        <img
+                          src={res.avatar || "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150"}
+                          alt={res.fullName}
                           className="w-11 h-11 rounded-full object-cover border border-slate-200 shrink-0 group-hover:border-emerald-400 transition-colors"
                           referrerPolicy="no-referrer"
                         />
@@ -2302,7 +2293,7 @@ NGƯỜI NƯỚC NGOÀI KHAI BÁO       CHỦ CƠ SỞ LƯU TRÚ       XÁC NH�
                         </p>
                       </div>
                     </div>
-                    
+
                     <div className="pt-2.5 border-t border-slate-100 text-[11px] space-y-1">
                       <div className="text-slate-600 truncate flex items-center gap-1.5">
                         <Briefcase size={12} className="text-slate-400 shrink-0" />
@@ -2351,14 +2342,14 @@ NGƯỜI NƯỚC NGOÀI KHAI BÁO       CHỦ CƠ SỞ LƯU TRÚ       XÁC NH�
                         {isForeign ? (res.temporaryRegistrationCode ? `Đã KBTT CA` : "Chờ khai báo") : (res.policyGroup && res.policyGroup !== "Bình thường" ? res.policyGroup : "Dân cư phổ thông")}
                       </span>
                       <div className="flex items-center gap-1">
-                        <button 
+                        <button
                           onClick={() => handleOpenDetailModal(res)}
                           className="px-2 py-1 text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 rounded-lg text-[11px] font-semibold flex items-center gap-1 cursor-pointer transition-colors"
                           title="Xem chi tiết hồ sơ"
                         >
                           <Eye size={12} /> Chi tiết
                         </button>
-                        <button 
+                        <button
                           onClick={() => handleDirections(res)}
                           className="p-1 text-emerald-700 hover:text-emerald-900 rounded-lg hover:bg-emerald-50 border border-emerald-200 cursor-pointer transition-colors"
                           title="Chỉ đường GIS đến nơi cư trú"
@@ -2366,7 +2357,7 @@ NGƯỜI NƯỚC NGOÀI KHAI BÁO       CHỦ CƠ SỞ LƯU TRÚ       XÁC NH�
                           <Navigation size={12} />
                         </button>
                         {isForeign ? (
-                          <button 
+                          <button
                             onClick={() => handleOpenNA17(res)}
                             className="p-1 text-purple-600 hover:text-purple-800 rounded-lg hover:bg-purple-50 cursor-pointer transition-colors"
                             title="In mẫu NA17"
@@ -2374,7 +2365,7 @@ NGƯỜI NƯỚC NGOÀI KHAI BÁO       CHỦ CƠ SỞ LƯU TRÚ       XÁC NH�
                             <FileText size={13} />
                           </button>
                         ) : (
-                          <button 
+                          <button
                             onClick={() => handleOpenCT07(res)}
                             className="p-1 text-slate-500 hover:text-emerald-700 rounded-lg hover:bg-slate-100 cursor-pointer transition-colors"
                             title="In mẫu CT07"
@@ -2382,7 +2373,7 @@ NGƯỜI NƯỚC NGOÀI KHAI BÁO       CHỦ CƠ SỞ LƯU TRÚ       XÁC NH�
                             <Printer size={13} />
                           </button>
                         )}
-                        <button 
+                        <button
                           onClick={() => handleEditClick(res)}
                           className="p-1 text-slate-500 hover:text-blue-700 rounded-lg hover:bg-slate-100 cursor-pointer transition-colors"
                           title="Sửa"
@@ -2397,7 +2388,7 @@ NGƯỜI NƯỚC NGOÀI KHAI BÁO       CHỦ CƠ SỞ LƯU TRÚ       XÁC NH�
             )}
           </div>
         )}
-        
+
         <Pagination
           id="citizen-pagination"
           currentPage={activePage}
@@ -2409,14 +2400,14 @@ NGƯỜI NƯỚC NGOÀI KHAI BÁO       CHỦ CƠ SỞ LƯU TRÚ       XÁC NH�
 
       {/* MODAL CHI TIẾT CƯ DÂN CHÍNH GIỮA VIEWPORT (Chuẩn Reference Executive KP3 & Gov Design System) */}
       {showDetailModal && selectedResident && (
-        <div 
+        <div
           className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/65 backdrop-blur-xs animate-in fade-in duration-200"
           onClick={handleCloseDetailModal}
           role="dialog"
           aria-modal="true"
           aria-labelledby="modal-resident-name"
         >
-          <div 
+          <div
             id="resident-detail-modal"
             onClick={(e) => e.stopPropagation()}
             className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-4xl max-h-[92dvh] flex flex-col overflow-hidden animate-in zoom-in-95 duration-200 text-slate-800 relative"
@@ -2424,7 +2415,7 @@ NGƯỜI NƯỚC NGOÀI KHAI BÁO       CHỦ CƠ SỞ LƯU TRÚ       XÁC NH�
             {/* Header: Executive Government Portal Theme (Light Slate Gradient) */}
             <div className="bg-gradient-to-r from-slate-50 via-white to-blue-50/30 px-5 sm:px-6 pt-5 pb-4 border-b border-slate-200 relative shrink-0">
               {/* Nút đóng ở góc trên bên phải */}
-              <button 
+              <button
                 id="btn-close-detail-modal"
                 onClick={handleCloseDetailModal}
                 className="absolute top-4 right-4 p-2 rounded-xl text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors cursor-pointer"
@@ -2446,15 +2437,15 @@ NGƯỜI NƯỚC NGOÀI KHAI BÁO       CHỦ CƠ SỞ LƯU TRÚ       XÁC NH�
               <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 pr-8">
                 {/* Avatar with Status Overlay */}
                 <div className="relative shrink-0">
-                  <img 
+                  <img
                     id="modal-resident-avatar"
-                    src={selectedResident.avatar || "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150"} 
+                    src={selectedResident.avatar || "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150"}
                     alt={selectedResident.fullName}
                     className="w-16 h-16 sm:w-18 sm:h-18 rounded-2xl border border-slate-200/90 shadow-2xs object-cover bg-slate-100"
                     referrerPolicy="no-referrer"
                   />
                   {selectedResident.policyGroup?.includes("Đảng viên") && (
-                    <span 
+                    <span
                       className="absolute -bottom-1 -right-1 w-5 h-5 rounded-full bg-rose-600 border-2 border-white flex items-center justify-center text-[10px] text-white font-bold shadow-xs"
                       title="Đảng viên ĐCSVN"
                     >
@@ -2462,7 +2453,7 @@ NGƯỜI NƯỚC NGOÀI KHAI BÁO       CHỦ CƠ SỞ LƯU TRÚ       XÁC NH�
                     </span>
                   )}
                   {isForeignResident(selectedResident) && !selectedResident.policyGroup?.includes("Đảng viên") && (
-                    <span 
+                    <span
                       className="absolute -bottom-1 -right-1 px-1.5 py-0.5 rounded-md bg-purple-600 border-2 border-white text-[10px] text-white font-bold shadow-xs"
                       title={selectedResident.nationality}
                     >
@@ -2486,13 +2477,12 @@ NGƯỜI NƯỚC NGOÀI KHAI BÁO       CHỦ CƠ SỞ LƯU TRÚ       XÁC NH�
                         <span>{selectedResident.nationality}</span>
                       </span>
                     ) : (
-                      <span className={`px-2 py-0.5 rounded-md text-[11px] font-bold border ${
-                        selectedResident.status === "Thường trú"
+                      <span className={`px-2 py-0.5 rounded-md text-[11px] font-bold border ${selectedResident.status === "Thường trú"
                           ? "bg-emerald-50 text-emerald-800 border-emerald-200"
                           : selectedResident.status === "Tạm trú"
-                          ? "bg-amber-50 text-amber-800 border-amber-200"
-                          : "bg-slate-100 text-slate-700 border-slate-200"
-                      }`}>
+                            ? "bg-amber-50 text-amber-800 border-amber-200"
+                            : "bg-slate-100 text-slate-700 border-slate-200"
+                        }`}>
                         {selectedResident.status}
                       </span>
                     )}
@@ -2525,33 +2515,30 @@ NGƯỜI NƯỚC NGOÀI KHAI BÁO       CHỦ CƠ SỞ LƯU TRÚ       XÁC NH�
 
             {/* Sub-tabs Navigation */}
             <div className="flex border-b border-slate-200 bg-white px-5 sm:px-6 gap-6 text-xs font-bold shrink-0 overflow-x-auto">
-              <button 
+              <button
                 onClick={() => setResidentModalTab("identity")}
-                className={`py-3 transition-all relative cursor-pointer flex items-center gap-2 whitespace-nowrap ${
-                  residentModalTab === "identity" ? "text-blue-700 font-extrabold" : "text-slate-500 hover:text-slate-800"
-                }`}
+                className={`py-3 transition-all relative cursor-pointer flex items-center gap-2 whitespace-nowrap ${residentModalTab === "identity" ? "text-blue-700 font-extrabold" : "text-slate-500 hover:text-slate-800"
+                  }`}
               >
                 <CreditCard size={15} />
                 <span>Định danh & Nhân thân</span>
                 {residentModalTab === "identity" && <div className="absolute bottom-0 left-0 w-full h-0.5 bg-blue-700"></div>}
               </button>
 
-              <button 
+              <button
                 onClick={() => setResidentModalTab("residence")}
-                className={`py-3 transition-all relative cursor-pointer flex items-center gap-2 whitespace-nowrap ${
-                  residentModalTab === "residence" ? "text-blue-700 font-extrabold" : "text-slate-500 hover:text-slate-800"
-                }`}
+                className={`py-3 transition-all relative cursor-pointer flex items-center gap-2 whitespace-nowrap ${residentModalTab === "residence" ? "text-blue-700 font-extrabold" : "text-slate-500 hover:text-slate-800"
+                  }`}
               >
                 <Home size={15} />
                 <span>Hộ tịch & Nơi cư trú</span>
                 {residentModalTab === "residence" && <div className="absolute bottom-0 left-0 w-full h-0.5 bg-blue-700"></div>}
               </button>
 
-              <button 
+              <button
                 onClick={() => setResidentModalTab("social")}
-                className={`py-3 transition-all relative cursor-pointer flex items-center gap-2 whitespace-nowrap ${
-                  residentModalTab === "social" ? "text-blue-700 font-extrabold" : "text-slate-500 hover:text-slate-800"
-                }`}
+                className={`py-3 transition-all relative cursor-pointer flex items-center gap-2 whitespace-nowrap ${residentModalTab === "social" ? "text-blue-700 font-extrabold" : "text-slate-500 hover:text-slate-800"
+                  }`}
               >
                 <Award size={15} />
                 <span>Đoàn thể & Y tế - Xã hội</span>
@@ -2559,11 +2546,10 @@ NGƯỜI NƯỚC NGOÀI KHAI BÁO       CHỦ CƠ SỞ LƯU TRÚ       XÁC NH�
               </button>
 
               {isForeignResident(selectedResident) && (
-                <button 
+                <button
                   onClick={() => setResidentModalTab("foreign")}
-                  className={`py-3 transition-all relative cursor-pointer flex items-center gap-2 whitespace-nowrap ${
-                    residentModalTab === "foreign" ? "text-purple-700 font-extrabold" : "text-slate-500 hover:text-slate-800"
-                  }`}
+                  className={`py-3 transition-all relative cursor-pointer flex items-center gap-2 whitespace-nowrap ${residentModalTab === "foreign" ? "text-purple-700 font-extrabold" : "text-slate-500 hover:text-slate-800"
+                    }`}
                 >
                   <Globe size={15} />
                   <span>Thị thực & Xuất nhập cảnh</span>
@@ -2574,7 +2560,7 @@ NGƯỜI NƯỚC NGOÀI KHAI BÁO       CHỦ CƠ SỞ LƯU TRÚ       XÁC NH�
 
             {/* Thân modal: Nền xám nhạt cao cấp, padding chuẩn, tổ chức theo Tab */}
             <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-4 bg-slate-50/70 text-xs sm:text-sm">
-              
+
               {/* TAB 1: ĐỊNH DANH & NHÂN THÂN */}
               {residentModalTab === "identity" && (
                 <div className="bg-white rounded-2xl border border-slate-200/90 shadow-2xs overflow-hidden animate-in fade-in duration-200 divide-y divide-slate-100">
@@ -2601,8 +2587,8 @@ NGƯỜI NƯỚC NGOÀI KHAI BÁO       CHỦ CƠ SỞ LƯU TRÚ       XÁC NH�
                         <button
                           type="button"
                           onClick={() => {
-                            const val = isForeignResident(selectedResident) 
-                              ? (selectedResident.passportNumber || selectedResident.cccd) 
+                            const val = isForeignResident(selectedResident)
+                              ? (selectedResident.passportNumber || selectedResident.cccd)
                               : selectedResident.cccd;
                             if (val) {
                               navigator.clipboard.writeText(val);
@@ -2622,8 +2608,8 @@ NGƯỜI NƯỚC NGOÀI KHAI BÁO       CHỦ CƠ SỞ LƯU TRÚ       XÁC NH�
                       <DetailRow
                         label={isForeignResident(selectedResident) ? "Số Hộ chiếu:" : "Số định danh / CCCD:"}
                         value={(() => {
-                          const raw = isForeignResident(selectedResident) 
-                            ? (selectedResident.passportNumber || selectedResident.cccd) 
+                          const raw = isForeignResident(selectedResident)
+                            ? (selectedResident.passportNumber || selectedResident.cccd)
                             : selectedResident.cccd;
                           if (!raw) return "Chưa cập nhật";
                           if (showFullCccd) return raw;
@@ -2693,13 +2679,12 @@ NGƯỜI NƯỚC NGOÀI KHAI BÁO       CHỦ CƠ SỞ LƯU TRÚ       XÁC NH�
                       <DetailRow
                         label="Diện cư trú"
                         value={
-                          <span className={`inline-block px-2 py-0.5 rounded text-xs font-bold border ${
-                            selectedResident.status === "Thường trú"
+                          <span className={`inline-block px-2 py-0.5 rounded text-xs font-bold border ${selectedResident.status === "Thường trú"
                               ? "bg-emerald-50 text-emerald-800 border-emerald-200"
                               : selectedResident.status === "Tạm trú"
-                              ? "bg-amber-50 text-amber-800 border-amber-200"
-                              : "bg-slate-100 text-slate-700 border-slate-200"
-                          }`}>
+                                ? "bg-amber-50 text-amber-800 border-amber-200"
+                                : "bg-slate-100 text-slate-700 border-slate-200"
+                            }`}>
                             {selectedResident.status}
                           </span>
                         }
@@ -2726,13 +2711,12 @@ NGƯỜI NƯỚC NGOÀI KHAI BÁO       CHỦ CƠ SỞ LƯU TRÚ       XÁC NH�
                           const expiry = getTemporaryResidenceExpiryStatus(selectedResident.temporaryExpDate);
                           if (expiry.status === "unknown") return null;
                           return (
-                            <div className={`p-3.5 rounded-xl border flex items-start gap-3 ${
-                              expiry.isWarning 
-                                ? "bg-amber-50 border-amber-300 text-amber-950 animate-pulse" 
-                                : expiry.isExpired 
-                                ? "bg-rose-50 border-rose-300 text-rose-950" 
-                                : "bg-emerald-50 border-emerald-200 text-emerald-900"
-                            }`}>
+                            <div className={`p-3.5 rounded-xl border flex items-start gap-3 ${expiry.isWarning
+                                ? "bg-amber-50 border-amber-300 text-amber-950 animate-pulse"
+                                : expiry.isExpired
+                                  ? "bg-rose-50 border-rose-300 text-rose-950"
+                                  : "bg-emerald-50 border-emerald-200 text-emerald-900"
+                              }`}>
                               {expiry.isWarning ? (
                                 <AlertTriangle size={18} className="text-amber-700 shrink-0 mt-0.5" />
                               ) : expiry.isExpired ? (
@@ -2750,11 +2734,11 @@ NGƯỜI NƯỚC NGOÀI KHAI BÁO       CHỦ CƠ SỞ LƯU TRÚ       XÁC NH�
                                   )}
                                 </div>
                                 <p className="opacity-90 mt-1 leading-relaxed">
-                                  {expiry.isWarning 
-                                    ? "Cảnh báo trước 01 tháng: Cán bộ khu phố / CSKV cần liên hệ cơ sở lưu trú và cư dân hướng dẫn nộp hồ sơ gia hạn tạm trú trực tuyến trên Cổng Dịch vụ công." 
-                                    : expiry.isExpired 
-                                    ? "Đã quá hạn đăng ký tạm trú: Cần kiểm tra nơi ở hiện tại thực tế và nhắc nhở công dân hoặc lập biên bản xử lý theo Luật Cư trú." 
-                                    : `Thời hạn cư trú hợp lệ đến ngày ${expiry.formattedDate}.`}
+                                  {expiry.isWarning
+                                    ? "Cảnh báo trước 01 tháng: Cán bộ khu phố / CSKV cần liên hệ cơ sở lưu trú và cư dân hướng dẫn nộp hồ sơ gia hạn tạm trú trực tuyến trên Cổng Dịch vụ công."
+                                    : expiry.isExpired
+                                      ? "Đã quá hạn đăng ký tạm trú: Cần kiểm tra nơi ở hiện tại thực tế và nhắc nhở công dân hoặc lập biên bản xử lý theo Luật Cư trú."
+                                      : `Thời hạn cư trú hợp lệ đến ngày ${expiry.formattedDate}.`}
                                 </p>
                               </div>
                             </div>
@@ -2792,7 +2776,7 @@ NGƯỜI NƯỚC NGOÀI KHAI BÁO       CHỦ CƠ SỞ LƯU TRÚ       XÁC NH�
                             {hostel.phone && (
                               <div className="flex justify-between items-center">
                                 <span className="text-slate-500">Số điện thoại chủ trọ:</span>
-                                <a 
+                                <a
                                   href={`tel:${hostel.phone}`}
                                   className="inline-flex items-center gap-1 text-emerald-700 font-mono font-bold hover:underline bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200"
                                 >
@@ -2911,7 +2895,7 @@ NGƯỜI NƯỚC NGOÀI KHAI BÁO       CHỦ CƠ SỞ LƯU TRÚ       XÁC NH�
             <div className="p-4 sm:px-6 bg-white border-t border-slate-200 flex flex-wrap items-center justify-between gap-3 shrink-0">
               <div className="flex items-center gap-2">
                 {isForeignResident(selectedResident) ? (
-                  <button 
+                  <button
                     id="btn-modal-print-na17"
                     onClick={() => handleOpenNA17(selectedResident)}
                     className="flex items-center gap-1.5 px-3 py-2 bg-purple-50 hover:bg-purple-100 text-purple-800 border border-purple-300 rounded-xl text-xs font-bold transition-all shadow-2xs cursor-pointer"
@@ -2920,7 +2904,7 @@ NGƯỜI NƯỚC NGOÀI KHAI BÁO       CHỦ CƠ SỞ LƯU TRÚ       XÁC NH�
                     <span>In Mẫu NA17</span>
                   </button>
                 ) : (
-                  <button 
+                  <button
                     id="btn-modal-print-ct07"
                     onClick={() => handleOpenCT07(selectedResident)}
                     className="flex items-center gap-1.5 px-3 py-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-300 rounded-xl text-xs font-bold transition-all shadow-2xs cursor-pointer"
@@ -2943,7 +2927,7 @@ NGƯỜI NƯỚC NGOÀI KHAI BÁO       CHỦ CƠ SỞ LƯU TRÚ       XÁC NH�
               </div>
 
               <div className="flex items-center gap-2">
-                <button 
+                <button
                   id="btn-modal-edit"
                   onClick={() => {
                     setShowDetailModal(false);
@@ -2954,7 +2938,7 @@ NGƯỜI NƯỚC NGOÀI KHAI BÁO       CHỦ CƠ SỞ LƯU TRÚ       XÁC NH�
                   <Edit2 size={13} />
                   <span>Sửa</span>
                 </button>
-                <button 
+                <button
                   id="btn-modal-delete"
                   onClick={() => {
                     if (confirm(`Bạn có chắc muốn xóa vĩnh viễn cư dân ${selectedResident.fullName}?`)) {
@@ -2968,7 +2952,7 @@ NGƯỜI NƯỚC NGOÀI KHAI BÁO       CHỦ CƠ SỞ LƯU TRÚ       XÁC NH�
                   <Trash2 size={13} />
                   <span>Xóa</span>
                 </button>
-                <button 
+                <button
                   id="btn-modal-close-footer"
                   onClick={handleCloseDetailModal}
                   className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition-colors cursor-pointer"
@@ -2993,7 +2977,7 @@ NGƯỜI NƯỚC NGOÀI KHAI BÁO       CHỦ CƠ SỞ LƯU TRÚ       XÁC NH�
                   {isEditMode ? `Cập nhật hồ sơ cư dân: ${formData.fullName}` : "Thêm mới hồ sơ cư dân (Chuẩn 26 trường CSDL)"}
                 </h3>
               </div>
-              <button 
+              <button
                 onClick={() => {
                   setShowModal(false);
                   setIsEditMode(false);
@@ -3010,59 +2994,54 @@ NGƯỜI NƯỚC NGOÀI KHAI BÁO       CHỦ CƠ SỞ LƯU TRÚ       XÁC NH�
               <button
                 type="button"
                 onClick={() => setFormActiveTab("basic")}
-                className={`flex-1 py-3 px-2 border-b-2 text-center transition-colors cursor-pointer flex items-center justify-center gap-1.5 ${
-                  formActiveTab === "basic" 
-                    ? "border-emerald-600 text-emerald-700 bg-white font-bold" 
+                className={`flex-1 py-3 px-2 border-b-2 text-center transition-colors cursor-pointer flex items-center justify-center gap-1.5 ${formActiveTab === "basic"
+                    ? "border-emerald-600 text-emerald-700 bg-white font-bold"
                     : "border-transparent text-slate-500 hover:text-slate-800"
-                }`}
+                  }`}
               >
                 <CreditCard size={14} /> 1. Định danh
               </button>
               <button
                 type="button"
                 onClick={() => setFormActiveTab("residence")}
-                className={`flex-1 py-3 px-2 border-b-2 text-center transition-colors cursor-pointer flex items-center justify-center gap-1.5 ${
-                  formActiveTab === "residence" 
-                    ? "border-emerald-600 text-emerald-700 bg-white font-bold" 
+                className={`flex-1 py-3 px-2 border-b-2 text-center transition-colors cursor-pointer flex items-center justify-center gap-1.5 ${formActiveTab === "residence"
+                    ? "border-emerald-600 text-emerald-700 bg-white font-bold"
                     : "border-transparent text-slate-500 hover:text-slate-800"
-                }`}
+                  }`}
               >
                 <Home size={14} /> 2. Cư trú & Hộ
               </button>
               <button
                 type="button"
                 onClick={() => setFormActiveTab("career")}
-                className={`flex-1 py-3 px-2 border-b-2 text-center transition-colors cursor-pointer flex items-center justify-center gap-1.5 ${
-                  formActiveTab === "career" 
-                    ? "border-emerald-600 text-emerald-700 bg-white font-bold" 
+                className={`flex-1 py-3 px-2 border-b-2 text-center transition-colors cursor-pointer flex items-center justify-center gap-1.5 ${formActiveTab === "career"
+                    ? "border-emerald-600 text-emerald-700 bg-white font-bold"
                     : "border-transparent text-slate-500 hover:text-slate-800"
-                }`}
+                  }`}
               >
                 <GraduationCap size={14} /> 3. Việc làm
               </button>
               <button
                 type="button"
                 onClick={() => setFormActiveTab("policy")}
-                className={`flex-1 py-3 px-2 border-b-2 text-center transition-colors cursor-pointer flex items-center justify-center gap-1.5 ${
-                  formActiveTab === "policy" 
-                    ? "border-emerald-600 text-emerald-700 bg-white font-bold" 
+                className={`flex-1 py-3 px-2 border-b-2 text-center transition-colors cursor-pointer flex items-center justify-center gap-1.5 ${formActiveTab === "policy"
+                    ? "border-emerald-600 text-emerald-700 bg-white font-bold"
                     : "border-transparent text-slate-500 hover:text-slate-800"
-                }`}
+                  }`}
               >
                 <Award size={14} /> 4. Chính sách
               </button>
               <button
                 type="button"
                 onClick={() => setFormActiveTab("foreigner")}
-                className={`flex-1 py-3 px-2 border-b-2 text-center transition-colors cursor-pointer flex items-center justify-center gap-1.5 ${
-                  formActiveTab === "foreigner" 
-                    ? "border-purple-600 text-purple-700 bg-white font-bold" 
+                className={`flex-1 py-3 px-2 border-b-2 text-center transition-colors cursor-pointer flex items-center justify-center gap-1.5 ${formActiveTab === "foreigner"
+                    ? "border-purple-600 text-purple-700 bg-white font-bold"
                     : formData.isForeigner
-                    ? "border-transparent text-purple-600 hover:text-purple-800 font-bold"
-                    : "border-transparent text-slate-500 hover:text-slate-800"
-                }`}
+                      ? "border-transparent text-purple-600 hover:text-purple-800 font-bold"
+                      : "border-transparent text-slate-500 hover:text-slate-800"
+                  }`}
               >
-                <Globe size={14} className={formData.isForeigner ? "text-purple-600" : ""} /> 
+                <Globe size={14} className={formData.isForeigner ? "text-purple-600" : ""} />
                 <span>5. Hộ chiếu & Thị thực</span>
                 {formData.isForeigner && <span className="w-1.5 h-1.5 rounded-full bg-purple-600"></span>}
               </button>
@@ -3083,8 +3062,8 @@ NGƯỜI NƯỚC NGOÀI KHAI BÁO       CHỦ CƠ SỞ LƯU TRÚ       XÁC NH�
                       </div>
                     </div>
                     <label className="relative inline-flex items-center cursor-pointer shrink-0">
-                      <input 
-                        type="checkbox" 
+                      <input
+                        type="checkbox"
                         checked={formData.isForeigner}
                         onChange={(e) => {
                           const checked = e.target.checked;
@@ -3107,8 +3086,8 @@ NGƯỜI NƯỚC NGOÀI KHAI BÁO       CHỦ CƠ SỞ LƯU TRÚ       XÁC NH�
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div className="space-y-1">
                       <label className="font-bold text-slate-700 block">Họ và Tên *</label>
-                      <input 
-                        type="text" 
+                      <input
+                        type="text"
                         name="fullName"
                         required
                         placeholder={formData.isForeigner ? "Park Min-ho, Johnathan Miller..." : "Nguyễn Văn A"}
@@ -3121,8 +3100,8 @@ NGƯỜI NƯỚC NGOÀI KHAI BÁO       CHỦ CƠ SỞ LƯU TRÚ       XÁC NH�
                       <label className="font-bold text-slate-700 block">
                         {formData.isForeigner ? "Số Hộ chiếu (Passport No.) *" : "Số CCCD (12 số) *"}
                       </label>
-                      <input 
-                        type="text" 
+                      <input
+                        type="text"
                         name="cccd"
                         required
                         placeholder={formData.isForeigner ? "M89210452, UK55981240..." : "0790xxxxxxxx"}
@@ -3142,8 +3121,8 @@ NGƯỜI NƯỚC NGOÀI KHAI BÁO       CHỦ CƠ SỞ LƯU TRÚ       XÁC NH�
                   <div className="grid grid-cols-2 gap-3">
                     <div className="space-y-1">
                       <label className="font-semibold text-slate-700 block">Ngày cấp CCCD</label>
-                      <input 
-                        type="text" 
+                      <input
+                        type="text"
                         name="idIssueDate"
                         placeholder="15/05/2021"
                         value={formData.idIssueDate}
@@ -3153,8 +3132,8 @@ NGƯỜI NƯỚC NGOÀI KHAI BÁO       CHỦ CƠ SỞ LƯU TRÚ       XÁC NH�
                     </div>
                     <div className="space-y-1">
                       <label className="font-semibold text-slate-700 block">Nơi cấp CCCD</label>
-                      <input 
-                        type="text" 
+                      <input
+                        type="text"
                         name="idIssuePlace"
                         placeholder="Cục Cảnh sát QLHC về TTXH"
                         value={formData.idIssuePlace}
@@ -3167,7 +3146,7 @@ NGƯỜI NƯỚC NGOÀI KHAI BÁO       CHỦ CƠ SỞ LƯU TRÚ       XÁC NH�
                   <div className="grid grid-cols-3 gap-3">
                     <div className="space-y-1">
                       <label className="font-semibold text-slate-700 block">Giới tính</label>
-                      <select 
+                      <select
                         name="gender"
                         value={formData.gender}
                         onChange={handleInputChange}
@@ -3179,8 +3158,8 @@ NGƯỜI NƯỚC NGOÀI KHAI BÁO       CHỦ CƠ SỞ LƯU TRÚ       XÁC NH�
                     </div>
                     <div className="space-y-1">
                       <label className="font-semibold text-slate-700 block">Ngày sinh</label>
-                      <input 
-                        type="text" 
+                      <input
+                        type="text"
                         name="birthDate"
                         placeholder="DD/MM/YYYY"
                         value={formData.birthDate}
@@ -3190,8 +3169,8 @@ NGƯỜI NƯỚC NGOÀI KHAI BÁO       CHỦ CƠ SỞ LƯU TRÚ       XÁC NH�
                     </div>
                     <div className="space-y-1">
                       <label className="font-semibold text-slate-700 block">Dân tộc</label>
-                      <input 
-                        type="text" 
+                      <input
+                        type="text"
                         name="ethnicity"
                         placeholder="Kinh, Hoa..."
                         value={formData.ethnicity}
@@ -3204,8 +3183,8 @@ NGƯỜI NƯỚC NGOÀI KHAI BÁO       CHỦ CƠ SỞ LƯU TRÚ       XÁC NH�
                   <div className="grid grid-cols-3 gap-3">
                     <div className="space-y-1">
                       <label className="font-semibold text-slate-700 block">Tôn giáo</label>
-                      <input 
-                        type="text" 
+                      <input
+                        type="text"
                         name="religion"
                         placeholder="Không, Phật giáo..."
                         value={formData.religion}
@@ -3215,8 +3194,8 @@ NGƯỜI NƯỚC NGOÀI KHAI BÁO       CHỦ CƠ SỞ LƯU TRÚ       XÁC NH�
                     </div>
                     <div className="space-y-1">
                       <label className="font-semibold text-slate-700 block">Quốc tịch</label>
-                      <input 
-                        type="text" 
+                      <input
+                        type="text"
                         name="nationality"
                         placeholder="Việt Nam"
                         value={formData.nationality}
@@ -3226,8 +3205,8 @@ NGƯỜI NƯỚC NGOÀI KHAI BÁO       CHỦ CƠ SỞ LƯU TRÚ       XÁC NH�
                     </div>
                     <div className="space-y-1">
                       <label className="font-semibold text-slate-700 block">Quê quán</label>
-                      <input 
-                        type="text" 
+                      <input
+                        type="text"
                         name="hometown"
                         placeholder="Tỉnh/Thành phố quê hương"
                         value={formData.hometown}
@@ -3245,7 +3224,7 @@ NGƯỜI NƯỚC NGOÀI KHAI BÁO       CHỦ CƠ SỞ LƯU TRÚ       XÁC NH�
                   <div className="grid grid-cols-3 gap-3">
                     <div className="space-y-1">
                       <label className="font-semibold text-slate-700 block">Diện cư trú *</label>
-                      <select 
+                      <select
                         name="status"
                         value={formData.status}
                         onChange={handleInputChange}
@@ -3258,8 +3237,8 @@ NGƯỜI NƯỚC NGOÀI KHAI BÁO       CHỦ CƠ SỞ LƯU TRÚ       XÁC NH�
                     </div>
                     <div className="space-y-1">
                       <label className="font-semibold text-slate-700 block">Mã Hộ khẩu liên kết</label>
-                      <input 
-                        type="text" 
+                      <input
+                        type="text"
                         name="householdId"
                         placeholder="HK-301"
                         value={formData.householdId}
@@ -3269,8 +3248,8 @@ NGƯỜI NƯỚC NGOÀI KHAI BÁO       CHỦ CƠ SỞ LƯU TRÚ       XÁC NH�
                     </div>
                     <div className="space-y-1">
                       <label className="font-semibold text-slate-700 block">Quan hệ với chủ hộ</label>
-                      <input 
-                        type="text" 
+                      <input
+                        type="text"
                         name="relationToOwner"
                         placeholder="Chủ hộ, Vợ, Con trai..."
                         value={formData.relationToOwner}
@@ -3282,8 +3261,8 @@ NGƯỜI NƯỚC NGOÀI KHAI BÁO       CHỦ CƠ SỞ LƯU TRÚ       XÁC NH�
 
                   <div className="space-y-1">
                     <label className="font-semibold text-slate-700 block">Địa chỉ cư trú hiện tại (Khu phố 3)</label>
-                    <input 
-                      type="text" 
+                    <input
+                      type="text"
                       name="address"
                       value={formData.address}
                       onChange={handleInputChange}
@@ -3293,8 +3272,8 @@ NGƯỜI NƯỚC NGOÀI KHAI BÁO       CHỦ CƠ SỞ LƯU TRÚ       XÁC NH�
 
                   <div className="space-y-1">
                     <label className="font-semibold text-slate-700 block">Nơi thường trú gốc (Địa chỉ trên sổ hộ khẩu)</label>
-                    <input 
-                      type="text" 
+                    <input
+                      type="text"
                       name="permanentAddress"
                       value={formData.permanentAddress}
                       onChange={handleInputChange}
@@ -3304,8 +3283,8 @@ NGƯỜI NƯỚC NGOÀI KHAI BÁO       CHỦ CƠ SỞ LƯU TRÚ       XÁC NH�
 
                   <div className="space-y-1">
                     <label className="font-semibold text-slate-700 block">Nơi ở hiện nay / Nơi tạm trú (Nếu khác)</label>
-                    <input 
-                      type="text" 
+                    <input
+                      type="text"
                       name="temporaryAddress"
                       value={formData.temporaryAddress}
                       onChange={handleInputChange}
@@ -3321,8 +3300,8 @@ NGƯỜI NƯỚC NGOÀI KHAI BÁO       CHỦ CƠ SỞ LƯU TRÚ       XÁC NH�
                   <div className="grid grid-cols-2 gap-3">
                     <div className="space-y-1">
                       <label className="font-semibold text-slate-700 block">Trình độ học vấn</label>
-                      <input 
-                        type="text" 
+                      <input
+                        type="text"
                         name="education"
                         placeholder="12/12, Đại học, Thạc sĩ..."
                         value={formData.education}
@@ -3332,7 +3311,7 @@ NGƯỜI NƯỚC NGOÀI KHAI BÁO       CHỦ CƠ SỞ LƯU TRÚ       XÁC NH�
                     </div>
                     <div className="space-y-1">
                       <label className="font-semibold text-slate-700 block">Tình trạng hôn nhân</label>
-                      <select 
+                      <select
                         name="maritalStatus"
                         value={formData.maritalStatus}
                         onChange={handleInputChange}
@@ -3348,8 +3327,8 @@ NGƯỜI NƯỚC NGOÀI KHAI BÁO       CHỦ CƠ SỞ LƯU TRÚ       XÁC NH�
 
                   <div className="space-y-1">
                     <label className="font-semibold text-slate-700 block">Nghề nghiệp hiện nay</label>
-                    <input 
-                      type="text" 
+                    <input
+                      type="text"
                       name="occupation"
                       placeholder="Kỹ sư, Giáo viên, Kinh doanh, Cán bộ..."
                       value={formData.occupation}
@@ -3360,8 +3339,8 @@ NGƯỜI NƯỚC NGOÀI KHAI BÁO       CHỦ CƠ SỞ LƯU TRÚ       XÁC NH�
 
                   <div className="space-y-1">
                     <label className="font-semibold text-slate-700 block">Nơi làm việc / Cơ quan công tác</label>
-                    <input 
-                      type="text" 
+                    <input
+                      type="text"
                       name="workplace"
                       placeholder="Tên công ty, trường học, cơ quan..."
                       value={formData.workplace}
@@ -3378,8 +3357,8 @@ NGƯỜI NƯỚC NGOÀI KHAI BÁO       CHỦ CƠ SỞ LƯU TRÚ       XÁC NH�
                   <div className="grid grid-cols-2 gap-3">
                     <div className="space-y-1">
                       <label className="font-semibold text-slate-700 block">Diện chính sách / Đoàn thể</label>
-                      <input 
-                        type="text" 
+                      <input
+                        type="text"
                         name="policyGroup"
                         placeholder="Đảng viên, Cựu chiến binh, Thương binh, Người cao tuổi..."
                         value={formData.policyGroup}
@@ -3389,8 +3368,8 @@ NGƯỜI NƯỚC NGOÀI KHAI BÁO       CHỦ CƠ SỞ LƯU TRÚ       XÁC NH�
                     </div>
                     <div className="space-y-1">
                       <label className="font-semibold text-slate-700 block">Mã số thẻ BHYT</label>
-                      <input 
-                        type="text" 
+                      <input
+                        type="text"
                         name="healthInsuranceNumber"
                         placeholder="DN479xxxxxxxxx"
                         value={formData.healthInsuranceNumber}
@@ -3403,8 +3382,8 @@ NGƯỜI NƯỚC NGOÀI KHAI BÁO       CHỦ CƠ SỞ LƯU TRÚ       XÁC NH�
                   <div className="grid grid-cols-2 gap-3">
                     <div className="space-y-1">
                       <label className="font-semibold text-slate-700 block">Nghĩa vụ quân sự</label>
-                      <input 
-                        type="text" 
+                      <input
+                        type="text"
                         name="militaryServiceStatus"
                         placeholder="Đã hoàn thành, Sĩ quan dự bị, Tạm hoãn..."
                         value={formData.militaryServiceStatus}
@@ -3414,8 +3393,8 @@ NGƯỜI NƯỚC NGOÀI KHAI BÁO       CHỦ CƠ SỞ LƯU TRÚ       XÁC NH�
                     </div>
                     <div className="space-y-1">
                       <label className="font-semibold text-slate-700 block">Số điện thoại liên lạc</label>
-                      <input 
-                        type="text" 
+                      <input
+                        type="text"
                         name="phone"
                         placeholder="09xxxxxxxx"
                         value={formData.phone}
@@ -3427,8 +3406,8 @@ NGƯỜI NƯỚC NGOÀI KHAI BÁO       CHỦ CƠ SỞ LƯU TRÚ       XÁC NH�
 
                   <div className="space-y-1">
                     <label className="font-semibold text-slate-700 block">Người liên hệ khẩn cấp (Họ tên & SĐT)</label>
-                    <input 
-                      type="text" 
+                    <input
+                      type="text"
                       name="emergencyContact"
                       placeholder="Nguyễn Văn B (Cha) - 0903xxxxxx"
                       value={formData.emergencyContact}
@@ -3439,7 +3418,7 @@ NGƯỜI NƯỚC NGOÀI KHAI BÁO       CHỦ CƠ SỞ LƯU TRÚ       XÁC NH�
 
                   <div className="space-y-1">
                     <label className="font-semibold text-slate-700 block">Ghi chú quản lý cư trú</label>
-                    <textarea 
+                    <textarea
                       name="notes"
                       rows={2}
                       placeholder="Ghi chú thêm về nhân khẩu..."
@@ -3503,8 +3482,8 @@ NGƯỜI NƯỚC NGOÀI KHAI BÁO       CHỦ CƠ SỞ LƯU TRÚ       XÁC NH�
 
                     <div className="space-y-1">
                       <label className="font-bold text-slate-700 block">Số Hộ chiếu (Passport No.) *</label>
-                      <input 
-                        type="text" 
+                      <input
+                        type="text"
                         name="passportNumber"
                         placeholder="M89210452, UK55981240..."
                         value={formData.passportNumber}
@@ -3524,8 +3503,8 @@ NGƯỜI NƯỚC NGOÀI KHAI BÁO       CHỦ CƠ SỞ LƯU TRÚ       XÁC NH�
                   <div className="grid grid-cols-2 gap-3">
                     <div className="space-y-1">
                       <label className="font-semibold text-slate-700 block">Ngày hết hạn Hộ chiếu</label>
-                      <input 
-                        type="text" 
+                      <input
+                        type="text"
                         name="passportExpiryDate"
                         placeholder="DD/MM/YYYY"
                         value={formData.passportExpiryDate}
@@ -3535,8 +3514,8 @@ NGƯỜI NƯỚC NGOÀI KHAI BÁO       CHỦ CƠ SỞ LƯU TRÚ       XÁC NH�
                     </div>
                     <div className="space-y-1">
                       <label className="font-semibold text-slate-700 block">Cơ quan cấp Hộ chiếu</label>
-                      <input 
-                        type="text" 
+                      <input
+                        type="text"
                         name="idIssuePlace"
                         placeholder="Cục Quản lý Xuất nhập cảnh, Bộ Ngoại giao..."
                         value={formData.idIssuePlace}
@@ -3550,7 +3529,7 @@ NGƯỜI NƯỚC NGOÀI KHAI BÁO       CHỦ CƠ SỞ LƯU TRÚ       XÁC NH�
                   <div className="grid grid-cols-2 gap-3">
                     <div className="space-y-1">
                       <label className="font-semibold text-slate-700 block">Loại thị thực / Thẻ cư trú</label>
-                      <select 
+                      <select
                         name="visaOrCardType"
                         value={formData.visaOrCardType}
                         onChange={handleInputChange}
@@ -3566,8 +3545,8 @@ NGƯỜI NƯỚC NGOÀI KHAI BÁO       CHỦ CƠ SỞ LƯU TRÚ       XÁC NH�
                     </div>
                     <div className="space-y-1">
                       <label className="font-semibold text-slate-700 block">Số thẻ / Số thị thực</label>
-                      <input 
-                        type="text" 
+                      <input
+                        type="text"
                         name="visaOrCardNumber"
                         placeholder="TRC-KR-2023-0941..."
                         value={formData.visaOrCardNumber}
@@ -3581,8 +3560,8 @@ NGƯỜI NƯỚC NGOÀI KHAI BÁO       CHỦ CƠ SỞ LƯU TRÚ       XÁC NH�
                   <div className="grid grid-cols-2 gap-3">
                     <div className="space-y-1">
                       <label className="font-semibold text-slate-700 block">Thời hạn từ ngày</label>
-                      <input 
-                        type="text" 
+                      <input
+                        type="text"
                         name="visaValidFrom"
                         placeholder="DD/MM/YYYY"
                         value={formData.visaValidFrom}
@@ -3592,8 +3571,8 @@ NGƯỜI NƯỚC NGOÀI KHAI BÁO       CHỦ CƠ SỞ LƯU TRÚ       XÁC NH�
                     </div>
                     <div className="space-y-1">
                       <label className="font-semibold text-slate-700 block">Thời hạn đến ngày (Hạn cư trú)</label>
-                      <input 
-                        type="text" 
+                      <input
+                        type="text"
                         name="visaValidUntil"
                         placeholder="DD/MM/YYYY"
                         value={formData.visaValidUntil}
@@ -3607,8 +3586,8 @@ NGƯỜI NƯỚC NGOÀI KHAI BÁO       CHỦ CƠ SỞ LƯU TRÚ       XÁC NH�
                   <div className="grid grid-cols-3 gap-3">
                     <div className="space-y-1">
                       <label className="font-semibold text-slate-700 block">Mã khai báo CA Phường</label>
-                      <input 
-                        type="text" 
+                      <input
+                        type="text"
                         name="temporaryRegistrationCode"
                         placeholder="KBTT-AP-2024-xxxx"
                         value={formData.temporaryRegistrationCode}
@@ -3618,8 +3597,8 @@ NGƯỜI NƯỚC NGOÀI KHAI BÁO       CHỦ CƠ SỞ LƯU TRÚ       XÁC NH�
                     </div>
                     <div className="space-y-1">
                       <label className="font-semibold text-slate-700 block">Ngày khai báo</label>
-                      <input 
-                        type="text" 
+                      <input
+                        type="text"
                         name="temporaryRegistrationDate"
                         placeholder="DD/MM/YYYY"
                         value={formData.temporaryRegistrationDate}
@@ -3629,7 +3608,7 @@ NGƯỜI NƯỚC NGOÀI KHAI BÁO       CHỦ CƠ SỞ LƯU TRÚ       XÁC NH�
                     </div>
                     <div className="space-y-1">
                       <label className="font-semibold text-slate-700 block">Tình trạng khai báo</label>
-                      <select 
+                      <select
                         name="temporaryRegistrationStatus"
                         value={formData.temporaryRegistrationStatus}
                         onChange={handleInputChange}
@@ -3647,8 +3626,8 @@ NGƯỜI NƯỚC NGOÀI KHAI BÁO       CHỦ CƠ SỞ LƯU TRÚ       XÁC NH�
                   <div className="grid grid-cols-2 gap-3">
                     <div className="space-y-1">
                       <label className="font-semibold text-slate-700 block">Số Giấy phép LĐ (GPLĐ) / Miễn</label>
-                      <input 
-                        type="text" 
+                      <input
+                        type="text"
                         name="workPermitNumber"
                         placeholder="GPLĐ-2023-xxxx/SLĐTBXH"
                         value={formData.workPermitNumber}
@@ -3658,8 +3637,8 @@ NGƯỜI NƯỚC NGOÀI KHAI BÁO       CHỦ CƠ SỞ LƯU TRÚ       XÁC NH�
                     </div>
                     <div className="space-y-1">
                       <label className="font-semibold text-slate-700 block">Cơ quan / Doanh nghiệp bảo lãnh</label>
-                      <input 
-                        type="text" 
+                      <input
+                        type="text"
                         name="sponsoringOrganization"
                         placeholder="Công ty TNHH..., Trường Quốc tế..."
                         value={formData.sponsoringOrganization}
@@ -3672,8 +3651,8 @@ NGƯỜI NƯỚC NGOÀI KHAI BÁO       CHỦ CƠ SỞ LƯU TRÚ       XÁC NH�
                   {/* Landlord Contact */}
                   <div className="space-y-1">
                     <label className="font-semibold text-slate-700 block">Chủ nhà / Cơ sở lưu trú cho thuê (Họ tên & SĐT)</label>
-                    <input 
-                      type="text" 
+                    <input
+                      type="text"
                       name="landlordContact"
                       placeholder="Nguyễn Văn A (Chủ nhà 42/3 LĐC) - 0903xxxxxx"
                       value={formData.landlordContact}
@@ -3718,8 +3697,8 @@ NGƯỜI NƯỚC NGOÀI KHAI BÁO       CHỦ CƠ SỞ LƯU TRÚ       XÁC NH�
                 </div>
 
                 <div className="flex gap-2.5">
-                  <button 
-                    type="button" 
+                  <button
+                    type="button"
                     onClick={() => {
                       setShowModal(false);
                       setIsEditMode(false);
@@ -3729,8 +3708,8 @@ NGƯỜI NƯỚC NGOÀI KHAI BÁO       CHỦ CƠ SỞ LƯU TRÚ       XÁC NH�
                   >
                     Hủy bỏ
                   </button>
-                  <button 
-                    type="submit" 
+                  <button
+                    type="submit"
                     className="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-lg cursor-pointer shadow-xs"
                   >
                     {isEditMode ? "Lưu thay đổi" : "Lưu vào Danh sách Cư dân"}
@@ -3752,7 +3731,7 @@ NGƯỜI NƯỚC NGOÀI KHAI BÁO       CHỦ CƠ SỞ LƯU TRÚ       XÁC NH�
                 <FileSpreadsheet className="text-emerald-400" size={20} />
                 <h3 className="font-bold text-sm sm:text-base">Tích hợp danh sách dân cư vào hệ thống</h3>
               </div>
-              <button 
+              <button
                 onClick={() => {
                   setShowImportModal(false);
                   setParsedData([]);
@@ -3770,22 +3749,20 @@ NGƯỜI NƯỚC NGOÀI KHAI BÁO       CHỦ CƠ SỞ LƯU TRÚ       XÁC NH�
               <button
                 type="button"
                 onClick={() => setImportTab("file")}
-                className={`flex-1 py-3 px-3 border-b-2 text-center transition-colors cursor-pointer flex items-center justify-center gap-1.5 ${
-                  importTab === "file" 
-                    ? "border-emerald-600 text-emerald-700 bg-white font-bold" 
+                className={`flex-1 py-3 px-3 border-b-2 text-center transition-colors cursor-pointer flex items-center justify-center gap-1.5 ${importTab === "file"
+                    ? "border-emerald-600 text-emerald-700 bg-white font-bold"
                     : "border-transparent text-slate-500 hover:text-slate-800"
-                }`}
+                  }`}
               >
                 <UploadCloud size={15} /> Tải tệp Excel / CSV (.xlsx, .csv)
               </button>
               <button
                 type="button"
                 onClick={() => setImportTab("paste")}
-                className={`flex-1 py-3 px-3 border-b-2 text-center transition-colors cursor-pointer flex items-center justify-center gap-1.5 ${
-                  importTab === "paste" 
-                    ? "border-emerald-600 text-emerald-700 bg-white font-bold" 
+                className={`flex-1 py-3 px-3 border-b-2 text-center transition-colors cursor-pointer flex items-center justify-center gap-1.5 ${importTab === "paste"
+                    ? "border-emerald-600 text-emerald-700 bg-white font-bold"
                     : "border-transparent text-slate-500 hover:text-slate-800"
-                }`}
+                  }`}
               >
                 <FileCheck size={15} /> Dán bảng dữ liệu trực tiếp (Copy & Paste)
               </button>
@@ -3807,7 +3784,7 @@ NGƯỜI NƯỚC NGOÀI KHAI BÁO       CHỦ CƠ SỞ LƯU TRÚ       XÁC NH�
                         Tự động nhận diện Cột H & J (Thường trú & Chỗ ở hiện tại), Cột G & J (Địa chỉ tạm trú & Thường trú gốc), Cha/Mẹ, Ngày đăng ký/Hết hạn.
                       </p>
                     </div>
-                    <button 
+                    <button
                       onClick={downloadTemplate}
                       type="button"
                       className="flex items-center justify-center gap-1.5 bg-white hover:bg-emerald-100 text-emerald-800 border border-emerald-300 px-3.5 py-2 rounded-lg text-xs font-bold transition-colors cursor-pointer shrink-0 shadow-2xs"
@@ -3817,16 +3794,15 @@ NGƯỜI NƯỚC NGOÀI KHAI BÁO       CHỦ CƠ SỞ LƯU TRÚ       XÁC NH�
                   </div>
 
                   {/* Drag and Drop Zone */}
-                  <div 
+                  <div
                     onDragOver={handleDragOver}
                     onDragLeave={handleDragLeave}
                     onDrop={handleDrop}
-                    className={`border-2 border-dashed rounded-xl p-8 text-center transition-all cursor-pointer relative flex flex-col items-center justify-center ${
-                      isDragging ? "border-emerald-500 bg-emerald-500/5 scale-[0.99]" : "border-slate-300 bg-slate-50/50 hover:border-slate-400 hover:bg-slate-50"
-                    }`}
+                    className={`border-2 border-dashed rounded-xl p-8 text-center transition-all cursor-pointer relative flex flex-col items-center justify-center ${isDragging ? "border-emerald-500 bg-emerald-500/5 scale-[0.99]" : "border-slate-300 bg-slate-50/50 hover:border-slate-400 hover:bg-slate-50"
+                      }`}
                   >
-                    <input 
-                      type="file" 
+                    <input
+                      type="file"
                       accept=".xlsx, .xls, .csv"
                       onChange={handleFileChange}
                       className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
@@ -3962,8 +3938,8 @@ NGƯỜI NƯỚC NGOÀI KHAI BÁO       CHỦ CƠ SỞ LƯU TRÚ       XÁC NH�
               </div>
 
               <div className="flex items-center gap-2 justify-end">
-                <button 
-                  type="button" 
+                <button
+                  type="button"
                   disabled={isUploadingToDb}
                   onClick={() => {
                     setShowImportModal(false);
@@ -3975,15 +3951,14 @@ NGƯỜI NƯỚC NGOÀI KHAI BÁO       CHỦ CƠ SỞ LƯU TRÚ       XÁC NH�
                 >
                   Hủy bỏ
                 </button>
-                <button 
-                  type="button" 
+                <button
+                  type="button"
                   disabled={isUploadingToDb || parsedData.filter(r => r.isValid).length === 0}
                   onClick={handleConfirmImport}
-                  className={`px-4 py-2 text-white font-bold rounded-lg text-xs flex items-center justify-center gap-1.5 transition-all ${
-                    isUploadingToDb || parsedData.filter(r => r.isValid).length === 0 
-                      ? "bg-slate-400 cursor-not-allowed opacity-80" 
+                  className={`px-4 py-2 text-white font-bold rounded-lg text-xs flex items-center justify-center gap-1.5 transition-all ${isUploadingToDb || parsedData.filter(r => r.isValid).length === 0
+                      ? "bg-slate-400 cursor-not-allowed opacity-80"
                       : "bg-emerald-600 hover:bg-emerald-700 shadow-md cursor-pointer active:scale-95"
-                  }`}
+                    }`}
                 >
                   {isUploadingToDb ? (
                     <>
@@ -4012,7 +3987,7 @@ NGƯỜI NƯỚC NGOÀI KHAI BÁO       CHỦ CƠ SỞ LƯU TRÚ       XÁC NH�
                 <Printer className="text-emerald-400" size={18} />
                 <h3 className="font-bold text-sm">Xem & In Giấy Xác Nhận Thông Tin Cư Trú (Mẫu CT07)</h3>
               </div>
-              <button 
+              <button
                 onClick={() => setShowCT07Modal(false)}
                 className="text-slate-400 hover:text-white transition-colors cursor-pointer"
               >
@@ -4129,7 +4104,7 @@ NGƯỜI NƯỚC NGOÀI KHAI BÁO       CHỦ CƠ SỞ LƯU TRÚ       XÁC NH�
                   </p>
                 </div>
               </div>
-              <button 
+              <button
                 onClick={() => setShowNA17Modal(false)}
                 className="text-purple-300 hover:text-white transition-colors cursor-pointer p-1"
               >
@@ -4352,11 +4327,11 @@ NGƯỜI NƯỚC NGOÀI KHAI BÁO       CHỦ CƠ SỞ LƯU TRÚ       XÁC NH�
 
       {/* QUICK VIEW HOUSEHOLD DRAWER / MODAL - LIÊN KẾT 2 CHIỀU CƯ DÂN & HỘ KHẨU */}
       {quickHouseholdModal && (
-        <div 
+        <div
           className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/60 backdrop-blur-xs animate-in fade-in duration-200"
           onClick={() => setQuickHouseholdModal(null)}
         >
-          <div 
+          <div
             onClick={(e) => e.stopPropagation()}
             className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-lg overflow-hidden animate-in zoom-in-95 duration-200 text-slate-800"
           >
@@ -4367,7 +4342,7 @@ NGƯỜI NƯỚC NGOÀI KHAI BÁO       CHỦ CƠ SỞ LƯU TRÚ       XÁC NH�
                 </span>
                 <span className="text-xs font-bold text-slate-600">SỔ HỘ TỊCH ĐIỆN TỬ</span>
               </div>
-              <button 
+              <button
                 onClick={() => setQuickHouseholdModal(null)}
                 className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors cursor-pointer"
                 title="Đóng (Esc)"
@@ -4410,9 +4385,8 @@ NGƯỜI NƯỚC NGOÀI KHAI BÁO       CHỦ CƠ SỞ LƯU TRÚ       XÁC NH�
                           Sinh: {m.birthYear || "—"} • CCCD: {m.cccd}
                         </span>
                       </div>
-                      <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
-                        m.relation === "Chủ hộ" ? "bg-emerald-100 text-emerald-800" : "bg-slate-100 text-slate-700"
-                      }`}>
+                      <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${m.relation === "Chủ hộ" ? "bg-emerald-100 text-emerald-800" : "bg-slate-100 text-slate-700"
+                        }`}>
                         {m.relation}
                       </span>
                     </div>

@@ -214,12 +214,32 @@ export default function App() {
     const handleLocationSync = () => {
       const pathname = window.location.pathname;
       const tab = getTabFromDashboardPath(pathname);
-      if (tab) {
-        setCurrentUser(CANBO_USER);
+      if (pathname === "/login") {
+        setCurrentUser(null);
+      } else if (tab) {
+        let userToSet = CANBO_USER;
+        try {
+          const savedUserStr = localStorage.getItem("kp3_auth_user");
+          if (savedUserStr) {
+            const parsed = JSON.parse(savedUserStr);
+            if (parsed && parsed.username) userToSet = parsed;
+          }
+        } catch (e) {}
+        setCurrentUser(userToSet);
         setActiveTab(tab as ActiveTab);
         setCitizenSubView(null);
-      } else if (pathname === "/login") {
-        setCurrentUser(null);
+      } else {
+        try {
+          const savedUserStr = localStorage.getItem("kp3_auth_user");
+          if (savedUserStr) {
+            const parsed = JSON.parse(savedUserStr);
+            if (parsed && parsed.username) {
+              setCurrentUser(parsed);
+              return;
+            }
+          }
+        } catch (e) {}
+        setCurrentUser(PUBLIC_CITIZEN_USER);
       }
     };
 
@@ -884,7 +904,15 @@ export default function App() {
       <LoginAndRegister
         onLoginSuccess={(user) => {
           setCurrentUser(user);
-          setActiveTab("dashboard");
+          try {
+            localStorage.setItem("kp3_auth_user", JSON.stringify(user));
+          } catch (e) {}
+          if (user.role === "canbo") {
+            setActiveTab("dashboard");
+            navigate(ROUTES.DASHBOARD);
+          } else {
+            navigate(ROUTES.HOME);
+          }
         }}
         onRegisterSubmit={(newReg) => {
           setPendingRegistrations([newReg, ...pendingRegistrations]);
@@ -912,10 +940,8 @@ export default function App() {
         news={newsList}
         onAddReport={handleAddReport}
         onOpenStaffLogin={() => {
-          setCurrentUser(CANBO_USER);
-          setActiveTab("dashboard");
-          setCitizenSubView(null);
-          navigate(ROUTES.DASHBOARD);
+          setCurrentUser(null);
+          navigate(ROUTES.LOGIN);
         }}
         onSwitchToCanBo={() => {
           setCurrentUser(CANBO_USER);
@@ -1068,9 +1094,14 @@ export default function App() {
         }} 
         currentUser={currentUser}
         onLogout={() => {
-          setCurrentUser(PUBLIC_CITIZEN_USER);
-          setActiveTab("dashboard");
-          navigate(ROUTES.HOME);
+          try {
+            localStorage.removeItem("kp3_auth_user");
+            if (supabase) {
+              supabase.auth.signOut().catch(() => {});
+            }
+          } catch (e) {}
+          setCurrentUser(null);
+          navigate(ROUTES.LOGIN);
         }}
         onSwitchRole={() => {
           if (currentUser.role === "nguoidan") {
@@ -1206,9 +1237,18 @@ export default function App() {
                 </button>
                 <button
                   id="header-logout-auth"
-                  onClick={() => setCurrentUser(null)}
+                  onClick={() => {
+                    try {
+                      localStorage.removeItem("kp3_auth_user");
+                      if (supabase) {
+                        supabase.auth.signOut().catch(() => {});
+                      }
+                    } catch (e) {}
+                    setCurrentUser(null);
+                    navigate(ROUTES.LOGIN);
+                  }}
                   className="hidden md:flex items-center gap-1 px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-semibold transition-all cursor-pointer shrink-0"
-                  title="Mở màn hình đăng nhập tài khoản / đăng ký nhân khẩu mới"
+                  title="Đăng xuất khỏi hệ thống"
                 >
                   <span>Đăng xuất</span>
                 </button>

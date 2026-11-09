@@ -62,10 +62,10 @@ export default function CitizenLandingPage({
   onNavigateToTab
 }: CitizenLandingPageProps) {
   const handleOpenStaff = () => {
-    if (onSwitchToCanBo) {
-      onSwitchToCanBo();
-    } else if (onOpenStaffLogin) {
+    if (onOpenStaffLogin) {
       onOpenStaffLogin();
+    } else if (onSwitchToCanBo) {
+      onSwitchToCanBo();
     }
   };
 

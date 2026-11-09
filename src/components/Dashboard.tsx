@@ -908,7 +908,7 @@ export default function Dashboard({
         <div className="space-y-1">
           <div className="inline-flex items-center gap-2 px-2.5 py-1 rounded-md bg-emerald-50 border border-emerald-200 text-emerald-800 text-[11px] font-bold tracking-wide uppercase">
             <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-            <span>Trung Tâm Chỉ Huy & Điều Hành Số • KP3 An Phú</span>
+            <span>Trung Tâm Điều Hành Số • KP3 An Phú</span>
           </div>
           <h1 className="text-xl md:text-2xl font-black text-slate-800 tracking-tight">
             Khu phố 3, Phường An Phú, TP. Hồ Chí Minh

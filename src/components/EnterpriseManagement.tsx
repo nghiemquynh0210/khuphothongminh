@@ -1,33 +1,33 @@
 import React, { useState, useId, useEffect } from "react";
-import { 
-  Building2, 
-  Search, 
-  Filter, 
-  MapPin, 
-  Phone, 
-  User, 
-  UserCheck, 
-  FileText, 
-  Plus, 
-  Pencil, 
-  Trash2, 
-  X, 
-  AlertTriangle, 
-  Printer, 
-  Download, 
-  List, 
-  LayoutGrid, 
-  TrendingUp, 
-  Briefcase, 
-  Sparkles, 
-  Building, 
-  Users2, 
-  Globe, 
-  HelpCircle, 
-  History, 
-  CheckCircle2, 
-  Clock, 
-  Mail, 
+import {
+  Building2,
+  Search,
+  Filter,
+  MapPin,
+  Phone,
+  User,
+  UserCheck,
+  FileText,
+  Plus,
+  Pencil,
+  Trash2,
+  X,
+  AlertTriangle,
+  Printer,
+  Download,
+  List,
+  LayoutGrid,
+  TrendingUp,
+  Briefcase,
+  Sparkles,
+  Building,
+  Users2,
+  Globe,
+  HelpCircle,
+  History,
+  CheckCircle2,
+  Clock,
+  Mail,
   ShieldCheck,
   ChevronRight,
   ExternalLink,
@@ -44,12 +44,12 @@ import {
   Image as ImageIcon
 } from "lucide-react";
 import { Business, BusinessChangeLog, Resident, Household, ForeignWorker, BusinessFile, TargetGisItem } from "../types";
-import { 
-  KP3_CENTER, 
-  decimalToDMS, 
-  parseCoordinates as parseGisCoords, 
-  generateDefaultCoordinatesForAddress, 
-  getGoogleMapsDirectionUrl 
+import {
+  KP3_CENTER,
+  decimalToDMS,
+  parseCoordinates as parseGisCoords,
+  generateDefaultCoordinatesForAddress,
+  getGoogleMapsDirectionUrl
 } from "../utils/gisUtils";
 import Pagination from "./Pagination";
 import { DetailRow, DetailGrid } from "./common/DetailRow";
@@ -78,10 +78,10 @@ export const isEnterpriseEntity = (b: Business): boolean => {
   const nameLower = (b.name || "").toLowerCase();
   const typeLower = (b.type || "").toLowerCase();
   return (
-    nameLower.includes("công ty") || 
-    nameLower.includes("tnhh") || 
-    nameLower.includes("cổ phần") || 
-    nameLower.includes("doanh nghiệp") || 
+    nameLower.includes("công ty") ||
+    nameLower.includes("tnhh") ||
+    nameLower.includes("cổ phần") ||
+    nameLower.includes("doanh nghiệp") ||
     nameLower.includes("nhà sách") ||
     typeLower.includes("công ty") ||
     (b.employeeCount && b.employeeCount >= 5 && !b.isAccommodation)
@@ -149,11 +149,11 @@ export default function EnterpriseManagement({
       const next = !prev;
       try {
         localStorage.setItem("kp3_enterprise_hide_subtabs", String(next));
-      } catch {}
+      } catch { }
       return next;
     });
   };
-  
+
   // Modals
   const [selectedEnterprise, setSelectedEnterprise] = useState<Business | null>(null);
   const [showDetailModal, setShowDetailModal] = useState(false);
@@ -229,7 +229,7 @@ export default function EnterpriseManagement({
       setTimeout(() => setGisPinToast(null), 3500);
     }
   };
-  
+
   // Filters
   const [searchTerm, setSearchTerm] = useState("");
   const [typeFilter, setTypeFilter] = useState<string>("Tất cả");
@@ -406,7 +406,7 @@ export default function EnterpriseManagement({
     return enterprises.filter((item) => {
       // Search
       const searchLower = searchTerm.toLowerCase();
-      const matchSearch = 
+      const matchSearch =
         item.name.toLowerCase().includes(searchLower) ||
         (item.internalCode || "").toLowerCase().includes(searchLower) ||
         (item.taxCode || "").toLowerCase().includes(searchLower) ||
@@ -460,7 +460,7 @@ export default function EnterpriseManagement({
   const cpCount = enterprises.filter(b => b.businessType === "Công ty Cổ phần").length;
   const dntnCount = enterprises.filter(b => b.businessType === "Doanh nghiệp tư nhân").length;
   const otherCount = enterprises.filter(b => b.businessType === "Cơ sở kinh doanh khác" || (!b.businessType && isEnterpriseEntity(b))).length;
-  
+
   const totalEmployees = enterprises.reduce((sum, b) => sum + (b.employeeCount || 0), 0);
   const totalForeignWorkers = enterprises.reduce((sum, b) => sum + (b.foreignWorkersCount || (b.foreignWorkers?.length || 0)), 0);
   const totalSupportNeeds = enterprises.filter(b => (b.supportNeeds && b.supportNeeds.length > 0) || Boolean(b.supportNotes)).length;
@@ -783,10 +783,10 @@ export default function EnterpriseManagement({
     <div id="enterprise-management-view" className="space-y-6">
       {/* Standard Executive Header */}
       <PageHeader
-        badgeIcon={<Building2 size={14} className="text-emerald-600" />}
+        badgeIcon={<Building2 size={13} className="text-emerald-600" />}
         badgeText="CSDL DOANH NGHIỆP • KP3 AN PHÚ"
         badgeSubtext="DNNVV"
-        title="Quản lý Doanh nghiệp Vừa & Nhỏ (DNNVV) KP3"
+        title="Quản lý Doanh nghiệp Vừa & Nhỏ"
         actions={
           <div className="flex flex-wrap items-center gap-2 shrink-0">
             {/* Quick Switch View Pill when tabs are hidden */}
@@ -839,7 +839,7 @@ export default function EnterpriseManagement({
             >
               <Download size={15} /> Xuất CSV
             </button>
-            <button 
+            <button
               type="button"
               onClick={() => setShowAddModal(true)}
               className="flex items-center gap-2 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white px-4 py-2 rounded-xl font-bold text-xs sm:text-sm transition-all shadow-xs cursor-pointer"
@@ -857,17 +857,15 @@ export default function EnterpriseManagement({
             <button
               type="button"
               onClick={() => setActiveMainTab("list")}
-              className={`px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer whitespace-nowrap ${
-                activeMainTab === "list"
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer whitespace-nowrap ${activeMainTab === "list"
                   ? "bg-white text-indigo-900 shadow-2xs border border-slate-200/50"
                   : "text-slate-600 hover:text-slate-900 hover:bg-white/60"
-              }`}
+                }`}
             >
               <Building2 size={14} className={activeMainTab === "list" ? "text-indigo-600" : "text-slate-400"} />
               <span>Danh mục Doanh nghiệp & Hồ sơ DNNVV</span>
-              <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-extrabold ${
-                activeMainTab === "list" ? "bg-indigo-50 text-indigo-700" : "bg-slate-200 text-slate-600"
-              }`}>
+              <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-extrabold ${activeMainTab === "list" ? "bg-indigo-50 text-indigo-700" : "bg-slate-200 text-slate-600"
+                }`}>
                 {formatVNNumber(enterprises.length)}
               </span>
             </button>
@@ -875,17 +873,15 @@ export default function EnterpriseManagement({
             <button
               type="button"
               onClick={() => setActiveMainTab("economicReport")}
-              className={`px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer whitespace-nowrap ${
-                activeMainTab === "economicReport"
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer whitespace-nowrap ${activeMainTab === "economicReport"
                   ? "bg-gradient-to-r from-indigo-600 to-blue-600 text-white shadow-2xs"
                   : "text-slate-600 hover:text-slate-900 hover:bg-white/60"
-              }`}
+                }`}
             >
               <FileText size={14} className={activeMainTab === "economicReport" ? "text-white" : "text-slate-400"} />
               <span>Báo cáo Kinh tế Địa bàn & Biến động</span>
-              <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-extrabold ${
-                activeMainTab === "economicReport" ? "bg-white/20 text-white" : "bg-slate-200 text-slate-600"
-              }`}>
+              <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-extrabold ${activeMainTab === "economicReport" ? "bg-white/20 text-white" : "bg-slate-200 text-slate-600"
+                }`}>
                 Bí thư / Trưởng KP
               </span>
             </button>
@@ -977,7 +973,7 @@ export default function EnterpriseManagement({
                   className="w-full pl-10 pr-4 py-2.5 border border-slate-200 rounded-xl text-xs sm:text-sm focus:outline-none focus:border-indigo-500 bg-slate-50/50 focus:bg-white transition-colors"
                 />
                 {searchTerm && (
-                  <button 
+                  <button
                     onClick={() => setSearchTerm("")}
                     className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-1 cursor-pointer"
                   >
@@ -991,9 +987,8 @@ export default function EnterpriseManagement({
                 <button
                   type="button"
                   onClick={() => setViewMode("card")}
-                  className={`p-2 rounded-lg transition-colors cursor-pointer ${
-                    viewMode === "card" ? "bg-white text-indigo-700 shadow-2xs" : "text-slate-500 hover:text-slate-800"
-                  }`}
+                  className={`p-2 rounded-lg transition-colors cursor-pointer ${viewMode === "card" ? "bg-white text-indigo-700 shadow-2xs" : "text-slate-500 hover:text-slate-800"
+                    }`}
                   title="Xem dạng thẻ"
                 >
                   <LayoutGrid size={16} />
@@ -1001,9 +996,8 @@ export default function EnterpriseManagement({
                 <button
                   type="button"
                   onClick={() => setViewMode("table")}
-                  className={`p-2 rounded-lg transition-colors cursor-pointer ${
-                    viewMode === "table" ? "bg-white text-indigo-700 shadow-2xs" : "text-slate-500 hover:text-slate-800"
-                  }`}
+                  className={`p-2 rounded-lg transition-colors cursor-pointer ${viewMode === "table" ? "bg-white text-indigo-700 shadow-2xs" : "text-slate-500 hover:text-slate-800"
+                    }`}
                   title="Xem dạng bảng"
                 >
                   <List size={16} />
@@ -1127,11 +1121,10 @@ export default function EnterpriseManagement({
                           <Building2 size={12} className="text-indigo-600 shrink-0" />
                           <span className="truncate">{ent.businessType || "Công ty TNHH"}</span>
                         </span>
-                        <span className={`text-[10.5px] font-bold px-2.5 py-0.5 rounded-full border flex items-center gap-1.5 shrink-0 whitespace-nowrap ${
-                          ent.status === "Đang hoạt động" ? "bg-emerald-50 text-emerald-800 border-emerald-200" :
-                          ent.status === "Chờ duyệt" ? "bg-amber-50 text-amber-800 border-amber-200" :
-                          "bg-rose-50 text-rose-800 border-rose-200"
-                        }`}>
+                        <span className={`text-[10.5px] font-bold px-2.5 py-0.5 rounded-full border flex items-center gap-1.5 shrink-0 whitespace-nowrap ${ent.status === "Đang hoạt động" ? "bg-emerald-50 text-emerald-800 border-emerald-200" :
+                            ent.status === "Chờ duyệt" ? "bg-amber-50 text-amber-800 border-amber-200" :
+                              "bg-rose-50 text-rose-800 border-rose-200"
+                          }`}>
                           <span className={`w-1.5 h-1.5 rounded-full ${ent.status === "Đang hoạt động" ? "bg-emerald-500 animate-pulse" : ent.status === "Tạm ngưng" ? "bg-rose-500" : "bg-amber-500"}`} />
                           <span>{ent.status}</span>
                         </span>
@@ -1139,8 +1132,8 @@ export default function EnterpriseManagement({
 
                       {/* 2. Image Thumbnail (Hiển thị hình ảnh tương tự cơ sở kinh doanh) */}
                       <div className="relative h-32 rounded-xl overflow-hidden bg-slate-100 border border-slate-200/70 shadow-inner">
-                        <img 
-                          src={getEnterpriseImage(ent)} 
+                        <img
+                          src={getEnterpriseImage(ent)}
                           alt={ent.name}
                           className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                           onError={(e) => {
@@ -1148,7 +1141,7 @@ export default function EnterpriseManagement({
                           }}
                         />
                         <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-black/15 pointer-events-none" />
-                        
+
                         {/* Mã doanh nghiệp đặt góc trên phải ảnh */}
                         <div className="absolute top-2 right-2">
                           <span className="text-[10px] font-mono font-semibold px-2 py-0.5 rounded-md bg-black/60 text-white backdrop-blur-xs shadow-xs border border-white/20">
@@ -1226,11 +1219,10 @@ export default function EnterpriseManagement({
                         <button
                           type="button"
                           onClick={() => openPinModal(ent)}
-                          className={`p-1 rounded-lg text-[11px] font-semibold flex items-center gap-0.5 border ${
-                            ent.coordinates 
-                              ? "bg-indigo-50 text-indigo-700 border-indigo-200 hover:bg-indigo-100" 
+                          className={`p-1 rounded-lg text-[11px] font-semibold flex items-center gap-0.5 border ${ent.coordinates
+                              ? "bg-indigo-50 text-indigo-700 border-indigo-200 hover:bg-indigo-100"
                               : "bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-100"
-                          }`}
+                            }`}
                           title={ent.coordinates ? `Tọa độ GIS: ${ent.coordinates}` : "Ghim tọa độ GIS"}
                         >
                           <MapPin size={11} />
@@ -1270,18 +1262,18 @@ export default function EnterpriseManagement({
                       const foreigners = ent.foreignWorkersCount || (ent.foreignWorkers?.length || 0);
 
                       return (
-                        <tr 
-                          key={ent.id} 
+                        <tr
+                          key={ent.id}
                           onClick={() => handleOpenDetailModal(ent)}
                           className="hover:bg-slate-50/80 transition-colors cursor-pointer"
                         >
                           <td className="py-3 px-4">
                             <div className="flex items-center gap-3">
                               <div className="w-10 h-10 rounded-xl overflow-hidden bg-slate-100 border border-slate-200 shrink-0 shadow-2xs">
-                                <img 
-                                  src={getEnterpriseImage(ent)} 
-                                  alt={ent.name} 
-                                  className="w-full h-full object-cover" 
+                                <img
+                                  src={getEnterpriseImage(ent)}
+                                  alt={ent.name}
+                                  className="w-full h-full object-cover"
                                   onError={(e) => {
                                     (e.target as HTMLImageElement).src = "https://images.unsplash.com/photo-1497366216548-37526070297c?w=200";
                                   }}
@@ -1318,11 +1310,10 @@ export default function EnterpriseManagement({
                             )}
                           </td>
                           <td className="py-3 px-3">
-                            <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
-                              ent.status === "Đang hoạt động" ? "bg-emerald-100 text-emerald-800" :
-                              ent.status === "Chờ duyệt" ? "bg-amber-100 text-amber-800" :
-                              "bg-rose-100 text-rose-800"
-                            }`}>
+                            <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${ent.status === "Đang hoạt động" ? "bg-emerald-100 text-emerald-800" :
+                                ent.status === "Chờ duyệt" ? "bg-amber-100 text-amber-800" :
+                                  "bg-rose-100 text-rose-800"
+                              }`}>
                               {ent.status}
                             </span>
                           </td>
@@ -1340,11 +1331,10 @@ export default function EnterpriseManagement({
                               <button
                                 type="button"
                                 onClick={() => openPinModal(ent)}
-                                className={`p-1 rounded-lg text-[11px] font-semibold border ${
-                                  ent.coordinates 
-                                    ? "bg-indigo-50 text-indigo-700 border-indigo-200 hover:bg-indigo-100" 
+                                className={`p-1 rounded-lg text-[11px] font-semibold border ${ent.coordinates
+                                    ? "bg-indigo-50 text-indigo-700 border-indigo-200 hover:bg-indigo-100"
                                     : "bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-100"
-                                }`}
+                                  }`}
                                 title={ent.coordinates ? `Đã ghim: ${ent.coordinates}` : "Ghim tọa độ GIS"}
                               >
                                 <MapPin size={12} />
@@ -1693,12 +1683,12 @@ export default function EnterpriseManagement({
                     const foreigners = b.foreignWorkers && b.foreignWorkers.length > 0
                       ? b.foreignWorkers
                       : getEnterpriseForeignResidents(b).map(r => ({
-                          name: r.fullName,
-                          nationality: r.nationality || "Nước ngoài",
-                          passportOrCode: r.cccd,
-                          position: r.occupation,
-                          temporaryResidenceStatus: "Đã khai báo tạm trú" as const
-                        }));
+                        name: r.fullName,
+                        nationality: r.nationality || "Nước ngoài",
+                        passportOrCode: r.cccd,
+                        position: r.occupation,
+                        temporaryResidenceStatus: "Đã khai báo tạm trú" as const
+                      }));
                     return (
                       <div key={b.id} className="p-3.5 rounded-xl border border-rose-200/80 bg-rose-50/30 space-y-2">
                         <div className="flex justify-between items-center">
@@ -1838,12 +1828,11 @@ export default function EnterpriseManagement({
                       <div key={idx} className="p-3 bg-slate-50 rounded-xl border border-slate-200/80 text-xs space-y-1">
                         <div className="flex justify-between items-center">
                           <strong className="text-slate-900 font-bold">{item.enterpriseName}</strong>
-                          <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
-                            item.type === "Mở mới" ? "bg-emerald-100 text-emerald-800" :
-                            item.type === "Chuyển địa điểm" ? "bg-blue-100 text-blue-800" :
-                            item.type === "Tạm ngừng" ? "bg-rose-100 text-rose-800" :
-                            "bg-amber-100 text-amber-800"
-                          }`}>
+                          <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${item.type === "Mở mới" ? "bg-emerald-100 text-emerald-800" :
+                              item.type === "Chuyển địa điểm" ? "bg-blue-100 text-blue-800" :
+                                item.type === "Tạm ngừng" ? "bg-rose-100 text-rose-800" :
+                                  "bg-amber-100 text-amber-800"
+                            }`}>
                             {item.type}
                           </span>
                         </div>
@@ -1864,17 +1853,17 @@ export default function EnterpriseManagement({
 
       {/* UNIFIED DETAIL MODAL: HỒ SƠ CHI TIẾT DOANH NGHIỆP (DNNVV) */}
       {showDetailModal && selectedEnterprise && (
-        <div 
+        <div
           className="fixed inset-0 bg-slate-950/60 backdrop-blur-xs flex items-center justify-center z-50 p-2 sm:p-4 animate-in fade-in duration-200"
           onClick={() => setShowDetailModal(false)}
         >
-          <div 
+          <div
             onClick={(e) => e.stopPropagation()}
             className="bg-white rounded-2xl shadow-2xl border border-slate-800/40 w-full max-w-4xl max-h-[92dvh] flex flex-col overflow-hidden animate-in zoom-in-95 duration-200 text-slate-800"
           >
             {/* Header Modal: Clean, Executive Government Portal Design */}
             <div className="bg-gradient-to-r from-slate-50 via-white to-indigo-50/25 px-5 sm:px-6 py-5 border-b border-slate-200 relative shrink-0">
-              <button 
+              <button
                 type="button"
                 onClick={() => setShowDetailModal(false)}
                 className="absolute top-4 right-4 p-2 rounded-xl text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors cursor-pointer"
@@ -1886,8 +1875,8 @@ export default function EnterpriseManagement({
               <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 pr-10">
                 {/* Enterprise Avatar / Photo with upload trigger (Tương tự cơ sở kinh doanh) */}
                 <div className="relative w-14 h-14 sm:w-16 sm:h-16 rounded-2xl border border-slate-200 shadow-2xs overflow-hidden shrink-0 group bg-slate-100">
-                  <img 
-                    src={getEnterpriseImage(selectedEnterprise)} 
+                  <img
+                    src={getEnterpriseImage(selectedEnterprise)}
                     alt={selectedEnterprise.name}
                     className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                     referrerPolicy="no-referrer"
@@ -1898,10 +1887,10 @@ export default function EnterpriseManagement({
                   <label className="absolute inset-0 bg-slate-950/65 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center text-white cursor-pointer">
                     <Camera size={16} className="text-white mb-0.5" />
                     <span className="text-[10px] font-bold">Đổi ảnh</span>
-                    <input 
-                      type="file" 
-                      accept="image/*" 
-                      className="hidden" 
+                    <input
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
                       onChange={handleChangeAvatarPhoto}
                     />
                   </label>
@@ -1917,20 +1906,18 @@ export default function EnterpriseManagement({
                       <Briefcase size={13} className="text-indigo-600" />
                       <span>{selectedEnterprise.businessType || "Doanh nghiệp"} • {getEnterpriseScaleLabel(selectedEnterprise)}</span>
                     </span>
-                    <span className={`text-xs font-bold px-2.5 py-0.5 rounded-md border flex items-center gap-1.5 shadow-2xs ${
-                      selectedEnterprise.status === "Đang hoạt động" 
-                        ? "bg-emerald-50 text-emerald-800 border-emerald-200" 
-                        : selectedEnterprise.status === "Tạm ngưng" 
-                        ? "bg-rose-50 text-rose-800 border-rose-200" 
-                        : "bg-amber-50 text-amber-800 border-amber-200"
-                    }`}>
-                      <span className={`w-1.5 h-1.5 rounded-full ${
-                        selectedEnterprise.status === "Đang hoạt động" 
-                          ? "bg-emerald-500 animate-pulse" 
-                          : selectedEnterprise.status === "Tạm ngưng" 
-                          ? "bg-rose-500" 
-                          : "bg-amber-500"
-                      }`} />
+                    <span className={`text-xs font-bold px-2.5 py-0.5 rounded-md border flex items-center gap-1.5 shadow-2xs ${selectedEnterprise.status === "Đang hoạt động"
+                        ? "bg-emerald-50 text-emerald-800 border-emerald-200"
+                        : selectedEnterprise.status === "Tạm ngưng"
+                          ? "bg-rose-50 text-rose-800 border-rose-200"
+                          : "bg-amber-50 text-amber-800 border-amber-200"
+                      }`}>
+                      <span className={`w-1.5 h-1.5 rounded-full ${selectedEnterprise.status === "Đang hoạt động"
+                          ? "bg-emerald-500 animate-pulse"
+                          : selectedEnterprise.status === "Tạm ngưng"
+                            ? "bg-rose-500"
+                            : "bg-amber-500"
+                        }`} />
                       <span>{selectedEnterprise.status}</span>
                     </span>
                   </div>
@@ -1963,41 +1950,37 @@ export default function EnterpriseManagement({
 
             {/* Sub-tabs header */}
             <div className="flex border-b border-slate-200 bg-white px-5 sm:px-6 gap-6 text-xs font-bold shrink-0 overflow-x-auto">
-              <button 
+              <button
                 onClick={() => setEnterpriseModalTab("legal")}
-                className={`py-3 transition-all relative cursor-pointer flex items-center gap-1.5 shrink-0 ${
-                  enterpriseModalTab === "legal" ? "text-indigo-700 font-extrabold" : "text-slate-500 hover:text-slate-800"
-                }`}
+                className={`py-3 transition-all relative cursor-pointer flex items-center gap-1.5 shrink-0 ${enterpriseModalTab === "legal" ? "text-indigo-700 font-extrabold" : "text-slate-500 hover:text-slate-800"
+                  }`}
               >
                 <Briefcase size={15} />
                 <span>Hồ sơ pháp lý & Thuế</span>
                 {enterpriseModalTab === "legal" && <div className="absolute bottom-0 left-0 w-full h-0.5 bg-indigo-600"></div>}
               </button>
-              <button 
+              <button
                 onClick={() => setEnterpriseModalTab("premises")}
-                className={`py-3 transition-all relative cursor-pointer flex items-center gap-1.5 shrink-0 ${
-                  enterpriseModalTab === "premises" ? "text-emerald-700 font-extrabold" : "text-slate-500 hover:text-slate-800"
-                }`}
+                className={`py-3 transition-all relative cursor-pointer flex items-center gap-1.5 shrink-0 ${enterpriseModalTab === "premises" ? "text-emerald-700 font-extrabold" : "text-slate-500 hover:text-slate-800"
+                  }`}
               >
                 <MapPin size={15} />
                 <span>Trụ sở & Mặt bằng KP3</span>
                 {enterpriseModalTab === "premises" && <div className="absolute bottom-0 left-0 w-full h-0.5 bg-emerald-600"></div>}
               </button>
-              <button 
+              <button
                 onClick={() => setEnterpriseModalTab("personnel")}
-                className={`py-3 transition-all relative cursor-pointer flex items-center gap-1.5 shrink-0 ${
-                  enterpriseModalTab === "personnel" ? "text-purple-700 font-extrabold" : "text-slate-500 hover:text-slate-800"
-                }`}
+                className={`py-3 transition-all relative cursor-pointer flex items-center gap-1.5 shrink-0 ${enterpriseModalTab === "personnel" ? "text-purple-700 font-extrabold" : "text-slate-500 hover:text-slate-800"
+                  }`}
               >
                 <Users2 size={15} />
                 <span>Người đại diện & Lao động</span>
                 {enterpriseModalTab === "personnel" && <div className="absolute bottom-0 left-0 w-full h-0.5 bg-purple-600"></div>}
               </button>
-              <button 
+              <button
                 onClick={() => setEnterpriseModalTab("history")}
-                className={`py-3 transition-all relative cursor-pointer flex items-center gap-1.5 shrink-0 ${
-                  enterpriseModalTab === "history" ? "text-slate-900 font-extrabold" : "text-slate-500 hover:text-slate-800"
-                }`}
+                className={`py-3 transition-all relative cursor-pointer flex items-center gap-1.5 shrink-0 ${enterpriseModalTab === "history" ? "text-slate-900 font-extrabold" : "text-slate-500 hover:text-slate-800"
+                  }`}
               >
                 <History size={15} />
                 <span>Biến động địa bàn</span>
@@ -2007,7 +1990,7 @@ export default function EnterpriseManagement({
 
             {/* Modal Body - Tabbed Content */}
             <div className="p-4 sm:p-6 overflow-y-auto space-y-4 flex-1 bg-slate-50/70 text-xs sm:text-sm">
-              
+
               {/* TAB 1: THÔNG TIN PHÁP LÝ & TỔ CHỨC */}
               {enterpriseModalTab === "legal" && (
                 <div className="bg-white rounded-2xl border border-slate-200/90 shadow-2xs overflow-hidden animate-in fade-in duration-200 divide-y divide-slate-100">
@@ -2026,8 +2009,8 @@ export default function EnterpriseManagement({
                       <div className="flex items-center gap-2 shrink-0 self-end sm:self-center">
                         <div className="flex items-center gap-1.5">
                           {(selectedEnterprise.images || [getEnterpriseImage(selectedEnterprise)]).slice(0, 3).map((imgUrl, i) => (
-                            <div 
-                              key={i} 
+                            <div
+                              key={i}
                               onClick={() => setViewingImagePreview({ url: imgUrl, caption: `${selectedEnterprise.name} - Ảnh ${i + 1}` })}
                               className="w-10 h-10 rounded-lg overflow-hidden border border-slate-200 shrink-0 cursor-pointer hover:ring-2 hover:ring-indigo-500 transition-all shadow-2xs group relative"
                               title={`Xem ảnh ${i + 1}`}
@@ -2041,11 +2024,11 @@ export default function EnterpriseManagement({
                         </div>
                         <label className="text-[11px] text-indigo-700 hover:text-indigo-900 font-bold cursor-pointer flex items-center gap-1 bg-indigo-50 hover:bg-indigo-100 px-2.5 py-1.5 rounded-lg border border-indigo-200 transition-colors">
                           <Plus size={12} /> Ảnh
-                          <input 
-                            type="file" 
-                            accept="image/*" 
-                            className="hidden" 
-                            onChange={handleAddGalleryPhoto} 
+                          <input
+                            type="file"
+                            accept="image/*"
+                            className="hidden"
+                            onChange={handleAddGalleryPhoto}
                           />
                         </label>
                       </div>
@@ -2276,12 +2259,12 @@ export default function EnterpriseManagement({
                       const foreigners = selectedEnterprise.foreignWorkers && selectedEnterprise.foreignWorkers.length > 0
                         ? selectedEnterprise.foreignWorkers
                         : getEnterpriseForeignResidents(selectedEnterprise).map(r => ({
-                            name: r.fullName,
-                            nationality: r.nationality || "Nước ngoài",
-                            passportOrCode: r.cccd,
-                            position: r.occupation,
-                            temporaryResidenceStatus: "Đã khai báo tạm trú" as const
-                          }));
+                          name: r.fullName,
+                          nationality: r.nationality || "Nước ngoài",
+                          passportOrCode: r.cccd,
+                          position: r.occupation,
+                          temporaryResidenceStatus: "Đã khai báo tạm trú" as const
+                        }));
 
                       if (foreigners.length === 0) {
                         return (
@@ -2413,11 +2396,11 @@ export default function EnterpriseManagement({
 
       {/* MODAL THÊM BIẾN ĐỘNG DOANH NGHIỆP */}
       {showChangeLogModal && selectedEnterprise && (
-        <div 
+        <div
           className="fixed inset-0 bg-slate-950/60 backdrop-blur-xs flex items-center justify-center z-[60] p-4 animate-in fade-in duration-200"
           onClick={() => setShowChangeLogModal(false)}
         >
-          <div 
+          <div
             onClick={(e) => e.stopPropagation()}
             className="bg-white rounded-2xl shadow-xl w-full max-w-md overflow-hidden text-slate-800 space-y-4 p-5"
           >
@@ -2426,8 +2409,8 @@ export default function EnterpriseManagement({
                 <History size={16} className="text-teal-600" />
                 Ghi nhận Biến động Doanh nghiệp
               </h3>
-              <button 
-                type="button" 
+              <button
+                type="button"
                 onClick={() => setShowChangeLogModal(false)}
                 className="text-slate-400 hover:text-slate-600 cursor-pointer"
               >
@@ -2507,11 +2490,11 @@ export default function EnterpriseManagement({
 
       {/* MODAL ĐĂNG KÝ DOANH NGHIỆP MỚI */}
       {showAddModal && (
-        <div 
+        <div
           className="fixed inset-0 bg-slate-950/60 backdrop-blur-xs flex items-center justify-center z-50 p-2 sm:p-4 animate-in fade-in duration-200"
           onClick={() => setShowAddModal(false)}
         >
-          <div 
+          <div
             onClick={(e) => e.stopPropagation()}
             className="bg-white rounded-2xl shadow-2xl border border-slate-800/40 w-full max-w-3xl max-h-[92dvh] flex flex-col overflow-hidden animate-in zoom-in-95 duration-200 text-slate-800"
           >
@@ -2525,8 +2508,8 @@ export default function EnterpriseManagement({
                   <p className="text-[11px] text-indigo-200/80">Khu phố 3, Phường An Phú</p>
                 </div>
               </div>
-              <button 
-                type="button" 
+              <button
+                type="button"
                 onClick={() => setShowAddModal(false)}
                 className="text-slate-400 hover:text-white cursor-pointer"
               >
@@ -2583,23 +2566,23 @@ export default function EnterpriseManagement({
                       <label className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 rounded-lg text-xs font-semibold cursor-pointer transition-colors shadow-2xs">
                         <Camera size={13} className="text-indigo-600" />
                         <span>{newImage ? "Đổi ảnh khác" : "Chọn ảnh từ thiết bị"}</span>
-                        <input 
-                          type="file" 
-                          accept="image/*" 
-                          className="hidden" 
+                        <input
+                          type="file"
+                          accept="image/*"
+                          className="hidden"
                           onChange={(e) => {
                             if (e.target.files && e.target.files[0]) {
                               const reader = new FileReader();
                               reader.onload = () => setNewImage(reader.result as string);
                               reader.readAsDataURL(e.target.files[0]);
                             }
-                          }} 
+                          }}
                         />
                       </label>
                       {newImage && (
-                        <button 
-                          type="button" 
-                          onClick={() => setNewImage("")} 
+                        <button
+                          type="button"
+                          onClick={() => setNewImage("")}
                           className="text-[11px] text-rose-600 hover:text-rose-800 ml-2 font-medium cursor-pointer"
                         >
                           Xóa ảnh
@@ -2913,11 +2896,11 @@ export default function EnterpriseManagement({
 
       {/* MODAL SỬA HỒ SƠ DOANH NGHIỆP */}
       {showEditModal && selectedEnterprise && (
-        <div 
+        <div
           className="fixed inset-0 bg-slate-950/60 backdrop-blur-xs flex items-center justify-center z-50 p-2 sm:p-4 animate-in fade-in duration-200"
           onClick={() => setShowEditModal(false)}
         >
-          <div 
+          <div
             onClick={(e) => e.stopPropagation()}
             className="bg-white rounded-2xl shadow-2xl border border-slate-800/40 w-full max-w-3xl max-h-[92dvh] flex flex-col overflow-hidden animate-in zoom-in-95 duration-200 text-slate-800"
           >
@@ -2931,8 +2914,8 @@ export default function EnterpriseManagement({
                   <p className="text-[11px] text-indigo-200/80 truncate max-w-xs">{selectedEnterprise.name}</p>
                 </div>
               </div>
-              <button 
-                type="button" 
+              <button
+                type="button"
                 onClick={() => setShowEditModal(false)}
                 className="text-slate-400 hover:text-white cursor-pointer"
               >
@@ -2986,23 +2969,23 @@ export default function EnterpriseManagement({
                       <label className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 rounded-lg text-xs font-semibold cursor-pointer transition-colors shadow-2xs">
                         <Camera size={13} className="text-indigo-600" />
                         <span>{editImage ? "Đổi ảnh khác" : "Chọn ảnh từ thiết bị"}</span>
-                        <input 
-                          type="file" 
-                          accept="image/*" 
-                          className="hidden" 
+                        <input
+                          type="file"
+                          accept="image/*"
+                          className="hidden"
                           onChange={(e) => {
                             if (e.target.files && e.target.files[0]) {
                               const reader = new FileReader();
                               reader.onload = () => setEditImage(reader.result as string);
                               reader.readAsDataURL(e.target.files[0]);
                             }
-                          }} 
+                          }}
                         />
                       </label>
                       {editImage && (
-                        <button 
-                          type="button" 
-                          onClick={() => setEditImage("")} 
+                        <button
+                          type="button"
+                          onClick={() => setEditImage("")}
                           className="text-[11px] text-rose-600 hover:text-rose-800 ml-2 font-medium cursor-pointer"
                         >
                           Xóa ảnh
@@ -3308,16 +3291,14 @@ export default function EnterpriseManagement({
       {/* Toast Notification */}
       {toast && (
         <div className="fixed top-4 right-4 z-[9999] animate-in fade-in slide-in-from-top-4 duration-300">
-          <div className={`px-4 py-3 rounded-xl shadow-lg border text-xs font-semibold flex items-center gap-2 ${
-            toast.type === "success" 
-              ? "bg-emerald-50 border-emerald-200 text-emerald-800" 
+          <div className={`px-4 py-3 rounded-xl shadow-lg border text-xs font-semibold flex items-center gap-2 ${toast.type === "success"
+              ? "bg-emerald-50 border-emerald-200 text-emerald-800"
               : toast.type === "warning"
-              ? "bg-amber-50 border-amber-200 text-amber-850"
-              : "bg-rose-50 border-rose-200 text-rose-800"
-          }`}>
-            <span className={`w-2 h-2 rounded-full ${
-              toast.type === "success" ? "bg-emerald-600" : toast.type === "warning" ? "bg-amber-600" : "bg-rose-600"
-            }`}></span>
+                ? "bg-amber-50 border-amber-200 text-amber-850"
+                : "bg-rose-50 border-rose-200 text-rose-800"
+            }`}>
+            <span className={`w-2 h-2 rounded-full ${toast.type === "success" ? "bg-emerald-600" : toast.type === "warning" ? "bg-amber-600" : "bg-rose-600"
+              }`}></span>
             {toast.message}
           </div>
         </div>
@@ -3333,11 +3314,11 @@ export default function EnterpriseManagement({
 
       {/* MODAL GHIM / ĐỒNG BỘ TỌA ĐỘ GIS DOANH NGHIỆP */}
       {gisPinModalEnterprise && (
-        <div 
+        <div
           className="fixed inset-0 bg-slate-950/70 backdrop-blur-xs flex items-center justify-center z-50 p-4 animate-in fade-in duration-200"
           onClick={() => setGisPinModalEnterprise(null)}
         >
-          <div 
+          <div
             onClick={(e) => e.stopPropagation()}
             className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-lg overflow-hidden animate-in zoom-in-95 duration-200 text-slate-800"
           >
@@ -3354,7 +3335,7 @@ export default function EnterpriseManagement({
                   </p>
                 </div>
               </div>
-              <button 
+              <button
                 type="button"
                 onClick={() => setGisPinModalEnterprise(null)}
                 className="p-1 hover:bg-white/10 rounded-lg text-slate-300 hover:text-white transition-colors cursor-pointer"
@@ -3389,7 +3370,7 @@ export default function EnterpriseManagement({
                 </div>
 
                 <div className="relative">
-                  <input 
+                  <input
                     type="text"
                     value={gisPinInput}
                     onChange={(e) => setGisPinInput(e.target.value)}
@@ -3498,15 +3479,15 @@ export default function EnterpriseManagement({
       )}
       {/* IMAGE PREVIEW LIGHTBOX */}
       {viewingImagePreview && (
-        <div 
+        <div
           onClick={() => setViewingImagePreview(null)}
           className="fixed inset-0 bg-slate-950/90 flex items-center justify-center z-50 p-4 backdrop-blur-sm animate-in fade-in duration-150 cursor-pointer"
         >
           <div className="relative max-w-4xl max-h-[90vh] flex flex-col items-center" onClick={(e) => e.stopPropagation()}>
-            <img 
-              src={viewingImagePreview.url} 
+            <img
+              src={viewingImagePreview.url}
               alt={viewingImagePreview.caption}
-              className="max-h-[80vh] w-auto rounded-xl shadow-2xl object-contain border border-white/10" 
+              className="max-h-[80vh] w-auto rounded-xl shadow-2xl object-contain border border-white/10"
             />
             <div className="mt-3 flex items-center justify-between w-full px-2 text-white">
               <span className="text-xs font-bold">{viewingImagePreview.caption}</span>
