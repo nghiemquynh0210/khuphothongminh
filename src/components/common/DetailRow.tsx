@@ -21,7 +21,7 @@ export function DetailRow({
   colSpan = 1,
   isMono = false,
   className = "",
-  labelWidth = "min-w-[145px] sm:min-w-[165px]",
+  labelWidth = "min-w-[130px] sm:min-w-[150px]",
   badge,
   helperText,
 }: DetailRowProps) {
@@ -31,28 +31,28 @@ export function DetailRow({
 
   return (
     <div
-      className={`flex items-baseline gap-2 py-2 border-b border-slate-100/90 text-[13px] ${
+      className={`flex items-baseline gap-2 py-1.5 border-b border-slate-100/90 text-xs ${
         colSpan === 2 ? "md:col-span-2" : ""
       } ${className}`}
     >
-      <span className={`text-slate-500 font-medium shrink-0 text-[13px] select-none ${labelWidth}`}>
+      <span className={`text-slate-500 font-medium shrink-0 text-[11.5px] select-none ${labelWidth}`}>
         {formattedLabel}
       </span>
       <div className="flex-1 min-w-0 flex flex-wrap items-baseline gap-1.5">
         {typeof value === "string" || typeof value === "number" ? (
           <strong
-            className={`text-slate-900 font-semibold text-[13px] sm:text-sm leading-snug break-words ${
+            className={`text-slate-900 font-semibold text-xs sm:text-[13px] leading-snug break-words ${
               isMono ? "font-mono" : ""
             }`}
           >
             {value || "Chưa cập nhật"}
           </strong>
         ) : (
-          value ?? <strong className="text-slate-400 font-normal text-[13px]">Chưa cập nhật</strong>
+          value ?? <strong className="text-slate-400 font-normal text-xs">Chưa cập nhật</strong>
         )}
         {badge}
         {helperText && (
-          <span className="text-[11px] text-slate-400 font-normal block sm:inline ml-1">
+          <span className="text-[10.5px] text-slate-400 font-normal block sm:inline ml-1">
             ({helperText})
           </span>
         )}
