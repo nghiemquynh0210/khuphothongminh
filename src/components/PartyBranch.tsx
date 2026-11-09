@@ -2390,10 +2390,13 @@ export default function PartyBranch({ partyMembers, residents = [] }: PartyBranc
                     )}
 
                     <div className="pl-1 space-y-1">
-                      {/* Row 1: Category Badge & Quick Actions */}
-                      <div className="flex items-center justify-between gap-1">
-                        <span className={`text-[10px] font-semibold px-1.5 py-0.2 rounded border truncate max-w-[160px] ${catBadgeColor}`}>
-                          {assoc.category}
+                      {/* Row 1: Tên Chi hội / Tổ chức đưa lên trên với màu phân nhóm + Thao tác nhanh */}
+                      <div className="flex items-center justify-between gap-1.5">
+                        <span 
+                          className={`text-xs font-bold px-2 py-0.5 rounded-md border truncate max-w-[190px] ${catBadgeColor}`}
+                          title={assoc.name}
+                        >
+                          {assoc.name}
                         </span>
                         <div className="flex items-center gap-0.5 opacity-60 group-hover:opacity-100 transition-opacity shrink-0">
                           <button
@@ -2421,12 +2424,10 @@ export default function PartyBranch({ partyMembers, residents = [] }: PartyBranc
                         </div>
                       </div>
 
-                      {/* Row 2: Name */}
-                      <h3 className={`font-bold text-xs leading-tight line-clamp-1 ${
-                        isSelected ? "text-emerald-950 font-extrabold" : "text-slate-800 group-hover:text-emerald-700"
-                      }`} title={assoc.name}>
-                        {assoc.name}
-                      </h3>
+                      {/* Row 2: Phân nhóm / Thể loại */}
+                      <div className="text-[11px] text-slate-600 font-medium truncate pt-0.5" title={`Phân loại: ${assoc.category}`}>
+                        {assoc.category}
+                      </div>
 
                       {/* Row 3: Leader & Member count */}
                       <div className="flex items-center justify-between text-[11px] pt-1 text-slate-500">
