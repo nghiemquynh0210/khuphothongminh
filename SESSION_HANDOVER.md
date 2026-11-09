@@ -1,6 +1,6 @@
 # BIÊN BẢN BÀN GIAO & CẬP NHẬT PHIÊN LÀM VIỆC (SESSION HANDOVER)
 **Dự án:** Cổng Dịch vụ Cư dân số & Hệ thống Quản trị Thông minh Khu phố 3, Phường An Phú  
-**Thời gian cập nhật:** 07/11/2026 (14:10 UTC+7)  
+**Thời gian cập nhật:** 09/11/2026 (10:35 UTC+7)  
 **Trạng thái phiên:** Sẵn sàng cho phiên tiếp theo (Ready for Next Session)
 
 ---
@@ -8,11 +8,11 @@
 ## 1. THÔNG SỐ KỸ THUẬT & TRẠNG THÁI TOÀN HỆ THỐNG
 - **Mã nguồn & GitHub Repository:**
   - GitHub Remote: `https://github.com/nghiemquynh0210/khuphothongminh.git` (Nhánh: `main`)
-  - Commit mới nhất: `65e38f6` ("feat(ui-ux): refine GIS header, remove design-system tab, install animate-ui skill & motion integration")
+  - Commit mới nhất: `5cd81e9` ("feat(ui-ux): reduce global typography scale by 1 size for dense civic UI")
   - Trạng thái Git: Đã push 100% lên GitHub `origin/main`. Working tree sạch hoàn toàn (`clean`).
 - **Nền tảng Vercel Production:**
   - Trang chính thức: 👉 **[https://khuphothongminh.vercel.app](https://khuphothongminh.vercel.app)**
-  - Deployment ID: `dpl_84iVVHG5vQM9q3YMJfYpxdhyqjq9`
+  - Deployment ID: `dpl_4EFcpPZYjSEuKCoJxGKyTz2gUQjM`
   - Vercel Team: `khupho3-s-projects` / Project: `khuphothongminh`
   - Trạng thái Vercel: `READY` (HTTP 200 OK).
 - **Cơ sở dữ liệu Supabase Cloud:**
@@ -64,6 +64,15 @@
 3. **Bọc Provider toàn cục:** Đã cấu hình `<AnimateUIProvider tempo={1}>` trong `src/main.tsx`.
 4. **Gliding Tab Indicator ở Sidebar:** Menu Sidebar sử dụng `layoutId="active-sidebar-pill"` kết hợp lò xo chuẩn `spring.selection` và phản hồi chạm `whileTap={{ scale: 0.97 }}` (`spring.press`).
 5. **View Transition:** Nội dung chuyển đổi phân hệ bọc trong `motion.div` chuyển cảnh mượt mà `fade + rise 6px`.
+
+### F. Thu Nhỏ Cỡ Chữ Toàn Hệ Thống Xuống 01 Size (Global Typography Downscale)
+1. **Tỷ lệ co giãn toàn cục (Global Root Scaling):** Cấu hình `html { font-size: 14.5px; }` trong [`src/index.css`](file:///c:/Users/KHUPHO3/Downloads/khuphothongminh-main/khuphothongminh-main/src/index.css) (~90.625% so với gốc 16px). Tất cả các đơn vị `rem` (typography `text-xs`, `text-sm`, `text-base`, khoảng cách `padding`, `margin`, `gap`) tự động co giãn đồng bộ 1 cỡ chữ trên toàn app.
+2. **Chuẩn hóa Hierarchy Heading & Badge:** Điều chỉnh `.app-heading-1`, `.app-heading-2`, `.app-heading-3` và `.app-badge-pill` tinh gọn, sắc nét theo chuẩn giao diện hành chính công mật độ cao.
+3. **Tối ưu chi tiết dòng dữ liệu ([`DetailRow.tsx`](file:///c:/Users/KHUPHO3/Downloads/khuphothongminh-main/khuphothongminh-main/src/components/common/DetailRow.tsx)):**
+   - Padding dòng giảm xuống `py-1.5`.
+   - Cỡ chữ nhãn (Label): `text-[11.5px]`, chiều rộng cố định tối thiểu `min-w-[130px] sm:min-w-[150px]`.
+   - Cỡ chữ giá trị (Value): `text-xs sm:text-[13px]`.
+   - Chiều cao các modal chi tiết (Hồ sơ cư dân, Hộ khẩu, Doanh nghiệp) giảm ~20%, vừa vặn hoàn hảo trong khung nhìn màn hình mà không bị tràn hay che mất thanh nút tác vụ phía dưới.
 
 ---
 
