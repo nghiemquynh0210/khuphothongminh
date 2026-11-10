@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useRef } from "react";
 import {
   Calendar as CalendarIcon,
   CheckSquare,
@@ -28,13 +28,22 @@ import {
   LayoutGrid,
   ListFilter,
   Layers,
-  Phone
+  Phone,
+  Paperclip,
+  Download,
+  Eye,
+  Image as ImageIcon,
+  Building2,
+  ShieldCheck,
+  ExternalLink
 } from "lucide-react";
-import { TaskItem, ScheduleEvent } from "../types";
+import { TaskItem, ScheduleEvent, TaskAttachment } from "../types";
 import { DetailRow, DetailGrid } from "./common/DetailRow";
 import { StatCard } from "./common/StatCard";
 import { PageHeader } from "./common/PageHeader";
 import { formatVNNumber } from "../utils/numberFormat";
+import { getStoredAssociations } from "../data/associationsData";
+import { Association, AssociationMember } from "../types";
 
 // Default seed data for Community Tasks
 export const INITIAL_TASKS: TaskItem[] = [
@@ -42,11 +51,12 @@ export const INITIAL_TASKS: TaskItem[] = [
     id: "TASK-001",
     title: "Tổ chức chiến dịch 'Chủ Nhật Xanh' dọn dẹp hẻm 124 đường KV AP12",
     description: "Vận động 100% hộ dân tại Tổ 12 tham gia phát quang bụi rậm, khơi thông cống rãnh chống ngập và dịch sốt xuất huyết.",
-    unit: "Tổ dân phố 12",
+    unit: "Tổ trưởng dân phố",
+    associationId: "ASC_TOTRUONG",
     assignee: {
       name: "Bà Lê Thị Mai",
       role: "Tổ trưởng Tổ 12",
-      unit: "Tổ dân phố 12",
+      unit: "Tổ trưởng dân phố",
       phone: "0908 123 456"
     },
     creator: "Đ/c Nguyễn Văn Hùng (Bí thư Chi bộ)",
@@ -55,18 +65,37 @@ export const INITIAL_TASKS: TaskItem[] = [
     progressPercent: 65,
     startDate: "2026-10-10",
     deadline: "2026-10-15",
-    notes: "Đã mượn được xe thu gom rác của Đô thị Phường An Phú."
+    notes: "Đã mượn được xe thu gom rác của Đô thị Phường An Phú.",
+    attachments: [
+      {
+        id: "ATT-SEED-01",
+        name: "Ke_hoach_Chu_nhat_xanh_KP3.pdf",
+        size: "345 KB",
+        type: "pdf",
+        url: "https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf",
+        uploadedAt: "2026-10-10T08:00:00Z"
+      },
+      {
+        id: "ATT-SEED-02",
+        name: "Phan_cong_luc_luong_don_dep.docx",
+        size: "128 KB",
+        type: "word",
+        url: "#",
+        uploadedAt: "2026-10-10T08:30:00Z"
+      }
+    ]
   },
   {
     id: "TASK-002",
     title: "Kiểm tra rà soát PCCC tại 14 nhà trọ và cơ sở kinh doanh phế liệu",
     description: "Phối hợp Công an phường kiểm tra lối thoát nạn thứ 2, bình chữa cháy mini tại dãy nhà trọ trên đường X1.",
-    unit: "Tổ Bảo vệ ANTT",
+    unit: "Tổ ANTT cơ sở",
+    associationId: "ASC_ANTT",
     assignee: {
-      name: "Ông Trần Văn Minh",
-      role: "Tổ phó ANTT cơ sở",
-      unit: "Tổ Bảo vệ ANTT",
-      phone: "0913 888 999"
+      name: "Phạm Minh Tuấn",
+      role: "Tổ trưởng ANTT",
+      unit: "Tổ ANTT cơ sở",
+      phone: "0918334455"
     },
     creator: "Trần Quốc Tuấn (Trưởng ban ĐHKP)",
     priority: "Khẩn cấp",
@@ -74,7 +103,25 @@ export const INITIAL_TASKS: TaskItem[] = [
     progressPercent: 90,
     startDate: "2026-10-08",
     deadline: "2026-10-14",
-    notes: "Đã kiểm tra 12/14 cơ sở, lập biên bản nhắc nhở 2 cơ sở bổ sung bình bọt ABC."
+    notes: "Đã kiểm tra 12/14 cơ sở, lập biên bản nhắc nhở 2 cơ sở bổ sung bình bọt ABC.",
+    attachments: [
+      {
+        id: "ATT-SEED-03",
+        name: "Bien_ban_kiem_tra_PCCC_nha_tro.docx",
+        size: "186 KB",
+        type: "word",
+        url: "#",
+        uploadedAt: "2026-10-08T09:15:00Z"
+      },
+      {
+        id: "ATT-SEED-04",
+        name: "Hien_truong_loi_thoat_nan_co_so.jpg",
+        size: "1.2 MB",
+        type: "image",
+        url: "https://images.unsplash.com/photo-1541888946425-d0fbb18f15f6?w=800",
+        uploadedAt: "2026-10-08T10:00:00Z"
+      }
+    ]
   },
   {
     id: "TASK-003",
@@ -254,13 +301,208 @@ export default function TaskAndSchedule() {
   const [selectedTask, setSelectedTask] = useState<TaskItem | null>(null);
 
   // New task form state
+  const [associationsList] = useState<Association[]>(() => getStoredAssociations());
+  const initialAssoc = associationsList[0];
+  const initialLeader = initialAssoc?.members[0];
+
   const [newTaskTitle, setNewTaskTitle] = useState("");
   const [newTaskDesc, setNewTaskDesc] = useState("");
-  const [newTaskUnit, setNewTaskUnit] = useState<TaskItem["unit"]>("Tổ dân phố 12");
-  const [newTaskAssigneeName, setNewTaskAssigneeName] = useState("Bà Lê Thị Mai");
-  const [newTaskAssigneeRole, setNewTaskAssigneeRole] = useState("Tổ trưởng Tổ 12");
+  const [newTaskAssociationId, setNewTaskAssociationId] = useState<string>(initialAssoc?.id || "ASC_BDH");
+  const [newTaskUnit, setNewTaskUnit] = useState<string>(initialAssoc?.name || "Ban điều hành khu phố");
+  const [newTaskAssigneeName, setNewTaskAssigneeName] = useState(initialLeader?.fullName || "Nguyễn Trung Huy");
+  const [newTaskAssigneeRole, setNewTaskAssigneeRole] = useState(initialLeader?.role || "Trưởng Ban điều hành");
+  const [newTaskAssigneePhone, setNewTaskAssigneePhone] = useState(initialLeader?.phone || "0909123888");
+  const [isCustomAssignee, setIsCustomAssignee] = useState<boolean>(false);
   const [newTaskPriority, setNewTaskPriority] = useState<TaskItem["priority"]>("Cao");
   const [newTaskDeadline, setNewTaskDeadline] = useState("2026-10-20");
+  const [newTaskAttachments, setNewTaskAttachments] = useState<TaskAttachment[]>([]);
+  const [previewAttachment, setPreviewAttachment] = useState<TaskAttachment | null>(null);
+
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const detailFileInputRef = useRef<HTMLInputElement>(null);
+
+  // Dynamic members of the currently selected organization
+  const currentAssocMembers = useMemo(() => {
+    const found = associationsList.find(a => a.id === newTaskAssociationId || a.name === newTaskUnit);
+    return found ? found.members : [];
+  }, [associationsList, newTaskAssociationId, newTaskUnit]);
+
+  // Handle unit selection change
+  const handleUnitChange = (selectedId: string) => {
+    const assoc = associationsList.find(a => a.id === selectedId || a.name === selectedId);
+    if (assoc) {
+      setNewTaskAssociationId(assoc.id);
+      setNewTaskUnit(assoc.name);
+
+      if (assoc.members && assoc.members.length > 0) {
+        const leader = assoc.members.find(m => m.fullName === assoc.leaderName) || assoc.members[0];
+        setNewTaskAssigneeName(leader.fullName);
+        setNewTaskAssigneeRole(leader.role);
+        setNewTaskAssigneePhone(leader.phone || "");
+        setIsCustomAssignee(false);
+      } else {
+        setNewTaskAssigneeName(assoc.leaderName || "");
+        setNewTaskAssigneeRole("Đại diện chi hội");
+        setNewTaskAssigneePhone("");
+        setIsCustomAssignee(true);
+      }
+    } else {
+      setNewTaskUnit(selectedId);
+      setIsCustomAssignee(true);
+    }
+  };
+
+  // Handle member selection change
+  const handleMemberChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const val = e.target.value;
+    if (val === "__CUSTOM__") {
+      setIsCustomAssignee(true);
+      setNewTaskAssigneeName("");
+      setNewTaskAssigneeRole("Cán bộ phụ trách");
+      setNewTaskAssigneePhone("");
+      return;
+    }
+
+    setIsCustomAssignee(false);
+    const found = currentAssocMembers.find(m => m.fullName === val || m.id === val);
+    if (found) {
+      setNewTaskAssigneeName(found.fullName);
+      setNewTaskAssigneeRole(found.role);
+      setNewTaskAssigneePhone(found.phone || "");
+    }
+  };
+
+  // Handle attachment file uploads (Image, Word docx, PDF)
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+
+    Array.from(files).forEach((file: File) => {
+      if (file.size > 20 * 1024 * 1024) {
+        alert(`Tệp "${file.name}" vượt quá dung lượng tối đa 20MB!`);
+        return;
+      }
+
+      let type: TaskAttachment["type"] = "other";
+      const nameLower = file.name.toLowerCase();
+      if (
+        file.type.startsWith("image/") ||
+        nameLower.endsWith(".png") ||
+        nameLower.endsWith(".jpg") ||
+        nameLower.endsWith(".jpeg") ||
+        nameLower.endsWith(".webp")
+      ) {
+        type = "image";
+      } else if (nameLower.endsWith(".pdf") || file.type.includes("pdf")) {
+        type = "pdf";
+      } else if (
+        nameLower.endsWith(".docx") ||
+        nameLower.endsWith(".doc") ||
+        file.type.includes("word") ||
+        file.type.includes("officedocument")
+      ) {
+        type = "word";
+      }
+
+      const formatSize = (bytes: number) => {
+        if (bytes < 1024) return bytes + " B";
+        if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + " KB";
+        return (bytes / (1024 * 1024)).toFixed(1) + " MB";
+      };
+
+      const reader = new FileReader();
+      reader.onload = (loadEvent) => {
+        const base64Url = loadEvent.target?.result as string;
+        const newAtt: TaskAttachment = {
+          id: "ATT-" + Date.now() + "-" + Math.random().toString(36).substring(2, 6),
+          name: file.name,
+          size: formatSize(file.size),
+          type,
+          url: base64Url,
+          uploadedAt: new Date().toISOString()
+        };
+        setNewTaskAttachments(prev => [...prev, newAtt]);
+      };
+      reader.readAsDataURL(file);
+    });
+
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  };
+
+  const handleRemoveAttachment = (attId: string) => {
+    setNewTaskAttachments(prev => prev.filter(a => a.id !== attId));
+  };
+
+  // Add attachments to existing task in Detail Modal
+  const handleDetailFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!selectedTask) return;
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+
+    const newItems: TaskAttachment[] = [];
+    let count = 0;
+
+    Array.from(files).forEach((file: File) => {
+      let type: TaskAttachment["type"] = "other";
+      const nameLower = file.name.toLowerCase();
+      if (
+        file.type.startsWith("image/") ||
+        nameLower.endsWith(".png") ||
+        nameLower.endsWith(".jpg") ||
+        nameLower.endsWith(".jpeg") ||
+        nameLower.endsWith(".webp")
+      ) {
+        type = "image";
+      } else if (nameLower.endsWith(".pdf") || file.type.includes("pdf")) {
+        type = "pdf";
+      } else if (
+        nameLower.endsWith(".docx") ||
+        nameLower.endsWith(".doc") ||
+        file.type.includes("word") ||
+        file.type.includes("officedocument")
+      ) {
+        type = "word";
+      }
+
+      const formatSize = (bytes: number) => {
+        if (bytes < 1024) return bytes + " B";
+        if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + " KB";
+        return (bytes / (1024 * 1024)).toFixed(1) + " MB";
+      };
+
+      const reader = new FileReader();
+      reader.onload = (loadEvent) => {
+        newItems.push({
+          id: "ATT-" + Date.now() + "-" + Math.random().toString(36).substring(2, 6),
+          name: file.name,
+          size: formatSize(file.size),
+          type,
+          url: loadEvent.target?.result as string,
+          uploadedAt: new Date().toISOString()
+        });
+        count++;
+        if (count === files.length) {
+          const updatedAttachments = [...(selectedTask.attachments || []), ...newItems];
+          const updatedTask = { ...selectedTask, attachments: updatedAttachments };
+          const updatedTasks = tasks.map(t => t.id === selectedTask.id ? updatedTask : t);
+          saveTasks(updatedTasks);
+          setSelectedTask(updatedTask);
+        }
+      };
+      reader.readAsDataURL(file);
+    });
+
+    if (detailFileInputRef.current) detailFileInputRef.current.value = "";
+  };
+
+  const handleDeleteDetailAttachment = (attId: string) => {
+    if (!selectedTask) return;
+    const updatedAttachments = (selectedTask.attachments || []).filter(a => a.id !== attId);
+    const updatedTask = { ...selectedTask, attachments: updatedAttachments };
+    const updatedTasks = tasks.map(t => t.id === selectedTask.id ? updatedTask : t);
+    saveTasks(updatedTasks);
+    setSelectedTask(updatedTask);
+  };
 
   // New schedule form state
   const [newSchTitle, setNewSchTitle] = useState("");
@@ -341,17 +583,20 @@ export default function TaskAndSchedule() {
       title: newTaskTitle.trim(),
       description: newTaskDesc.trim() || "Chưa có mô tả chi tiết.",
       unit: newTaskUnit,
+      associationId: newTaskAssociationId,
       assignee: {
-        name: newTaskAssigneeName,
-        role: newTaskAssigneeRole,
-        unit: newTaskUnit
+        name: newTaskAssigneeName.trim() || "Chưa chỉ định",
+        role: newTaskAssigneeRole.trim() || "Thành viên phụ trách",
+        unit: newTaskUnit,
+        phone: newTaskAssigneePhone.trim() || undefined
       },
       creator: "Đ/c Nguyễn Văn Hùng (Bí thư Chi bộ)",
       priority: newTaskPriority,
       status: "Chờ xử lý",
       progressPercent: 0,
       startDate: new Date().toISOString().slice(0, 10),
-      deadline: newTaskDeadline
+      deadline: newTaskDeadline,
+      attachments: newTaskAttachments.length > 0 ? newTaskAttachments : undefined
     };
 
     const updated = [newTask, ...tasks];
@@ -359,6 +604,7 @@ export default function TaskAndSchedule() {
     setShowAddTaskModal(false);
     setNewTaskTitle("");
     setNewTaskDesc("");
+    setNewTaskAttachments([]);
   };
 
   // Create Schedule
@@ -544,21 +790,15 @@ export default function TaskAndSchedule() {
               <select
                 id="task-unit-filter"
                 name="taskUnitFilter"
-                aria-label="Lọc theo đơn vị"
+                aria-label="Lọc theo đơn vị nhận"
                 value={taskUnitFilter}
                 onChange={e => setTaskUnitFilter(e.target.value)}
                 className="text-xs py-1.5 px-2.5 bg-slate-50 border border-slate-200 rounded-lg text-slate-700 focus:outline-none"
               >
-                <option value="all">Tất cả đơn vị (Toàn KP3)</option>
-                <option value="Tổ dân phố 11">Tổ dân phố 11</option>
-                <option value="Tổ dân phố 12">Tổ dân phố 12</option>
-                <option value="Tổ dân phố 13">Tổ dân phố 13</option>
-                <option value="Tổ dân phố 14">Tổ dân phố 14</option>
-                <option value="Tổ dân phố 15">Tổ dân phố 15</option>
-                <option value="Tổ Bảo vệ ANTT">Tổ Bảo vệ ANTT cơ sở</option>
-                <option value="Chi bộ KP3">Chi bộ Khu phố 3</option>
-                <option value="Chi đoàn Thanh niên">Chi đoàn Thanh niên</option>
-                <option value="Hội Phụ nữ">Hội Phụ nữ</option>
+                <option value="all">Tất cả đơn vị ({associationsList.length} tổ chức)</option>
+                {associationsList.map(assoc => (
+                  <option key={assoc.id} value={assoc.name}>{assoc.name}</option>
+                ))}
               </select>
 
               {/* Filter by priority */}
@@ -652,7 +892,18 @@ export default function TaskAndSchedule() {
                             className="bg-white p-3.5 rounded-xl border border-slate-200 shadow-xs hover:shadow-md hover:border-emerald-400 transition-all cursor-pointer space-y-2.5"
                           >
                             <div className="flex items-start justify-between gap-1.5">
-                              <span className="text-[10px] font-mono text-slate-400 font-bold">{task.id}</span>
+                              <div className="flex items-center gap-1.5">
+                                <span className="text-[10px] font-mono text-slate-400 font-bold">{task.id}</span>
+                                {task.attachments && task.attachments.length > 0 && (
+                                  <span
+                                    className="inline-flex items-center gap-0.5 text-[10px] font-bold text-slate-600 bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200"
+                                    title={`${task.attachments.length} tệp đính kèm`}
+                                  >
+                                    <Paperclip size={10} className="text-slate-500" />
+                                    {task.attachments.length}
+                                  </span>
+                                )}
+                              </div>
                               {getPriorityBadge(task.priority)}
                             </div>
 
@@ -757,7 +1008,18 @@ export default function TaskAndSchedule() {
                         <tr key={t.id} className="hover:bg-slate-50/80 transition-colors">
                           <td className="py-2.5 px-3 font-mono font-bold text-slate-500 text-[11px]">{t.id}</td>
                           <td className="py-2.5 px-3 max-w-xs">
-                            <div className="font-bold text-slate-900 line-clamp-1">{t.title}</div>
+                            <div className="font-bold text-slate-900 line-clamp-1 flex items-center gap-1.5">
+                              <span className="truncate">{t.title}</span>
+                              {t.attachments && t.attachments.length > 0 && (
+                                <span
+                                  className="inline-flex items-center gap-0.5 text-[10px] font-bold text-slate-600 bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200 shrink-0"
+                                  title={`${t.attachments.length} tệp đính kèm`}
+                                >
+                                  <Paperclip size={10} className="text-slate-500" />
+                                  {t.attachments.length}
+                                </span>
+                              )}
+                            </div>
                             <div className="text-[11px] text-slate-500 line-clamp-1">{t.description}</div>
                           </td>
                           <td className="py-2.5 px-3">
@@ -938,7 +1200,26 @@ export default function TaskAndSchedule() {
                 <DetailGrid>
                   <DetailRow label="Tên nhiệm vụ" value={selectedTask.title} colSpan={2} />
                   <DetailRow label="Mô tả công việc" value={selectedTask.description} colSpan={2} />
-                  <DetailRow label="Đơn vị nhận" value={selectedTask.unit} helperText={`${selectedTask.assignee.name} (${selectedTask.assignee.role})`} />
+                  <DetailRow
+                    label="Đơn vị nhận việc"
+                    value={
+                      <div className="flex items-center gap-1.5 font-bold text-slate-800">
+                        <Building2 size={14} className="text-emerald-600 shrink-0" />
+                        <span>{selectedTask.unit}</span>
+                      </div>
+                    }
+                    helperText={
+                      <div className="mt-1 flex items-center gap-2 flex-wrap">
+                        <span className="font-semibold text-slate-700">👤 {selectedTask.assignee.name}</span>
+                        <span className="text-slate-500">({selectedTask.assignee.role})</span>
+                        {selectedTask.assignee.phone && (
+                          <a href={`tel:${selectedTask.assignee.phone}`} className="text-emerald-600 hover:underline font-mono text-[11px] font-bold">
+                            📞 {selectedTask.assignee.phone}
+                          </a>
+                        )}
+                      </div>
+                    }
+                  />
                   <DetailRow label="Người giao việc" value={selectedTask.creator} />
                   <DetailRow label="Ngày bắt đầu" value={selectedTask.startDate} />
                   <DetailRow label="Hạn chót" value={selectedTask.deadline} />
@@ -974,6 +1255,117 @@ export default function TaskAndSchedule() {
                     <DetailRow label="Ghi chú / Minh chứng" value={selectedTask.notes} colSpan={2} />
                   )}
                 </DetailGrid>
+              </div>
+
+              {/* ATTACHMENTS SECTION IN DETAIL MODAL */}
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-1.5 text-xs font-bold text-slate-800">
+                    <Paperclip size={14} className="text-emerald-600" />
+                    <span>Tài liệu & Hình ảnh đính kèm ({selectedTask.attachments?.length || 0})</span>
+                  </div>
+                  <div>
+                    <input
+                      ref={detailFileInputRef}
+                      type="file"
+                      multiple
+                      accept=".png,.jpg,.jpeg,.webp,.pdf,.docx,.doc"
+                      className="hidden"
+                      onChange={handleDetailFileUpload}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => detailFileInputRef.current?.click()}
+                      className="text-[11px] font-bold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 px-2.5 py-1 rounded-lg flex items-center gap-1 cursor-pointer transition-colors"
+                    >
+                      <Plus size={12} /> Đính kèm thêm tệp...
+                    </button>
+                  </div>
+                </div>
+
+                {(!selectedTask.attachments || selectedTask.attachments.length === 0) ? (
+                  <div className="p-3 rounded-lg border border-dashed border-slate-200 bg-slate-50/50 text-center text-slate-400 italic text-[11px]">
+                    Chưa có tài liệu hoặc hình ảnh đính kèm cho nhiệm vụ này. Nhấn nút phía trên để bổ sung biên bản, hình ảnh kiểm tra hoặc kế hoạch Word/PDF.
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    {selectedTask.attachments.map(att => (
+                      <div
+                        key={att.id}
+                        className="p-2.5 rounded-xl border border-slate-200 bg-white shadow-2xs hover:border-emerald-300 transition-all flex items-center justify-between gap-2"
+                      >
+                        <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                          {att.type === "image" ? (
+                            <div
+                              onClick={() => setPreviewAttachment(att)}
+                              className="w-10 h-10 rounded-lg overflow-hidden border border-slate-200 shrink-0 cursor-pointer hover:opacity-90 relative group"
+                              title="Nhấn để phóng to ảnh"
+                            >
+                              <img src={att.url} alt={att.name} className="w-full h-full object-cover" />
+                              <div className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
+                                <Eye size={12} className="text-white" />
+                              </div>
+                            </div>
+                          ) : att.type === "pdf" ? (
+                            <div className="w-10 h-10 rounded-lg bg-rose-50 text-rose-600 border border-rose-200 flex flex-col items-center justify-center font-bold shrink-0">
+                              <span className="text-[11px] leading-none">PDF</span>
+                              <FileText size={11} className="mt-0.5" />
+                            </div>
+                          ) : att.type === "word" ? (
+                            <div className="w-10 h-10 rounded-lg bg-blue-50 text-blue-600 border border-blue-200 flex flex-col items-center justify-center font-bold shrink-0">
+                              <span className="text-[11px] leading-none">DOC</span>
+                              <FileText size={11} className="mt-0.5" />
+                            </div>
+                          ) : (
+                            <div className="w-10 h-10 rounded-lg bg-slate-100 text-slate-600 border border-slate-200 flex items-center justify-center font-bold text-xs shrink-0">
+                              FILE
+                            </div>
+                          )}
+
+                          <div className="min-w-0 flex-1">
+                            <div className="font-bold text-slate-800 text-[11px] truncate" title={att.name}>
+                              {att.name}
+                            </div>
+                            <div className="text-[10px] text-slate-400 font-mono mt-0.5">
+                              {att.size || "Tài liệu"} • {att.type.toUpperCase()}
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center gap-1 shrink-0">
+                          {att.type === "image" && (
+                            <button
+                              type="button"
+                              onClick={() => setPreviewAttachment(att)}
+                              className="p-1.5 text-slate-500 hover:text-emerald-700 hover:bg-emerald-50 rounded-lg cursor-pointer"
+                              title="Xem ảnh"
+                            >
+                              <Eye size={13} />
+                            </button>
+                          )}
+                          <a
+                            href={att.url}
+                            download={att.name}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="p-1.5 text-slate-500 hover:text-indigo-700 hover:bg-indigo-50 rounded-lg cursor-pointer"
+                            title="Tải tệp về máy"
+                          >
+                            <Download size={13} />
+                          </a>
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteDetailAttachment(att.id)}
+                            className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg cursor-pointer"
+                            title="Xóa tệp đính kèm này"
+                          >
+                            <Trash2 size={13} />
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
 
               <div className="grid grid-cols-2 gap-3 pt-2 border-t border-slate-200">
@@ -1078,33 +1470,94 @@ export default function TaskAndSchedule() {
                 />
               </div>
 
+              {/* ATTACHMENT UPLOAD BOX */}
+              <div className="p-3 bg-slate-50/70 rounded-xl border border-dashed border-slate-300">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Paperclip size={15} className="text-emerald-600 shrink-0" />
+                    <div>
+                      <span className="font-bold text-slate-700 block text-[11px]">Đính kèm tệp tin & hình ảnh</span>
+                      <span className="text-[10px] text-slate-500">Ảnh JPG/PNG, tài liệu Word (.docx), PDF (tối đa 20MB)</span>
+                    </div>
+                  </div>
+                  <div>
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      multiple
+                      accept=".png,.jpg,.jpeg,.webp,.pdf,.docx,.doc"
+                      className="hidden"
+                      onChange={handleFileUpload}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => fileInputRef.current?.click()}
+                      className="px-2.5 py-1.5 bg-white hover:bg-slate-100 text-slate-700 border border-slate-300 rounded-lg text-xs font-bold flex items-center gap-1.5 shadow-2xs cursor-pointer transition-colors"
+                    >
+                      <UploadCloud size={14} className="text-emerald-600" /> Chọn tệp...
+                    </button>
+                  </div>
+                </div>
+
+                {newTaskAttachments.length > 0 && (
+                  <div className="mt-2.5 space-y-1.5 pt-2 border-t border-slate-200">
+                    {newTaskAttachments.map(att => (
+                      <div key={att.id} className="flex items-center justify-between p-2 rounded-lg bg-white border border-slate-200 text-xs shadow-2xs">
+                        <div className="flex items-center gap-2 min-w-0">
+                          {att.type === "image" ? (
+                            <img src={att.url} alt={att.name} className="w-8 h-8 rounded object-cover border border-slate-200 shrink-0" />
+                          ) : att.type === "pdf" ? (
+                            <span className="w-8 h-8 rounded bg-rose-50 text-rose-600 border border-rose-200 flex items-center justify-center font-bold text-[10px] shrink-0">PDF</span>
+                          ) : att.type === "word" ? (
+                            <span className="w-8 h-8 rounded bg-blue-50 text-blue-600 border border-blue-200 flex items-center justify-center font-bold text-[10px] shrink-0">DOC</span>
+                          ) : (
+                            <span className="w-8 h-8 rounded bg-slate-100 text-slate-600 border border-slate-200 flex items-center justify-center font-bold text-[10px] shrink-0">FILE</span>
+                          )}
+                          <div className="min-w-0">
+                            <p className="font-bold text-slate-800 truncate text-[11px] max-w-[280px]">{att.name}</p>
+                            <p className="text-[10px] text-slate-400 font-mono">{att.size || "Tệp"} • {att.type.toUpperCase()}</p>
+                          </div>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveAttachment(att.id)}
+                          className="p-1 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded cursor-pointer transition-colors"
+                          title="Xóa tệp này"
+                        >
+                          <X size={14} />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block font-bold text-slate-700 mb-1">Đơn vị nhận việc</label>
+                  <label className="block font-bold text-slate-700 mb-1">
+                    Đơn vị nhận việc * <span className="text-[10px] font-normal text-emerald-700 bg-emerald-50 px-1 py-0.5 rounded border border-emerald-200">23 Đoàn thể</span>
+                  </label>
                   <select
                     id="modal-new-task-unit"
                     name="newTaskUnit"
                     aria-label="Đơn vị nhận việc"
-                    value={newTaskUnit}
-                    onChange={e => {
-                      const u = e.target.value as any;
-                      setNewTaskUnit(u);
-                      if (u === "Tổ dân phố 11") { setNewTaskAssigneeName("Ông Nguyễn Văn Hùng"); setNewTaskAssigneeRole("Tổ trưởng TDP 11"); }
-                      else if (u === "Tổ dân phố 12") { setNewTaskAssigneeName("Bà Lê Thị Mai"); setNewTaskAssigneeRole("Tổ trưởng TDP 12"); }
-                      else if (u === "Tổ dân phố 13") { setNewTaskAssigneeName("Ông Trần Văn Minh"); setNewTaskAssigneeRole("Tổ trưởng TDP 13"); }
-                      else if (u === "Tổ dân phố 14") { setNewTaskAssigneeName("Bà Phạm Thị Lan"); setNewTaskAssigneeRole("Tổ trưởng TDP 14"); }
-                      else if (u === "Tổ dân phố 15") { setNewTaskAssigneeName("Ông Hoàng Văn Thái"); setNewTaskAssigneeRole("Tổ trưởng TDP 15"); }
-                    }}
-                    className="w-full p-2 bg-slate-50 border border-slate-200 rounded-lg"
+                    value={newTaskAssociationId || newTaskUnit}
+                    onChange={e => handleUnitChange(e.target.value)}
+                    className="w-full p-2 bg-slate-50 border border-slate-200 rounded-lg text-slate-800 font-medium focus:ring-2 focus:ring-emerald-500"
                   >
-                    <option value="Tổ dân phố 11">Tổ dân phố 11</option>
-                    <option value="Tổ dân phố 12">Tổ dân phố 12</option>
-                    <option value="Tổ dân phố 13">Tổ dân phố 13</option>
-                    <option value="Tổ dân phố 14">Tổ dân phố 14</option>
-                    <option value="Tổ dân phố 15">Tổ dân phố 15</option>
-                    <option value="Tổ Bảo vệ ANTT">Tổ Bảo vệ ANTT</option>
-                    <option value="Chi đoàn Thanh niên">Chi đoàn Thanh niên</option>
-                    <option value="Hội Phụ nữ">Hội Phụ nữ</option>
+                    {["Chính quyền cơ sở", "Chính trị - Xã hội", "An ninh - Quốc phòng", "Phong trào tự quản"].map(cat => {
+                      const list = associationsList.filter(a => a.category === cat);
+                      if (list.length === 0) return null;
+                      return (
+                        <optgroup key={cat} label={`── ${cat} (${list.length}) ──`}>
+                          {list.map(assoc => (
+                            <option key={assoc.id} value={assoc.id}>
+                              {assoc.name} (Trưởng: {assoc.leaderName})
+                            </option>
+                          ))}
+                        </optgroup>
+                      );
+                    })}
                   </select>
                 </div>
 
@@ -1128,17 +1581,74 @@ export default function TaskAndSchedule() {
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block font-bold text-slate-700 mb-1">Người nhận việc chính</label>
-                  <input
-                    id="modal-new-task-assignee-name"
-                    name="newTaskAssigneeName"
-                    aria-label="Người nhận việc chính"
-                    type="text"
-                    value={newTaskAssigneeName}
-                    onChange={e => setNewTaskAssigneeName(e.target.value)}
-                    className="w-full p-2 bg-slate-50 border border-slate-200 rounded-lg"
-                  />
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="font-bold text-slate-700">Người nhận việc *</label>
+                    <button
+                      type="button"
+                      onClick={() => setIsCustomAssignee(!isCustomAssignee)}
+                      className="text-[10px] font-bold text-emerald-600 hover:underline cursor-pointer"
+                    >
+                      {isCustomAssignee ? "← Chọn theo tổ chức" : "+ Người ngoài"}
+                    </button>
+                  </div>
+
+                  {!isCustomAssignee ? (
+                    <select
+                      id="modal-new-task-member-select"
+                      aria-label="Chọn cán bộ nhận việc"
+                      value={newTaskAssigneeName}
+                      onChange={handleMemberChange}
+                      className="w-full p-2 bg-slate-50 border border-slate-200 rounded-lg font-bold text-slate-800 focus:ring-2 focus:ring-emerald-500"
+                    >
+                      {currentAssocMembers.map(m => (
+                        <option key={m.id || m.fullName} value={m.fullName}>
+                          👤 {m.fullName} — {m.role} {m.phone ? `(${m.phone})` : ""}
+                        </option>
+                      ))}
+                      <option value="__CUSTOM__">+ Khác (Nhập tên người khác)</option>
+                    </select>
+                  ) : (
+                    <div className="space-y-1.5">
+                      <input
+                        id="modal-new-task-assignee-name"
+                        name="newTaskAssigneeName"
+                        aria-label="Người nhận việc chính"
+                        type="text"
+                        placeholder="Họ và tên người nhận..."
+                        value={newTaskAssigneeName}
+                        onChange={e => setNewTaskAssigneeName(e.target.value)}
+                        className="w-full p-2 bg-slate-50 border border-slate-200 rounded-lg font-bold"
+                        required
+                      />
+                      <div className="grid grid-cols-2 gap-1.5">
+                        <input
+                          type="text"
+                          placeholder="Chức vụ..."
+                          value={newTaskAssigneeRole}
+                          onChange={e => setNewTaskAssigneeRole(e.target.value)}
+                          className="p-1.5 bg-slate-50 border border-slate-200 rounded-lg text-[11px]"
+                        />
+                        <input
+                          type="tel"
+                          placeholder="SĐT..."
+                          value={newTaskAssigneePhone}
+                          onChange={e => setNewTaskAssigneePhone(e.target.value)}
+                          className="p-1.5 bg-slate-50 border border-slate-200 rounded-lg text-[11px]"
+                        />
+                      </div>
+                    </div>
+                  )}
+
+                  {!isCustomAssignee && newTaskAssigneeRole && (
+                    <div className="mt-1 flex items-center justify-between text-[10px] text-slate-500 bg-slate-100/80 px-2 py-0.5 rounded">
+                      <span className="truncate">Vai trò: <strong className="text-slate-700">{newTaskAssigneeRole}</strong></span>
+                      {newTaskAssigneePhone && (
+                        <span className="font-mono text-emerald-700 font-bold shrink-0">📞 {newTaskAssigneePhone}</span>
+                      )}
+                    </div>
+                  )}
                 </div>
+
                 <div>
                   <label className="block font-bold text-slate-700 mb-1">Hạn chót hoàn thành *</label>
                   <input
@@ -1308,6 +1818,50 @@ export default function TaskAndSchedule() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+      {/* MODAL: PREVIEW IMAGE ATTACHMENT */}
+      {previewAttachment && (
+        <div
+          className="fixed inset-0 z-60 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm animate-in fade-in duration-150"
+          onClick={() => setPreviewAttachment(null)}
+        >
+          <div
+            className="relative max-w-3xl w-full bg-slate-900 rounded-2xl overflow-hidden shadow-2xl border border-slate-700"
+            onClick={e => e.stopPropagation()}
+          >
+            <div className="p-3 bg-slate-950/90 border-b border-slate-800 flex items-center justify-between text-white">
+              <div className="flex items-center gap-2 truncate text-xs font-bold">
+                <ImageIcon size={15} className="text-emerald-400 shrink-0" />
+                <span className="truncate">{previewAttachment.name}</span>
+                {previewAttachment.size && (
+                  <span className="text-[10px] text-slate-400 font-mono">({previewAttachment.size})</span>
+                )}
+              </div>
+              <div className="flex items-center gap-2">
+                <a
+                  href={previewAttachment.url}
+                  download={previewAttachment.name}
+                  className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-bold flex items-center gap-1 transition-colors"
+                >
+                  <Download size={13} /> Tải ảnh về
+                </a>
+                <button
+                  onClick={() => setPreviewAttachment(null)}
+                  className="p-1 text-slate-400 hover:text-white hover:bg-slate-800 rounded-full cursor-pointer transition-colors"
+                >
+                  <X size={18} />
+                </button>
+              </div>
+            </div>
+            <div className="p-3 flex items-center justify-center max-h-[75vh] overflow-auto bg-slate-950/50">
+              <img
+                src={previewAttachment.url}
+                alt={previewAttachment.name}
+                className="max-w-full max-h-[70vh] object-contain rounded-lg shadow-md"
+              />
+            </div>
           </div>
         </div>
       )}

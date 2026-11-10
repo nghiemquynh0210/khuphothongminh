@@ -340,19 +340,31 @@ export interface TargetGisItem {
   navigateRoute?: boolean;
 }
 
+export interface TaskAttachment {
+  id: string;
+  name: string;
+  size?: string;
+  type: "image" | "pdf" | "word" | "other";
+  url: string; // Base64 data URL or preview link
+  uploadedAt?: string;
+}
+
 export interface TaskAssignee {
   name: string;
   role: string;
   unit: string;
   phone?: string;
   avatar?: string;
+  memberId?: string;
+  cccd?: string;
 }
 
 export interface TaskItem {
   id: string;
   title: string;
   description: string;
-  unit: "Tổ dân phố 11" | "Tổ dân phố 12" | "Tổ dân phố 13" | "Tổ dân phố 14" | "Tổ dân phố 15" | "Ban Điều hành KP" | "Chi bộ KP3" | "Chi đoàn Thanh niên" | "Hội Phụ nữ" | "Tổ Bảo vệ ANTT";
+  unit: string;
+  associationId?: string; // ID của Chi hội / Tổ chức liên kết
   assignee: TaskAssignee;
   creator: string;
   priority: "Thấp" | "Trung bình" | "Cao" | "Khẩn cấp";
@@ -362,6 +374,7 @@ export interface TaskItem {
   deadline: string;
   completedAt?: string;
   proofImages?: string[];
+  attachments?: TaskAttachment[]; // File đính kèm hình ảnh, word docx, pdf
   notes?: string;
 }
 
