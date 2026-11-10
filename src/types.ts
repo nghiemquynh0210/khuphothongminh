@@ -394,3 +394,33 @@ export interface ScheduleEvent {
   attachments?: TaskAttachment[]; // File đính kèm hình ảnh, word docx, pdf
 }
 
+export interface RecurringReminder {
+  id: string; // e.g. REM-001
+  title: string; // Tiêu đề báo cáo / nội dung nhắc hẹn
+  description?: string; // Hướng dẫn chi tiết / đề cương báo cáo
+  frequency: "daily" | "weekly" | "monthly" | "quarterly" | "yearly"; // Chu kỳ lặp lại
+  frequencyDetail: {
+    time: string; // HH:mm (VD: 17:00, 09:00)
+    dayOfWeek?: number; // 0 = Chủ nhật, 1 = Thứ 2, ..., 6 = Thứ 7 (VD: 6 cho Thứ 7 hàng tuần)
+    dayOfMonth?: number; // 1 - 31 (VD: 15 cho ngày 15 hàng tháng)
+    monthOfYear?: number; // 1 - 12 (VD: 12 cho tháng 12 hàng năm)
+  };
+  recipientOrg: string; // Đơn vị cấp trên nhận báo cáo (VD: Ban Xây dựng Đảng, UBND Phường, UBKT...)
+  responsibleUnit: string; // Đơn vị phụ trách thực hiện (VD: Chi bộ Đảng KP3, Ban điều hành, TDP 12...)
+  responsiblePerson: {
+    name: string;
+    role: string;
+    phone?: string;
+  };
+  notifyChannels: ("in_app" | "banner" | "zalo_sms" | "email")[];
+  isActive: boolean;
+  nextDueDate: string; // YYYY-MM-DD
+  lastSubmittedDate?: string; // YYYY-MM-DD
+  status: "Đúng hạn" | "Sắp đến hạn" | "Hôm nay đến hạn" | "Quá hạn" | "Đã nộp kỳ này";
+  attachments?: TaskAttachment[]; // Mẫu đề cương hoặc file đính kèm
+  submittedFiles?: TaskAttachment[]; // File báo cáo đã nộp
+  submissionNotes?: string; // Ghi chú khi nộp báo cáo
+  autoCreateTask?: boolean; // Tự động tạo Task trong danh mục Nhiệm vụ khi đến hạn
+  createdAt: string;
+}
+
