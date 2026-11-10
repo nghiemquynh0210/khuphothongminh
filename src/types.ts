@@ -221,15 +221,80 @@ export interface PartyMember {
   cccd?: string;
 }
 
+export interface WelfareBenefit {
+  id: string;
+  name: string;
+  category: string;
+  description: string;
+  standardValue: string; // e.g. "100% Thẻ BHYT", "Miễn phí tiền điện 50kWh/tháng", "2.500.000đ/tháng"
+  frequency: "Hàng tháng" | "Hàng quý" | "Hàng năm" | "Dịp Lễ/Tết" | "Đột xuất";
+}
+
 export interface WelfareRecipient {
   id: string;
   fullName: string;
   category: string;
+  subCategoryId?: string;
   address: string;
   cccd: string;
   phone?: string;
   supportLevel: string;
   status: "Đang nhận trợ cấp" | "Chờ duyệt hồ sơ" | "Đã tạm ngưng";
+  notes?: string;
+  benefits?: string[]; // Danh sách Chế độ chính sách & Quyền lợi cụ thể
+  gender?: string;
+  birthDate?: string;
+  householdId?: string;
+  joinedDate?: string;
+  disbursedTotal?: number; // Tổng số tiền đã nhận hỗ trợ
+}
+
+export interface WelfareSubCategory {
+  id: string;
+  name: string;
+  code: string;
+  iconName?: string;
+  color: string;
+  description: string;
+  criteria: string;
+  standardBenefits: string[];
+  isCustom?: boolean;
+  createdAt?: string;
+}
+
+export interface WelfareCampaign {
+  id: string;
+  title: string;
+  type: "batch" | "emergency"; // đợt hỗ trợ định kỳ hoặc hỗ trợ ngay
+  targetCategories: string[]; // Các phân hệ con được hưởng
+  cashAmountPerPerson: number; // Số tiền mặt hỗ trợ mỗi người
+  giftDescription?: string; // Hiện vật đính kèm (gạo, quà Tết, học bổng...)
+  totalBudget: number;
+  fundingSource: string; // Quỹ Vì người nghèo KP3, Ngân sách Phường, Mạnh thường quân...
+  disbursementDate: string;
+  location: string;
+  status: "Đang đề xuất" | "Đã duyệt chi" | "Đang trao tặng" | "Đã hoàn tất";
+  recipientIds: string[];
+  recipientCount: number;
+  notes?: string;
+  createdAt: string;
+}
+
+export interface EmergencySupportRecord {
+  id: string;
+  recipientId: string;
+  recipientName: string;
+  cccd: string;
+  address: string;
+  category: string;
+  amount: number;
+  giftItems?: string;
+  reason: string;
+  disbursedDate: string;
+  disbursedBy: string;
+  approver: string;
+  fundingSource: string;
+  status: "Đã hỗ trợ ngay" | "Chờ xuất quỹ";
   notes?: string;
 }
 

@@ -1804,44 +1804,161 @@ export const initialWelfareRecipients: WelfareRecipient[] = [
     id: "WF001",
     fullName: "Trần Văn Khang",
     category: "Người có công",
+    subCategoryId: "SUB_NCC",
     address: "42/5 Lương Định Của, Phường An Phú",
     cccd: "079048001122",
     phone: "0903123789",
     supportLevel: "2.500.000đ / tháng",
     status: "Đang nhận trợ cấp",
-    notes: "Thương binh hạng 2/4, nhận hỗ trợ trực tiếp tại UBND phường vào ngày 5 hàng tháng."
+    benefits: [
+      "Trợ cấp ưu đãi hàng tháng theo Pháp lệnh Người có công",
+      "Thẻ BHYT miễn phí 100% (Mã quyền lợi cao nhất)",
+      "Quà tặng Chủ tịch nước & UBND TP dịp 27/7 và Tết Nguyên Đán",
+      "Chế độ điều dưỡng phục hồi sức khỏe định kỳ hàng năm"
+    ],
+    notes: "Thương binh hạng 2/4, nhận hỗ trợ trực tiếp tại UBND phường vào ngày 5 hàng tháng.",
+    joinedDate: "2024-03-15",
+    disbursedTotal: 58500000
   },
   {
     id: "WF002",
     fullName: "Lê Văn Hộ",
     category: "Hộ nghèo/Cận nghèo",
+    subCategoryId: "SUB_HN",
     address: "18/5 Lương Định Của, Phường An Phú",
     cccd: "079055009988",
     phone: "0938765411",
     supportLevel: "1.200.000đ / tháng",
     status: "Đang nhận trợ cấp",
-    notes: "Hộ nghèo mã số HN-1025. Có 2 con đang trong độ tuổi đi học nhận thêm học bổng khuyến học."
+    benefits: [
+      "Trợ cấp tiền mặt bảo trợ xã hội hàng tháng",
+      "Cấp thẻ BHYT hộ nghèo miễn phí 100%",
+      "Hỗ trợ tiền điện sinh hoạt 50 kWh/tháng",
+      "Học bổng khuyến học & Miễn giảm học phí cho con em",
+      "Cấp phát túi quà an sinh & gạo cứu trợ định kỳ hàng quý"
+    ],
+    notes: "Hộ nghèo mã số HN-1025. Có 2 con đang trong độ tuổi đi học nhận thêm học bổng khuyến học.",
+    joinedDate: "2025-01-10",
+    disbursedTotal: 28400000
   },
   {
     id: "WF003",
     fullName: "Nguyễn Thị Đào",
     category: "Người cao tuổi",
+    subCategoryId: "SUB_NCT",
     address: "56/2 Lương Định Của, Phường An Phú",
     cccd: "079035002244",
     phone: "0911223344",
     supportLevel: "1.000.000đ / tháng",
     status: "Đang nhận trợ cấp",
-    notes: "Cụ bà 85 tuổi, sống một mình, tổ dân phố cử chi hội phụ nữ tới thăm hỏi định kỳ."
+    benefits: [
+      "Trợ cấp xã hội người cao tuổi hàng tháng",
+      "Cấp thẻ BHYT bảo trợ người cao tuổi miễn phí",
+      "Mừng thọ & quà tặng Ngày Người cao tuổi 1/10 và Tết Nguyên Đán",
+      "Chi hội Chữ thập đỏ & Phụ nữ KP3 cử cán bộ chăm sóc tại nhà"
+    ],
+    notes: "Cụ bà 85 tuổi, sống một mình, tổ dân phố cử chi hội phụ nữ tới thăm hỏi định kỳ.",
+    joinedDate: "2024-06-20",
+    disbursedTotal: 24000000
   },
   {
     id: "WF004",
     fullName: "Phạm Hoàng Sơn",
     category: "Trẻ em mồ côi",
+    subCategoryId: "SUB_TEMC",
     address: "42/15 Lương Định Của, Phường An Phú",
     cccd: "079109001234",
+    phone: "0908776655",
     supportLevel: "1.500.000đ / tháng",
     status: "Chờ duyệt hồ sơ",
-    notes: "Hồ sơ đề nghị trợ cấp xã hội đột xuất do cha mẹ qua đời vì tai nạn. Đang chờ Phòng LĐ-TB&XH Quận phê duyệt."
+    benefits: [
+      "Trợ cấp nuôi dưỡng hàng tháng theo Nghị định 20/2021/NĐ-CP",
+      "Cấp thẻ BHYT trẻ em miễn phí 100%",
+      "Miễn toàn bộ học phí và các khoản thu tại các trường công lập",
+      "Học bổng 'Nâng bước em tới trường' hàng năm (3.000.000đ/suất)"
+    ],
+    notes: "Hồ sơ đề nghị trợ cấp xã hội đột xuất do cha mẹ qua đời vì tai nạn. Đang chờ Phòng LĐ-TB&XH Quận phê duyệt.",
+    joinedDate: "2026-10-01",
+    disbursedTotal: 2500000
+  },
+  {
+    id: "WF005",
+    fullName: "Huỳnh Thị Lành",
+    category: "Gia đình chính sách",
+    subCategoryId: "SUB_GDCS",
+    address: "12/8 Lương Định Của, Phường An Phú",
+    cccd: "079031008899",
+    phone: "0909334455",
+    supportLevel: "3.200.000đ / tháng",
+    status: "Đang nhận trợ cấp",
+    benefits: [
+      "Trợ cấp tuất ưu đãi hàng tháng theo chế độ chính sách",
+      "Cấp thẻ BHYT thân nhân người có công",
+      "Quà tặng Chủ tịch nước & UBND TP dịp 27/7 và Tết Nguyên Đán",
+      "Hỗ trợ chi phí sửa chữa nhà ở chống dột"
+    ],
+    notes: "Mẹ liệt sĩ Trần Quốc Khánh (hy sinh năm 1979). Chi hội Cựu chiến binh và TDP thường xuyên thăm hỏi.",
+    joinedDate: "2023-01-01",
+    disbursedTotal: 78000000
+  },
+  {
+    id: "WF006",
+    fullName: "Vũ Đình Toàn",
+    category: "Người có công",
+    subCategoryId: "SUB_NCC",
+    address: "35/4 Lương Định Của, Phường An Phú",
+    cccd: "079052003344",
+    phone: "0944556677",
+    supportLevel: "2.200.000đ / tháng",
+    status: "Đang nhận trợ cấp",
+    benefits: [
+      "Trợ cấp ưu đãi hàng tháng theo Pháp lệnh Người có công",
+      "Thẻ BHYT miễn phí 100% (Mã quyền lợi cao nhất)",
+      "Khám sức khỏe và cấp phát thuốc định kỳ tại Trạm y tế"
+    ],
+    notes: "Bệnh binh tỷ lệ tổn thương cơ thể 61%, tham gia chiến trường biên giới Tây Nam.",
+    joinedDate: "2024-08-10",
+    disbursedTotal: 33000000
+  },
+  {
+    id: "WF007",
+    fullName: "Mai Thị Bé",
+    category: "Hộ nghèo/Cận nghèo",
+    subCategoryId: "SUB_HN",
+    address: "22/1 Lương Định Của, Phường An Phú",
+    cccd: "079060007788",
+    phone: "0977889900",
+    supportLevel: "1.000.000đ / tháng",
+    status: "Đang nhận trợ cấp",
+    benefits: [
+      "Trợ cấp tiền mặt bảo trợ xã hội hàng tháng",
+      "Cấp thẻ BHYT hộ nghèo miễn phí 100%",
+      "Hỗ trợ tiền điện sinh hoạt 50 kWh/tháng",
+      "Cấp phát túi quà an sinh & gạo cứu trợ định kỳ hàng quý"
+    ],
+    notes: "Hộ cận nghèo, mẹ đơn thân nuôi 1 con nhỏ, làm nghề buôn bán ve chai tại khu vực chợ tạm.",
+    joinedDate: "2025-05-15",
+    disbursedTotal: 18000000
+  },
+  {
+    id: "WF008",
+    fullName: "Trương Văn Bảy",
+    category: "Người cao tuổi",
+    subCategoryId: "SUB_NCT",
+    address: "68/9 Lương Định Của, Phường An Phú",
+    cccd: "079029001155",
+    phone: "0933112233",
+    supportLevel: "1.000.000đ / tháng",
+    status: "Đang nhận trợ cấp",
+    benefits: [
+      "Trợ cấp xã hội người cao tuổi hàng tháng",
+      "Cấp thẻ BHYT bảo trợ người cao tuổi miễn phí",
+      "Mừng thọ & quà tặng Ngày Người cao tuổi 1/10 và Tết Nguyên Đán",
+      "Khám bệnh & Cấp phát thuốc miễn phí tận nhà"
+    ],
+    notes: "Cụ ông 91 tuổi, con cháu lao động phổ thông, được tổ chức mừng thọ 90 tuổi vào đầu năm 2025.",
+    joinedDate: "2024-01-01",
+    disbursedTotal: 29000000
   }
 ];
 

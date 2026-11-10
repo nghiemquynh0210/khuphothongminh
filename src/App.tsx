@@ -514,7 +514,13 @@ export default function App() {
   }, []);
   
   // New State variables for the 3 additional views
-  const [welfareRecipients, setWelfareRecipients] = useState<WelfareRecipient[]>(initialWelfareRecipients);
+  const [welfareRecipients, setWelfareRecipients] = useState<WelfareRecipient[]>(() => {
+    try {
+      const saved = localStorage.getItem("kp3_welfare_recipients");
+      if (saved) return JSON.parse(saved);
+    } catch {}
+    return initialWelfareRecipients;
+  });
   const [communityEvents, setCommunityEvents] = useState<CommunityEvent[]>(initialCommunityEvents);
   const [fundContributions, setFundContributions] = useState<FundContribution[]>(initialFundContributions);
   const [administrativeForms, setAdministrativeForms] = useState<AdministrativeForm[]>(initialAdministrativeForms);
@@ -785,15 +791,21 @@ export default function App() {
   };
 
   const handleAddWelfareRecipient = (newRec: WelfareRecipient) => {
-    setWelfareRecipients([newRec, ...welfareRecipients]);
+    const updated = [newRec, ...welfareRecipients];
+    setWelfareRecipients(updated);
+    try { localStorage.setItem("kp3_welfare_recipients", JSON.stringify(updated)); } catch {}
   };
 
   const handleUpdateWelfareStatus = (id: string, status: WelfareRecipient["status"]) => {
-    setWelfareRecipients(welfareRecipients.map(w => w.id === id ? { ...w, status } : w));
+    const updated = welfareRecipients.map(w => w.id === id ? { ...w, status } : w);
+    setWelfareRecipients(updated);
+    try { localStorage.setItem("kp3_welfare_recipients", JSON.stringify(updated)); } catch {}
   };
 
   const handleDeleteWelfareRecipient = (id: string) => {
-    setWelfareRecipients(welfareRecipients.filter(w => w.id !== id));
+    const updated = welfareRecipients.filter(w => w.id !== id);
+    setWelfareRecipients(updated);
+    try { localStorage.setItem("kp3_welfare_recipients", JSON.stringify(updated)); } catch {}
   };
 
   const handleAddCommunityEvent = (newEvent: CommunityEvent) => {

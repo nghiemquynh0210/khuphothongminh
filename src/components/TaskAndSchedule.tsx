@@ -316,30 +316,26 @@ export const INITIAL_SCHEDULES: ScheduleEvent[] = [
 ];
 
 // Helper: Format file size
-const formatFileSize = (bytes: number) => {
+export const formatFileSize = (bytes: number): string => {
   if (bytes < 1024) return bytes + " B";
   if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + " KB";
   return (bytes / (1024 * 1024)).toFixed(1) + " MB";
 };
 
 // Helper: Detect file type
-const detectFileType = (file: File): TaskAttachment["type"] => {
-  const nameLower = file.name.toLowerCase();
-  if (
-    file.type.startsWith("image/") ||
-    nameLower.endsWith(".png") ||
-    nameLower.endsWith(".jpg") ||
-    nameLower.endsWith(".jpeg") ||
-    nameLower.endsWith(".webp")
-  ) {
+export const detectFileType = (file: File): "image" | "pdf" | "word" | "other" => {
+  const mime = file.type.toLowerCase();
+  const name = file.name.toLowerCase();
+  if (mime.startsWith("image/") || /\.(png|jpe?g|gif|webp|bmp|svg)$/i.test(name)) {
     return "image";
-  } else if (nameLower.endsWith(".pdf") || file.type.includes("pdf")) {
+  }
+  if (mime.includes("pdf") || name.endsWith(".pdf")) {
     return "pdf";
-  } else if (
-    nameLower.endsWith(".docx") ||
-    nameLower.endsWith(".doc") ||
-    file.type.includes("word") ||
-    file.type.includes("officedocument")
+  }
+  if (
+    mime.includes("word") ||
+    mime.includes("officedocument") ||
+    /\.(doc|docx)$/i.test(name)
   ) {
     return "word";
   }
@@ -3456,6 +3452,939 @@ export default function TaskAndSchedule() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL: DETAIL / VIEW SCHEDULE */}
+      {selectedSchedule && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/75 backdrop-blur-sm animate-in fade-in duration-150">
+          <div className="bg-white w-full max-w-2xl rounded-2xl shadow-2xl border border-slate-200/90 overflow-hidden flex flex-col max-h-[92vh] animate-in zoom-in-95 duration-200">
+            {/* Header: Indigo GovTech */}
+            <div className="px-5 py-4 bg-gradient-to-r from-slate-900 via-slate-800 to-indigo-950 text-white flex items-center justify-between shrink-0 border-b border-slate-700/80">
+              <div className="flex items-center gap-2.5 min-w-0">
+                <span className="font-mono text-xs font-black px-2.5 py-1 rounded-md bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 shrink-0">
+                  {selectedSchedule.id}
+                </span>
+                <div className="min-w-0">
+                  <span className="text-[11px] uppercase tracking-wider text-indigo-300/80 font-bold block">
+                    Chi tiết Sự kiện & Lịch công tác
+                  </span>
+                  <h3 className="font-bold text-sm sm:text-base text-white truncate leading-snug">
+                    {selectedSchedule.title}
+                  </h3>
+                </div>
+              </div>
+              <button
+                onClick={() => setSelectedSchedule(null)}
+                className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-white/10 cursor-pointer transition-colors shrink-0"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            {/* Body */}
+            <div className="p-5 space-y-4 overflow-y-auto flex-1 text-xs">
+              {/* Type & Status Badges */}
+              <div className="flex flex-wrap items-center justify-between gap-2 p-3 bg-slate-50 rounded-xl border border-slate-200">
+                <div className="flex items-center gap-2">
+                  <span className="text-slate-500 font-bold">Phân loại:</span>
+                  {getScheduleTypeBadge(selectedSchedule.type)}
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-slate-500 font-bold">Trạng thái:</span>
+                  <select
+                    value={selectedSchedule.status}
+                    onChange={e => handleUpdateScheduleStatus(selectedSchedule.id, e.target.value as any)}
+                    className="font-bold text-xs py-1 px-2.5 rounded-lg border border-slate-300 bg-white"
+                  >
+                    <option value="Sắp diễn ra">Sắp diễn ra</option>
+                    <option value="Đang diễn ra">Đang diễn ra</option>
+                    <option value="Đã kết thúc">Đã kết thúc</option>
+                    <option value="Đã hoãn">Đã hoãn</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* 4 Metric Tiles */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+                <div className="p-3 rounded-xl bg-indigo-50/50 border border-indigo-100 flex flex-col justify-between">
+                  <div className="text-[10px] uppercase font-bold text-indigo-700 flex items-center gap-1 mb-1">
+                    <CalendarIcon size={12} /> Ngày tổ chức
+                  </div>
+                  <div className="font-black text-slate-900 text-xs sm:text-sm">{selectedSchedule.date}</div>
+                </div>
+
+                <div className="p-3 rounded-xl bg-slate-50 border border-slate-200/80 flex flex-col justify-between">
+                  <div className="text-[10px] uppercase font-bold text-slate-500 flex items-center gap-1 mb-1">
+                    <Clock size={12} /> Thời gian
+                  </div>
+                  <div className="font-black text-slate-900 text-xs sm:text-sm">{selectedSchedule.time}</div>
+                </div>
+
+                <div className="p-3 rounded-xl bg-slate-50 border border-slate-200/80 flex flex-col justify-between col-span-2 sm:col-span-1">
+                  <div className="text-[10px] uppercase font-bold text-slate-500 flex items-center gap-1 mb-1">
+                    <MapPin size={12} /> Địa điểm
+                  </div>
+                  <div className="font-semibold text-slate-900 text-xs truncate" title={selectedSchedule.location}>
+                    {selectedSchedule.location}
+                  </div>
+                </div>
+
+                <div className="p-3 rounded-xl bg-emerald-50/50 border border-emerald-100 flex flex-col justify-between col-span-2 sm:col-span-1">
+                  <div className="text-[10px] uppercase font-bold text-emerald-700 flex items-center gap-1 mb-1">
+                    <User size={12} /> Chủ trì
+                  </div>
+                  <div className="font-semibold text-slate-900 text-xs truncate" title={selectedSchedule.host}>
+                    {selectedSchedule.host}
+                  </div>
+                </div>
+              </div>
+
+              {/* Host & Attendees Info */}
+              <div className="p-3.5 bg-gradient-to-br from-slate-50 to-indigo-50/30 rounded-xl border border-slate-200 space-y-2">
+                <div className="flex items-start gap-2">
+                  <User size={14} className="text-indigo-600 mt-0.5 shrink-0" />
+                  <div>
+                    <span className="font-bold text-slate-700">Người chủ trì: </span>
+                    <span className="font-black text-indigo-950">{selectedSchedule.host}</span>
+                  </div>
+                </div>
+                <div className="flex items-start gap-2">
+                  <Users size={14} className="text-slate-400 mt-0.5 shrink-0" />
+                  <div>
+                    <span className="font-bold text-slate-700">Thành phần tham dự: </span>
+                    <span className="text-slate-800">{selectedSchedule.attendees}</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Detailed Agenda / Content */}
+              <div>
+                <div className="font-bold text-slate-700 mb-1.5 flex items-center gap-1.5">
+                  <FileText size={14} className="text-indigo-600" />
+                  <span>Nội dung cuộc họp & Chương trình làm việc chi tiết</span>
+                </div>
+                <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200/90 text-slate-800 leading-relaxed whitespace-pre-line text-xs font-normal">
+                  {selectedSchedule.description || selectedSchedule.content || "Chưa có nội dung mô tả chi tiết cho sự kiện này."}
+                </div>
+              </div>
+
+              {/* Notes */}
+              {selectedSchedule.notes && (
+                <div className="p-3 rounded-xl bg-amber-50/60 border border-amber-200 text-amber-900 text-xs">
+                  <span className="font-bold">Ghi chú hậu cần: </span>
+                  {selectedSchedule.notes}
+                </div>
+              )}
+
+              {/* Attached Files & Documents */}
+              <div className="pt-2 border-t border-slate-100">
+                <div className="flex items-center justify-between mb-2">
+                  <div className="font-bold text-slate-700 flex items-center gap-1.5">
+                    <Paperclip size={14} className="text-indigo-600" />
+                    <span>Tài liệu & Tệp tin đính kèm ({selectedSchedule.attachments?.length || 0})</span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => detailSchFileInputRef.current?.click()}
+                    className="text-[11px] font-bold text-indigo-700 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 px-2.5 py-1 rounded-lg flex items-center gap-1 cursor-pointer transition-colors"
+                  >
+                    <Plus size={13} /> Đính kèm thêm tệp...
+                  </button>
+                  <input
+                    type="file"
+                    ref={detailSchFileInputRef}
+                    onChange={handleDetailSchFileUpload}
+                    multiple
+                    accept="image/*,.pdf,.doc,.docx"
+                    className="hidden"
+                  />
+                </div>
+
+                {selectedSchedule.attachments && selectedSchedule.attachments.length > 0 ? (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    {selectedSchedule.attachments.map(att => (
+                      <div
+                        key={att.id}
+                        className="p-2 rounded-xl bg-slate-50 hover:bg-indigo-50/50 border border-slate-200 flex items-center justify-between gap-2 transition-colors"
+                      >
+                        <div className="flex items-center gap-2 min-w-0">
+                          {att.type === "image" ? (
+                            <img
+                              src={att.url}
+                              alt=""
+                              className="w-9 h-9 rounded-lg object-cover border border-slate-200 cursor-pointer shrink-0"
+                              onClick={() => setPreviewAttachment(att)}
+                            />
+                          ) : att.type === "pdf" ? (
+                            <div className="w-9 h-9 rounded-lg bg-rose-50 border border-rose-200 text-rose-600 flex flex-col items-center justify-center shrink-0">
+                              <span className="font-black text-[9px]">PDF</span>
+                            </div>
+                          ) : (
+                            <div className="w-9 h-9 rounded-lg bg-blue-50 border border-blue-200 text-blue-600 flex flex-col items-center justify-center shrink-0">
+                              <span className="font-black text-[9px]">DOC</span>
+                            </div>
+                          )}
+                          <div className="min-w-0">
+                            <div className="font-bold text-slate-800 text-xs truncate" title={att.name}>{att.name}</div>
+                            <div className="text-[10px] text-slate-400">{att.size || "Tệp tài liệu"}</div>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center gap-1 shrink-0">
+                          {att.type === "image" && att.url && (
+                            <button
+                              type="button"
+                              onClick={() => setPreviewAttachment(att)}
+                              className="p-1.5 rounded-lg text-slate-400 hover:text-indigo-600 hover:bg-white cursor-pointer"
+                              title="Xem ảnh phóng to"
+                            >
+                              <Eye size={13} />
+                            </button>
+                          )}
+                          {att.url && (
+                            <a
+                              href={att.url}
+                              download={att.name}
+                              className="p-1.5 rounded-lg text-slate-400 hover:text-indigo-600 hover:bg-white cursor-pointer"
+                              title="Tải về"
+                            >
+                              <Download size={13} />
+                            </a>
+                          )}
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveDetailSchAttachment(att.id)}
+                            className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 cursor-pointer"
+                            title="Xóa tệp"
+                          >
+                            <Trash2 size={13} />
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="p-4 rounded-xl border border-dashed border-slate-200 text-center text-slate-400 text-xs">
+                    Chưa có văn bản hay tệp đính kèm nào cho sự kiện này.
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Footer */}
+            <div className="px-5 py-3.5 bg-slate-50 border-t border-slate-200 flex items-center justify-between shrink-0">
+              <button
+                type="button"
+                onClick={() => handleDeleteSchedule(selectedSchedule.id)}
+                className="text-xs font-bold text-rose-600 hover:text-rose-700 flex items-center gap-1.5 cursor-pointer"
+              >
+                <Trash2 size={14} /> Xóa sự kiện
+              </button>
+              <button
+                type="button"
+                onClick={() => setSelectedSchedule(null)}
+                className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-900 text-white font-bold text-xs cursor-pointer shadow-xs transition-colors"
+              >
+                Đóng
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* MODAL 1: CÀI ĐẶT NHẮC HẸN / LỊCH BÁO CÁO MỚI */}
+      {showAddReminderModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/70 backdrop-blur-xs animate-in fade-in duration-150">
+          <div className="bg-white w-full max-w-xl rounded-2xl shadow-2xl border border-slate-200 overflow-hidden flex flex-col max-h-[92vh] animate-in zoom-in-95 duration-200">
+            {/* Header: Indigo GovTech */}
+            <div className="p-4 bg-gradient-to-r from-slate-900 via-slate-800 to-indigo-950 text-white flex items-center justify-between shrink-0 border-b border-slate-700/80">
+              <h3 className="font-black text-sm flex items-center gap-2">
+                <BellRing size={16} className="text-amber-400" /> Cài đặt Lịch Báo Cáo & Nhắc Việc Định Kỳ
+              </h3>
+              <button
+                type="button"
+                onClick={() => setShowAddReminderModal(false)}
+                className="p-1 rounded-full text-slate-400 hover:text-white hover:bg-white/10 cursor-pointer transition-colors"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            {/* Form */}
+            <form onSubmit={handleCreateReminder} className="p-5 space-y-3.5 text-xs overflow-y-auto flex-1">
+              {/* Reminder Title */}
+              <div>
+                <label className="block font-bold text-slate-700 mb-1">
+                  Tiêu đề báo cáo / Nhiệm vụ định kỳ *
+                </label>
+                <input
+                  id="modal-new-rem-title"
+                  name="newRemTitle"
+                  type="text"
+                  required
+                  placeholder="Ví dụ: Báo cáo tuần nộp UBND Phường, Báo cáo công tác Đảng ngày 15..."
+                  value={newRemTitle}
+                  onChange={e => setNewRemTitle(e.target.value)}
+                  className="w-full p-2.5 rounded-xl border border-slate-300 bg-white font-medium focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
+                />
+              </div>
+
+              {/* Frequency Selection */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">Tần suất lặp lại *</label>
+                  <select
+                    id="modal-new-rem-frequency"
+                    name="newRemFrequency"
+                    value={newRemFrequency}
+                    onChange={e => setNewRemFrequency(e.target.value as any)}
+                    className="w-full p-2.5 rounded-xl border border-slate-300 bg-white font-bold text-indigo-900 focus:outline-none focus:border-indigo-500"
+                  >
+                    <option value="daily">Hàng ngày (Daily)</option>
+                    <option value="weekly">Hàng tuần [Ví dụ: Thứ Bảy] (Weekly)</option>
+                    <option value="monthly">Hàng tháng [Ví dụ: Ngày 15] (Monthly)</option>
+                    <option value="quarterly">Hàng quý (Quarterly)</option>
+                    <option value="yearly">Hàng năm (Yearly)</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">Giờ nhắc / Hạn nộp *</label>
+                  <input
+                    id="modal-new-rem-time"
+                    name="newRemTime"
+                    type="time"
+                    required
+                    value={newRemTime}
+                    onChange={e => setNewRemTime(e.target.value)}
+                    className="w-full p-2 rounded-xl border border-slate-300 bg-white font-mono font-bold focus:outline-none focus:border-indigo-500"
+                  />
+                </div>
+              </div>
+
+              {/* Dynamic Frequency Detail: Day of week / Day of month */}
+              {newRemFrequency === "weekly" && (
+                <div className="p-3 bg-indigo-50/60 rounded-xl border border-indigo-200">
+                  <label className="block font-bold text-indigo-950 mb-1.5">
+                    Chọn ngày trong tuần phải báo cáo:
+                  </label>
+                  <div className="grid grid-cols-7 gap-1">
+                    {[
+                      { val: 1, label: "T2" },
+                      { val: 2, label: "T3" },
+                      { val: 3, label: "T4" },
+                      { val: 4, label: "T5" },
+                      { val: 5, label: "T6" },
+                      { val: 6, label: "T7" },
+                      { val: 0, label: "CN" }
+                    ].map(d => (
+                      <button
+                        key={d.val}
+                        type="button"
+                        onClick={() => setNewRemDayOfWeek(d.val)}
+                        className={`py-2 rounded-lg font-bold text-xs cursor-pointer transition-all border ${
+                          newRemDayOfWeek === d.val
+                            ? "bg-indigo-600 text-white border-indigo-600 shadow-xs"
+                            : "bg-white text-slate-700 border-slate-200 hover:bg-slate-100"
+                        }`}
+                      >
+                        {d.label}
+                      </button>
+                    ))}
+                  </div>
+                  <p className="text-[11px] text-indigo-700 mt-1.5 font-medium">
+                    * Mặc định Thứ Bảy hàng tuần lúc {newRemTime} nộp báo cáo tình hình nhiệm vụ tuần.
+                  </p>
+                </div>
+              )}
+
+              {(newRemFrequency === "monthly" || newRemFrequency === "quarterly") && (
+                <div className="p-3 bg-indigo-50/60 rounded-xl border border-indigo-200">
+                  <label className="block font-bold text-indigo-950 mb-1">
+                    Ngày trong tháng phải nộp báo cáo:
+                  </label>
+                  <div className="flex items-center gap-2">
+                    <span className="text-slate-600 font-semibold">Cứ vào ngày:</span>
+                    <input
+                      type="number"
+                      min={1}
+                      max={31}
+                      value={newRemDayOfMonth}
+                      onChange={e => setNewRemDayOfMonth(Number(e.target.value))}
+                      className="w-20 p-2 text-center rounded-lg border border-slate-300 font-bold font-mono bg-white"
+                    />
+                    <span className="text-slate-600 font-semibold">hàng tháng (lúc {newRemTime})</span>
+                  </div>
+                  <p className="text-[11px] text-indigo-700 mt-1.5 font-medium">
+                    * Ví dụ: Cứ vào ngày 15 hàng tháng phải nộp báo cáo lên Ban Xây dựng Đảng, Đảng ủy, UBND, UBKT...
+                  </p>
+                </div>
+              )}
+
+              {newRemFrequency === "yearly" && (
+                <div className="p-3 bg-indigo-50/60 rounded-xl border border-indigo-200 grid grid-cols-2 gap-2">
+                  <div>
+                    <label className="block font-bold text-indigo-950 mb-1">Ngày nộp:</label>
+                    <input
+                      type="number"
+                      min={1}
+                      max={31}
+                      value={newRemDayOfMonth}
+                      onChange={e => setNewRemDayOfMonth(Number(e.target.value))}
+                      className="w-full p-2 rounded-lg border border-slate-300 font-bold font-mono bg-white"
+                    />
+                  </div>
+                  <div>
+                    <label className="block font-bold text-indigo-950 mb-1">Tháng nộp:</label>
+                    <input
+                      type="number"
+                      min={1}
+                      max={12}
+                      value={newRemMonthOfYear}
+                      onChange={e => setNewRemMonthOfYear(Number(e.target.value))}
+                      className="w-full p-2 rounded-lg border border-slate-300 font-bold font-mono bg-white"
+                    />
+                  </div>
+                </div>
+              )}
+
+              {/* Recipient Organization Selector */}
+              <div>
+                <label className="block font-bold text-slate-700 mb-1">
+                  Cơ quan / Cấp trên tiếp nhận báo cáo *
+                </label>
+                <select
+                  id="modal-new-rem-recipient"
+                  name="newRemRecipient"
+                  value={isCustomRecipient ? "__CUSTOM__" : newRemRecipient}
+                  onChange={e => {
+                    if (e.target.value === "__CUSTOM__") {
+                      setIsCustomRecipient(true);
+                      setCustomRecipient("");
+                    } else {
+                      setIsCustomRecipient(false);
+                      setNewRemRecipient(e.target.value);
+                    }
+                  }}
+                  className="w-full p-2.5 rounded-xl border border-slate-300 bg-white font-bold text-slate-800 focus:outline-none focus:border-indigo-500"
+                >
+                  {RECIPIENT_ORGS.map(org => (
+                    <option key={org} value={org}>{org}</option>
+                  ))}
+                  <option value="__CUSTOM__">✍️ Nhập cơ quan / đơn vị khác...</option>
+                </select>
+
+                {isCustomRecipient && (
+                  <input
+                    type="text"
+                    required
+                    placeholder="Nhập tên cơ quan / đơn vị cấp trên tiếp nhận..."
+                    value={customRecipient}
+                    onChange={e => setCustomRecipient(e.target.value)}
+                    className="mt-2 w-full p-2 rounded-xl border border-indigo-300 bg-indigo-50/30 font-medium focus:outline-none focus:border-indigo-600 animate-in fade-in"
+                  />
+                )}
+              </div>
+
+              {/* Responsible Unit & Person from 23 Chi hội */}
+              <div className="p-3.5 bg-slate-50 rounded-xl border border-slate-200 space-y-3">
+                <span className="font-bold text-slate-800 text-[11px] uppercase tracking-wider block">
+                  Đơn vị & Cán bộ phụ trách lập báo cáo
+                </span>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block font-semibold text-slate-600 mb-1">Đơn vị phụ trách:</label>
+                    <select
+                      id="modal-new-rem-unit"
+                      name="newRemUnit"
+                      value={newRemAssociationId}
+                      onChange={e => handleRemUnitChange(e.target.value)}
+                      className="w-full p-2 rounded-lg border border-slate-300 bg-white font-semibold text-slate-800 text-xs"
+                    >
+                      {associationsList.map(assoc => (
+                        <option key={assoc.id} value={assoc.id}>
+                          {assoc.name} ({assoc.leaderName || "Chi hội"})
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block font-semibold text-slate-600 mb-1">Cán bộ lập báo cáo:</label>
+                    <select
+                      id="modal-new-rem-person"
+                      name="newRemPerson"
+                      value={isCustomRemPerson ? "__CUSTOM__" : newRemPersonName}
+                      onChange={handleRemMemberChange}
+                      className="w-full p-2 rounded-lg border border-slate-300 bg-white font-semibold text-slate-800 text-xs"
+                    >
+                      {remAssocMembers.map(m => (
+                        <option key={m.id} value={m.fullName}>
+                          {m.fullName} - {m.role}
+                        </option>
+                      ))}
+                      <option value="__CUSTOM__">✍️ Nhập nhân sự khác...</option>
+                    </select>
+                  </div>
+                </div>
+
+                {isCustomRemPerson && (
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 pt-1 animate-in fade-in">
+                    <input
+                      type="text"
+                      placeholder="Họ và tên cán bộ *"
+                      required
+                      value={newRemPersonName}
+                      onChange={e => setNewRemPersonName(e.target.value)}
+                      className="p-2 rounded-lg border border-slate-300 bg-white"
+                    />
+                    <input
+                      type="text"
+                      placeholder="Chức vụ"
+                      value={newRemPersonRole}
+                      onChange={e => setNewRemPersonRole(e.target.value)}
+                      className="p-2 rounded-lg border border-slate-300 bg-white"
+                    />
+                    <input
+                      type="text"
+                      placeholder="Số điện thoại"
+                      value={newRemPersonPhone}
+                      onChange={e => setNewRemPersonPhone(e.target.value)}
+                      className="p-2 rounded-lg border border-slate-300 bg-white"
+                    />
+                  </div>
+                )}
+              </div>
+
+              {/* Guidelines / Description */}
+              <div>
+                <label className="block font-bold text-slate-700 mb-1">
+                  Đề cương & Hướng dẫn nội dung báo cáo
+                </label>
+                <textarea
+                  id="modal-new-rem-desc"
+                  name="newRemDesc"
+                  rows={2}
+                  placeholder="Yêu cầu số liệu cần tổng hợp, biểu mẫu quy định, nội dung trọng tâm cần làm rõ khi nộp báo cáo..."
+                  value={newRemDesc}
+                  onChange={e => setNewRemDesc(e.target.value)}
+                  className="w-full p-2.5 rounded-xl border border-slate-300 bg-white text-xs focus:outline-none focus:border-indigo-500"
+                />
+              </div>
+
+              {/* Notification Channels & Auto-Task Creation */}
+              <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 space-y-2">
+                <span className="font-bold text-slate-700 text-xs block">Kênh thông báo & Tự động hóa:</span>
+
+                <div className="flex flex-wrap items-center gap-3">
+                  <label className="flex items-center gap-1.5 cursor-pointer font-medium text-slate-700">
+                    <input
+                      type="checkbox"
+                      checked={newRemChannels.includes("in_app")}
+                      onChange={e => {
+                        if (e.target.checked) setNewRemChannels(prev => [...prev, "in_app"]);
+                        else setNewRemChannels(prev => prev.filter(c => c !== "in_app"));
+                      }}
+                      className="rounded accent-indigo-600"
+                    />
+                    Chuông thông báo in-app
+                  </label>
+
+                  <label className="flex items-center gap-1.5 cursor-pointer font-medium text-slate-700">
+                    <input
+                      type="checkbox"
+                      checked={newRemChannels.includes("banner")}
+                      onChange={e => {
+                        if (e.target.checked) setNewRemChannels(prev => [...prev, "banner"]);
+                        else setNewRemChannels(prev => prev.filter(c => c !== "banner"));
+                      }}
+                      className="rounded accent-indigo-600"
+                    />
+                    Banner đầu trang
+                  </label>
+
+                  <label className="flex items-center gap-1.5 cursor-pointer font-medium text-slate-700">
+                    <input
+                      type="checkbox"
+                      checked={newRemChannels.includes("zalo_sms")}
+                      onChange={e => {
+                        if (e.target.checked) setNewRemChannels(prev => [...prev, "zalo_sms"]);
+                        else setNewRemChannels(prev => prev.filter(c => c !== "zalo_sms"));
+                      }}
+                      className="rounded accent-indigo-600"
+                    />
+                    Tin nhắn Zalo/SMS cán bộ
+                  </label>
+                </div>
+
+                <div className="pt-2 border-t border-slate-200/80">
+                  <label className="flex items-center gap-2 cursor-pointer font-bold text-indigo-900">
+                    <input
+                      type="checkbox"
+                      checked={newRemAutoCreateTask}
+                      onChange={e => setNewRemAutoCreateTask(e.target.checked)}
+                      className="rounded accent-indigo-600 w-4 h-4"
+                    />
+                    Tự động khởi tạo nhiệm vụ tương ứng trong bảng Phân công nhiệm vụ khi đến chu kỳ
+                  </label>
+                </div>
+              </div>
+
+              {/* Attach Template Document */}
+              <div className="pt-1">
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="font-bold text-slate-700">Đính kèm mẫu biểu / Văn bản hướng dẫn</label>
+                  <button
+                    type="button"
+                    onClick={() => remTemplateFileInputRef.current?.click()}
+                    className="text-[11px] font-bold text-indigo-700 hover:text-indigo-800 bg-indigo-50 border border-indigo-200 px-2 py-0.5 rounded cursor-pointer flex items-center gap-1"
+                  >
+                    <Plus size={12} /> Chọn tệp (Word/PDF)...
+                  </button>
+                  <input
+                    type="file"
+                    ref={remTemplateFileInputRef}
+                    onChange={handleRemTemplateUpload}
+                    multiple
+                    accept=".pdf,.doc,.docx,image/*"
+                    className="hidden"
+                  />
+                </div>
+
+                {newRemAttachments.length > 0 && (
+                  <div className="space-y-1.5">
+                    {newRemAttachments.map(att => (
+                      <div key={att.id} className="p-2 rounded-lg bg-slate-50 border border-slate-200 flex items-center justify-between text-xs">
+                        <div className="flex items-center gap-2 truncate">
+                          <FileText size={14} className="text-indigo-600 shrink-0" />
+                          <span className="font-semibold text-slate-800 truncate">{att.name}</span>
+                          <span className="text-[10px] text-slate-400 font-mono">({att.size})</span>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => setNewRemAttachments(prev => prev.filter(a => a.id !== att.id))}
+                          className="text-slate-400 hover:text-rose-600 p-1 cursor-pointer"
+                        >
+                          <X size={14} />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Modal Footer Buttons */}
+              <div className="pt-3 border-t border-slate-200 flex items-center justify-end gap-2 shrink-0">
+                <button
+                  type="button"
+                  onClick={() => setShowAddReminderModal(false)}
+                  className="px-3.5 py-1.5 rounded-lg border border-slate-300 font-bold text-slate-600 hover:bg-slate-100 cursor-pointer"
+                >
+                  Hủy
+                </button>
+                <button
+                  type="submit"
+                  className="px-4 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 font-bold text-white shadow-xs cursor-pointer flex items-center gap-1.5"
+                >
+                  <BellRing size={14} /> Lưu & Kích hoạt lịch báo cáo
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL 2: NỘP BÁO CÁO ĐỊNH KỲ (SUBMIT REPORT) */}
+      {submittingReminder && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/75 backdrop-blur-sm animate-in fade-in duration-150">
+          <div className="bg-white w-full max-w-lg rounded-2xl shadow-2xl border border-slate-200 overflow-hidden flex flex-col max-h-[90vh] animate-in zoom-in-95 duration-200">
+            {/* Header: Emerald GovTech */}
+            <div className="p-4 bg-gradient-to-r from-slate-900 via-slate-800 to-emerald-950 text-white flex items-center justify-between shrink-0 border-b border-slate-700/80">
+              <h3 className="font-black text-sm flex items-center gap-2">
+                <FileCheck size={16} className="text-emerald-400" /> Nộp Báo Cáo Định Kỳ Lên Cấp Trên
+              </h3>
+              <button
+                type="button"
+                onClick={() => setSubmittingReminder(null)}
+                className="p-1 rounded-full text-slate-400 hover:text-white hover:bg-white/10 cursor-pointer transition-colors"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            {/* Form */}
+            <form onSubmit={handleConfirmSubmitReport} className="p-5 space-y-3.5 text-xs overflow-y-auto flex-1">
+              {/* Report Summary Card */}
+              <div className="p-3.5 bg-gradient-to-br from-emerald-50/70 to-slate-50 rounded-xl border border-emerald-200 space-y-2">
+                <div className="font-black text-slate-900 text-sm">{submittingReminder.title}</div>
+                <div className="flex items-center gap-1.5 text-indigo-950 font-bold">
+                  <Building size={14} className="text-indigo-600" />
+                  Nơi tiếp nhận: {submittingReminder.recipientOrg}
+                </div>
+                <div className="flex items-center justify-between text-slate-600 text-[11px] pt-1 border-t border-emerald-100">
+                  <span>Người nộp: <strong>{submittingReminder.responsiblePerson.name}</strong></span>
+                  <span>Hạn chót: <strong className="text-rose-700 font-mono">{submittingReminder.nextDueDate}</strong></span>
+                </div>
+              </div>
+
+              {/* Upload Report Document */}
+              <div>
+                <label className="block font-bold text-slate-700 mb-1">
+                  Tệp báo cáo hoàn thiện / Bản ký scan có dấu đỏ *
+                </label>
+                <div
+                  onClick={() => submitFileInputRef.current?.click()}
+                  className="p-4 rounded-xl border-2 border-dashed border-slate-300 hover:border-emerald-500 bg-slate-50/60 hover:bg-emerald-50/30 text-center cursor-pointer transition-colors"
+                >
+                  <UploadCloud size={24} className="mx-auto text-emerald-600 mb-1.5" />
+                  <span className="font-bold text-slate-800 block text-xs">Bấm để tải lên tệp báo cáo (Word, PDF, Ảnh scan)</span>
+                  <span className="text-[10px] text-slate-400">Hỗ trợ tối đa 20MB / tệp</span>
+                  <input
+                    type="file"
+                    ref={submitFileInputRef}
+                    onChange={handleSubmitReportFileUpload}
+                    multiple
+                    accept=".pdf,.doc,.docx,image/*"
+                    className="hidden"
+                  />
+                </div>
+
+                {submitReportFiles.length > 0 && (
+                  <div className="space-y-1.5 mt-2">
+                    {submitReportFiles.map(file => (
+                      <div key={file.id} className="p-2 rounded-lg bg-emerald-50/60 border border-emerald-200 flex items-center justify-between text-xs">
+                        <div className="flex items-center gap-2 truncate">
+                          <FileCheck size={14} className="text-emerald-700 shrink-0" />
+                          <span className="font-bold text-emerald-950 truncate">{file.name}</span>
+                          <span className="text-[10px] text-emerald-600 font-mono">({file.size})</span>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => setSubmitReportFiles(prev => prev.filter(f => f.id !== file.id))}
+                          className="text-slate-400 hover:text-rose-600 p-1 cursor-pointer"
+                        >
+                          <X size={14} />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Submission Notes */}
+              <div>
+                <label className="block font-bold text-slate-700 mb-1">
+                  Ghi chú nộp báo cáo / Mã số công văn
+                </label>
+                <textarea
+                  rows={2}
+                  placeholder="Ví dụ: Đã gửi bản cứng có chữ ký của Trưởng Ban ĐHKP qua Văn phòng UBND Phường, đồng thời lưu trữ bản số hóa..."
+                  value={submitReportNotes}
+                  onChange={e => setSubmitReportNotes(e.target.value)}
+                  className="w-full p-2.5 rounded-xl border border-slate-300 bg-white text-xs focus:outline-none focus:border-emerald-500"
+                />
+              </div>
+
+              {/* Footer */}
+              <div className="pt-3 border-t border-slate-200 flex items-center justify-end gap-2 shrink-0">
+                <button
+                  type="button"
+                  onClick={() => setSubmittingReminder(null)}
+                  className="px-3.5 py-1.5 rounded-lg border border-slate-300 font-bold text-slate-600 hover:bg-slate-100 cursor-pointer"
+                >
+                  Hủy
+                </button>
+                <button
+                  type="submit"
+                  className="px-4 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 font-bold text-white shadow-xs cursor-pointer flex items-center gap-1.5"
+                >
+                  <CheckCheck size={14} /> Xác nhận nộp báo cáo & Hoàn tất chu kỳ
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL 3: XEM CHI TIẾT & LỊCH SỬ BÁO CÁO (SELECTED REMINDER) */}
+      {selectedReminder && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/75 backdrop-blur-sm animate-in fade-in duration-150">
+          <div className="bg-white w-full max-w-xl rounded-2xl shadow-2xl border border-slate-200 overflow-hidden flex flex-col max-h-[90vh] animate-in zoom-in-95 duration-200">
+            {/* Header */}
+            <div className="p-4 bg-gradient-to-r from-slate-900 via-slate-800 to-indigo-950 text-white flex items-center justify-between shrink-0 border-b border-slate-700/80">
+              <div className="flex items-center gap-2">
+                <span className="font-mono text-xs font-black px-2 py-0.5 rounded bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">
+                  {selectedReminder.id}
+                </span>
+                <h3 className="font-bold text-sm text-white truncate max-w-sm">
+                  {selectedReminder.title}
+                </h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setSelectedReminder(null)}
+                className="p-1 rounded-full text-slate-400 hover:text-white hover:bg-white/10 cursor-pointer"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            {/* Body */}
+            <div className="p-5 space-y-3.5 text-xs overflow-y-auto flex-1">
+              <div className="flex items-center justify-between gap-2 p-3 bg-slate-50 rounded-xl border border-slate-200">
+                <div className="flex items-center gap-1.5">
+                  <span className="font-bold text-slate-500">Chu kỳ:</span>
+                  <span className="font-bold text-indigo-900">{formatFrequencyText(selectedReminder)}</span>
+                </div>
+                <div>{getReminderStatusBadge(selectedReminder.status)}</div>
+              </div>
+
+              <div className="p-3.5 bg-indigo-50/60 rounded-xl border border-indigo-100 space-y-1.5">
+                <div className="flex items-center gap-1.5 font-bold text-indigo-950">
+                  <Building size={14} className="text-indigo-600" />
+                  Cơ quan tiếp nhận: {selectedReminder.recipientOrg}
+                </div>
+                <div className="flex items-center gap-1.5 text-slate-700">
+                  <User size={13} className="text-slate-500" />
+                  Cán bộ chịu trách nhiệm: <strong>{selectedReminder.responsiblePerson.name}</strong> ({selectedReminder.responsiblePerson.role})
+                </div>
+                {selectedReminder.responsiblePerson.phone && (
+                  <div className="text-[11px] text-slate-500">
+                    Hotline liên hệ: <a href={`tel:${selectedReminder.responsiblePerson.phone}`} className="font-mono font-bold text-emerald-700">{selectedReminder.responsiblePerson.phone}</a>
+                  </div>
+                )}
+              </div>
+
+              {selectedReminder.description && (
+                <div>
+                  <span className="font-bold text-slate-700 block mb-1">Đề cương & Hướng dẫn:</span>
+                  <p className="p-3 rounded-xl bg-slate-50 border border-slate-200 text-slate-700 leading-relaxed whitespace-pre-line">
+                    {selectedReminder.description}
+                  </p>
+                </div>
+              )}
+
+              {/* Template attachments */}
+              {selectedReminder.attachments && selectedReminder.attachments.length > 0 && (
+                <div>
+                  <span className="font-bold text-slate-700 block mb-1.5">Mẫu biểu tải về:</span>
+                  <div className="space-y-1.5">
+                    {selectedReminder.attachments.map(att => (
+                      <div key={att.id} className="p-2.5 rounded-xl bg-slate-50 border border-slate-200 flex items-center justify-between">
+                        <div className="flex items-center gap-2 truncate">
+                          <FileText size={16} className="text-indigo-600 shrink-0" />
+                          <span className="font-bold text-slate-800 truncate">{att.name}</span>
+                          <span className="text-[10px] text-slate-400 font-mono">({att.size})</span>
+                        </div>
+                        {att.url && (
+                          <a
+                            href={att.url}
+                            download={att.name}
+                            className="px-2.5 py-1 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs flex items-center gap-1"
+                          >
+                            <Download size={12} /> Tải mẫu
+                          </a>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Previous submissions history */}
+              {selectedReminder.submittedFiles && selectedReminder.submittedFiles.length > 0 && (
+                <div>
+                  <span className="font-bold text-emerald-800 block mb-1.5">Hồ sơ báo cáo đã nộp ({selectedReminder.submittedFiles.length} tệp):</span>
+                  <div className="space-y-1.5">
+                    {selectedReminder.submittedFiles.map(file => (
+                      <div key={file.id} className="p-2 rounded-lg bg-emerald-50/60 border border-emerald-200 flex items-center justify-between">
+                        <div className="flex items-center gap-2 truncate">
+                          <FileCheck size={14} className="text-emerald-700 shrink-0" />
+                          <span className="font-bold text-emerald-950 truncate">{file.name}</span>
+                          <span className="text-[10px] text-emerald-600 font-mono">({file.size})</span>
+                        </div>
+                        {file.url && (
+                          <a
+                            href={file.url}
+                            download={file.name}
+                            className="px-2 py-0.5 rounded bg-emerald-100 hover:bg-emerald-200 text-emerald-800 font-bold text-[11px]"
+                          >
+                            Tải file nộp
+                          </a>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Footer */}
+            <div className="p-3.5 bg-slate-50 border-t border-slate-200 flex items-center justify-between shrink-0">
+              <button
+                type="button"
+                onClick={() => {
+                  const rem = selectedReminder;
+                  setSelectedReminder(null);
+                  handleDeleteReminder(rem.id);
+                }}
+                className="text-xs font-bold text-rose-600 hover:text-rose-700 flex items-center gap-1 cursor-pointer"
+              >
+                <Trash2 size={13} /> Xóa lịch
+              </button>
+              <button
+                type="button"
+                onClick={() => setSelectedReminder(null)}
+                className="px-4 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-900 text-white font-bold text-xs cursor-pointer shadow-xs"
+              >
+                Đóng
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {previewAttachment && (
+        <div
+          className="fixed inset-0 z-60 flex items-center justify-center p-4 bg-slate-950/85 backdrop-blur-sm animate-in fade-in duration-150"
+          onClick={() => setPreviewAttachment(null)}
+        >
+          <div
+            className="relative max-w-3xl w-full bg-slate-900 rounded-2xl overflow-hidden shadow-2xl border border-slate-700 animate-in zoom-in-95 duration-200"
+            onClick={e => e.stopPropagation()}
+          >
+            <div className="p-3.5 bg-slate-950/90 border-b border-slate-800 flex items-center justify-between text-white">
+              <div className="flex items-center gap-2 truncate text-xs font-bold">
+                <ImageIcon size={15} className="text-emerald-400 shrink-0" />
+                <span className="truncate">{previewAttachment.name}</span>
+                {previewAttachment.size && (
+                  <span className="text-[10px] text-slate-400 font-mono">({previewAttachment.size})</span>
+                )}
+              </div>
+              <div className="flex items-center gap-2">
+                <a
+                  href={previewAttachment.url}
+                  download={previewAttachment.name}
+                  className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-bold flex items-center gap-1.5 transition-colors shadow-xs"
+                >
+                  <Download size={13} /> Tải ảnh về máy
+                </a>
+                <button
+                  onClick={() => setPreviewAttachment(null)}
+                  className="p-1.5 text-slate-400 hover:text-white hover:bg-slate-800 rounded-full cursor-pointer transition-colors"
+                >
+                  <X size={18} />
+                </button>
+              </div>
+            </div>
+            <div className="p-4 flex items-center justify-center max-h-[75vh] overflow-auto bg-slate-950/60">
+              <img
+                src={previewAttachment.url}
+                alt={previewAttachment.name}
+                className="max-w-full max-h-[70vh] object-contain rounded-xl shadow-2xl border border-slate-800"
+              />
+            </div>
           </div>
         </div>
       )}
