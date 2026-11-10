@@ -1,31 +1,52 @@
 # BIÊN BẢN BÀN GIAO & CẬP NHẬT PHIÊN LÀM VIỆC (SESSION HANDOVER)
 **Dự án:** Cổng Dịch vụ Cư dân số & Hệ thống Quản trị Thông minh Khu phố 3, Phường An Phú  
-**Thời gian cập nhật:** 09/11/2026 (11:05 UTC+7)  
-**Trạng thái phiên:** Sẵn sàng cho phiên tiếp theo (Ready for Next Session)
+**Thời gian cập nhật:** 10/11/2026 (13:15 UTC+7)  
+**Trạng thái phiên:** Hoàn thành xuất sắc & Đã triển khai Production (Ready & Deployed)
 
 ---
 
 ## 1. THÔNG SỐ KỸ THUẬT & TRẠNG THÁI TOÀN HỆ THỐNG
 - **Mã nguồn & GitHub Repository:**
   - GitHub Remote: `https://github.com/nghiemquynh0210/khuphothongminh.git` (Nhánh: `main`)
-  - Commit mới nhất: `ba143d7` ("feat(ui-ux): format all summary numbers and KPIs with Vietnamese thousands dot separators")
+  - Commit mới nhất: `29ba324` ("feat(tasks): link assigned units to 23 associations, dynamic member selection, and multi-file attachments (images, docx, pdf)")
+  - Tác giả commit: `Khupho3 <bdhkhupho3.ap@gmail.com>`
   - Trạng thái Git: Đã push 100% lên GitHub `origin/main`. Working tree sạch hoàn toàn (`clean`).
 - **Nền tảng Vercel Production:**
-  - Trang chính thức: 👉 **[https://khuphothongminh.vercel.app](https://khuphothongminh.vercel.app)**
-  - Deployment ID: `dpl_854Aq4QSaAfu4hHH3EimCv1YMfj9`
-  - Vercel Team: `khupho3-s-projects` / Project: `khuphothongminh`
-  - Trạng thái Vercel: `READY` (HTTP 200 OK).
-- **Cơ sở dữ liệu Supabase Cloud:**
-  - Project Reference: `wjdgaobhipkgzveidtra` (`nghiemquynh0210's Project`, region: `ap-southeast-1`)
-  - Đồng bộ thực 2 chiều: 488 Sổ hộ khẩu, 11.632 Nhân khẩu, 119 Cơ sở kinh doanh/nhà trọ.
-- **Hệ sinh thái MCP Servers:**
-  - `github`: `@modelcontextprotocol/server-github` (kết nối trực tiếp token quản trị).
-  - `supabase`: `@supabase/mcp-server-supabase` (API token).
-  - `chrome-devtools`: Chrome headless kiểm thử giao diện tự động.
+  - Trang chính thức: 👉 **[https://bdhkp3.vercel.app](https://bdhkp3.vercel.app)**
+  - Trang đăng nhập: 👉 **[https://bdhkp3.vercel.app/login](https://bdhkp3.vercel.app/login)**
+  - Deployment ID: `dpl_7jXUwiu9EUY5RE7xPnhk7xcq3HVZ` (Status: `READY`, HTTP 200)
+  - Vercel Team: `khupho3-s-projects` / Project: `bdhkp3`
+  - Trang dự phòng: [https://khuphothongminh.vercel.app](https://khuphothongminh.vercel.app)
 - **Môi trường chạy cục bộ:**
-  - Vite 6, React 19, TypeScript 5.8, Tailwind CSS v4, Motion 14, @animate-ui/react 2.4.2.
-  - Server localhost đang chạy nền tại: `http://localhost:3000`.
+  - Server localhost đang chạy nền tại: `http://localhost:3000` (Task ID: `ac67b2e6-d369-4ad7-8dea-a5b3a0b2dfde/task-8824`).
   - TypeScript Audit (`npm run lint:ts`): **0 Lỗi (Zero Errors)**.
+  - Production Build (`npm run build`): Thành công trong 10.56s.
+  - Trình duyệt Chrome DevTools MCP: 0 lỗi console.
+
+---
+
+## 2. NỘI DUNG NÂNG CẤP MỚI NHẤT: LIÊN KẾT NHIỆM VỤ VỚI 23 CHI HỘI & ĐÍNH KÈM TỆP ĐA ĐỊNH DẠNG
+
+Theo yêu cầu mới nhất từ Ban điều hành Khu phố 3:
+1. **Liên kết Đơn vị nhận việc với 23 Chi hội / Tổ chức đoàn thể:**
+   - Trích xuất dữ liệu dùng chung vào module độc lập [`src/data/associationsData.ts`](file:///c:/Users/KHUPHO3/Downloads/khuphothongminh-main/khuphothongminh-main/src/data/associationsData.ts) với đầy đủ 23 tổ chức (thuộc 4 nhóm: *Chính quyền cơ sở, Chính trị - Xã hội, An ninh - Quốc phòng, Phong trào tự quản*), lưu trữ đồng bộ với `localStorage`.
+   - Kết nối hai chiều giữa Phân hệ Chi hội (`PartyBranch.tsx`) và Quản lý Nhiệm vụ (`TaskAndSchedule.tsx`): bất kỳ cán bộ, đoàn viên nào được thêm/sửa ở Chi hội đều lập tức có mặt trong danh sách giao việc.
+   - Trường **Đơn vị nhận việc** trong Modal *"Phân công nhiệm vụ mới"* hiển thị phân nhóm chuẩn xác 23 tổ chức kèm tên Trưởng chi hội.
+
+2. **Người nhận việc chính liên kết động với Thành viên trong Chi hội:**
+   - Khi chọn một đơn vị, dropdown **Người nhận việc chính** tự động hiển thị toàn bộ thành viên của tổ chức đó kèm chức danh và SĐT (`👤 Họ tên — Chức vụ (SĐT)`).
+   - Tự động chọn mặc định Trưởng tổ chức/đoàn thể để thao tác nhanh nhất.
+   - Hỗ trợ tùy chọn `+ Khác (Nhập tên người khác)` hoặc nút chuyển đổi `+ Người ngoài` cho phép nhập linh hoạt cán bộ kiêm nhiệm bên ngoài khi cần.
+   - Trong Chi tiết nhiệm vụ (`selectedTask`), hiển thị đầy đủ thông tin Người nhận kèm liên kết gọi điện nhanh `📞 tel:...`.
+
+3. **Đính kèm Tệp tin đa định dạng (Hình ảnh JPG/PNG/WEBP, Word .docx/.doc, PDF .pdf):**
+   - **Trong Form Tạo nhiệm vụ:** Khối tải tệp đính kèm chuyên nghiệp ngay dưới phần *Mô tả nội dung chi tiết*, giới hạn dung lượng lên đến 20MB, tự động nhận diện loại tệp và mã hóa Base64 Data URL để lưu trữ và xem trước tức thì.
+   - **Trong Modal Chi tiết nhiệm vụ:**
+     - Danh sách tệp đính kèm hiển thị trực quan theo thẻ card: ảnh thumbnail cho hình ảnh, huy hiệu màu đỏ cho PDF, huy hiệu màu xanh cho DOC/DOCX.
+     - Nút **Xem ảnh** tích hợp Lightbox phóng to ảnh độ nét cao.
+     - Nút **Tải về** cho phép tải trực tiếp file PDF, Word, Ảnh về máy tính người dùng.
+     - Nút **+ Đính kèm thêm tệp...** cho phép cán bộ bổ sung thêm biên bản, hình ảnh hiện trường trực tiếp vào nhiệm vụ đã giao.
+   - **Trên Thẻ Kanban & Bảng Danh sách:** Hiển thị huy hiệu đính kèm `📎 N` báo hiệu nhiệm vụ có tệp minh chứng.
 
 ---
 
