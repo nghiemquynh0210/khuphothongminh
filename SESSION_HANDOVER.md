@@ -1,176 +1,33 @@
-# BIÊN BẢN BÀN GIAO & CẬP NHẬT PHIÊN LÀM VIỆC (SESSION HANDOVER)
-**Dự án:** Cổng Dịch vụ Cư dân số & Hệ thống Quản trị Thông minh Khu phố 3, Phường An Phú  
-**Thời gian cập nhật:** 10/11/2026 (13:15 UTC+7)  
-**Trạng thái phiên:** Hoàn thành xuất sắc & Đã triển khai Production (Ready & Deployed)
+# BÁO CÁO NÂNG CẤP HỆ THỐNG KHU PHỐ 3 AN PHÚ
+**Thời gian cập nhật:** 10/11/2026 (13:50 UTC+7)  
+**Trang Production:** [https://bdhkp3.vercel.app](https://bdhkp3.vercel.app)  
+**GitHub Repository:** [https://github.com/nghiemquynh0210/khuphothongminh.git](https://github.com/nghiemquynh0210/khuphothongminh.git)  
+**Tác giả commit:** Khupho3 <bdhkhupho3.ap@gmail.com>
 
 ---
 
-## 1. THÔNG SỐ KỸ THUẬT & TRẠNG THÁI TOÀN HỆ THỐNG
-- **Mã nguồn & GitHub Repository:**
-  - GitHub Remote: `https://github.com/nghiemquynh0210/khuphothongminh.git` (Nhánh: `main`)
-  - Commit mới nhất: `29ba324` ("feat(tasks): link assigned units to 23 associations, dynamic member selection, and multi-file attachments (images, docx, pdf)")
-  - Tác giả commit: `Khupho3 <bdhkhupho3.ap@gmail.com>`
-  - Trạng thái Git: Đã push 100% lên GitHub `origin/main`. Working tree sạch hoàn toàn (`clean`).
-- **Nền tảng Vercel Production:**
-  - Trang chính thức: 👉 **[https://bdhkp3.vercel.app](https://bdhkp3.vercel.app)**
-  - Trang đăng nhập: 👉 **[https://bdhkp3.vercel.app/login](https://bdhkp3.vercel.app/login)**
-  - Deployment ID: `dpl_7jXUwiu9EUY5RE7xPnhk7xcq3HVZ` (Status: `READY`, HTTP 200)
-  - Vercel Team: `khupho3-s-projects` / Project: `bdhkp3`
-  - Trang dự phòng: [https://khuphothongminh.vercel.app](https://khuphothongminh.vercel.app)
-- **Môi trường chạy cục bộ:**
-  - Server localhost đang chạy nền tại: `http://localhost:3000` (Task ID: `ac67b2e6-d369-4ad7-8dea-a5b3a0b2dfde/task-8824`).
-  - TypeScript Audit (`npm run lint:ts`): **0 Lỗi (Zero Errors)**.
-  - Production Build (`npm run build`): Thành công trong 10.56s.
-  - Trình duyệt Chrome DevTools MCP: 0 lỗi console.
+## 1. Nâng cấp Modal "Thêm sự kiện / Lịch họp mới" & Quản lý Sự kiện
+1. **Bổ sung ô nhập nội dung cuộc họp / chương trình chi tiết:**
+   - Trường textarea lớn `Nội dung cuộc họp / Chương trình chi tiết *` có hướng dẫn chi tiết về nội dung thảo luận, nghị quyết, phân công.
+2. **Chủ trì thông minh liên kết 23 Chi hội / Tổ chức & Lãnh đạo cấp trên:**
+   - Bộ chọn phân nhóm 33 vị trí chủ trì: Lãnh đạo cấp trên & Ban Quản trị, Lãnh đạo Cấp ủy & Ban Điều hành KP3, Trưởng & Phó 23 Chi hội / Tổ chức đoàn thể cơ sở, kèm tùy chọn nhập tên khác.
+3. **Loại sự kiện tùy chọn:**
+   - Danh mục sự kiện chuẩn kèm tùy chọn `+ Loại sự kiện khác (Nhập tùy chọn)` cho phép nhập loại sự kiện tùy ý.
+4. **Tệp đính kèm đa định dạng:**
+   - Đính kèm tệp tin hình ảnh (JPG, PNG, WEBP), Word (.doc, .docx), PDF (.pdf) với mã hóa Base64 và dung lượng tối đa 20MB.
+   - Thẻ xem trước trực quan với nút xem ảnh và tải về máy.
+5. **Hiển thị trên Thẻ Lịch họp (Timeline Card) & Modal Chi tiết Sự kiện (`selectedSchedule`):**
+   - Thẻ lịch họp hiển thị tóm tắt nội dung và các tệp đính kèm.
+   - Nhấp vào thẻ để mở Modal Chi tiết với 4 thẻ metric, nội dung chi tiết, trạng thái và quản lý tệp đính kèm.
 
----
+## 2. Hoàn thiện Form "Phân công nhiệm vụ mới"
+1. **Đơn vị nhận việc:** Liên kết toàn bộ 23 Chi hội & Đoàn thể từ `associationsData.ts`.
+2. **Người nhận việc chính:** Tự động lọc thành viên thuộc chi hội được chọn, hiển thị rõ họ tên, chức vụ, SĐT.
+3. **Đính kèm tài liệu:** Cho phép đính kèm tệp tin hình ảnh, Word, PDF ngay khi tạo việc mới.
 
-## 2. NỘI DUNG NÂNG CẤP MỚI NHẤT: LIÊN KẾT NHIỆM VỤ VỚI 23 CHI HỘI & ĐÍNH KÈM TỆP ĐA ĐỊNH DẠNG
-
-Theo yêu cầu mới nhất từ Ban điều hành Khu phố 3:
-1. **Liên kết Đơn vị nhận việc với 23 Chi hội / Tổ chức đoàn thể:**
-   - Trích xuất dữ liệu dùng chung vào module độc lập [`src/data/associationsData.ts`](file:///c:/Users/KHUPHO3/Downloads/khuphothongminh-main/khuphothongminh-main/src/data/associationsData.ts) với đầy đủ 23 tổ chức (thuộc 4 nhóm: *Chính quyền cơ sở, Chính trị - Xã hội, An ninh - Quốc phòng, Phong trào tự quản*), lưu trữ đồng bộ với `localStorage`.
-   - Kết nối hai chiều giữa Phân hệ Chi hội (`PartyBranch.tsx`) và Quản lý Nhiệm vụ (`TaskAndSchedule.tsx`): bất kỳ cán bộ, đoàn viên nào được thêm/sửa ở Chi hội đều lập tức có mặt trong danh sách giao việc.
-   - Trường **Đơn vị nhận việc** trong Modal *"Phân công nhiệm vụ mới"* hiển thị phân nhóm chuẩn xác 23 tổ chức kèm tên Trưởng chi hội.
-
-2. **Người nhận việc chính liên kết động với Thành viên trong Chi hội:**
-   - Khi chọn một đơn vị, dropdown **Người nhận việc chính** tự động hiển thị toàn bộ thành viên của tổ chức đó kèm chức danh và SĐT (`👤 Họ tên — Chức vụ (SĐT)`).
-   - Tự động chọn mặc định Trưởng tổ chức/đoàn thể để thao tác nhanh nhất.
-   - Hỗ trợ tùy chọn `+ Khác (Nhập tên người khác)` hoặc nút chuyển đổi `+ Người ngoài` cho phép nhập linh hoạt cán bộ kiêm nhiệm bên ngoài khi cần.
-   - Trong Chi tiết nhiệm vụ (`selectedTask`), hiển thị đầy đủ thông tin Người nhận kèm liên kết gọi điện nhanh `📞 tel:...`.
-
-3. **Đính kèm Tệp tin đa định dạng (Hình ảnh JPG/PNG/WEBP, Word .docx/.doc, PDF .pdf):**
-   - **Trong Form Tạo nhiệm vụ:** Khối tải tệp đính kèm chuyên nghiệp ngay dưới phần *Mô tả nội dung chi tiết*, giới hạn dung lượng lên đến 20MB, tự động nhận diện loại tệp và mã hóa Base64 Data URL để lưu trữ và xem trước tức thì.
-   - **Trong Modal Chi tiết nhiệm vụ:**
-     - Danh sách tệp đính kèm hiển thị trực quan theo thẻ card: ảnh thumbnail cho hình ảnh, huy hiệu màu đỏ cho PDF, huy hiệu màu xanh cho DOC/DOCX.
-     - Nút **Xem ảnh** tích hợp Lightbox phóng to ảnh độ nét cao.
-     - Nút **Tải về** cho phép tải trực tiếp file PDF, Word, Ảnh về máy tính người dùng.
-     - Nút **+ Đính kèm thêm tệp...** cho phép cán bộ bổ sung thêm biên bản, hình ảnh hiện trường trực tiếp vào nhiệm vụ đã giao.
-   - **Trên Thẻ Kanban & Bảng Danh sách:** Hiển thị huy hiệu đính kèm `📎 N` báo hiệu nhiệm vụ có tệp minh chứng.
-
----
-
-## 2. CÁC HẠNG MỤC CẢI TIẾN CỐT LÕI ĐÃ HOÀN THÀNH
-
-### A. Tinh gọn & Chuẩn hóa Hành chính (Gov Data & Text Cleanup)
-1. **Đổi tên địa bàn hành chính:**
-   - Thay thế toàn diện mọi trường hiển thị `"TP. Thủ Đức"` thành `"TP. Hồ Chí Minh"` trên tất cả các phân hệ, biểu mẫu hành chính, danh mục dân cư và mock data.
-2. **Loại bỏ văn bản mô tả mục tiêu & nhiệm vụ dài dòng:**
-   - Đã gỡ bỏ toàn bộ các đoạn văn bản giải thích nhiệm vụ, khẩu hiệu cồng kềnh trên Header và thân trang của tất cả phân hệ: Tổng quan Cán bộ, Quản lý Dân cư, Hộ khẩu, Doanh nghiệp, Kinh doanh, Bản đồ GIS, Lịch & Nhiệm vụ, Trợ lý AI, Phản ánh 1022, Chi hội, An sinh, Tin tức, Quỹ tự quản, Cấu hình và Cổng dịch vụ cư dân.
-   - Giữ lại giao diện phẳng, tối giản, hiển thị trực diện bảng biểu và dữ liệu nghiệp vụ.
-
-### B. Thiết kế Lại Bố cục Phân hệ Doanh nghiệp & Hộ kinh doanh
-1. **Loại bỏ ảnh mẫu trang trí:** Gỡ bỏ các khối ảnh minh họa kích thước lớn làm choán màn hình trong `EnterpriseManagement.tsx` và `BusinessManagement.tsx`.
-2. **Bố trí tab điều hướng:** Chuẩn hóa 2 tab rõ ràng `Danh mục Doanh nghiệp & Hồ sơ DNNVV` và `Báo cáo Kinh tế Địa bàn & Biến động`.
-3. **Loại bỏ bộ lọc phân loại thừa thãi:** Tối ưu thanh lọc trạng thái theo đúng yêu cầu hình ảnh thực tế.
-
-### C. Tái sắp xếp Không gian Thanh tiêu đề Bản đồ GIS (`GisMap.tsx`)
-1. **Khắc phục triệt để lỗi chữ rớt dòng (Orphan text):** Tiêu đề chuẩn hóa thành `Bản đồ Không gian số GIS` (`whitespace-nowrap`), dứt điểm lỗi rớt số 3 đơn độc.
-2. **Chuẩn hóa huy hiệu định danh:** Huy hiệu kỹ thuật `GIS ĐỊA BÀN • WGS-84 / VN-2000` co giãn linh hoạt, không còn bị đứt chữ `VN-2000`.
-3. **Thanh công cụ tác vụ đồng nhất (Single-row Toolbar):** Gom toàn bộ 4 nút về đúng 1 hàng ngang duy nhất với chiều cao `h-9` (36px):
-   - `Thu gọn bảng` / `Mở bảng dữ liệu` (View Controller)
-   - `Khoanh vùng ranh giới` (Công cụ bản đồ)
-   - `Đồng bộ [0]` (Công cụ dữ liệu)
-   - `+ Ghim vị trí mới` (Primary CTA xanh emerald)
-
-### D. Loại bỏ Phân hệ Thiết kế UI-UX (Design System Showcase)
-- Đã gỡ bỏ mục `Hệ thống UI-UX` (`design-system`) cùng icon `Palette` khỏi `Sidebar.tsx`.
-- Gỡ bỏ định nghĩa route `DASHBOARD_DESIGN_SYSTEM` khỏi `routes.tsx`.
-- Gỡ bỏ kiểu `| "design-system"` khỏi `ActiveTab` trong `types.ts`.
-- Xóa bỏ tệp `src/components/DesignSystemShowcase.tsx` và khối render trong `App.tsx`.
-
-### E. Cài đặt AI Skill `imskyleen/animate-ui` & Tích hợp Chuyển động
-1. **Bộ tri thức Skill:** Đã lưu trữ trọn bộ tại `.agents/skills/animate-ui/` với 41 tệp hướng dẫn chuẩn xác (tokens, recipes, rules, interactions).
-2. **Cài đặt thư viện:** Bổ sung `@animate-ui/react: ^2.4.2` và `motion: ^14.10.1` vào `package.json`.
-3. **Bọc Provider toàn cục:** Đã cấu hình `<AnimateUIProvider tempo={1}>` trong `src/main.tsx`.
-4. **Gliding Tab Indicator ở Sidebar:** Menu Sidebar sử dụng `layoutId="active-sidebar-pill"` kết hợp lò xo chuẩn `spring.selection` và phản hồi chạm `whileTap={{ scale: 0.97 }}` (`spring.press`).
-5. **View Transition:** Nội dung chuyển đổi phân hệ bọc trong `motion.div` chuyển cảnh mượt mà `fade + rise 6px`.
-
-### F. Thu Nhỏ Cỡ Chữ Toàn Hệ Thống Xuống 01 Size (Global Typography Downscale)
-1. **Tỷ lệ co giãn toàn cục (Global Root Scaling):** Cấu hình `html { font-size: 14.5px; }` trong [`src/index.css`](file:///c:/Users/KHUPHO3/Downloads/khuphothongminh-main/khuphothongminh-main/src/index.css) (~90.625% so với gốc 16px). Tất cả các đơn vị `rem` (typography `text-xs`, `text-sm`, `text-base`, khoảng cách `padding`, `margin`, `gap`) tự động co giãn đồng bộ 1 cỡ chữ trên toàn app.
-2. **Chuẩn hóa Hierarchy Heading & Badge:** Điều chỉnh `.app-heading-1`, `.app-heading-2`, `.app-heading-3` và `.app-badge-pill` tinh gọn, sắc nét theo chuẩn giao diện hành chính công mật độ cao.
-3. **Tối ưu chi tiết dòng dữ liệu ([`DetailRow.tsx`](file:///c:/Users/KHUPHO3/Downloads/khuphothongminh-main/khuphothongminh-main/src/components/common/DetailRow.tsx)):**
-   - Padding dòng giảm xuống `py-1.5`.
-   - Cỡ chữ nhãn (Label): `text-[11.5px]`, chiều rộng cố định tối thiểu `min-w-[130px] sm:min-w-[150px]`.
-   - Cỡ chữ giá trị (Value): `text-xs sm:text-[13px]`.
-   - Chiều cao các modal chi tiết (Hồ sơ cư dân, Hộ khẩu, Doanh nghiệp) giảm ~20%, vừa vặn hoàn hảo trong khung nhìn màn hình mà không bị tràn hay che mất thanh nút tác vụ phía dưới.
-
-### G. Định Dạng Dấu Phân Cách Hàng Nghìn Chuẩn Việt Nam (Thousand Separator Dot)
-1. **Tiện ích Chuẩn hóa ([`src/utils/numberFormat.ts`](file:///c:/Users/KHUPHO3/Downloads/khuphothongminh-main/khuphothongminh-main/src/utils/numberFormat.ts)):**
-   - Xây dựng hàm `formatVNNumber(val)` và `formatTextNumbers(text)` chuyển đổi số nguyên sang định dạng phân cách hàng nghìn bằng dấu chấm (`.`) theo chuẩn ngôn ngữ Tiếng Việt (`vi-VN`), ví dụ: `11632` -> `11.632`, `2076` -> `2.076`, `9556` -> `9.556`.
-   - Cơ chế thông minh tự động loại trừ các định dạng ngày tháng (`18/07/2026`), số nghị định (`80/2021`), số CCCD/Định danh hoặc số điện thoại (bắt đầu bằng `0`).
-2. **Tự động hóa thẻ chỉ số chung ([`StatCard.tsx`](file:///c:/Users/KHUPHO3/Downloads/khuphothongminh-main/khuphothongminh-main/src/components/common/StatCard.tsx)):**
-   - Tất cả các thẻ chỉ số KPI trên toàn app tự động định dạng số liệu `value` và chuỗi `subtext` với dấu phân cách hàng nghìn.
-3. **Phân trang ([`Pagination.tsx`](file:///c:/Users/KHUPHO3/Downloads/khuphothongminh-main/khuphothongminh-main/src/components/Pagination.tsx)):**
-   - Hiển thị chuẩn `Hiển thị 1-8 trong số 11.632 bản ghi`.
-4. **Áp dụng đồng bộ mọi phân hệ:**
-   - Dân cư (`CitizenManagement.tsx`): KPI `11.632 người`, `2.076 công dân`, `9.556 người`, tab `Tất cả (11.632)`.
-   - Hộ tịch & Sổ hộ khẩu (`HouseholdManagement.tsx`, `HouseholdDashboard.tsx`): `Quy mô 11.647 nhân khẩu`, `488 hộ`.
-   - Cơ sở kinh doanh (`BusinessManagement.tsx`): KPI cơ sở, số phòng nhà trọ, danh mục ngành nghề.
-   - Doanh nghiệp DNNVV (`EnterpriseManagement.tsx`): Số lượng doanh nghiệp, phân bổ quy mô lao động.
-   - Bản đồ GIS (`GisMap.tsx`): Thẻ định vị GIS và các lớp bản đồ số.
-   - Bảng điều khiển (`Dashboard.tsx`): Tổng dân cư, cơ cấu độ tuổi, cảnh báo tạm trú.
-   - Chi bộ & Đoàn thể (`PartyBranch.tsx`): Số lượng hội viên, đoàn viên.
-   - Biểu mẫu hành chính (`AdministrativeForms.tsx`): Tổng số biểu mẫu chuẩn hóa.
-
-### H. Tích hợp Hệ Thống Thiết Kế Meta Astryx (`meta/astryx`)
-1. **Cài đặt thư viện & công cụ:**
-   - Đã cài đặt trọn bộ gói chính thức từ Meta: `@astryxdesign/core: ^0.7.11`, `@astryxdesign/theme-neutral: ^0.7.11`, `@stylexjs/stylex: ^0.19.1`, và devDependency `@astryxdesign/cli: ^0.7.11`.
-   - Khởi tạo CLI với `npx @astryxdesign/cli init`, tích hợp tệp cấu hình `AGENTS.md` và `GEMINI.md`.
-2. **Cấu hình Stylesheet & Cầu nối Tailwind CSS v4:**
-   - Đã liên kết đầy đủ các layer trong `src/index.css`:
-     + `@import "@astryxdesign/core/reset.css";`
-     + `@import "@astryxdesign/core/astryx.css";`
-     + `@import "@astryxdesign/theme-neutral/theme.css";`
-     + `@import "@astryxdesign/core/tailwind-theme.css";`
-   - Kế thừa toàn bộ hệ thống semantic tokens: `--spacing-1` (4px base), `--radius-element` (8px), `--radius-container` (12px), `--shadow-low`, `--shadow-med`, và bảng màu tự động chuyển đổi Light/Dark.
-3. **Thành phần dùng chung chuẩn Astryx ([`src/components/common/AstryxCivic.tsx`](file:///c:/Users/KHUPHO3/Downloads/khuphothongminh-main/khuphothongminh-main/src/components/common/AstryxCivic.tsx)):**
-   - Đóng gói các component `AstryxButton`, `AstryxBadge`, `AstryxCard`, `AstryxStatusDot` phục vụ các tác vụ công vụ và quản trị dân cư.
-   - Nâng cấp `StatCard.tsx` chuẩn hóa theo container và selector canonical của Astryx (`astryx-card`, `data-variant="default"`, `data-elevation="none"`).
-4. **Kiểm thử & Khả năng vận hành:**
-   - `npm run lint:ts`: 0 lỗi TypeScript.
-   - `npm run build`: Vite build hoàn tất thành công trong ~8 giây.
-   - Chrome DevTools: Render hoàn hảo, không có lỗi console.
-
-### I. Điều Chỉnh Tăng Cỡ Chữ Lên Thêm 0.5 Size Toàn Hệ Thống (Typography Scale Up)
-1. **Thiết lập Base Root 16.8px ([`src/index.css`](file:///c:/Users/KHUPHO3/Downloads/khuphothongminh-main/khuphothongminh-main/src/index.css)):**
-   - Nâng `html { font-size: 16.8px; }` (tăng thêm +0.8px, tức ~+5% so với mức 16px và ~+15.8% so với mức 14.5px), đưa toàn bộ tỷ lệ `rem` trên app lên thêm 0.5 size chữ chuẩn, vừa vặn độ rõ nét mà không làm tràn khung giao diện.
-2. **Cân chỉnh Heading & Badge Hierarchy:**
-   - `.app-heading-1`: `1.25rem` (~21px), desktop `1.5rem` (~25.2px).
-   - `.app-heading-2`: `1rem` (~16.8px), desktop `1.125rem` (~18.9px).
-   - `.app-heading-3`: `0.8125rem` (~13.6px), desktop `0.875rem` (~14.7px).
-   - `.app-badge-pill`: tăng lên `11.5px` (rõ nét, sắc nét).
-3. **Cân chỉnh Modal Thông tin Chi tiết ([`src/components/common/DetailRow.tsx`](file:///c:/Users/KHUPHO3/Downloads/khuphothongminh-main/khuphothongminh-main/src/components/common/DetailRow.tsx)):**
-   - Nhãn (Label): `text-xs font-medium` (`min-w-[140px] sm:min-w-[160px]`).
-   - Giá trị (Value): `text-xs sm:text-sm font-semibold text-slate-900`.
-   - Padding dòng: `py-2` thoáng đãng, dễ theo dõi.
-4. **Thẻ Chỉ số KPI ([`src/components/common/StatCard.tsx`](file:///c:/Users/KHUPHO3/Downloads/khuphothongminh-main/khuphothongminh-main/src/components/common/StatCard.tsx)):**
-   - Nhãn tiêu đề và phụ đề: `text-xs font-bold`.
-
-### J. Thiết Kế Lại Trang Đăng Nhập & Triển Khai Xác Thực Thật ([`LoginAndRegister.tsx`](file:///c:/Users/KHUPHO3/Downloads/khuphothongminh-main/khuphothongminh-main/src/components/LoginAndRegister.tsx))
-1. **Thiết kế phong cách GovTech Sang trọng & Hiện đại:**
-   - Thay thế toàn bộ nền Dark Neon cũ bằng dải màu công vụ cao cấp `bg-slate-50` pha sắc ngọc bích `emerald`.
-   - Quốc hiệu & Tiêu ngữ cơ sở đầy đủ: `KHU PHỐ THÔNG MINH AN PHÚ • ỦY BAN NHÂN DÂN PHƯỜNG AN PHÚ • KHU PHỐ 3`.
-   - Bộ chọn 2 phân hệ rõ ràng: **Cán bộ / Quản trị** và **Cư dân Khu phố**.
-   - Thẻ card đăng nhập tinh gọn tối đa: Loại bỏ các nút bypass lộ mật khẩu, gỡ bỏ toàn bộ thanh huy hiệu bảo mật và liên kết hướng dẫn theo phản ánh của người dùng.
-2. **Xác thực Thật & Duy trì Phiên làm việc (Session Persistence):**
-   - Xác thực qua **Supabase Auth** với tài khoản quản trị chính thức `bdhkhupho3.ap@gmail.com` (`Trunghuy741`), hỗ trợ alias `admin`, `canbo` và cán bộ đăng ký mới với kiểm tra trạng thái phê duyệt `approval_status`.
-   - Cho phép Cư dân đăng nhập bằng số CCCD 12 chữ số hoặc số điện thoại tra cứu trong CSDL 11.632 nhân khẩu.
-   - Duy trì phiên làm việc liên tục qua `localStorage` (`kp3_auth_user`), tự khôi phục sau khi F5/reload trang.
-   - Nút Đăng xuất xóa sạch phiên làm việc, gọi `supabase.auth.signOut()` và chuyển hướng an toàn về `/login`.
-
-### K. Đồng Bộ Chi Hội Đoàn Thể & Quản Lý Doanh Nghiệp
-1. **Chi hội & Đoàn thể ([`PartyBranch.tsx`](file:///c:/Users/KHUPHO3/Downloads/khuphothongminh-main/khuphothongminh-main/src/components/PartyBranch.tsx)):**
-   - Tên của 23 tổ chức/chi hội được đưa lên đầu với nhãn vàng hổ phách mặc định (`amber badge`), đồng bộ size chữ và font chữ với trang Tổng quan.
-   - Loại bỏ việc hiển thị lặp lại Phân nhóm / Thể loại gây thừa thãi.
-2. **Doanh nghiệp & Kinh doanh ([`EnterpriseManagement.tsx`](file:///c:/Users/KHUPHO3/Downloads/khuphothongminh-main/khuphothongminh-main/src/components/EnterpriseManagement.tsx)):**
-   - Hiển thị hình ảnh doanh nghiệp tương tự cơ sở kinh doanh.
-   - Chức năng phân tích hình ảnh AI được thu gọn và bổ sung nút ẩn/hiện theo nhu cầu sử dụng.
-
----
-
-## 3. HƯỚNG DẪN DÀNH CHO PHIÊN LÀM VIỆC TIẾP THEO
-- **Khởi động Localhost (khi cần):** Chạy `npm run dev` tại thư mục `khuphothongminh-main`.
-- **Kiểm tra TypeScript:** Luôn chạy `npm run lint:ts` để đảm bảo 0 lỗi trước khi commit.
-- **Deploy Vercel:** Chạy lệnh `npx vercel --prod --yes` (dự án đã được link sẵn vào team `khupho3-s-projects` và domain `khuphothongminh.vercel.app`).
-- **Push GitHub:** Sử dụng remote token `origin/main` của tài khoản `nghiemquynh0210`.
+## 3. Kiểm thử & Triển khai
+- `npm run lint:ts`: 0 lỗi.
+- `npm run build`: 0 lỗi.
+- Kiểm thử Chrome DevTools MCP: 0 lỗi console.
+- Git Commit `2928254` pushed to GitHub `origin main`.
+- Vercel Deploy `dpl_4JNva6FL5VWooKiM3bdPxKePJYj4` live at [https://bdhkp3.vercel.app](https://bdhkp3.vercel.app).
