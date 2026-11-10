@@ -53,6 +53,12 @@ export interface Resident {
   landlordContact?: string;                        // Chủ nhà / Quản lý cơ sở lưu trú (Họ tên - SĐT)
 }
 
+export interface HouseholdAuditEntry {
+  date: string;
+  action: string;
+  actor: string;
+}
+
 export interface Household {
   id: string;
   code: string; // e.g. HK-301
@@ -61,6 +67,10 @@ export interface Household {
   memberCount: number;
   type?: "Thường trú" | "Tạm trú";
   coordinates?: string;
+  notes?: string;
+  auditHistory?: HouseholdAuditEntry[];
+  deletedAt?: string;
+  deletedBy?: string;
   members: {
     name: string;
     relation: string;
