@@ -381,7 +381,7 @@ export interface TaskItem {
 export interface ScheduleEvent {
   id: string;
   title: string;
-  type: "Họp Chi bộ" | "Họp Tổ Dân Phố" | "Tuần tra ANTT" | "Chủ Nhật Xanh" | "Tiếp công dân" | "Hội nghị Khu phố" | "Khác";
+  type: "Họp Chi bộ" | "Họp Tổ Dân Phố" | "Tuần tra ANTT" | "Chủ Nhật Xanh" | "Tiếp công dân" | "Hội nghị Khu phố" | "Khác" | (string & {});
   date: string; // YYYY-MM-DD
   time: string; // HH:mm - HH:mm
   location: string;
@@ -389,5 +389,8 @@ export interface ScheduleEvent {
   attendees: string;
   status: "Sắp diễn ra" | "Đang diễn ra" | "Đã kết thúc" | "Đã hoãn";
   notes?: string;
+  description?: string; // Nội dung cuộc họp / Chương trình chi tiết
+  content?: string;
+  attachments?: TaskAttachment[]; // File đính kèm hình ảnh, word docx, pdf
 }
 

@@ -215,7 +215,19 @@ export const INITIAL_SCHEDULES: ScheduleEvent[] = [
     host: "Đ/c Nguyễn Văn Hùng - Bí thư Chi bộ",
     attendees: "Toàn thể 42 Đảng viên Chi bộ KP3",
     status: "Đã kết thúc",
-    notes: "Đánh giá công tác tháng 9 và triển khai mô hình Khu phố thông minh số hoá."
+    description: "Đánh giá kết quả công tác tư tưởng, lãnh đạo phát triển kinh tế - xã hội, giữ gìn ANTT cơ sở tháng 9. Thảo luận và thông qua Nghị quyết lãnh đạo tháng 10/2026, trọng tâm thí điểm Chuyển đổi số & Cổng Khu phố thông minh.",
+    content: "Đánh giá kết quả công tác tư tưởng, lãnh đạo phát triển kinh tế - xã hội, giữ gìn ANTT cơ sở tháng 9. Thảo luận và thông qua Nghị quyết lãnh đạo tháng 10/2026, trọng tâm thí điểm Chuyển đổi số & Cổng Khu phố thông minh.",
+    notes: "Đánh giá công tác tháng 9 và triển khai mô hình Khu phố thông minh số hoá.",
+    attachments: [
+      {
+        id: "ATT-SCH-01",
+        name: "Du_thao_Nghi_quyet_Chi_bo_thang_10.docx",
+        size: "245 KB",
+        type: "word",
+        url: "#",
+        uploadedAt: "2026-10-02T15:00:00Z"
+      }
+    ]
   },
   {
     id: "SCH-002",
@@ -227,7 +239,19 @@ export const INITIAL_SCHEDULES: ScheduleEvent[] = [
     host: "Ông Trần Quốc Tuấn - Trưởng ban Điều hành KP3",
     attendees: "Tổ trưởng & Tổ phó 5 TDP, Đại diện CSKV",
     status: "Sắp diễn ra",
-    notes: "Rà soát tiến độ thu Quỹ an sinh và triển khai kiểm tra PCCC nhà trọ."
+    description: "Rà soát tiến độ thu các loại Quỹ công ích; triển khai đợt cao điểm tuyên truyền kiểm tra an toàn PCCC tại các khu nhà trọ, cơ sở sản xuất kinh doanh có nguy cơ cháy nổ cao.",
+    content: "Rà soát tiến độ thu các loại Quỹ công ích; triển khai đợt cao điểm tuyên truyền kiểm tra an toàn PCCC tại các khu nhà trọ, cơ sở sản xuất kinh doanh có nguy cơ cháy nổ cao.",
+    notes: "Rà soát tiến độ thu Quỹ an sinh và triển khai kiểm tra PCCC nhà trọ.",
+    attachments: [
+      {
+        id: "ATT-SCH-02",
+        name: "Ke_hoach_PCCC_TDP11_15.pdf",
+        size: "480 KB",
+        type: "pdf",
+        url: "#",
+        uploadedAt: "2026-10-13T08:00:00Z"
+      }
+    ]
   },
   {
     id: "SCH-003",
@@ -239,6 +263,7 @@ export const INITIAL_SCHEDULES: ScheduleEvent[] = [
     host: "Đ/c Trung úy CSKV & Tổ trưởng Tổ ANTT cơ sở",
     attendees: "Lực lượng ANTT cơ sở (8 đ/c), Dân quân tự vệ (4 đ/c)",
     status: "Sắp diễn ra",
+    description: "Kiểm tra tạm trú, nắm tình hình cư trú tại các dãy nhà trọ công nhân; tuần tra phòng ngừa trộm cắp, đua xe trái phép và tụ tập gây rối trật tự công cộng.",
     notes: "Tập trung kiểm tra các tụ điểm thanh thiếu niên tụ tập đêm khuya."
   },
   {
@@ -251,7 +276,18 @@ export const INITIAL_SCHEDULES: ScheduleEvent[] = [
     host: "Đ/c Bí thư Chi đoàn TN & Tổ trưởng TDP 12",
     attendees: "Đoàn viên thanh niên, Hội viên Phụ nữ, Cư dân TDP 12",
     status: "Sắp diễn ra",
-    notes: "Chuẩn bị bao đựng rác, chổi cào và xe gom rác chuyên dụng."
+    description: "Phát động toàn dân ra quân quét dọn, bóc xóa quảng cáo sai quy định, khơi thông dòng chảy thoát nước chống ngập cục bộ và phòng trừ muỗi sốt xuất huyết.",
+    notes: "Chuẩn bị bao đựng rác, chổi cào và xe gom rác chuyên dụng.",
+    attachments: [
+      {
+        id: "ATT-SCH-04",
+        name: "So_do_tuyen_hem_don_ve_sinh.jpg",
+        size: "820 KB",
+        type: "image",
+        url: "https://images.unsplash.com/photo-1618477461853-cf6ed80faba5?w=800",
+        uploadedAt: "2026-10-16T14:30:00Z"
+      }
+    ]
   },
   {
     id: "SCH-005",
@@ -263,9 +299,41 @@ export const INITIAL_SCHEDULES: ScheduleEvent[] = [
     host: "Trưởng ban Điều hành & Cán bộ tư pháp - hộ tịch Phường An Phú",
     attendees: "Công dân trên địa bàn KP3 có kiến nghị, phản ánh",
     status: "Sắp diễn ra",
+    description: "Lắng nghe tâm tư, nguyện vọng của nhân dân; giải đáp các thủ tục hành chính liên quan đến đất đai, cư trú, cấp đổi CCCD và hướng dẫn nộp hồ sơ Dịch vụ công qua VNeID.",
     notes: "Hướng dẫn thực hiện dịch vụ công trực tuyến và ký xác nhận đơn thư."
   }
 ];
+
+// Helper: Format file size
+const formatFileSize = (bytes: number) => {
+  if (bytes < 1024) return bytes + " B";
+  if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + " KB";
+  return (bytes / (1024 * 1024)).toFixed(1) + " MB";
+};
+
+// Helper: Detect file type
+const detectFileType = (file: File): TaskAttachment["type"] => {
+  const nameLower = file.name.toLowerCase();
+  if (
+    file.type.startsWith("image/") ||
+    nameLower.endsWith(".png") ||
+    nameLower.endsWith(".jpg") ||
+    nameLower.endsWith(".jpeg") ||
+    nameLower.endsWith(".webp")
+  ) {
+    return "image";
+  } else if (nameLower.endsWith(".pdf") || file.type.includes("pdf")) {
+    return "pdf";
+  } else if (
+    nameLower.endsWith(".docx") ||
+    nameLower.endsWith(".doc") ||
+    file.type.includes("word") ||
+    file.type.includes("officedocument")
+  ) {
+    return "word";
+  }
+  return "other";
+};
 
 export default function TaskAndSchedule() {
   const [activeSubTab, setActiveSubTab] = useState<"tasks" | "schedules">("tasks");
@@ -506,13 +574,68 @@ export default function TaskAndSchedule() {
 
   // New schedule form state
   const [newSchTitle, setNewSchTitle] = useState("");
-  const [newSchType, setNewSchType] = useState<ScheduleEvent["type"]>("Họp Tổ Dân Phố");
+  const [newSchType, setNewSchType] = useState<string>("Họp Tổ Dân Phố");
+  const [isCustomSchType, setIsCustomSchType] = useState(false);
+  const [customSchType, setCustomSchType] = useState("");
   const [newSchDate, setNewSchDate] = useState("2026-10-22");
   const [newSchTime, setNewSchTime] = useState("08:30 - 10:30");
   const [newSchLocation, setNewSchLocation] = useState("Văn phòng Ban Điều hành KP3");
   const [newSchHost, setNewSchHost] = useState("Ông Trần Quốc Tuấn - Trưởng ban ĐHKP");
+  const [isCustomSchHost, setIsCustomSchHost] = useState(false);
+  const [customSchHost, setCustomSchHost] = useState("");
   const [newSchAttendees, setNewSchAttendees] = useState("Đại diện các Tổ dân phố");
+  const [newSchDesc, setNewSchDesc] = useState("");
   const [newSchNotes, setNewSchNotes] = useState("");
+  const [newSchAttachments, setNewSchAttachments] = useState<TaskAttachment[]>([]);
+  const [selectedSchedule, setSelectedSchedule] = useState<ScheduleEvent | null>(null);
+
+  const schFileInputRef = useRef<HTMLInputElement>(null);
+  const detailSchFileInputRef = useRef<HTMLInputElement>(null);
+
+  // Danh sách chủ trì: Lãnh đạo cấp trên, Cấp ủy & Ban Điều hành, Trưởng / Phó 23 Chi hội
+  const scheduleHostGroups = useMemo(() => {
+    const superiors = [
+      "Đ/c Lãnh đạo Đảng ủy - UBND Phường An Phú",
+      "Đ/c Trưởng / Phó Công an Phường An Phú",
+      "Đ/c Chỉ huy Ban Chỉ huy Quân sự Phường An Phú",
+      "Admin Quản trị hệ thống KP3"
+    ];
+
+    const executive = [
+      "Đ/c Nguyễn Văn Hùng - Bí thư Chi bộ KP3",
+      "Ông Nguyễn Trung Huy - Trưởng Ban điều hành KP3",
+      "Ông Lê Văn Sơn - Phó Trưởng Ban điều hành KP3",
+      "Bà Lê Thị Mai - Phó Ban điều hành KP3",
+      "Ông Trần Quốc Tuấn - Trưởng ban ĐHKP"
+    ];
+
+    const assocLeaders: { label: string; value: string; unit: string }[] = [];
+    associationsList.forEach(assoc => {
+      (assoc.members || []).forEach(m => {
+        const r = (m.role || "").toLowerCase();
+        if (
+          r.includes("trưởng") ||
+          r.includes("phó") ||
+          r.includes("bí thư") ||
+          r.includes("chủ tịch") ||
+          r.includes("chủ nhiệm") ||
+          r.includes("đội trưởng") ||
+          r.includes("đội phó") ||
+          r.includes("tổ trưởng") ||
+          r.includes("tổ phó")
+        ) {
+          const val = `${m.fullName} - ${m.role} (${assoc.name})`;
+          assocLeaders.push({
+            label: `${m.fullName} • ${m.role} (${assoc.name})`,
+            value: val,
+            unit: assoc.name
+          });
+        }
+      });
+    });
+
+    return { superiors, executive, assocLeaders };
+  }, [associationsList]);
 
   // Save changes to localStorage
   const saveTasks = (newTasks: TaskItem[]) => {
@@ -607,29 +730,144 @@ export default function TaskAndSchedule() {
     setNewTaskAttachments([]);
   };
 
+  // Schedule file upload
+  const handleSchFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+
+    Array.from(files).forEach((file: File) => {
+      if (file.size > 20 * 1024 * 1024) {
+        alert(`Tệp "${file.name}" vượt quá dung lượng tối đa 20MB!`);
+        return;
+      }
+
+      const type = detectFileType(file);
+      const reader = new FileReader();
+      reader.onload = (loadEvent) => {
+        const base64Url = loadEvent.target?.result as string;
+        const newAtt: TaskAttachment = {
+          id: `ATT-SCH-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+          name: file.name,
+          size: formatFileSize(file.size),
+          type,
+          url: base64Url,
+          uploadedAt: new Date().toISOString()
+        };
+        setNewSchAttachments(prev => [...prev, newAtt]);
+      };
+      reader.readAsDataURL(file);
+    });
+
+    if (schFileInputRef.current) schFileInputRef.current.value = "";
+  };
+
+  const handleRemoveSchAttachment = (attId: string) => {
+    setNewSchAttachments(prev => prev.filter(a => a.id !== attId));
+  };
+
+  // Add attachment to selected schedule
+  const handleDetailSchFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!selectedSchedule) return;
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+
+    const newItems: TaskAttachment[] = [];
+    let count = 0;
+
+    Array.from(files).forEach((file: File) => {
+      const type = detectFileType(file);
+      const reader = new FileReader();
+      reader.onload = (loadEvent) => {
+        newItems.push({
+          id: `ATT-SCH-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+          name: file.name,
+          size: formatFileSize(file.size),
+          type,
+          url: loadEvent.target?.result as string,
+          uploadedAt: new Date().toISOString()
+        });
+        count++;
+        if (count === files.length) {
+          const updatedAttachments = [...(selectedSchedule.attachments || []), ...newItems];
+          const updatedSchedule = { ...selectedSchedule, attachments: updatedAttachments };
+          const updatedSchedules = schedules.map(s => s.id === selectedSchedule.id ? updatedSchedule : s);
+          saveSchedules(updatedSchedules);
+          setSelectedSchedule(updatedSchedule);
+        }
+      };
+      reader.readAsDataURL(file);
+    });
+
+    if (detailSchFileInputRef.current) detailSchFileInputRef.current.value = "";
+  };
+
+  const handleRemoveDetailSchAttachment = (attId: string) => {
+    if (!selectedSchedule) return;
+    const updatedAttachments = (selectedSchedule.attachments || []).filter(a => a.id !== attId);
+    const updatedSchedule = { ...selectedSchedule, attachments: updatedAttachments };
+    const updatedSchedules = schedules.map(s => s.id === selectedSchedule.id ? updatedSchedule : s);
+    saveSchedules(updatedSchedules);
+    setSelectedSchedule(updatedSchedule);
+  };
+
+  // Update schedule status
+  const handleUpdateScheduleStatus = (schId: string, status: ScheduleEvent["status"]) => {
+    const updated = schedules.map(s => s.id === schId ? { ...s, status } : s);
+    saveSchedules(updated);
+    if (selectedSchedule?.id === schId) {
+      setSelectedSchedule({ ...selectedSchedule, status });
+    }
+  };
+
+  // Delete schedule
+  const handleDeleteSchedule = (schId: string) => {
+    if (confirm("Bạn có chắc muốn xoá sự kiện/lịch họp này?")) {
+      const updated = schedules.filter(s => s.id !== schId);
+      saveSchedules(updated);
+      if (selectedSchedule?.id === schId) setSelectedSchedule(null);
+    }
+  };
+
   // Create Schedule
   const handleCreateSchedule = (e: React.FormEvent) => {
     e.preventDefault();
     if (!newSchTitle.trim()) return;
 
+    const finalType = isCustomSchType || newSchType === "__CUSTOM__"
+      ? (customSchType.trim() || "Sự kiện khác")
+      : newSchType;
+
+    const finalHost = isCustomSchHost || newSchHost === "__CUSTOM__"
+      ? (customSchHost.trim() || "Chủ trì cuộc họp")
+      : newSchHost;
+
     const newSch: ScheduleEvent = {
       id: `SCH-${String(schedules.length + 1).padStart(3, "0")}`,
       title: newSchTitle.trim(),
-      type: newSchType,
+      type: finalType,
       date: newSchDate,
       time: newSchTime,
       location: newSchLocation,
-      host: newSchHost,
+      host: finalHost,
       attendees: newSchAttendees,
       status: "Sắp diễn ra",
-      notes: newSchNotes.trim()
+      description: newSchDesc.trim() || undefined,
+      content: newSchDesc.trim() || undefined,
+      notes: newSchNotes.trim() || undefined,
+      attachments: newSchAttachments.length > 0 ? newSchAttachments : undefined
     };
 
     const updated = [...schedules, newSch].sort((a, b) => a.date.localeCompare(b.date));
     saveSchedules(updated);
     setShowAddScheduleModal(false);
     setNewSchTitle("");
+    setNewSchDesc("");
     setNewSchNotes("");
+    setNewSchAttachments([]);
+    setIsCustomSchType(false);
+    setCustomSchType("");
+    setIsCustomSchHost(false);
+    setCustomSchHost("");
   };
 
   // Delete Task
@@ -892,18 +1130,7 @@ export default function TaskAndSchedule() {
                             className="bg-white p-3.5 rounded-xl border border-slate-200 shadow-xs hover:shadow-md hover:border-emerald-400 transition-all cursor-pointer space-y-2.5"
                           >
                             <div className="flex items-start justify-between gap-1.5">
-                              <div className="flex items-center gap-1.5">
-                                <span className="text-[10px] font-mono text-slate-400 font-bold">{task.id}</span>
-                                {task.attachments && task.attachments.length > 0 && (
-                                  <span
-                                    className="inline-flex items-center gap-0.5 text-[10px] font-bold text-slate-600 bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200"
-                                    title={`${task.attachments.length} tệp đính kèm`}
-                                  >
-                                    <Paperclip size={10} className="text-slate-500" />
-                                    {task.attachments.length}
-                                  </span>
-                                )}
-                              </div>
+                              <span className="text-[10px] font-mono text-slate-400 font-bold">{task.id}</span>
                               {getPriorityBadge(task.priority)}
                             </div>
 
@@ -1008,18 +1235,7 @@ export default function TaskAndSchedule() {
                         <tr key={t.id} className="hover:bg-slate-50/80 transition-colors">
                           <td className="py-2.5 px-3 font-mono font-bold text-slate-500 text-[11px]">{t.id}</td>
                           <td className="py-2.5 px-3 max-w-xs">
-                            <div className="font-bold text-slate-900 line-clamp-1 flex items-center gap-1.5">
-                              <span className="truncate">{t.title}</span>
-                              {t.attachments && t.attachments.length > 0 && (
-                                <span
-                                  className="inline-flex items-center gap-0.5 text-[10px] font-bold text-slate-600 bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200 shrink-0"
-                                  title={`${t.attachments.length} tệp đính kèm`}
-                                >
-                                  <Paperclip size={10} className="text-slate-500" />
-                                  {t.attachments.length}
-                                </span>
-                              )}
-                            </div>
+                            <div className="font-bold text-slate-900 line-clamp-1">{t.title}</div>
                             <div className="text-[11px] text-slate-500 line-clamp-1">{t.description}</div>
                           </td>
                           <td className="py-2.5 px-3">
@@ -1080,12 +1296,19 @@ export default function TaskAndSchedule() {
                 onChange={e => setScheduleTypeFilter(e.target.value)}
                 className="text-xs py-1.5 px-2.5 bg-slate-50 border border-slate-200 rounded-lg text-slate-700 focus:outline-none"
               >
-                <option value="all">Tất cả sự kiện</option>
-                <option value="Họp Chi bộ">Họp Chi bộ</option>
-                <option value="Họp Tổ Dân Phố">Họp Tổ Dân Phố</option>
-                <option value="Tuần tra ANTT">Tuần tra ANTT</option>
-                <option value="Chủ Nhật Xanh">Chủ Nhật Xanh</option>
-                <option value="Tiếp công dân">Tiếp công dân</option>
+                <option value="all">Tất cả sự kiện ({schedules.length})</option>
+                {Array.from(new Set([
+                  "Họp Chi bộ",
+                  "Họp Ban Điều hành KP3",
+                  "Họp Tổ Dân Phố",
+                  "Tuần tra ANTT",
+                  "Chủ Nhật Xanh",
+                  "Tiếp công dân",
+                  "Hội nghị Khu phố",
+                  ...schedules.map(s => s.type)
+                ])).map(type => (
+                  <option key={type} value={type}>{type}</option>
+                ))}
               </select>
 
               <span className="text-xs font-bold text-slate-700 ml-2">Tháng:</span>
@@ -1127,9 +1350,10 @@ export default function TaskAndSchedule() {
                 return (
                   <div
                     key={sch.id}
-                    className={`p-4 rounded-xl border transition-all ${
+                    onClick={() => setSelectedSchedule(sch)}
+                    className={`p-4 rounded-xl border transition-all cursor-pointer group ${
                       isPassed
-                        ? "bg-slate-50 border-slate-200 opacity-75"
+                        ? "bg-slate-50 border-slate-200 opacity-80 hover:opacity-100 hover:border-slate-300"
                         : "bg-white border-slate-200 shadow-xs hover:shadow-md hover:border-indigo-400"
                     }`}
                   >
@@ -1140,15 +1364,27 @@ export default function TaskAndSchedule() {
                           ? "bg-emerald-100 text-emerald-800 animate-pulse"
                           : sch.status === "Sắp diễn ra"
                           ? "bg-sky-100 text-sky-800"
+                          : sch.status === "Đã hoãn"
+                          ? "bg-amber-100 text-amber-800"
                           : "bg-slate-200 text-slate-600"
                       }`}>
                         {sch.status}
                       </span>
                     </div>
 
-                    <h4 className="text-sm font-bold text-slate-900 mb-2 leading-snug">
+                    <h4 className="text-sm font-bold text-slate-900 mb-2 leading-snug group-hover:text-indigo-700 transition-colors">
                       {sch.title}
                     </h4>
+
+                    {/* Nội dung chương trình / mô tả tóm tắt */}
+                    {(sch.description || sch.content) && (
+                      <div className="mb-3 p-2.5 bg-slate-50/80 rounded-lg border border-slate-100 text-xs text-slate-700 leading-relaxed line-clamp-2">
+                        <div className="text-[10px] uppercase font-bold text-indigo-700 mb-0.5 flex items-center gap-1">
+                          <FileText size={11} /> Nội dung chương trình:
+                        </div>
+                        {sch.description || sch.content}
+                      </div>
+                    )}
 
                     <div className="space-y-1.5 text-xs text-slate-600 mb-3">
                       <div className="flex items-center gap-2 font-mono text-[11px] text-indigo-700 font-bold bg-indigo-50/70 p-1.5 rounded-md">
@@ -1169,11 +1405,75 @@ export default function TaskAndSchedule() {
                       </div>
                     </div>
 
-                    {sch.notes && (
+                    {/* Danh sách tệp đính kèm trên card */}
+                    {sch.attachments && sch.attachments.length > 0 && (
+                      <div className="pt-2 mt-2 border-t border-slate-100" onClick={e => e.stopPropagation()}>
+                        <div className="text-[10px] font-bold text-slate-500 mb-1.5 flex items-center gap-1">
+                          <Paperclip size={11} className="text-indigo-600" /> {sch.attachments.length} tệp đính kèm:
+                        </div>
+                        <div className="flex flex-wrap gap-1.5">
+                          {sch.attachments.map(att => (
+                            <div
+                              key={att.id}
+                              className="flex items-center gap-1 px-2 py-0.5 rounded bg-slate-100 hover:bg-indigo-50 border border-slate-200 text-[11px] text-slate-700 transition-colors"
+                            >
+                              {att.type === "image" ? (
+                                <ImageIcon size={11} className="text-emerald-600 shrink-0" />
+                              ) : att.type === "pdf" ? (
+                                <span className="text-[9px] font-black text-rose-600 bg-rose-50 px-1 rounded">PDF</span>
+                              ) : (
+                                <span className="text-[9px] font-black text-blue-600 bg-blue-50 px-1 rounded">DOC</span>
+                              )}
+                              <span className="max-w-[110px] truncate font-medium" title={att.name}>{att.name}</span>
+                              {att.type === "image" && att.url && (
+                                <button
+                                  type="button"
+                                  onClick={() => setPreviewAttachment(att)}
+                                  className="text-slate-400 hover:text-indigo-600 p-0.5 cursor-pointer ml-0.5"
+                                  title="Xem ảnh"
+                                >
+                                  <Eye size={11} />
+                                </button>
+                              )}
+                              {att.url && (
+                                <a
+                                  href={att.url}
+                                  download={att.name}
+                                  className="text-slate-400 hover:text-indigo-600 p-0.5 cursor-pointer"
+                                  title="Tải về"
+                                >
+                                  <Download size={11} />
+                                </a>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {sch.notes && !sch.description && (
                       <div className="text-[11px] text-slate-500 bg-slate-50 p-2 rounded-lg border border-slate-100 italic">
                         "{sch.notes}"
                       </div>
                     )}
+
+                    {/* Action footer */}
+                    <div className="mt-3 pt-2.5 border-t border-slate-100 flex items-center justify-between text-xs">
+                      <span className="text-[11px] text-indigo-600 font-bold group-hover:underline flex items-center gap-1">
+                        Chi tiết & Văn bản <ChevronRight size={13} />
+                      </span>
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleDeleteSchedule(sch.id);
+                        }}
+                        className="text-slate-300 hover:text-rose-600 p-1 rounded hover:bg-rose-50 transition-colors cursor-pointer"
+                        title="Xóa sự kiện"
+                      >
+                        <Trash2 size={13} />
+                      </button>
+                    </div>
                   </div>
                 );
               })}
@@ -1183,82 +1483,169 @@ export default function TaskAndSchedule() {
 
       {/* MODAL: DETAIL / UPDATE TASK */}
       {selectedTask && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-xs">
-          <div className="bg-white w-full max-w-xl rounded-2xl shadow-2xl border border-slate-200 overflow-hidden animate-in zoom-in-95 duration-200">
-            <div className="p-4 bg-gradient-to-r from-slate-50 via-white to-emerald-50/30 border-b border-slate-200 flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <span className="text-xs font-mono font-bold px-2 py-0.5 rounded bg-emerald-50 text-emerald-800 border border-emerald-200">{selectedTask.id}</span>
-                <h3 className="font-black text-sm text-slate-800">Chi tiết & Cập nhật nhiệm vụ</h3>
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/75 backdrop-blur-sm animate-in fade-in duration-150">
+          <div className="bg-white w-full max-w-2xl rounded-2xl shadow-2xl border border-slate-200/90 overflow-hidden flex flex-col max-h-[92vh] animate-in zoom-in-95 duration-200">
+            {/* Header: Dark Navy GovTech Gradient */}
+            <div className="px-5 py-4 bg-gradient-to-r from-slate-900 via-slate-800 to-indigo-950 text-white flex items-center justify-between shrink-0 border-b border-slate-700/80">
+              <div className="flex items-center gap-2.5 min-w-0">
+                <span className="font-mono text-xs font-black px-2.5 py-1 rounded-md bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 shrink-0">
+                  {selectedTask.id}
+                </span>
+                <div className="min-w-0">
+                  <h3 className="font-bold text-sm sm:text-base text-white truncate">
+                    Chi tiết & Điều phối nhiệm vụ
+                  </h3>
+                  <p className="text-[11px] text-slate-300 font-normal">
+                    Quản trị tác nghiệp & Giám sát tiến độ cơ sở Khu phố 3
+                  </p>
+                </div>
               </div>
-              <button onClick={() => setSelectedTask(null)} className="p-1 rounded-full text-slate-400 hover:text-slate-600 hover:bg-slate-100 cursor-pointer transition-colors">
+              <button
+                onClick={() => setSelectedTask(null)}
+                className="p-1.5 rounded-full text-slate-400 hover:text-white hover:bg-white/10 cursor-pointer transition-colors shrink-0 ml-2"
+                title="Đóng (Esc)"
+              >
                 <X size={18} />
               </button>
             </div>
 
-            <div className="p-5 space-y-4 max-h-[80vh] overflow-y-auto text-xs">
-              <div className="bg-slate-50/70 p-4 rounded-xl border border-slate-200/80">
-                <DetailGrid>
-                  <DetailRow label="Tên nhiệm vụ" value={selectedTask.title} colSpan={2} />
-                  <DetailRow label="Mô tả công việc" value={selectedTask.description} colSpan={2} />
-                  <DetailRow
-                    label="Đơn vị nhận việc"
-                    value={
-                      <div className="flex items-center gap-1.5 font-bold text-slate-800">
-                        <Building2 size={14} className="text-emerald-600 shrink-0" />
-                        <span>{selectedTask.unit}</span>
-                      </div>
-                    }
-                    helperText={
-                      <div className="mt-1 flex items-center gap-2 flex-wrap">
-                        <span className="font-semibold text-slate-700">👤 {selectedTask.assignee.name}</span>
-                        <span className="text-slate-500">({selectedTask.assignee.role})</span>
-                        {selectedTask.assignee.phone && (
-                          <a href={`tel:${selectedTask.assignee.phone}`} className="text-emerald-600 hover:underline font-mono text-[11px] font-bold">
-                            📞 {selectedTask.assignee.phone}
-                          </a>
-                        )}
-                      </div>
-                    }
-                  />
-                  <DetailRow label="Người giao việc" value={selectedTask.creator} />
-                  <DetailRow label="Ngày bắt đầu" value={selectedTask.startDate} />
-                  <DetailRow label="Hạn chót" value={selectedTask.deadline} />
-                  <DetailRow
-                    label="Mức độ ưu tiên"
-                    value={
-                      <span className={`px-2 py-0.5 rounded text-[11px] font-bold ${
-                        selectedTask.priority === "Khẩn cấp"
-                          ? "bg-rose-50 text-rose-700 border border-rose-200"
-                          : selectedTask.priority === "Cao"
-                          ? "bg-amber-50 text-amber-700 border border-amber-200"
-                          : "bg-blue-50 text-blue-700 border border-blue-200"
-                      }`}>
-                        {selectedTask.priority}
-                      </span>
-                    }
-                  />
-                  <DetailRow
-                    label="Trạng thái"
-                    value={
-                      <span className={`px-2 py-0.5 rounded text-[11px] font-bold ${
-                        selectedTask.status === "Hoàn thành"
-                          ? "bg-emerald-50 text-emerald-800 border border-emerald-200"
-                          : selectedTask.status === "Đang thực hiện"
-                          ? "bg-blue-50 text-blue-800 border border-blue-200"
-                          : "bg-slate-100 text-slate-700 border border-slate-200"
-                      }`}>
-                        {selectedTask.status}
-                      </span>
-                    }
-                  />
-                  {selectedTask.notes && (
-                    <DetailRow label="Ghi chú / Minh chứng" value={selectedTask.notes} colSpan={2} />
-                  )}
-                </DetailGrid>
+            {/* Scrollable Body */}
+            <div className="p-5 space-y-4 overflow-y-auto text-xs flex-1 divide-y divide-slate-100">
+              {/* SECTION 1: TASK TITLE & DESCRIPTION */}
+              <div className="space-y-2 pb-2">
+                <div className="flex items-start justify-between gap-3">
+                  <h2 className="text-base sm:text-lg font-bold text-slate-900 leading-snug">
+                    {selectedTask.title}
+                  </h2>
+                  <div className="shrink-0">
+                    {getPriorityBadge(selectedTask.priority)}
+                  </div>
+                </div>
+
+                {selectedTask.description && (
+                  <div className="p-3 rounded-xl bg-slate-50 border border-slate-200/80 text-slate-700 text-xs sm:text-[13px] leading-relaxed">
+                    <span className="text-[10px] uppercase font-bold text-slate-400 block mb-1 tracking-wider">
+                      Mô tả nội dung & Mục tiêu
+                    </span>
+                    <p className="whitespace-pre-line">{selectedTask.description}</p>
+                  </div>
+                )}
               </div>
 
-              {/* ATTACHMENTS SECTION IN DETAIL MODAL */}
-              <div className="space-y-2">
+              {/* SECTION 2: ASSIGNEE & UNIT EXECUTIVE CARD */}
+              <div className="pt-3.5 space-y-2.5">
+                <span className="text-[11px] uppercase font-bold text-slate-400 tracking-wider block">
+                  Đơn vị & Cán bộ phụ trách
+                </span>
+                <div className="p-4 rounded-xl bg-gradient-to-br from-emerald-50/60 via-white to-slate-50 border border-emerald-200/80 shadow-2xs">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 items-start">
+                    {/* Left: Organization & Leader info */}
+                    <div className="space-y-2">
+                      <div className="flex items-center gap-2">
+                        <div className="w-8 h-8 rounded-lg bg-emerald-100 text-emerald-800 flex items-center justify-center shrink-0">
+                          <Building2 size={16} />
+                        </div>
+                        <div className="min-w-0">
+                          <span className="text-[10px] uppercase font-bold text-slate-400 block">Đơn vị nhận việc</span>
+                          <span className="font-bold text-slate-900 text-sm leading-tight block truncate">
+                            {selectedTask.unit}
+                          </span>
+                        </div>
+                      </div>
+
+                      <div className="pl-10 space-y-1.5">
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <span className="font-bold text-slate-800 text-xs">
+                            👤 {selectedTask.assignee.name}
+                          </span>
+                          <span className="text-slate-500 text-[11px]">
+                            • {selectedTask.assignee.role}
+                          </span>
+                        </div>
+                        {selectedTask.assignee.phone && (
+                          <div>
+                            <a
+                              href={`tel:${selectedTask.assignee.phone}`}
+                              className="inline-flex items-center gap-1 font-mono text-xs font-bold text-emerald-700 hover:text-emerald-800 bg-emerald-100/70 hover:bg-emerald-200/70 border border-emerald-300 px-2.5 py-1 rounded-md transition-colors"
+                              title="Bấm để gọi hotline cán bộ"
+                            >
+                              <Phone size={11} /> {selectedTask.assignee.phone}
+                            </a>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Right: Creator & Delegation */}
+                    <div className="space-y-2 sm:border-l sm:border-slate-200/70 sm:pl-4">
+                      <div>
+                        <span className="text-[10px] uppercase font-bold text-slate-400 block mb-0.5">Người giao nhiệm vụ</span>
+                        <div className="flex items-center gap-1.5">
+                          <ShieldCheck size={14} className="text-indigo-600 shrink-0" />
+                          <span className="font-semibold text-slate-800 text-xs">
+                            {selectedTask.creator}
+                          </span>
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-2 pt-1 text-[11px]">
+                        <div>
+                          <span className="text-slate-400 block text-[10px]">Ngày giao:</span>
+                          <span className="font-mono font-semibold text-slate-700">{selectedTask.startDate}</span>
+                        </div>
+                        <div>
+                          <span className="text-slate-400 block text-[10px]">Hạn chót:</span>
+                          <span className="font-mono font-bold text-rose-700">{selectedTask.deadline}</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* SECTION 3: KEY METRICS TILES */}
+              <div className="pt-3.5 grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+                <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-200/70">
+                  <span className="text-[10px] uppercase font-bold text-slate-400 block mb-0.5">Ngày bắt đầu</span>
+                  <div className="flex items-center gap-1 text-slate-700 font-mono font-semibold text-xs">
+                    <CalendarIcon size={12} className="text-slate-400" />
+                    <span>{selectedTask.startDate}</span>
+                  </div>
+                </div>
+
+                <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-200/70">
+                  <span className="text-[10px] uppercase font-bold text-slate-400 block mb-0.5">Hạn chót</span>
+                  <div className="flex items-center gap-1 text-slate-700 font-mono font-bold text-xs">
+                    <Clock size={12} className="text-amber-500" />
+                    <span>{selectedTask.deadline}</span>
+                  </div>
+                </div>
+
+                <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-200/70">
+                  <span className="text-[10px] uppercase font-bold text-slate-400 block mb-0.5">Mức ưu tiên</span>
+                  <div>{getPriorityBadge(selectedTask.priority)}</div>
+                </div>
+
+                <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-200/70">
+                  <span className="text-[10px] uppercase font-bold text-slate-400 block mb-0.5">Trạng thái</span>
+                  <div>{getStatusBadge(selectedTask.status)}</div>
+                </div>
+              </div>
+
+              {/* SECTION 4: NOTES (IF ANY) */}
+              {selectedTask.notes && (
+                <div className="pt-3.5 space-y-1">
+                  <span className="text-[10px] uppercase font-bold text-slate-400 tracking-wider block">
+                    Ghi chú / Minh chứng hiện trường
+                  </span>
+                  <div className="p-3 rounded-xl bg-amber-50/60 border border-amber-200/70 text-amber-900 text-xs">
+                    "{selectedTask.notes}"
+                  </div>
+                </div>
+              )}
+
+              {/* SECTION 5: ATTACHMENTS (IMAGE, WORD, PDF) */}
+              <div className="pt-3.5 space-y-2.5">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-1.5 text-xs font-bold text-slate-800">
                     <Paperclip size={14} className="text-emerald-600" />
@@ -1276,7 +1663,7 @@ export default function TaskAndSchedule() {
                     <button
                       type="button"
                       onClick={() => detailFileInputRef.current?.click()}
-                      className="text-[11px] font-bold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 px-2.5 py-1 rounded-lg flex items-center gap-1 cursor-pointer transition-colors"
+                      className="text-[11px] font-bold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-300 px-2.5 py-1 rounded-lg flex items-center gap-1 cursor-pointer transition-colors shadow-2xs"
                     >
                       <Plus size={12} /> Đính kèm thêm tệp...
                     </button>
@@ -1284,46 +1671,46 @@ export default function TaskAndSchedule() {
                 </div>
 
                 {(!selectedTask.attachments || selectedTask.attachments.length === 0) ? (
-                  <div className="p-3 rounded-lg border border-dashed border-slate-200 bg-slate-50/50 text-center text-slate-400 italic text-[11px]">
-                    Chưa có tài liệu hoặc hình ảnh đính kèm cho nhiệm vụ này. Nhấn nút phía trên để bổ sung biên bản, hình ảnh kiểm tra hoặc kế hoạch Word/PDF.
+                  <div className="p-4 rounded-xl border border-dashed border-slate-200 bg-slate-50/50 text-center text-slate-400 italic text-[11px]">
+                    Chưa có tài liệu hoặc hình ảnh đính kèm. Nhấn nút "+ Đính kèm thêm tệp" phía trên để bổ sung biên bản, hình ảnh hoặc kế hoạch Word/PDF.
                   </div>
                 ) : (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                     {selectedTask.attachments.map(att => (
                       <div
                         key={att.id}
-                        className="p-2.5 rounded-xl border border-slate-200 bg-white shadow-2xs hover:border-emerald-300 transition-all flex items-center justify-between gap-2"
+                        className="p-2.5 rounded-xl border border-slate-200 bg-white shadow-2xs hover:border-emerald-400 hover:shadow-xs transition-all flex items-center justify-between gap-2.5"
                       >
                         <div className="flex items-center gap-2.5 min-w-0 flex-1">
                           {att.type === "image" ? (
                             <div
                               onClick={() => setPreviewAttachment(att)}
-                              className="w-10 h-10 rounded-lg overflow-hidden border border-slate-200 shrink-0 cursor-pointer hover:opacity-90 relative group"
+                              className="w-11 h-11 rounded-lg overflow-hidden border border-slate-200 shrink-0 cursor-pointer hover:opacity-90 relative group shadow-2xs"
                               title="Nhấn để phóng to ảnh"
                             >
                               <img src={att.url} alt={att.name} className="w-full h-full object-cover" />
-                              <div className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
-                                <Eye size={12} className="text-white" />
+                              <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
+                                <Eye size={14} className="text-white" />
                               </div>
                             </div>
                           ) : att.type === "pdf" ? (
-                            <div className="w-10 h-10 rounded-lg bg-rose-50 text-rose-600 border border-rose-200 flex flex-col items-center justify-center font-bold shrink-0">
-                              <span className="text-[11px] leading-none">PDF</span>
-                              <FileText size={11} className="mt-0.5" />
+                            <div className="w-11 h-11 rounded-lg bg-rose-50 text-rose-600 border border-rose-200 flex flex-col items-center justify-center font-bold shrink-0 shadow-2xs">
+                              <span className="text-[10px] font-mono leading-none">PDF</span>
+                              <FileText size={13} className="mt-0.5" />
                             </div>
                           ) : att.type === "word" ? (
-                            <div className="w-10 h-10 rounded-lg bg-blue-50 text-blue-600 border border-blue-200 flex flex-col items-center justify-center font-bold shrink-0">
-                              <span className="text-[11px] leading-none">DOC</span>
-                              <FileText size={11} className="mt-0.5" />
+                            <div className="w-11 h-11 rounded-lg bg-blue-50 text-blue-600 border border-blue-200 flex flex-col items-center justify-center font-bold shrink-0 shadow-2xs">
+                              <span className="text-[10px] font-mono leading-none">DOC</span>
+                              <FileText size={13} className="mt-0.5" />
                             </div>
                           ) : (
-                            <div className="w-10 h-10 rounded-lg bg-slate-100 text-slate-600 border border-slate-200 flex items-center justify-center font-bold text-xs shrink-0">
+                            <div className="w-11 h-11 rounded-lg bg-slate-100 text-slate-600 border border-slate-200 flex items-center justify-center font-bold text-xs shrink-0">
                               FILE
                             </div>
                           )}
 
                           <div className="min-w-0 flex-1">
-                            <div className="font-bold text-slate-800 text-[11px] truncate" title={att.name}>
+                            <div className="font-bold text-slate-800 text-xs truncate" title={att.name}>
                               {att.name}
                             </div>
                             <div className="text-[10px] text-slate-400 font-mono mt-0.5">
@@ -1337,10 +1724,10 @@ export default function TaskAndSchedule() {
                             <button
                               type="button"
                               onClick={() => setPreviewAttachment(att)}
-                              className="p-1.5 text-slate-500 hover:text-emerald-700 hover:bg-emerald-50 rounded-lg cursor-pointer"
-                              title="Xem ảnh"
+                              className="p-1.5 text-slate-500 hover:text-emerald-700 hover:bg-emerald-50 rounded-lg cursor-pointer transition-colors"
+                              title="Xem ảnh phóng to"
                             >
-                              <Eye size={13} />
+                              <Eye size={14} />
                             </button>
                           )}
                           <a
@@ -1348,18 +1735,18 @@ export default function TaskAndSchedule() {
                             download={att.name}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="p-1.5 text-slate-500 hover:text-indigo-700 hover:bg-indigo-50 rounded-lg cursor-pointer"
+                            className="p-1.5 text-slate-500 hover:text-indigo-700 hover:bg-indigo-50 rounded-lg cursor-pointer transition-colors"
                             title="Tải tệp về máy"
                           >
-                            <Download size={13} />
+                            <Download size={14} />
                           </a>
                           <button
                             type="button"
                             onClick={() => handleDeleteDetailAttachment(att.id)}
-                            className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg cursor-pointer"
+                            className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg cursor-pointer transition-colors"
                             title="Xóa tệp đính kèm này"
                           >
-                            <Trash2 size={13} />
+                            <Trash2 size={14} />
                           </button>
                         </div>
                       </div>
@@ -1368,9 +1755,17 @@ export default function TaskAndSchedule() {
                 )}
               </div>
 
-              <div className="grid grid-cols-2 gap-3 pt-2 border-t border-slate-200">
-                <div>
-                  <label htmlFor="selected-task-progress-range" className="text-[10px] text-slate-500 uppercase font-bold block mb-1">Tiến độ hoàn thành (%)</label>
+              {/* SECTION 6: PROGRESS & STATUS TRANSITIONS */}
+              <div className="pt-3.5 p-4 rounded-xl bg-slate-50/80 border border-slate-200 grid grid-cols-1 sm:grid-cols-2 gap-4 items-center">
+                <div className="space-y-1.5">
+                  <div className="flex items-center justify-between text-[11px]">
+                    <label htmlFor="selected-task-progress-range" className="text-slate-500 uppercase font-bold">
+                      Tiến độ hoàn thành
+                    </label>
+                    <span className="font-mono font-black text-sm text-emerald-700">
+                      {selectedTask.progressPercent}%
+                    </span>
+                  </div>
                   <input
                     id="selected-task-progress-range"
                     name="progressPercent"
@@ -1387,38 +1782,61 @@ export default function TaskAndSchedule() {
                     }}
                     className="w-full cursor-pointer accent-emerald-600"
                   />
-                  <div className="text-right font-mono font-bold text-emerald-700">{selectedTask.progressPercent}%</div>
+                  {/* Quick preset buttons */}
+                  <div className="flex items-center justify-between gap-1 text-[10px] font-mono text-slate-500 pt-0.5">
+                    {[0, 25, 50, 75, 100].map(pct => (
+                      <button
+                        key={pct}
+                        type="button"
+                        onClick={() => {
+                          const updated = tasks.map(t => t.id === selectedTask.id ? { ...t, progressPercent: pct, status: pct === 100 ? "Hoàn thành" : t.status } : t);
+                          saveTasks(updated);
+                          setSelectedTask({ ...selectedTask, progressPercent: pct, status: pct === 100 ? "Hoàn thành" : selectedTask.status });
+                        }}
+                        className={`px-1.5 py-0.5 rounded border text-[10px] font-bold cursor-pointer transition-colors ${
+                          selectedTask.progressPercent === pct
+                            ? "bg-emerald-600 text-white border-emerald-600"
+                            : "bg-white text-slate-600 border-slate-200 hover:bg-slate-100"
+                        }`}
+                      >
+                        {pct}%
+                      </button>
+                    ))}
+                  </div>
                 </div>
 
-                <div>
-                  <label htmlFor="selected-task-status-select" className="text-[10px] text-slate-500 uppercase font-bold block mb-1">Chuyển trạng thái</label>
+                <div className="space-y-1.5">
+                  <label htmlFor="selected-task-status-select" className="text-[11px] text-slate-500 uppercase font-bold block">
+                    Chuyển trạng thái
+                  </label>
                   <select
                     id="selected-task-status-select"
                     name="status"
                     aria-label="Chọn trạng thái"
                     value={selectedTask.status}
                     onChange={e => handleMoveStatus(selectedTask.id, e.target.value as any)}
-                    className="w-full py-1.5 px-2 bg-slate-50 border border-slate-200 rounded-lg font-bold"
+                    className="w-full py-2 px-3 bg-white border border-slate-300 rounded-xl font-bold text-xs text-slate-800 focus:ring-2 focus:ring-emerald-500 shadow-2xs cursor-pointer"
                   >
-                    <option value="Chờ xử lý">Chờ xử lý</option>
-                    <option value="Đang thực hiện">Đang thực hiện</option>
-                    <option value="Chờ nghiệm thu">Chờ nghiệm thu</option>
-                    <option value="Hoàn thành">Hoàn thành</option>
+                    <option value="Chờ xử lý">⏳ Chờ xử lý</option>
+                    <option value="Đang thực hiện">⚡ Đang thực hiện</option>
+                    <option value="Chờ nghiệm thu">📋 Chờ nghiệm thu</option>
+                    <option value="Hoàn thành">✅ Hoàn thành</option>
                   </select>
                 </div>
               </div>
             </div>
 
-            <div className="p-4 bg-slate-50 border-t border-slate-200 flex justify-between items-center">
+            {/* Modal Footer */}
+            <div className="p-4 bg-slate-50 border-t border-slate-200 flex justify-between items-center shrink-0">
               <button
                 onClick={() => handleDeleteTask(selectedTask.id)}
-                className="text-xs text-rose-600 hover:text-rose-800 flex items-center gap-1 font-bold cursor-pointer"
+                className="text-xs text-rose-600 hover:text-rose-800 hover:bg-rose-50 px-3 py-1.5 rounded-lg border border-transparent hover:border-rose-200 flex items-center gap-1.5 font-bold cursor-pointer transition-colors"
               >
                 <Trash2 size={13} /> Xóa nhiệm vụ
               </button>
               <button
                 onClick={() => setSelectedTask(null)}
-                className="text-xs font-bold text-white bg-slate-900 hover:bg-slate-800 px-4 py-1.5 rounded-lg cursor-pointer"
+                className="text-xs font-bold text-white bg-slate-900 hover:bg-slate-800 px-5 py-2 rounded-xl cursor-pointer shadow-xs transition-colors"
               >
                 Đóng
               </button>
@@ -1429,18 +1847,21 @@ export default function TaskAndSchedule() {
 
       {/* MODAL: CREATE TASK */}
       {showAddTaskModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-xs">
-          <div className="bg-white w-full max-w-lg rounded-2xl shadow-2xl border border-slate-200 overflow-hidden animate-in zoom-in-95 duration-200">
-            <div className="p-4 bg-gradient-to-r from-slate-50 via-white to-emerald-50/30 border-b border-slate-200 flex items-center justify-between">
-              <h3 className="font-black text-sm text-slate-800 flex items-center gap-2">
-                <Plus size={16} className="text-emerald-600" /> Phân công nhiệm vụ mới
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/70 backdrop-blur-xs animate-in fade-in duration-150">
+          <div className="bg-white w-full max-w-lg rounded-2xl shadow-2xl border border-slate-200 overflow-hidden flex flex-col max-h-[92vh] animate-in zoom-in-95 duration-200">
+            <div className="p-4 bg-gradient-to-r from-slate-900 via-slate-800 to-emerald-950 text-white flex items-center justify-between shrink-0 border-b border-slate-700/80">
+              <h3 className="font-black text-sm flex items-center gap-2">
+                <Plus size={16} className="text-emerald-400" /> Phân công nhiệm vụ mới
               </h3>
-              <button onClick={() => setShowAddTaskModal(false)} className="p-1 rounded-full text-slate-400 hover:text-slate-600 hover:bg-slate-100 cursor-pointer transition-colors">
+              <button
+                onClick={() => setShowAddTaskModal(false)}
+                className="p-1 rounded-full text-slate-400 hover:text-white hover:bg-white/10 cursor-pointer transition-colors"
+              >
                 <X size={18} />
               </button>
             </div>
 
-            <form onSubmit={handleCreateTask} className="p-5 space-y-3.5 text-xs">
+            <form onSubmit={handleCreateTask} className="p-5 space-y-3.5 text-xs overflow-y-auto flex-1">
               <div>
                 <label className="block font-bold text-slate-700 mb-1">Tiêu đề nhiệm vụ *</label>
                 <input
@@ -1452,7 +1873,7 @@ export default function TaskAndSchedule() {
                   placeholder="Ví dụ: Rà soát PCCC tại các dãy trọ TDP 12..."
                   value={newTaskTitle}
                   onChange={e => setNewTaskTitle(e.target.value)}
-                  className="w-full p-2 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-emerald-500"
+                  className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-emerald-500 font-semibold text-slate-900"
                 />
               </div>
 
@@ -1466,98 +1887,29 @@ export default function TaskAndSchedule() {
                   placeholder="Nội dung, mục tiêu cụ thể, yêu cầu báo cáo..."
                   value={newTaskDesc}
                   onChange={e => setNewTaskDesc(e.target.value)}
-                  className="w-full p-2 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-emerald-500"
+                  className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-emerald-500 leading-relaxed text-slate-800"
                 />
-              </div>
-
-              {/* ATTACHMENT UPLOAD BOX */}
-              <div className="p-3 bg-slate-50/70 rounded-xl border border-dashed border-slate-300">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <Paperclip size={15} className="text-emerald-600 shrink-0" />
-                    <div>
-                      <span className="font-bold text-slate-700 block text-[11px]">Đính kèm tệp tin & hình ảnh</span>
-                      <span className="text-[10px] text-slate-500">Ảnh JPG/PNG, tài liệu Word (.docx), PDF (tối đa 20MB)</span>
-                    </div>
-                  </div>
-                  <div>
-                    <input
-                      ref={fileInputRef}
-                      type="file"
-                      multiple
-                      accept=".png,.jpg,.jpeg,.webp,.pdf,.docx,.doc"
-                      className="hidden"
-                      onChange={handleFileUpload}
-                    />
-                    <button
-                      type="button"
-                      onClick={() => fileInputRef.current?.click()}
-                      className="px-2.5 py-1.5 bg-white hover:bg-slate-100 text-slate-700 border border-slate-300 rounded-lg text-xs font-bold flex items-center gap-1.5 shadow-2xs cursor-pointer transition-colors"
-                    >
-                      <UploadCloud size={14} className="text-emerald-600" /> Chọn tệp...
-                    </button>
-                  </div>
-                </div>
-
-                {newTaskAttachments.length > 0 && (
-                  <div className="mt-2.5 space-y-1.5 pt-2 border-t border-slate-200">
-                    {newTaskAttachments.map(att => (
-                      <div key={att.id} className="flex items-center justify-between p-2 rounded-lg bg-white border border-slate-200 text-xs shadow-2xs">
-                        <div className="flex items-center gap-2 min-w-0">
-                          {att.type === "image" ? (
-                            <img src={att.url} alt={att.name} className="w-8 h-8 rounded object-cover border border-slate-200 shrink-0" />
-                          ) : att.type === "pdf" ? (
-                            <span className="w-8 h-8 rounded bg-rose-50 text-rose-600 border border-rose-200 flex items-center justify-center font-bold text-[10px] shrink-0">PDF</span>
-                          ) : att.type === "word" ? (
-                            <span className="w-8 h-8 rounded bg-blue-50 text-blue-600 border border-blue-200 flex items-center justify-center font-bold text-[10px] shrink-0">DOC</span>
-                          ) : (
-                            <span className="w-8 h-8 rounded bg-slate-100 text-slate-600 border border-slate-200 flex items-center justify-center font-bold text-[10px] shrink-0">FILE</span>
-                          )}
-                          <div className="min-w-0">
-                            <p className="font-bold text-slate-800 truncate text-[11px] max-w-[280px]">{att.name}</p>
-                            <p className="text-[10px] text-slate-400 font-mono">{att.size || "Tệp"} • {att.type.toUpperCase()}</p>
-                          </div>
-                        </div>
-                        <button
-                          type="button"
-                          onClick={() => handleRemoveAttachment(att.id)}
-                          className="p-1 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded cursor-pointer transition-colors"
-                          title="Xóa tệp này"
-                        >
-                          <X size={14} />
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                )}
               </div>
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block font-bold text-slate-700 mb-1">
-                    Đơn vị nhận việc * <span className="text-[10px] font-normal text-emerald-700 bg-emerald-50 px-1 py-0.5 rounded border border-emerald-200">23 Đoàn thể</span>
+                  <label className="block font-bold text-slate-700 mb-1 flex items-center justify-between">
+                    <span>Đơn vị nhận việc *</span>
+                    <span className="text-[10px] text-emerald-700 font-semibold bg-emerald-50 px-1.5 py-0.5 rounded">23 Chi hội</span>
                   </label>
                   <select
                     id="modal-new-task-unit"
                     name="newTaskUnit"
                     aria-label="Đơn vị nhận việc"
-                    value={newTaskAssociationId || newTaskUnit}
+                    value={newTaskAssociationId}
                     onChange={e => handleUnitChange(e.target.value)}
-                    className="w-full p-2 bg-slate-50 border border-slate-200 rounded-lg text-slate-800 font-medium focus:ring-2 focus:ring-emerald-500"
+                    className="w-full p-2 bg-slate-50 border border-slate-200 rounded-lg font-semibold text-slate-800 truncate"
                   >
-                    {["Chính quyền cơ sở", "Chính trị - Xã hội", "An ninh - Quốc phòng", "Phong trào tự quản"].map(cat => {
-                      const list = associationsList.filter(a => a.category === cat);
-                      if (list.length === 0) return null;
-                      return (
-                        <optgroup key={cat} label={`── ${cat} (${list.length}) ──`}>
-                          {list.map(assoc => (
-                            <option key={assoc.id} value={assoc.id}>
-                              {assoc.name} (Trưởng: {assoc.leaderName})
-                            </option>
-                          ))}
-                        </optgroup>
-                      );
-                    })}
+                    {associationsList.map(assoc => (
+                      <option key={assoc.id} value={assoc.id}>
+                        {assoc.name} ({assoc.category})
+                      </option>
+                    ))}
                   </select>
                 </div>
 
@@ -1582,30 +1934,22 @@ export default function TaskAndSchedule() {
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <div className="flex items-center justify-between mb-1">
-                    <label className="font-bold text-slate-700">Người nhận việc *</label>
-                    <button
-                      type="button"
-                      onClick={() => setIsCustomAssignee(!isCustomAssignee)}
-                      className="text-[10px] font-bold text-emerald-600 hover:underline cursor-pointer"
-                    >
-                      {isCustomAssignee ? "← Chọn theo tổ chức" : "+ Người ngoài"}
-                    </button>
+                    <label className="font-bold text-slate-700">Người nhận việc chính *</label>
+                    <span className="text-[10px] text-emerald-700 font-semibold bg-emerald-50 px-1.5 py-0.5 rounded">Thành viên chi hội</span>
                   </div>
-
                   {!isCustomAssignee ? (
                     <select
-                      id="modal-new-task-member-select"
-                      aria-label="Chọn cán bộ nhận việc"
+                      id="modal-new-task-assignee-select"
                       value={newTaskAssigneeName}
                       onChange={handleMemberChange}
-                      className="w-full p-2 bg-slate-50 border border-slate-200 rounded-lg font-bold text-slate-800 focus:ring-2 focus:ring-emerald-500"
+                      className="w-full p-2 bg-slate-50 border border-slate-200 rounded-lg font-semibold text-slate-800 truncate"
                     >
                       {currentAssocMembers.map(m => (
                         <option key={m.id || m.fullName} value={m.fullName}>
-                          👤 {m.fullName} — {m.role} {m.phone ? `(${m.phone})` : ""}
+                          {m.fullName} - {m.role} {m.phone ? `(${m.phone})` : ""}
                         </option>
                       ))}
-                      <option value="__CUSTOM__">+ Khác (Nhập tên người khác)</option>
+                      <option value="__CUSTOM__">➕ Nhập cán bộ / thành viên khác...</option>
                     </select>
                   ) : (
                     <div className="space-y-1.5">
@@ -1614,37 +1958,27 @@ export default function TaskAndSchedule() {
                         name="newTaskAssigneeName"
                         aria-label="Người nhận việc chính"
                         type="text"
-                        placeholder="Họ và tên người nhận..."
+                        placeholder="Họ và tên..."
                         value={newTaskAssigneeName}
                         onChange={e => setNewTaskAssigneeName(e.target.value)}
-                        className="w-full p-2 bg-slate-50 border border-slate-200 rounded-lg font-bold"
-                        required
+                        className="w-full p-2 bg-white border border-emerald-300 rounded-lg font-bold"
                       />
-                      <div className="grid grid-cols-2 gap-1.5">
+                      <div className="flex items-center justify-between text-[11px] gap-1">
                         <input
                           type="text"
                           placeholder="Chức vụ..."
                           value={newTaskAssigneeRole}
                           onChange={e => setNewTaskAssigneeRole(e.target.value)}
-                          className="p-1.5 bg-slate-50 border border-slate-200 rounded-lg text-[11px]"
+                          className="p-1 text-xs border border-slate-200 rounded flex-1"
                         />
-                        <input
-                          type="tel"
-                          placeholder="SĐT..."
-                          value={newTaskAssigneePhone}
-                          onChange={e => setNewTaskAssigneePhone(e.target.value)}
-                          className="p-1.5 bg-slate-50 border border-slate-200 rounded-lg text-[11px]"
-                        />
+                        <button
+                          type="button"
+                          onClick={() => setIsCustomAssignee(false)}
+                          className="text-emerald-700 font-bold hover:underline shrink-0 text-[10px]"
+                        >
+                          ↩ Chi hội
+                        </button>
                       </div>
-                    </div>
-                  )}
-
-                  {!isCustomAssignee && newTaskAssigneeRole && (
-                    <div className="mt-1 flex items-center justify-between text-[10px] text-slate-500 bg-slate-100/80 px-2 py-0.5 rounded">
-                      <span className="truncate">Vai trò: <strong className="text-slate-700">{newTaskAssigneeRole}</strong></span>
-                      {newTaskAssigneePhone && (
-                        <span className="font-mono text-emerald-700 font-bold shrink-0">📞 {newTaskAssigneePhone}</span>
-                      )}
                     </div>
                   )}
                 </div>
@@ -1659,12 +1993,67 @@ export default function TaskAndSchedule() {
                     required
                     value={newTaskDeadline}
                     onChange={e => setNewTaskDeadline(e.target.value)}
-                    className="w-full p-2 bg-slate-50 border border-slate-200 rounded-lg"
+                    className="w-full p-2 bg-slate-50 border border-slate-200 rounded-lg font-bold"
                   />
                 </div>
               </div>
 
-              <div className="pt-3 border-t border-slate-200 flex justify-end gap-2">
+              {/* Tệp đính kèm nhiệm vụ */}
+              <div className="pt-2 border-t border-slate-100">
+                <div className="flex items-center justify-between mb-2">
+                  <label className="font-bold text-slate-700 flex items-center gap-1.5">
+                    <Paperclip size={13} className="text-emerald-600" />
+                    <span>Tài liệu & Hình ảnh đính kèm ({newTaskAttachments.length})</span>
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => fileInputRef.current?.click()}
+                    className="text-[11px] font-bold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 px-2.5 py-1 rounded-lg flex items-center gap-1 cursor-pointer transition-colors"
+                  >
+                    <UploadCloud size={13} /> Thêm tệp (Ảnh, Word, PDF)...
+                  </button>
+                  <input
+                    type="file"
+                    ref={fileInputRef}
+                    onChange={handleFileUpload}
+                    multiple
+                    accept="image/*,.pdf,.doc,.docx"
+                    className="hidden"
+                  />
+                </div>
+
+                {newTaskAttachments.length > 0 && (
+                  <div className="grid grid-cols-2 gap-2 max-h-36 overflow-y-auto p-1.5 bg-slate-50 rounded-lg border border-slate-200">
+                    {newTaskAttachments.map(att => (
+                      <div key={att.id} className="flex items-center justify-between p-1.5 bg-white rounded-md border border-slate-200 shadow-2xs">
+                        <div className="flex items-center gap-1.5 min-w-0">
+                          {att.type === "image" ? (
+                            <img src={att.url} alt="" className="w-7 h-7 rounded object-cover border border-slate-200 shrink-0" />
+                          ) : att.type === "pdf" ? (
+                            <span className="w-7 h-7 rounded bg-rose-50 text-rose-600 flex items-center justify-center font-black text-[9px] border border-rose-200 shrink-0">PDF</span>
+                          ) : (
+                            <span className="w-7 h-7 rounded bg-blue-50 text-blue-600 flex items-center justify-center font-black text-[9px] border border-blue-200 shrink-0">DOC</span>
+                          )}
+                          <div className="min-w-0">
+                            <div className="text-[11px] font-bold text-slate-800 truncate" title={att.name}>{att.name}</div>
+                            <div className="text-[10px] text-slate-400">{att.size}</div>
+                          </div>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveAttachment(att.id)}
+                          className="text-slate-400 hover:text-rose-600 p-1 cursor-pointer"
+                          title="Gỡ tệp"
+                        >
+                          <X size={13} />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              <div className="pt-3 border-t border-slate-200 flex justify-end gap-2 shrink-0">
                 <button
                   type="button"
                   onClick={() => setShowAddTaskModal(false)}
@@ -1686,18 +2075,23 @@ export default function TaskAndSchedule() {
 
       {/* MODAL: CREATE SCHEDULE */}
       {showAddScheduleModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-xs">
-          <div className="bg-white w-full max-w-lg rounded-2xl shadow-2xl border border-slate-200 overflow-hidden animate-in zoom-in-95 duration-200">
-            <div className="p-4 bg-gradient-to-r from-slate-50 via-white to-indigo-50/30 border-b border-slate-200 flex items-center justify-between">
-              <h3 className="font-black text-sm text-slate-800 flex items-center gap-2">
-                <CalendarIcon size={16} className="text-indigo-600" /> Thêm sự kiện / Lịch họp mới
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/70 backdrop-blur-xs animate-in fade-in duration-150">
+          <div className="bg-white w-full max-w-xl rounded-2xl shadow-2xl border border-slate-200 overflow-hidden flex flex-col max-h-[92vh] animate-in zoom-in-95 duration-200">
+            {/* Header: Dark Indigo GovTech Gradient */}
+            <div className="p-4 bg-gradient-to-r from-slate-900 via-slate-800 to-indigo-950 text-white flex items-center justify-between shrink-0 border-b border-slate-700/80">
+              <h3 className="font-black text-sm flex items-center gap-2">
+                <CalendarIcon size={16} className="text-indigo-400" /> Thêm sự kiện / Lịch họp mới
               </h3>
-              <button onClick={() => setShowAddScheduleModal(false)} className="p-1 rounded-full text-slate-400 hover:text-slate-600 hover:bg-slate-100 cursor-pointer transition-colors">
+              <button
+                onClick={() => setShowAddScheduleModal(false)}
+                className="p-1 rounded-full text-slate-400 hover:text-white hover:bg-white/10 cursor-pointer transition-colors"
+              >
                 <X size={18} />
               </button>
             </div>
 
-            <form onSubmit={handleCreateSchedule} className="p-5 space-y-3.5 text-xs">
+            {/* Form */}
+            <form onSubmit={handleCreateSchedule} className="p-5 space-y-3.5 text-xs overflow-y-auto flex-1">
               <div>
                 <label className="block font-bold text-slate-700 mb-1">Tiêu đề cuộc họp / Sự kiện *</label>
                 <input
@@ -1706,32 +2100,83 @@ export default function TaskAndSchedule() {
                   aria-label="Tiêu đề cuộc họp"
                   type="text"
                   required
-                  placeholder="Ví dụ: Họp chi bộ triển khai công tác tháng..."
+                  placeholder="Ví dụ: Họp chi bộ triển khai công tác tháng, Sinh hoạt định kỳ..."
                   value={newSchTitle}
                   onChange={e => setNewSchTitle(e.target.value)}
-                  className="w-full p-2 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500"
+                  className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 font-semibold text-slate-900"
+                />
+              </div>
+
+              {/* BỔ SUNG PHẦN NHẬP NỘI DUNG CUỘC HỌP / CHƯƠNG TRÌNH CHI TIẾT */}
+              <div>
+                <label className="block font-bold text-slate-700 mb-1 flex items-center justify-between">
+                  <span>Nội dung cuộc họp / Chương trình chi tiết *</span>
+                  <span className="text-[10px] text-indigo-600 font-semibold bg-indigo-50 px-1.5 py-0.5 rounded">Chương trình & Báo cáo</span>
+                </label>
+                <textarea
+                  id="modal-new-sch-desc"
+                  name="newSchDesc"
+                  aria-label="Nội dung cuộc họp"
+                  rows={3}
+                  required
+                  placeholder="Nhập chi tiết chương trình làm việc, dự thảo nghị quyết, báo cáo thảo luận, phân công chuẩn bị tài liệu..."
+                  value={newSchDesc}
+                  onChange={e => setNewSchDesc(e.target.value)}
+                  className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:bg-white leading-relaxed text-slate-800"
                 />
               </div>
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block font-bold text-slate-700 mb-1">Loại sự kiện</label>
-                  <select
-                    id="modal-new-sch-type"
-                    name="newSchType"
-                    aria-label="Loại sự kiện"
-                    value={newSchType}
-                    onChange={e => setNewSchType(e.target.value as any)}
-                    className="w-full p-2 bg-slate-50 border border-slate-200 rounded-lg font-bold"
-                  >
-                    <option value="Họp Chi bộ">Họp Chi bộ (Ngày 3 hàng tháng)</option>
-                    <option value="Họp Tổ Dân Phố">Họp Tổ Dân Phố</option>
-                    <option value="Tuần tra ANTT">Tuần tra ANTT ban đêm</option>
-                    <option value="Chủ Nhật Xanh">Chủ Nhật Xanh</option>
-                    <option value="Tiếp công dân">Tiếp công dân</option>
-                    <option value="Hội nghị Khu phố">Hội nghị Khu phố</option>
-                  </select>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="font-bold text-slate-700">Loại sự kiện</label>
+                    <button
+                      type="button"
+                      onClick={() => setIsCustomSchType(!isCustomSchType)}
+                      className="text-[10px] text-indigo-600 hover:underline font-bold"
+                    >
+                      {isCustomSchType ? "↩ Danh mục có sẵn" : "➕ Nhập loại khác"}
+                    </button>
+                  </div>
+                  {!isCustomSchType ? (
+                    <select
+                      id="modal-new-sch-type"
+                      name="newSchType"
+                      aria-label="Loại sự kiện"
+                      value={newSchType}
+                      onChange={e => {
+                        if (e.target.value === "__CUSTOM__") {
+                          setIsCustomSchType(true);
+                        } else {
+                          setNewSchType(e.target.value);
+                        }
+                      }}
+                      className="w-full p-2 bg-slate-50 border border-slate-200 rounded-lg font-bold text-slate-800"
+                    >
+                      <option value="Họp Chi bộ">Họp Chi bộ (Ngày 3 hàng tháng)</option>
+                      <option value="Họp Ban Điều hành KP3">Họp Ban Điều hành KP3</option>
+                      <option value="Họp Tổ Dân Phố">Họp Tổ Dân Phố</option>
+                      <option value="Tuần tra ANTT">Tuần tra ANTT ban đêm</option>
+                      <option value="Chủ Nhật Xanh">Chủ Nhật Xanh</option>
+                      <option value="Tiếp công dân">Tiếp công dân & Đối thoại</option>
+                      <option value="Hội nghị Khu phố">Hội nghị Khu phố</option>
+                      <option value="Đại hội Chi hội / Đoàn thể">Đại hội Chi hội / Đoàn thể</option>
+                      <option value="Tập huấn PCCC & Cứu nạn">Tập huấn PCCC & Cứu nạn</option>
+                      <option value="Hoạt động Đền ơn đáp nghĩa">Hoạt động Đền ơn đáp nghĩa / An sinh</option>
+                      <option value="__CUSTOM__">➕ Loại sự kiện khác (Nhập tùy chọn)...</option>
+                    </select>
+                  ) : (
+                    <input
+                      id="modal-new-sch-custom-type"
+                      type="text"
+                      placeholder="Nhập loại sự kiện tùy chọn..."
+                      value={customSchType}
+                      onChange={e => setCustomSchType(e.target.value)}
+                      className="w-full p-2 bg-white border border-indigo-300 rounded-lg font-bold text-indigo-900 focus:ring-2 focus:ring-indigo-500"
+                    />
+                  )}
                 </div>
+
                 <div>
                   <label className="block font-bold text-slate-700 mb-1">Ngày tổ chức *</label>
                   <input
@@ -1742,7 +2187,7 @@ export default function TaskAndSchedule() {
                     required
                     value={newSchDate}
                     onChange={e => setNewSchDate(e.target.value)}
-                    className="w-full p-2 bg-slate-50 border border-slate-200 rounded-lg"
+                    className="w-full p-2 bg-slate-50 border border-slate-200 rounded-lg font-bold"
                   />
                 </div>
               </div>
@@ -1756,7 +2201,7 @@ export default function TaskAndSchedule() {
                     aria-label="Thời gian diễn ra"
                     type="text"
                     value={newSchTime}
-                    placeholder="19:00 - 21:00"
+                    placeholder="08:30 - 10:30"
                     onChange={e => setNewSchTime(e.target.value)}
                     className="w-full p-2 bg-slate-50 border border-slate-200 rounded-lg"
                   />
@@ -1777,17 +2222,60 @@ export default function TaskAndSchedule() {
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block font-bold text-slate-700 mb-1">Chủ trì</label>
-                  <input
-                    id="modal-new-sch-host"
-                    name="newSchHost"
-                    aria-label="Người chủ trì"
-                    type="text"
-                    value={newSchHost}
-                    onChange={e => setNewSchHost(e.target.value)}
-                    className="w-full p-2 bg-slate-50 border border-slate-200 rounded-lg"
-                  />
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="font-bold text-slate-700">Chủ trì *</label>
+                    <button
+                      type="button"
+                      onClick={() => setIsCustomSchHost(!isCustomSchHost)}
+                      className="text-[10px] text-indigo-600 hover:underline font-bold"
+                    >
+                      {isCustomSchHost ? "↩ Chọn từ 23 Chi hội" : "➕ Nhập khác"}
+                    </button>
+                  </div>
+                  {!isCustomSchHost ? (
+                    <select
+                      id="modal-new-sch-host"
+                      name="newSchHost"
+                      aria-label="Người chủ trì"
+                      value={newSchHost}
+                      onChange={e => {
+                        if (e.target.value === "__CUSTOM__") {
+                          setIsCustomSchHost(true);
+                        } else {
+                          setNewSchHost(e.target.value);
+                        }
+                      }}
+                      className="w-full p-2 bg-slate-50 border border-slate-200 rounded-lg font-bold text-slate-800 truncate"
+                    >
+                      <optgroup label="⭐ Lãnh đạo cấp trên & Ban Quản trị">
+                        {scheduleHostGroups.superiors.map(sup => (
+                          <option key={sup} value={sup}>{sup}</option>
+                        ))}
+                      </optgroup>
+                      <optgroup label="🏛️ Lãnh đạo Cấp ủy & Ban Điều hành KP3">
+                        {scheduleHostGroups.executive.map(exec => (
+                          <option key={exec} value={exec}>{exec}</option>
+                        ))}
+                      </optgroup>
+                      <optgroup label={`👥 Trưởng / Phó 23 Chi hội & Đoàn thể (${scheduleHostGroups.assocLeaders.length} đồng chí)`}>
+                        {scheduleHostGroups.assocLeaders.map(item => (
+                          <option key={item.value} value={item.value}>{item.label}</option>
+                        ))}
+                      </optgroup>
+                      <option value="__CUSTOM__">➕ Nhập người chủ trì / đại biểu khác (Tùy chọn)...</option>
+                    </select>
+                  ) : (
+                    <input
+                      id="modal-new-sch-custom-host"
+                      type="text"
+                      placeholder="Họ tên và chức vụ người chủ trì..."
+                      value={customSchHost}
+                      onChange={e => setCustomSchHost(e.target.value)}
+                      className="w-full p-2 bg-white border border-indigo-300 rounded-lg font-bold text-indigo-900 focus:ring-2 focus:ring-indigo-500"
+                    />
+                  )}
                 </div>
+
                 <div>
                   <label className="block font-bold text-slate-700 mb-1">Thành phần tham dự</label>
                   <input
@@ -1802,7 +2290,88 @@ export default function TaskAndSchedule() {
                 </div>
               </div>
 
-              <div className="pt-3 border-t border-slate-200 flex justify-end gap-2">
+              {/* TỆP ĐÍNH KÈM: HÌNH ẢNH, WORD DOCX, PDF */}
+              <div className="pt-2 border-t border-slate-100">
+                <div className="flex items-center justify-between mb-2">
+                  <label className="font-bold text-slate-700 flex items-center gap-1.5">
+                    <Paperclip size={13} className="text-indigo-600" />
+                    <span>Tài liệu & Tệp đính kèm ({newSchAttachments.length})</span>
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => schFileInputRef.current?.click()}
+                    className="text-[11px] font-bold text-indigo-700 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 px-2.5 py-1 rounded-lg flex items-center gap-1 cursor-pointer transition-colors"
+                  >
+                    <UploadCloud size={13} /> Đính kèm tệp (Ảnh, Word, PDF)...
+                  </button>
+                  <input
+                    type="file"
+                    ref={schFileInputRef}
+                    onChange={handleSchFileUpload}
+                    multiple
+                    accept="image/*,.pdf,.doc,.docx"
+                    className="hidden"
+                  />
+                </div>
+
+                {newSchAttachments.length > 0 && (
+                  <div className="grid grid-cols-2 gap-2 max-h-36 overflow-y-auto p-1.5 bg-slate-50 rounded-lg border border-slate-200">
+                    {newSchAttachments.map(att => (
+                      <div key={att.id} className="flex items-center justify-between p-1.5 bg-white rounded-md border border-slate-200 shadow-2xs">
+                        <div className="flex items-center gap-1.5 min-w-0">
+                          {att.type === "image" ? (
+                            <img src={att.url} alt="" className="w-7 h-7 rounded object-cover border border-slate-200 shrink-0" />
+                          ) : att.type === "pdf" ? (
+                            <span className="w-7 h-7 rounded bg-rose-50 text-rose-600 flex items-center justify-center font-black text-[9px] border border-rose-200 shrink-0">PDF</span>
+                          ) : (
+                            <span className="w-7 h-7 rounded bg-blue-50 text-blue-600 flex items-center justify-center font-black text-[9px] border border-blue-200 shrink-0">DOC</span>
+                          )}
+                          <div className="min-w-0">
+                            <div className="text-[11px] font-bold text-slate-800 truncate" title={att.name}>{att.name}</div>
+                            <div className="text-[10px] text-slate-400">{att.size}</div>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          {att.type === "image" && att.url && (
+                            <button
+                              type="button"
+                              onClick={() => setPreviewAttachment(att)}
+                              className="text-slate-400 hover:text-indigo-600 p-1 cursor-pointer"
+                              title="Xem ảnh"
+                            >
+                              <Eye size={12} />
+                            </button>
+                          )}
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveSchAttachment(att.id)}
+                            className="text-slate-400 hover:text-rose-600 p-1 cursor-pointer"
+                            title="Gỡ tệp"
+                          >
+                            <X size={13} />
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Ghi chú */}
+              <div>
+                <label className="block font-bold text-slate-700 mb-1">Ghi chú bổ sung (tùy chọn)</label>
+                <input
+                  id="modal-new-sch-notes"
+                  name="newSchNotes"
+                  type="text"
+                  placeholder="Ghi chú thêm về cơ sở vật chất, hậu cần..."
+                  value={newSchNotes}
+                  onChange={e => setNewSchNotes(e.target.value)}
+                  className="w-full p-2 bg-slate-50 border border-slate-200 rounded-lg"
+                />
+              </div>
+
+              <div className="pt-3 border-t border-slate-200 flex justify-end gap-2 shrink-0">
                 <button
                   type="button"
                   onClick={() => setShowAddScheduleModal(false)}
@@ -1812,26 +2381,264 @@ export default function TaskAndSchedule() {
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 font-bold text-white shadow-xs cursor-pointer"
+                  className="px-4 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 font-bold text-white shadow-xs cursor-pointer flex items-center gap-1.5"
                 >
-                  Lưu vào lịch công tác
+                  <CalendarCheck size={14} /> Lưu vào lịch công tác
                 </button>
               </div>
             </form>
           </div>
         </div>
       )}
+
+      {/* MODAL: DETAIL / VIEW SCHEDULE */}
+      {selectedSchedule && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/75 backdrop-blur-sm animate-in fade-in duration-150">
+          <div className="bg-white w-full max-w-2xl rounded-2xl shadow-2xl border border-slate-200/90 overflow-hidden flex flex-col max-h-[92vh] animate-in zoom-in-95 duration-200">
+            {/* Header: Indigo GovTech */}
+            <div className="px-5 py-4 bg-gradient-to-r from-slate-900 via-slate-800 to-indigo-950 text-white flex items-center justify-between shrink-0 border-b border-slate-700/80">
+              <div className="flex items-center gap-2.5 min-w-0">
+                <span className="font-mono text-xs font-black px-2.5 py-1 rounded-md bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 shrink-0">
+                  {selectedSchedule.id}
+                </span>
+                <div className="min-w-0">
+                  <span className="text-[11px] uppercase tracking-wider text-indigo-300/80 font-bold block">
+                    Chi tiết Sự kiện & Lịch công tác
+                  </span>
+                  <h3 className="font-bold text-sm sm:text-base text-white truncate leading-snug">
+                    {selectedSchedule.title}
+                  </h3>
+                </div>
+              </div>
+              <button
+                onClick={() => setSelectedSchedule(null)}
+                className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-white/10 cursor-pointer transition-colors shrink-0"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            {/* Body */}
+            <div className="p-5 space-y-4 overflow-y-auto flex-1 text-xs">
+              {/* Type & Status Badges */}
+              <div className="flex flex-wrap items-center justify-between gap-2 p-3 bg-slate-50 rounded-xl border border-slate-200">
+                <div className="flex items-center gap-2">
+                  <span className="text-slate-500 font-bold">Phân loại:</span>
+                  {getScheduleTypeBadge(selectedSchedule.type)}
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-slate-500 font-bold">Trạng thái:</span>
+                  <select
+                    value={selectedSchedule.status}
+                    onChange={e => handleUpdateScheduleStatus(selectedSchedule.id, e.target.value as any)}
+                    className="font-bold text-xs py-1 px-2.5 rounded-lg border border-slate-300 bg-white"
+                  >
+                    <option value="Sắp diễn ra">Sắp diễn ra</option>
+                    <option value="Đang diễn ra">Đang diễn ra</option>
+                    <option value="Đã kết thúc">Đã kết thúc</option>
+                    <option value="Đã hoãn">Đã hoãn</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* 4 Metric Tiles */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+                <div className="p-3 rounded-xl bg-indigo-50/50 border border-indigo-100 flex flex-col justify-between">
+                  <div className="text-[10px] uppercase font-bold text-indigo-700 flex items-center gap-1 mb-1">
+                    <CalendarIcon size={12} /> Ngày tổ chức
+                  </div>
+                  <div className="font-black text-slate-900 text-xs sm:text-sm">{selectedSchedule.date}</div>
+                </div>
+
+                <div className="p-3 rounded-xl bg-slate-50 border border-slate-200/80 flex flex-col justify-between">
+                  <div className="text-[10px] uppercase font-bold text-slate-500 flex items-center gap-1 mb-1">
+                    <Clock size={12} /> Thời gian
+                  </div>
+                  <div className="font-black text-slate-900 text-xs sm:text-sm">{selectedSchedule.time}</div>
+                </div>
+
+                <div className="p-3 rounded-xl bg-slate-50 border border-slate-200/80 flex flex-col justify-between col-span-2 sm:col-span-1">
+                  <div className="text-[10px] uppercase font-bold text-slate-500 flex items-center gap-1 mb-1">
+                    <MapPin size={12} /> Địa điểm
+                  </div>
+                  <div className="font-semibold text-slate-900 text-xs truncate" title={selectedSchedule.location}>
+                    {selectedSchedule.location}
+                  </div>
+                </div>
+
+                <div className="p-3 rounded-xl bg-emerald-50/50 border border-emerald-100 flex flex-col justify-between col-span-2 sm:col-span-1">
+                  <div className="text-[10px] uppercase font-bold text-emerald-700 flex items-center gap-1 mb-1">
+                    <User size={12} /> Chủ trì
+                  </div>
+                  <div className="font-semibold text-slate-900 text-xs truncate" title={selectedSchedule.host}>
+                    {selectedSchedule.host}
+                  </div>
+                </div>
+              </div>
+
+              {/* Host & Attendees Info */}
+              <div className="p-3.5 bg-gradient-to-br from-slate-50 to-indigo-50/30 rounded-xl border border-slate-200 space-y-2">
+                <div className="flex items-start gap-2">
+                  <User size={14} className="text-indigo-600 mt-0.5 shrink-0" />
+                  <div>
+                    <span className="font-bold text-slate-700">Người chủ trì: </span>
+                    <span className="font-black text-indigo-950">{selectedSchedule.host}</span>
+                  </div>
+                </div>
+                <div className="flex items-start gap-2">
+                  <Users size={14} className="text-slate-400 mt-0.5 shrink-0" />
+                  <div>
+                    <span className="font-bold text-slate-700">Thành phần tham dự: </span>
+                    <span className="text-slate-800">{selectedSchedule.attendees}</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Detailed Agenda / Content */}
+              <div>
+                <div className="font-bold text-slate-700 mb-1.5 flex items-center gap-1.5">
+                  <FileText size={14} className="text-indigo-600" />
+                  <span>Nội dung cuộc họp & Chương trình làm việc chi tiết</span>
+                </div>
+                <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200/90 text-slate-800 leading-relaxed whitespace-pre-line text-xs font-normal">
+                  {selectedSchedule.description || selectedSchedule.content || "Chưa có nội dung mô tả chi tiết cho sự kiện này."}
+                </div>
+              </div>
+
+              {/* Notes */}
+              {selectedSchedule.notes && (
+                <div className="p-3 rounded-xl bg-amber-50/60 border border-amber-200 text-amber-900 text-xs">
+                  <span className="font-bold">Ghi chú hậu cần: </span>
+                  {selectedSchedule.notes}
+                </div>
+              )}
+
+              {/* Attached Files & Documents */}
+              <div className="pt-2 border-t border-slate-100">
+                <div className="flex items-center justify-between mb-2">
+                  <div className="font-bold text-slate-700 flex items-center gap-1.5">
+                    <Paperclip size={14} className="text-indigo-600" />
+                    <span>Tài liệu & Tệp tin đính kèm ({selectedSchedule.attachments?.length || 0})</span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => detailSchFileInputRef.current?.click()}
+                    className="text-[11px] font-bold text-indigo-700 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 px-2.5 py-1 rounded-lg flex items-center gap-1 cursor-pointer transition-colors"
+                  >
+                    <Plus size={13} /> Đính kèm thêm tệp...
+                  </button>
+                  <input
+                    type="file"
+                    ref={detailSchFileInputRef}
+                    onChange={handleDetailSchFileUpload}
+                    multiple
+                    accept="image/*,.pdf,.doc,.docx"
+                    className="hidden"
+                  />
+                </div>
+
+                {selectedSchedule.attachments && selectedSchedule.attachments.length > 0 ? (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    {selectedSchedule.attachments.map(att => (
+                      <div
+                        key={att.id}
+                        className="p-2 rounded-xl bg-slate-50 hover:bg-indigo-50/50 border border-slate-200 flex items-center justify-between gap-2 transition-colors"
+                      >
+                        <div className="flex items-center gap-2 min-w-0">
+                          {att.type === "image" ? (
+                            <img
+                              src={att.url}
+                              alt=""
+                              className="w-9 h-9 rounded-lg object-cover border border-slate-200 cursor-pointer shrink-0"
+                              onClick={() => setPreviewAttachment(att)}
+                            />
+                          ) : att.type === "pdf" ? (
+                            <div className="w-9 h-9 rounded-lg bg-rose-50 border border-rose-200 text-rose-600 flex flex-col items-center justify-center shrink-0">
+                              <span className="font-black text-[9px]">PDF</span>
+                            </div>
+                          ) : (
+                            <div className="w-9 h-9 rounded-lg bg-blue-50 border border-blue-200 text-blue-600 flex flex-col items-center justify-center shrink-0">
+                              <span className="font-black text-[9px]">DOC</span>
+                            </div>
+                          )}
+                          <div className="min-w-0">
+                            <div className="font-bold text-slate-800 text-xs truncate" title={att.name}>{att.name}</div>
+                            <div className="text-[10px] text-slate-400">{att.size || "Tệp tài liệu"}</div>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center gap-1 shrink-0">
+                          {att.type === "image" && att.url && (
+                            <button
+                              type="button"
+                              onClick={() => setPreviewAttachment(att)}
+                              className="p-1.5 rounded-lg text-slate-400 hover:text-indigo-600 hover:bg-white cursor-pointer"
+                              title="Xem ảnh phóng to"
+                            >
+                              <Eye size={13} />
+                            </button>
+                          )}
+                          {att.url && (
+                            <a
+                              href={att.url}
+                              download={att.name}
+                              className="p-1.5 rounded-lg text-slate-400 hover:text-indigo-600 hover:bg-white cursor-pointer"
+                              title="Tải về"
+                            >
+                              <Download size={13} />
+                            </a>
+                          )}
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveDetailSchAttachment(att.id)}
+                            className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 cursor-pointer"
+                            title="Xóa tệp"
+                          >
+                            <Trash2 size={13} />
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="p-4 rounded-xl border border-dashed border-slate-200 text-center text-slate-400 text-xs">
+                    Chưa có văn bản hay tệp đính kèm nào cho sự kiện này.
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Footer */}
+            <div className="px-5 py-3.5 bg-slate-50 border-t border-slate-200 flex items-center justify-between shrink-0">
+              <button
+                type="button"
+                onClick={() => handleDeleteSchedule(selectedSchedule.id)}
+                className="text-xs font-bold text-rose-600 hover:text-rose-700 flex items-center gap-1.5 cursor-pointer"
+              >
+                <Trash2 size={14} /> Xóa sự kiện
+              </button>
+              <button
+                type="button"
+                onClick={() => setSelectedSchedule(null)}
+                className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-900 text-white font-bold text-xs cursor-pointer shadow-xs transition-colors"
+              >
+                Đóng
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       {/* MODAL: PREVIEW IMAGE ATTACHMENT */}
       {previewAttachment && (
         <div
-          className="fixed inset-0 z-60 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm animate-in fade-in duration-150"
+          className="fixed inset-0 z-60 flex items-center justify-center p-4 bg-slate-950/85 backdrop-blur-sm animate-in fade-in duration-150"
           onClick={() => setPreviewAttachment(null)}
         >
           <div
-            className="relative max-w-3xl w-full bg-slate-900 rounded-2xl overflow-hidden shadow-2xl border border-slate-700"
+            className="relative max-w-3xl w-full bg-slate-900 rounded-2xl overflow-hidden shadow-2xl border border-slate-700 animate-in zoom-in-95 duration-200"
             onClick={e => e.stopPropagation()}
           >
-            <div className="p-3 bg-slate-950/90 border-b border-slate-800 flex items-center justify-between text-white">
+            <div className="p-3.5 bg-slate-950/90 border-b border-slate-800 flex items-center justify-between text-white">
               <div className="flex items-center gap-2 truncate text-xs font-bold">
                 <ImageIcon size={15} className="text-emerald-400 shrink-0" />
                 <span className="truncate">{previewAttachment.name}</span>
@@ -1843,23 +2650,23 @@ export default function TaskAndSchedule() {
                 <a
                   href={previewAttachment.url}
                   download={previewAttachment.name}
-                  className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-bold flex items-center gap-1 transition-colors"
+                  className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-bold flex items-center gap-1.5 transition-colors shadow-xs"
                 >
-                  <Download size={13} /> Tải ảnh về
+                  <Download size={13} /> Tải ảnh về máy
                 </a>
                 <button
                   onClick={() => setPreviewAttachment(null)}
-                  className="p-1 text-slate-400 hover:text-white hover:bg-slate-800 rounded-full cursor-pointer transition-colors"
+                  className="p-1.5 text-slate-400 hover:text-white hover:bg-slate-800 rounded-full cursor-pointer transition-colors"
                 >
                   <X size={18} />
                 </button>
               </div>
             </div>
-            <div className="p-3 flex items-center justify-center max-h-[75vh] overflow-auto bg-slate-950/50">
+            <div className="p-4 flex items-center justify-center max-h-[75vh] overflow-auto bg-slate-950/60">
               <img
                 src={previewAttachment.url}
                 alt={previewAttachment.name}
-                className="max-w-full max-h-[70vh] object-contain rounded-lg shadow-md"
+                className="max-w-full max-h-[70vh] object-contain rounded-xl shadow-2xl border border-slate-800"
               />
             </div>
           </div>
