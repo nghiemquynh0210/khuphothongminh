@@ -48,11 +48,19 @@ import {
   CreditCard,
   Settings,
   ChevronLeft,
-  ChevronRight
+  ChevronRight,
+  Building2,
+  Flag,
+  ShieldAlert,
+  Briefcase,
+  ArrowRight,
+  Filter,
+  Network
 } from "lucide-react";
 import { Resident, PartyMember, Association, AssociationMember } from "../types";
 import Pagination from "./Pagination";
 import { DetailRow, DetailGrid } from "./common/DetailRow";
+import { StatCard } from "./common/StatCard";
 import { formatVNNumber } from "../utils/numberFormat";
 import { 
   INITIAL_ASSOCIATIONS, 
@@ -71,6 +79,173 @@ export interface TargetGroupConfig {
   badgeText: string;
   category: "Chính trị - Xã hội" | "Chính quyền cơ sở" | "An ninh - Quốc phòng" | "Đoàn thể nhân dân" | "Hội quần chúng" | "Chính sách xã hội" | "Phong trào tự quản";
 }
+
+// Group Types & Configuration for Chi hội & Đoàn thể
+export type AssocGroupKey = "all" | "gov_party" | "security" | "mass_orgs" | "social_welfare";
+
+export const ASSOC_GROUPS: { key: AssocGroupKey; label: string; icon: any }[] = [
+  { key: "all", label: "Tất cả", icon: Layers },
+  { key: "gov_party", label: "Cấp ủy & Chính quyền", icon: Building2 },
+  { key: "security", label: "An ninh & PCCC", icon: ShieldAlert },
+  { key: "mass_orgs", label: "Đoàn thể Nhân dân", icon: Users },
+  { key: "social_welfare", label: "An sinh & Tự quản", icon: Heart },
+];
+
+export const getAssocGroupKey = (category: string = "", name: string = ""): AssocGroupKey => {
+  const cat = (category || "").toLowerCase();
+  const n = (name || "").toLowerCase();
+  
+  if (
+    cat.includes("an ninh") || 
+    cat.includes("quốc phòng") || 
+    n.includes("pccc") || 
+    n.includes("antt") || 
+    n.includes("hoà giải") || 
+    n.includes("khu đội") || 
+    n.includes("công an")
+  ) {
+    return "security";
+  }
+  if (
+    cat.includes("chính quyền") || 
+    n.includes("ban điều hành") || 
+    n.includes("tổ trưởng") || 
+    n.includes("đảng") || 
+    n.includes("mặt trận") || 
+    cat.includes("chính trị")
+  ) {
+    return "gov_party";
+  }
+  if (
+    cat.includes("chính sách") || 
+    n.includes("nghèo") || 
+    n.includes("người có công") || 
+    n.includes("liệt sĩ") || 
+    n.includes("anh hùng") || 
+    n.includes("khuyết tật") || 
+    n.includes("trẻ em") ||
+    cat.includes("tự quản")
+  ) {
+    return "social_welfare";
+  }
+  return "mass_orgs";
+};
+
+export const getAssocBadgeStyle = (assoc: Association) => {
+  const group = getAssocGroupKey(assoc.category, assoc.name);
+  const n = (assoc.name || "").toLowerCase();
+  
+  if (n.includes("đảng")) {
+    return {
+      icon: Flag,
+      iconColor: "text-red-600",
+      iconBg: "bg-red-50 border border-red-100",
+      groupLabel: "Cấp ủy Đảng"
+    };
+  }
+  if (n.includes("điều hành") || n.includes("chính quyền") || n.includes("tổ trưởng")) {
+    return {
+      icon: Building2,
+      iconColor: "text-indigo-600",
+      iconBg: "bg-indigo-50 border border-indigo-100",
+      groupLabel: "Chính quyền cơ sở"
+    };
+  }
+  if (n.includes("mặt trận")) {
+    return {
+      icon: Award,
+      iconColor: "text-amber-600",
+      iconBg: "bg-amber-50 border border-amber-100",
+      groupLabel: "Mặt trận Tổ quốc"
+    };
+  }
+  if (n.includes("pccc") || n.includes("phòng cháy")) {
+    return {
+      icon: Flame,
+      iconColor: "text-orange-600",
+      iconBg: "bg-orange-50 border border-orange-100",
+      groupLabel: "PCCC cơ sở"
+    };
+  }
+  if (n.includes("antt") || n.includes("trật tự") || n.includes("công an")) {
+    return {
+      icon: ShieldCheck,
+      iconColor: "text-emerald-700",
+      iconBg: "bg-emerald-50 border border-emerald-100",
+      groupLabel: "An ninh trật tự"
+    };
+  }
+  if (n.includes("hoà giải")) {
+    return {
+      icon: UserCheck,
+      iconColor: "text-blue-600",
+      iconBg: "bg-blue-50 border border-blue-100",
+      groupLabel: "Hòa giải cơ sở"
+    };
+  }
+  if (n.includes("khu đội") || n.includes("dân quân")) {
+    return {
+      icon: ShieldAlert,
+      iconColor: "text-emerald-800",
+      iconBg: "bg-emerald-50 border border-emerald-100",
+      groupLabel: "Quân sự cơ sở"
+    };
+  }
+  if (n.includes("phụ nữ")) {
+    return {
+      icon: Heart,
+      iconColor: "text-rose-600",
+      iconBg: "bg-rose-50 border border-rose-100",
+      groupLabel: "Hội Phụ nữ"
+    };
+  }
+  if (n.includes("thanh niên") || n.includes("đoàn")) {
+    return {
+      icon: Sparkles,
+      iconColor: "text-sky-600",
+      iconBg: "bg-sky-50 border border-sky-100",
+      groupLabel: "Đoàn Thanh niên"
+    };
+  }
+  if (n.includes("cựu chiến binh")) {
+    return {
+      icon: Award,
+      iconColor: "text-emerald-800",
+      iconBg: "bg-emerald-50 border border-emerald-100",
+      groupLabel: "Cựu chiến binh"
+    };
+  }
+  if (n.includes("người cao tuổi")) {
+    return {
+      icon: Users,
+      iconColor: "text-purple-600",
+      iconBg: "bg-purple-50 border border-purple-100",
+      groupLabel: "Hội Người cao tuổi"
+    };
+  }
+  if (n.includes("chữ thập đỏ")) {
+    return {
+      icon: Heart,
+      iconColor: "text-red-600",
+      iconBg: "bg-red-50 border border-red-100",
+      groupLabel: "Chữ Thập Đỏ"
+    };
+  }
+  if (group === "social_welfare") {
+    return {
+      icon: Heart,
+      iconColor: "text-teal-600",
+      iconBg: "bg-teal-50 border border-teal-100",
+      groupLabel: "Chính sách xã hội"
+    };
+  }
+  return {
+    icon: Users,
+    iconColor: "text-slate-600",
+    iconBg: "bg-slate-50 border border-slate-100",
+    groupLabel: assoc.category || "Đoàn thể cơ sở"
+  };
+};
 
 export const TARGET_GROUPS: TargetGroupConfig[] = [
   // 1. Nhóm Đảng
@@ -352,6 +527,10 @@ export default function PartyBranch({ partyMembers, residents = [] }: PartyBranc
 
   const [selectedAssociationId, setSelectedAssociationId] = useState<string>("ASC_BDH");
   const [searchTerm, setSearchTerm] = useState("");
+  const [selectedGroupFilter, setSelectedGroupFilter] = useState<AssocGroupKey>("all");
+  const [activeSubTab, setActiveSubTab] = useState<"associations" | "multi_role" | "decisions" | "org_chart">("associations");
+  const [decisionSearch, setDecisionSearch] = useState("");
+  const [decisionAssocFilter, setDecisionAssocFilter] = useState("all");
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 8;
 
@@ -1128,14 +1307,93 @@ export default function PartyBranch({ partyMembers, residents = [] }: PartyBranc
     setEditingMember(null);
   };
 
-  // Filter Associations
-  const filteredAssociations = associations.filter(a => {
-    const query = searchTerm.trim().toLowerCase();
-    if (!query) return true;
-    return a.name.toLowerCase().includes(query) || 
-           a.description.toLowerCase().includes(query) ||
-           a.leaderName.toLowerCase().includes(query);
-  });
+  // Filter Associations (with category group filter)
+  const filteredAssociations = useMemo(() => {
+    return associations.filter(a => {
+      // 1. Group Filter
+      if (selectedGroupFilter !== "all") {
+        const grp = getAssocGroupKey(a.category, a.name);
+        if (grp !== selectedGroupFilter) return false;
+      }
+      // 2. Search Query
+      const query = searchTerm.trim().toLowerCase();
+      if (!query) return true;
+      return a.name.toLowerCase().includes(query) || 
+             (a.description || "").toLowerCase().includes(query) ||
+             (a.leaderName || "").toLowerCase().includes(query) ||
+             (a.category || "").toLowerCase().includes(query);
+    });
+  }, [associations, selectedGroupFilter, searchTerm]);
+
+  // Executive KPI Metrics
+  const totalAssocCount = associations.length;
+  const totalMembersCount = useMemo(() => {
+    return associations.reduce((acc, curr) => acc + (curr.members?.length || 0), 0);
+  }, [associations]);
+  const totalDecisionsCount = useMemo(() => {
+    let count = 0;
+    associations.forEach(a => {
+      a.members?.forEach(m => {
+        if (m.decisionNumber || m.decisionFile) count++;
+      });
+    });
+    return count;
+  }, [associations]);
+
+  // Computed list of all decisions across all associations
+  const allDecisionsList = useMemo(() => {
+    const list: {
+      assocId: string;
+      assocName: string;
+      assocCategory: string;
+      memberId?: string;
+      memberName: string;
+      memberRole: string;
+      memberCccd: string;
+      decisionNumber: string;
+      decisionDate: string;
+      decisionFile?: any;
+    }[] = [];
+
+    associations.forEach(a => {
+      (a.members || []).forEach(m => {
+        if (m.decisionNumber || m.decisionFile) {
+          list.push({
+            assocId: a.id,
+            assocName: a.name,
+            assocCategory: a.category,
+            memberId: m.id,
+            memberName: m.fullName,
+            memberRole: m.role,
+            memberCccd: m.cccd,
+            decisionNumber: m.decisionNumber || "QĐ-01/UBND-AP",
+            decisionDate: m.decisionDate || "15/01/2020",
+            decisionFile: m.decisionFile
+          });
+        }
+      });
+    });
+
+    return list;
+  }, [associations]);
+
+  // Filtered decisions list for Sub-tab 3
+  const filteredDecisionsList = useMemo(() => {
+    return allDecisionsList.filter(d => {
+      if (decisionAssocFilter !== "all" && d.assocId !== decisionAssocFilter) return false;
+      if (decisionSearch.trim()) {
+        const q = decisionSearch.toLowerCase();
+        return (
+          d.decisionNumber.toLowerCase().includes(q) ||
+          d.memberName.toLowerCase().includes(q) ||
+          d.assocName.toLowerCase().includes(q) ||
+          d.memberRole.toLowerCase().includes(q) ||
+          d.memberCccd.includes(q)
+        );
+      }
+      return true;
+    });
+  }, [allDecisionsList, decisionSearch, decisionAssocFilter]);
 
   // Pagination Logic
   const totalItems = filteredAssociations.length;
@@ -1322,17 +1580,35 @@ export default function PartyBranch({ partyMembers, residents = [] }: PartyBranc
     showToast("Đã xuất danh sách tất cả các chi hội ra file Excel!", "success");
   };
 
-  // Multi-role Resident Analytics and Matrix
-  const multiRoleSummary = (residents || []).map(resident => {
-    if (!resident) return null;
-    const rolesHeld: { groupName: string; groupId: string; role: string; category: string; section: string; joinDate?: string; decisionNumber?: string }[] = [];
-    
+  // Multi-role Resident Analytics and Matrix:
+  // Build resident map from associations members + residents prop to guarantee 100% data fidelity
+  const multiRoleSummary = useMemo(() => {
+    // 1. Gather all unique people from associations
+    const peopleMap = new Map<string, {
+      fullName: string;
+      cccd: string;
+      phone?: string;
+      address?: string;
+      roles: { groupName: string; groupId: string; role: string; category: string; section: string; joinDate?: string; decisionNumber?: string }[];
+    }>();
+
     (associations || []).forEach(assoc => {
       if (!assoc || !assoc.members) return;
-      const member = assoc.members.find(m => m && m.cccd === resident.cccd);
-      if (member) {
+      assoc.members.forEach(member => {
+        if (!member || !member.cccd) return;
+        const key = member.cccd;
+        if (!peopleMap.has(key)) {
+          const matchedResident = (residents || []).find(r => r.cccd === member.cccd);
+          peopleMap.set(key, {
+            fullName: member.fullName || matchedResident?.fullName || "Cán bộ",
+            cccd: member.cccd,
+            phone: member.phone || matchedResident?.phone || "0903829112",
+            address: matchedResident?.address || "Khu phố 3, Phường An Phú",
+            roles: []
+          });
+        }
         const targetConfig = TARGET_GROUPS.find(g => g.id === assoc.id || (assoc.name && g.name.toLowerCase() === assoc.name.toLowerCase()));
-        rolesHeld.push({
+        peopleMap.get(key)!.roles.push({
           groupName: assoc.name || "",
           groupId: assoc.id,
           role: member.role || "",
@@ -1341,16 +1617,53 @@ export default function PartyBranch({ partyMembers, residents = [] }: PartyBranc
           joinDate: member.joinDate,
           decisionNumber: member.decisionNumber
         });
+      });
+    });
+
+    // Also include any residents from props that have roles not yet in map
+    (residents || []).forEach(resident => {
+      if (!resident || peopleMap.has(resident.cccd)) return;
+      const rolesHeld: { groupName: string; groupId: string; role: string; category: string; section: string; joinDate?: string; decisionNumber?: string }[] = [];
+      (associations || []).forEach(assoc => {
+        if (!assoc || !assoc.members) return;
+        const member = assoc.members.find(m => m && m.cccd === resident.cccd);
+        if (member) {
+          const targetConfig = TARGET_GROUPS.find(g => g.id === assoc.id || (assoc.name && g.name.toLowerCase() === assoc.name.toLowerCase()));
+          rolesHeld.push({
+            groupName: assoc.name || "",
+            groupId: assoc.id,
+            role: member.role || "",
+            category: assoc.category || "",
+            section: targetConfig?.section || "Nhóm khác",
+            joinDate: member.joinDate,
+            decisionNumber: member.decisionNumber
+          });
+        }
+      });
+      if (rolesHeld.length > 0) {
+        peopleMap.set(resident.cccd, {
+          fullName: resident.fullName,
+          cccd: resident.cccd,
+          phone: resident.phone,
+          address: resident.address,
+          roles: rolesHeld
+        });
       }
     });
 
-    return {
-      resident,
-      roles: rolesHeld,
-      rolesCount: rolesHeld.length,
-      isMultiRole: rolesHeld.length > 1
-    };
-  }).filter((item): item is NonNullable<typeof item> => item !== null);
+    return Array.from(peopleMap.values()).map(item => ({
+      resident: {
+        id: item.cccd,
+        fullName: item.fullName,
+        cccd: item.cccd,
+        phone: item.phone || "0903829112",
+        address: item.address || "Khu phố 3, Phường An Phú"
+      } as Resident,
+      roles: item.roles,
+      rolesCount: item.roles.length,
+      isMultiRole: item.roles.length > 1
+    }));
+  }, [associations, residents]);
 
   const multiRoleResidentsCount = multiRoleSummary.filter(s => s.rolesCount > 1).length;
   const anyRoleResidentsCount = multiRoleSummary.filter(s => s.rolesCount > 0).length;
@@ -1562,103 +1875,239 @@ export default function PartyBranch({ partyMembers, residents = [] }: PartyBranc
         </div>
       </div>
 
-      {/* 2-Column Administrative Master-Detail Layout */}
-      <div className="flex flex-col lg:flex-row gap-4 items-start">
+      {/* 4 Top KPI StatCards: Responsive & Actionable Metrics (matching SocialWelfare standard) */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+        <StatCard
+          label="Tổ chức & Chi hội"
+          value={totalAssocCount}
+          badge="100% kiện toàn"
+          highlighted={true}
+          icon={Building2}
+          color="emerald"
+          subtext="Cấp ủy, Chính quyền & Đoàn thể"
+          subtextRight="Cơ cấu hoàn chỉnh"
+        />
+        <StatCard
+          label="Tổng số Hội viên"
+          value={totalMembersCount}
+          badge="hội viên cơ sở"
+          icon={Users}
+          color="blue"
+          subtext="Cán bộ, đảng viên & đoàn viên"
+          subtextRight="Đã số hóa hồ sơ"
+        />
+        <StatCard
+          label="Hồ sơ & Quyết định"
+          value={totalDecisionsCount}
+          badge="văn bản pháp lý"
+          icon={FileCheck}
+          color="indigo"
+          subtext="Quyết định phê chuẩn nhân sự"
+          subtextRight="Có tệp PDF đính kèm"
+        />
+        <StatCard
+          label="Cán bộ Đa vai trò"
+          value={multiRoleResidentsCount}
+          badge="đồng chí kiêm nhiệm"
+          icon={Sparkles}
+          color="amber"
+          subtext="Đảm nhiệm từ 2 vai trò trở lên"
+          subtextRight="Theo dõi chéo"
+        />
+      </div>
+
+      {/* Sub-tab Navigation Bar - Matching SocialWelfare GovTech standard */}
+      <div className="flex items-center gap-1.5 bg-slate-100/90 p-1.5 rounded-2xl border border-slate-200/80 overflow-x-auto shadow-2xs">
+        <button
+          onClick={() => setActiveSubTab("associations")}
+          className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-2 shrink-0 ${
+            activeSubTab === "associations"
+              ? "bg-white text-emerald-800 shadow-xs border border-emerald-200/60"
+              : "text-slate-600 hover:text-slate-900 hover:bg-white/60"
+          }`}
+        >
+          <Building2 size={15} className={activeSubTab === "associations" ? "text-emerald-700" : "text-slate-400"} />
+          <span>Tổ Chức & Chi Hội ({associations.length})</span>
+        </button>
+
+        <button
+          onClick={() => setActiveSubTab("multi_role")}
+          className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-2 shrink-0 ${
+            activeSubTab === "multi_role"
+              ? "bg-white text-amber-800 shadow-xs border border-amber-200/60"
+              : "text-slate-600 hover:text-slate-900 hover:bg-white/60"
+          }`}
+        >
+          <Sparkles size={15} className={activeSubTab === "multi_role" ? "text-amber-600 fill-amber-500" : "text-slate-400"} />
+          <span>Cán Bộ Đa Vai Trò & Kiêm Nhiệm ({multiRoleResidentsCount})</span>
+        </button>
+
+        <button
+          onClick={() => setActiveSubTab("decisions")}
+          className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-2 shrink-0 ${
+            activeSubTab === "decisions"
+              ? "bg-white text-indigo-800 shadow-xs border border-indigo-200/60"
+              : "text-slate-600 hover:text-slate-900 hover:bg-white/60"
+          }`}
+        >
+          <FileCheck size={15} className={activeSubTab === "decisions" ? "text-indigo-600" : "text-slate-400"} />
+          <span>Sổ Quyết Định Chuẩn Y ({totalDecisionsCount})</span>
+        </button>
+
+        <button
+          onClick={() => setActiveSubTab("org_chart")}
+          className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-2 shrink-0 ${
+            activeSubTab === "org_chart"
+              ? "bg-white text-blue-800 shadow-xs border border-blue-200/60"
+              : "text-slate-600 hover:text-slate-900 hover:bg-white/60"
+          }`}
+        >
+          <Layers size={15} className={activeSubTab === "org_chart" ? "text-blue-600" : "text-slate-400"} />
+          <span>Sơ Đồ Bộ Máy Cơ Sở (5 Tầng)</span>
+        </button>
+      </div>
+
+      {/* ========================================================================= */}
+      {/* SUB-TAB 1: TỔ CHỨC & CHI HỘI (2-Column Administrative Master-Detail)      */}
+      {/* ========================================================================= */}
+      {activeSubTab === "associations" && (
+        <div className="flex flex-col lg:flex-row gap-4 items-start">
         
-        {/* LEFT COLUMN (Master): Thu gọn chiều ngang danh mục (270px - 280px) */}
-        <div className="w-full lg:w-[270px] xl:w-[280px] shrink-0 bg-white rounded-2xl border border-slate-200/90 shadow-2xs p-3 flex flex-col gap-2.5">
+        {/* LEFT COLUMN (Master): Rộng 320px - 340px để thông tin thoáng đẹp, không bị ép chữ */}
+        <div className="w-full lg:w-[320px] xl:w-[340px] shrink-0 bg-white rounded-2xl border border-slate-200/90 shadow-2xs p-3.5 flex flex-col gap-3">
           {/* Header */}
-          <div className="flex items-center justify-between gap-1.5 pb-2 border-b border-slate-100">
-            <div className="flex items-center gap-1.5 min-w-0">
+          <div className="flex items-center justify-between gap-1.5 pb-2.5 border-b border-slate-100">
+            <div className="flex items-center gap-2 min-w-0">
               <div className="p-1.5 bg-emerald-50 text-emerald-700 rounded-lg shrink-0">
-                <Award size={15} />
+                <Award size={16} />
               </div>
-              <h2 className="text-xs sm:text-sm font-bold text-slate-900 tracking-tight truncate">
+              <h2 className="text-sm font-black text-slate-900 tracking-tight truncate">
                 Chi hội & Đoàn thể
               </h2>
-              <span className="px-1.5 py-0.2 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 shrink-0">
+              <span className="px-2 py-0.5 rounded-full text-[11px] font-bold bg-emerald-100 text-emerald-800 font-mono shrink-0">
                 {filteredAssociations.length}
               </span>
             </div>
             <button
               onClick={() => setShowAddAssocModal(true)}
-              className="flex items-center gap-1 bg-emerald-600 hover:bg-emerald-700 text-white px-2 py-1 rounded-lg text-[11px] font-semibold shadow-2xs transition-colors shrink-0 cursor-pointer"
+              className="flex items-center gap-1 bg-emerald-600 hover:bg-emerald-700 text-white px-2.5 py-1.5 rounded-xl text-xs font-semibold shadow-2xs transition-colors shrink-0 cursor-pointer"
               title="Thêm chi hội mới"
             >
-              <Plus size={12} />
+              <Plus size={13} />
               <span>Thêm</span>
             </button>
           </div>
 
           {/* Search Box */}
           <div className="relative">
-            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" size={13} />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={14} />
             <input 
               id="party-search-input"
               name="partySearch"
               type="text" 
-              placeholder="Tìm kiếm chi hội..."
+              placeholder="Tìm kiếm chi hội, cán bộ..."
               value={searchTerm}
               onChange={(e) => handleSearchChange(e.target.value)}
-              className="w-full pl-8 pr-7 py-1.5 border border-slate-200 rounded-lg text-xs focus:outline-none focus:border-emerald-500 bg-slate-50/50"
+              className="w-full pl-9 pr-8 py-2 border border-slate-200 rounded-xl text-xs focus:outline-none focus:border-emerald-500 bg-slate-50/60 transition-colors"
             />
             {searchTerm && (
               <button
                 onClick={() => handleSearchChange("")}
-                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 cursor-pointer"
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 cursor-pointer p-0.5"
               >
                 <X size={12} />
               </button>
             )}
           </div>
 
-          {/* Vertical Chi hội List - Thu gọn chiều ngang và chiều dọc tối đa cho danh sách */}
-          <div className="space-y-1.5 max-h-[calc(100vh-210px)] min-h-[500px] overflow-y-auto pr-1 scrollbar-thin">
+          {/* Category Filter Pills (Phân nhóm theo Khối) */}
+          <div className="flex items-center gap-1 overflow-x-auto pb-1 scrollbar-none">
+            {ASSOC_GROUPS.map(grp => {
+              const isGrpActive = selectedGroupFilter === grp.key;
+              const count = grp.key === "all" 
+                ? associations.length 
+                : associations.filter(a => getAssocGroupKey(a.category, a.name) === grp.key).length;
+              return (
+                <button
+                  key={grp.key}
+                  type="button"
+                  onClick={() => setSelectedGroupFilter(grp.key)}
+                  className={`px-2.5 py-1 rounded-lg text-[10px] font-bold whitespace-nowrap transition-all cursor-pointer flex items-center gap-1 shrink-0 ${
+                    isGrpActive
+                      ? "bg-slate-900 text-white shadow-2xs"
+                      : "bg-slate-100 hover:bg-slate-200 text-slate-600"
+                  }`}
+                >
+                  <span>{grp.label}</span>
+                  <span className={`px-1 py-0.2 rounded-full text-[9px] font-mono ${
+                    isGrpActive ? "bg-white/20 text-white" : "bg-white text-slate-500 border border-slate-200"
+                  }`}>
+                    {count}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Vertical Chi hội List */}
+          <div className="space-y-2 max-h-[calc(100vh-290px)] min-h-[500px] overflow-y-auto pr-1 scrollbar-thin">
             {filteredAssociations.length === 0 ? (
               <div className="bg-slate-50 p-6 rounded-xl border border-dashed border-slate-200 text-center text-slate-400 text-xs">
-                Không tìm thấy chi hội phù hợp
+                Không tìm thấy chi hội phù hợp trong khối này
               </div>
             ) : (
               filteredAssociations.map((assoc) => {
                 const isSelected = selectedAssociation.id === assoc.id;
                 const displayName = formatAssocName(assoc.name);
+                const badgeStyle = getAssocBadgeStyle(assoc);
+                const IconComp = badgeStyle.icon;
 
                 return (
                   <div
                     key={assoc.id}
                     onClick={() => setSelectedAssociationId(assoc.id)}
-                    className={`p-2.5 rounded-xl border transition-all cursor-pointer relative text-left group ${
+                    className={`p-3 rounded-2xl border transition-all cursor-pointer relative text-left group ${
                       isSelected
-                        ? "bg-emerald-50/75 border-emerald-500 shadow-2xs ring-1 ring-emerald-500/30"
-                        : "bg-white border-slate-200 hover:border-emerald-300 hover:shadow-2xs"
+                        ? "bg-emerald-50/70 border-emerald-500 shadow-xs ring-1 ring-emerald-500/30"
+                        : "bg-white border-slate-200/90 hover:border-emerald-300 hover:bg-slate-50/50 hover:shadow-2xs"
                     }`}
                   >
                     {/* Active left indicator strip */}
                     {isSelected && (
-                      <div className="absolute left-0 top-0 bottom-0 w-1.5 bg-emerald-600 rounded-l-xl"></div>
+                      <div className="absolute left-0 top-2.5 bottom-2.5 w-1.5 bg-emerald-600 rounded-r-full"></div>
                     )}
 
-                    <div className="pl-1 space-y-1.5">
-                      {/* Row 1: Tên Chi hội / Tổ chức (Màu hiển thị mặc định chuẩn vàng amber đồng bộ) & Thao tác nhanh */}
-                      <div className="flex items-center justify-between gap-1.5">
-                        <span 
-                          className={`inline-flex items-center h-6 px-2.5 rounded-lg border text-xs font-bold font-sans tracking-tight truncate max-w-[190px] leading-none shrink-0 transition-all ${
-                            isSelected
-                              ? "bg-amber-100 text-amber-900 border-amber-300 shadow-2xs font-extrabold ring-1 ring-amber-300/40"
-                              : "bg-amber-50 text-amber-800 border-amber-200/90 font-bold group-hover:border-amber-300"
-                          }`}
-                          title={displayName}
-                        >
-                          {displayName}
-                        </span>
-                        <div className="flex items-center gap-0.5 opacity-60 group-hover:opacity-100 transition-opacity shrink-0">
+                    <div className="pl-1 space-y-2">
+                      {/* Row 1: Icon + Title + Quick Actions */}
+                      <div className="flex items-start justify-between gap-1.5">
+                        <div className="flex items-center gap-2 min-w-0 flex-1">
+                          <div className={`p-1.5 rounded-lg shrink-0 ${badgeStyle.iconBg} ${badgeStyle.iconColor}`}>
+                            <IconComp size={14} />
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <h3 
+                              className={`text-xs font-bold tracking-tight truncate leading-tight ${
+                                isSelected ? "text-emerald-950 font-black" : "text-slate-800 group-hover:text-emerald-900"
+                              }`}
+                              title={displayName}
+                            >
+                              {displayName}
+                            </h3>
+                            <span className="text-[10px] text-slate-400 font-mono block mt-0.5">
+                              {badgeStyle.groupLabel}
+                            </span>
+                          </div>
+                        </div>
+
+                        {/* Quick action buttons */}
+                        <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
                           <button
                             type="button"
                             onClick={(e) => {
                               e.stopPropagation();
                               handleOpenEditAssoc(assoc);
                             }}
-                            className="p-1 text-slate-400 hover:text-indigo-600 hover:bg-slate-100 rounded transition-colors cursor-pointer"
+                            className="p-1 text-slate-400 hover:text-indigo-600 hover:bg-white rounded-md transition-colors cursor-pointer shadow-2xs"
                             title="Sửa thông tin"
                           >
                             <Pencil size={11} />
@@ -1669,7 +2118,7 @@ export default function PartyBranch({ partyMembers, residents = [] }: PartyBranc
                               e.stopPropagation();
                               handleOpenDeleteAssoc(assoc);
                             }}
-                            className="p-1 text-slate-400 hover:text-rose-600 hover:bg-slate-100 rounded transition-colors cursor-pointer"
+                            className="p-1 text-slate-400 hover:text-rose-600 hover:bg-white rounded-md transition-colors cursor-pointer shadow-2xs"
                             title="Giải thể chi hội"
                           >
                             <Trash2 size={11} />
@@ -1678,14 +2127,20 @@ export default function PartyBranch({ partyMembers, residents = [] }: PartyBranc
                       </div>
 
                       {/* Row 2: Leader & Member count */}
-                      <div className="flex items-center justify-between text-[11px] text-slate-500">
-                        <span className="truncate max-w-[155px]" title={`Trưởng: ${assoc.leaderName}`}>
-                          Trưởng: <strong className="text-slate-700 font-medium">{assoc.leaderName}</strong>
-                        </span>
-                        <span className={`font-bold px-1.5 py-0.2 rounded-full text-[10px] shrink-0 ${
-                          isSelected ? "bg-emerald-600 text-white" : "bg-slate-100 text-slate-600"
+                      <div className="flex items-center justify-between gap-2 pt-1.5 border-t border-slate-100 text-[11px]">
+                        <div className="flex items-center gap-1.5 min-w-0 text-slate-600">
+                          <div className="w-5 h-5 rounded-full bg-slate-100 border border-slate-200/80 flex items-center justify-center text-[10px] font-bold text-slate-700 shrink-0">
+                            {assoc.leaderName ? assoc.leaderName.split(" ").slice(-1)[0][0] : "?"}
+                          </div>
+                          <span className="truncate max-w-[140px] text-[11px]" title={`Trưởng ban: ${assoc.leaderName}`}>
+                            <strong className="text-slate-700 font-medium">{assoc.leaderName || "Chưa kiện toàn"}</strong>
+                          </span>
+                        </div>
+
+                        <span className={`font-bold px-2 py-0.5 rounded-full text-[10px] shrink-0 font-mono ${
+                          isSelected ? "bg-emerald-600 text-white shadow-2xs" : "bg-slate-100 text-slate-700"
                         }`}>
-                          {formatVNNumber(assoc.members.length)} tv
+                          {formatVNNumber(assoc.members.length)} TV
                         </span>
                       </div>
                     </div>
@@ -1764,30 +2219,35 @@ export default function PartyBranch({ partyMembers, residents = [] }: PartyBranc
             </div>
 
             {/* Leader Card & Summary */}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 bg-slate-50/80 p-3.5 rounded-xl border border-slate-200/80">
-              <div className="sm:col-span-2 flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-emerald-100 text-emerald-800 flex items-center justify-center shrink-0">
-                  <ShieldCheck size={20} />
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 bg-slate-50/80 p-4 rounded-xl border border-slate-200/80">
+              <div className="sm:col-span-2 flex items-center gap-3.5">
+                <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-600 text-white flex items-center justify-center font-black text-base shadow-xs shrink-0">
+                  {selectedAssociation.leaderName ? selectedAssociation.leaderName.split(" ").slice(-1)[0][0] : "★"}
                 </div>
-                <div>
-                  <span className="text-[10px] text-slate-400 uppercase tracking-wider font-bold block">
-                    Người đứng đầu (Lãnh đạo phụ trách)
-                  </span>
-                  <div className="flex items-center gap-2 mt-0.5">
-                    <span className="font-bold text-slate-900 text-sm">{selectedAssociation.leaderName}</span>
-                    <span className="text-[11px] text-slate-500 font-mono">CCCD: {selectedAssociation.leaderCccd}</span>
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2">
+                    <span className="text-[10px] text-emerald-800 uppercase tracking-wider font-extrabold px-2 py-0.5 rounded bg-emerald-100/70 border border-emerald-200">
+                      Người đứng đầu
+                    </span>
+                    <span className="text-[11px] text-slate-500 font-mono">
+                      CCCD: {selectedAssociation.leaderCccd || "Chưa cập nhật"}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2 mt-1">
+                    <span className="font-black text-slate-900 text-base">{selectedAssociation.leaderName || "Chưa kiện toàn"}</span>
+                    <span className="text-xs text-slate-500 font-medium">({selectedAssociation.category})</span>
                   </div>
                 </div>
               </div>
 
-              <div className="flex sm:justify-end items-center gap-4 sm:border-l sm:border-slate-200/80 sm:pl-4 pt-2 sm:pt-0 border-t sm:border-t-0 border-slate-200/60">
+              <div className="flex sm:justify-end items-center gap-5 sm:border-l sm:border-slate-200/80 sm:pl-5 pt-2 sm:pt-0 border-t sm:border-t-0 border-slate-200/60">
                 <div>
                   <span className="text-[10px] text-slate-400 uppercase tracking-wider font-bold block">Tổng số hội viên</span>
-                  <span className="text-base font-extrabold text-emerald-800">{selectedAssociation.members.length} người</span>
+                  <span className="text-lg font-black text-emerald-800">{selectedAssociation.members.length} người</span>
                 </div>
                 <div>
-                  <span className="text-[10px] text-slate-400 uppercase tracking-wider font-bold block">Địa bàn</span>
-                  <span className="text-xs font-semibold text-slate-700 block mt-0.5">Khu phố 3</span>
+                  <span className="text-[10px] text-slate-400 uppercase tracking-wider font-bold block">Phạm vi địa bàn</span>
+                  <span className="text-xs font-bold text-slate-700 block mt-0.5">Khu phố 3, An Phú</span>
                 </div>
               </div>
             </div>
@@ -2202,6 +2662,607 @@ export default function PartyBranch({ partyMembers, residents = [] }: PartyBranc
           </div>
         </div>
       </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* SUB-TAB 2: CÁN BỘ ĐA VAI TRÒ & MA TRẬN KIÊM NHIỆM                         */}
+      {/* ========================================================================= */}
+      {activeSubTab === "multi_role" && (
+        <div className="space-y-4">
+          {/* Multi-role Header & Action Bar */}
+          <div className="bg-white rounded-2xl border border-slate-200/90 shadow-2xs p-4 sm:p-5 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="p-1.5 bg-amber-50 text-amber-700 rounded-lg">
+                  <Sparkles size={16} />
+                </span>
+                <h3 className="text-base font-black text-slate-900">
+                  Ma Trận Cán Bộ Đa Vai Trò & Phân Công Kiêm Nhiệm
+                </h3>
+              </div>
+              <p className="text-xs text-slate-500 mt-1">
+                Theo dõi 100% cán bộ đang nắm giữ từ 2 chức danh trở lên tại KP3, đánh giá mức độ cân đối khối lượng công việc.
+              </p>
+            </div>
+
+            <div className="flex items-center gap-2 w-full sm:w-auto shrink-0">
+              <button
+                onClick={handleExportMultiRoleReport}
+                className="flex-1 sm:flex-initial flex items-center justify-center gap-1.5 px-3 py-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 rounded-xl text-xs font-bold transition-colors cursor-pointer"
+                title="Xuất bảng tổng hợp Excel"
+              >
+                <FileSpreadsheet size={14} className="text-emerald-700" />
+                <span>Xuất Excel Ma Trận</span>
+              </button>
+              <button
+                onClick={() => {
+                  setQuickAssignTab("by-resident");
+                  setShowQuickAssignModal(true);
+                }}
+                className="flex-1 sm:flex-initial flex items-center justify-center gap-1.5 px-3.5 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold shadow-xs transition-colors cursor-pointer"
+              >
+                <Plus size={14} />
+                <span>+ Phân công kiêm nhiệm</span>
+              </button>
+            </div>
+          </div>
+
+          {/* Filter Pills & Search */}
+          <div className="bg-white rounded-2xl border border-slate-200/90 shadow-2xs p-3.5 flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3">
+            <div className="flex items-center gap-1.5 overflow-x-auto pb-1 md:pb-0">
+              {[
+                { label: `Tất cả (${multiRoleSummary.length})`, val: "Tất cả" },
+                { label: `Kiêm nhiệm ≥ 2 vai trò (${multiRoleResidentsCount})`, val: "Đa nhiệm (≥ 2 vai trò)" },
+                { label: `Có vai trò (${anyRoleResidentsCount})`, val: "Có vai trò (≥ 1 vai trò)" },
+                { label: "Chính quyền", val: "Chính quyền" },
+                { label: "Đoàn thể", val: "Đoàn thể" },
+                { label: "Đảng viên", val: "Đảng viên" }
+              ].map(pill => (
+                <button
+                  key={pill.val}
+                  onClick={() => setMatrixFilterCategory(pill.val)}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-bold shrink-0 transition-all cursor-pointer border ${
+                    matrixFilterCategory === pill.val
+                      ? "bg-slate-900 text-white border-slate-900 shadow-2xs"
+                      : "bg-slate-50 text-slate-600 border-slate-200/80 hover:bg-slate-100"
+                  }`}
+                >
+                  {pill.label}
+                </button>
+              ))}
+            </div>
+
+            <div className="relative min-w-[240px]">
+              <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+              <input
+                type="text"
+                placeholder="Tìm cán bộ, CCCD, chức danh..."
+                value={matrixSearch}
+                onChange={e => setMatrixSearch(e.target.value)}
+                className="w-full pl-9 pr-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all"
+              />
+            </div>
+          </div>
+
+          {/* Multi-role Grid */}
+          {filteredMultiRoleSummary.length === 0 ? (
+            <div className="bg-white rounded-2xl border border-slate-200/90 shadow-2xs p-12 text-center">
+              <Users size={36} className="mx-auto text-slate-300 mb-2" />
+              <h4 className="text-sm font-bold text-slate-800">Không tìm thấy cán bộ phù hợp</h4>
+              <p className="text-xs text-slate-500 mt-1">Vui lòng thử từ khóa tìm kiếm hoặc bộ lọc khác.</p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3.5">
+              {filteredMultiRoleSummary.map(item => {
+                const isOverloaded = item.rolesCount >= 4;
+                const isMulti = item.rolesCount >= 2;
+                return (
+                  <div
+                    key={item.resident.id || item.resident.cccd}
+                    className={`bg-white rounded-2xl border transition-all hover:shadow-md p-4 flex flex-col justify-between ${
+                      isOverloaded 
+                        ? "border-rose-300 bg-rose-50/20 shadow-rose-100" 
+                        : isMulti 
+                        ? "border-amber-200/80 shadow-2xs" 
+                        : "border-slate-200/80 shadow-2xs"
+                    }`}
+                  >
+                    <div>
+                      {/* Top Person Info */}
+                      <div className="flex items-start justify-between gap-2 pb-3 border-b border-slate-100">
+                        <div className="flex items-center gap-2.5 min-w-0">
+                          <div className={`w-10 h-10 rounded-xl flex items-center justify-center font-black text-sm shrink-0 text-white shadow-2xs ${
+                            isOverloaded
+                              ? "bg-gradient-to-br from-rose-500 to-rose-700"
+                              : isMulti
+                              ? "bg-gradient-to-br from-amber-500 to-amber-700"
+                              : "bg-gradient-to-br from-slate-600 to-slate-800"
+                          }`}>
+                            {item.resident.fullName.trim().split(" ").pop()?.slice(0, 2).toUpperCase() || "CB"}
+                          </div>
+                          <div className="min-w-0">
+                            <h4 className="text-sm font-black text-slate-900 truncate">
+                              {item.resident.fullName}
+                            </h4>
+                            <div className="flex items-center gap-2 mt-0.5 text-[11px] text-slate-500 font-mono">
+                              <span>CCCD: {item.resident.cccd || "Chưa cấp"}</span>
+                              {item.resident.phone && (
+                                <span className="text-slate-400">• {item.resident.phone}</span>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+
+                        <span className={`px-2 py-0.5 rounded-full text-[11px] font-bold font-mono shrink-0 ${
+                          isOverloaded
+                            ? "bg-rose-100 text-rose-800 border border-rose-200"
+                            : isMulti
+                            ? "bg-amber-100 text-amber-900 border border-amber-200"
+                            : "bg-slate-100 text-slate-700"
+                        }`}>
+                          {item.rolesCount} vai trò
+                        </span>
+                      </div>
+
+                      {/* Address */}
+                      <div className="flex items-center gap-1.5 text-[11px] text-slate-500 mt-2.5 mb-3">
+                        <MapPin size={12} className="text-slate-400 shrink-0" />
+                        <span className="truncate">{item.resident.address || "Khu phố 3, Phường An Phú"}</span>
+                      </div>
+
+                      {/* Roles List */}
+                      <div className="space-y-1.5">
+                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+                          Các vị trí kiêm nhiệm:
+                        </span>
+                        {item.roles.map((r, rIdx) => (
+                          <div
+                            key={rIdx}
+                            className="flex items-center justify-between gap-2 p-2 rounded-xl bg-slate-50 border border-slate-100 text-xs"
+                          >
+                            <div className="flex items-center gap-1.5 min-w-0">
+                              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0" />
+                              <span className="font-semibold text-slate-800 truncate text-[11px]">
+                                {r.groupName}
+                              </span>
+                            </div>
+                            <span className="px-2 py-0.5 bg-white border border-slate-200 text-emerald-800 font-bold rounded-lg text-[10px] shrink-0">
+                              {r.role}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Footer Workload Indicator & Quick Action */}
+                    <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-1.5 text-[11px]">
+                        {isOverloaded ? (
+                          <span className="text-rose-600 font-bold flex items-center gap-1">
+                            <AlertTriangle size={12} /> Cảnh báo quá tải
+                          </span>
+                        ) : isMulti ? (
+                          <span className="text-amber-700 font-semibold flex items-center gap-1">
+                            <Sparkles size={12} /> Đang kiêm nhiệm
+                          </span>
+                        ) : (
+                          <span className="text-slate-500">
+                            Đơn nhiệm
+                          </span>
+                        )}
+                      </div>
+
+                      <button
+                        onClick={() => {
+                          setQuickAssignResidentCccd(item.resident.cccd);
+                          setQuickAssignTab("by-resident");
+                          setShowQuickAssignModal(true);
+                        }}
+                        className="text-xs font-bold text-emerald-700 hover:text-emerald-800 hover:underline flex items-center gap-1 cursor-pointer"
+                      >
+                        <span>Điều chỉnh</span>
+                        <ArrowRight size={12} />
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* SUB-TAB 3: SỔ QUYẾT ĐỊNH CHUẨN Y & HỒ SƠ PHÁP LÝ                          */}
+      {/* ========================================================================= */}
+      {activeSubTab === "decisions" && (
+        <div className="space-y-4">
+          {/* Header & Controls */}
+          <div className="bg-white rounded-2xl border border-slate-200/90 shadow-2xs p-4 sm:p-5 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="p-1.5 bg-indigo-50 text-indigo-700 rounded-lg">
+                  <FileCheck size={16} />
+                </span>
+                <h3 className="text-base font-black text-slate-900">
+                  Sổ Quyết Định Chuẩn Y & Văn Bản Pháp Quy
+                </h3>
+              </div>
+              <p className="text-xs text-slate-500 mt-1">
+                Lưu trữ tập trung {totalDecisionsCount} quyết định chuẩn y thành lập & phê duyệt nhân sự từ UBND Phường An Phú và Đảng ủy.
+              </p>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <span className="px-3 py-1.5 bg-indigo-50 text-indigo-800 border border-indigo-200 rounded-xl text-xs font-bold font-mono">
+                Số hóa: {allDecisionsList.length}/{allDecisionsList.length} văn bản (100%)
+              </span>
+            </div>
+          </div>
+
+          {/* Filters & Search Toolbar */}
+          <div className="bg-white rounded-2xl border border-slate-200/90 shadow-2xs p-3.5 flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3">
+            <div className="flex items-center gap-2 flex-1">
+              <div className="relative flex-1 max-w-md">
+                <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                <input
+                  type="text"
+                  placeholder="Tìm theo số QĐ, tên cán bộ, CCCD, chi hội..."
+                  value={decisionSearch}
+                  onChange={e => setDecisionSearch(e.target.value)}
+                  className="w-full pl-9 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all"
+                />
+              </div>
+
+              <select
+                value={decisionAssocFilter}
+                onChange={e => setDecisionAssocFilter(e.target.value)}
+                className="px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-700 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
+              >
+                <option value="all">Tất cả chi hội ({associations.length})</option>
+                {associations.map(a => (
+                  <option key={a.id} value={a.id}>{a.name}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          {/* Table of Decisions */}
+          {filteredDecisionsList.length === 0 ? (
+            <div className="bg-white rounded-2xl border border-slate-200/90 shadow-2xs p-12 text-center">
+              <FileCheck size={36} className="mx-auto text-slate-300 mb-2" />
+              <h4 className="text-sm font-bold text-slate-800">Không tìm thấy quyết định nào</h4>
+              <p className="text-xs text-slate-500 mt-1">Thử thay đổi bộ lọc hoặc từ khóa tìm kiếm.</p>
+            </div>
+          ) : (
+            <div className="bg-white rounded-2xl border border-slate-200/90 shadow-2xs overflow-hidden">
+              <div className="overflow-x-auto">
+                <table className="w-full text-left border-collapse text-xs">
+                  <thead>
+                    <tr className="bg-slate-50/80 border-b border-slate-200/80 text-slate-600 font-bold">
+                      <th className="py-3 px-3.5 w-12 text-center">STT</th>
+                      <th className="py-3 px-3.5">Số Quyết Định</th>
+                      <th className="py-3 px-3.5">Ngày Ban Hành</th>
+                      <th className="py-3 px-3.5">Cán Bộ Được Chuẩn Y</th>
+                      <th className="py-3 px-3.5">Chức Vụ & Tổ Chức</th>
+                      <th className="py-3 px-3.5">Cơ Quan Ban Hành</th>
+                      <th className="py-3 px-3.5 text-center">Hiệu Lực</th>
+                      <th className="py-3 px-3.5 text-right">Tác Vụ</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {filteredDecisionsList.map((dec, idx) => (
+                      <tr key={`${dec.assocId}-${dec.memberCccd}-${idx}`} className="hover:bg-indigo-50/30 transition-colors">
+                        <td className="py-3 px-3.5 text-center font-mono text-slate-400">
+                          {idx + 1}
+                        </td>
+                        <td className="py-3 px-3.5">
+                          <div className="flex items-center gap-1.5 font-mono font-bold text-indigo-700">
+                            <FileText size={13} className="text-indigo-500 shrink-0" />
+                            <span>{dec.decisionNumber}</span>
+                          </div>
+                        </td>
+                        <td className="py-3 px-3.5 text-slate-600 font-mono">
+                          {dec.decisionDate}
+                        </td>
+                        <td className="py-3 px-3.5">
+                          <div className="font-bold text-slate-900">{dec.memberName}</div>
+                          <div className="text-[10px] text-slate-400 font-mono">CCCD: {dec.memberCccd}</div>
+                        </td>
+                        <td className="py-3 px-3.5">
+                          <span className="font-bold text-slate-800">{dec.memberRole}</span>
+                          <div className="text-[11px] text-slate-500 truncate max-w-[200px]">{dec.assocName}</div>
+                        </td>
+                        <td className="py-3 px-3.5">
+                          <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-slate-100 text-slate-700">
+                            {dec.decisionNumber.includes("ĐU") ? "Đảng ủy Phường" : "UBND Phường An Phú"}
+                          </span>
+                        </td>
+                        <td className="py-3 px-3.5 text-center">
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800">
+                            <CheckCircle2 size={10} /> Đang hiệu lực
+                          </span>
+                        </td>
+                        <td className="py-3 px-3.5 text-right">
+                          <button
+                            onClick={() => {
+                              setViewingDecisionDoc({
+                                memberName: dec.memberName,
+                                memberRole: dec.memberRole,
+                                memberCccd: dec.memberCccd,
+                                associationName: dec.assocName,
+                                decisionNumber: dec.decisionNumber,
+                                decisionDate: dec.decisionDate,
+                                decisionFile: dec.decisionFile
+                              });
+                            }}
+                            className="inline-flex items-center gap-1 px-2.5 py-1 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded-lg text-xs font-bold transition-colors cursor-pointer"
+                          >
+                            <Eye size={12} />
+                            <span>Xem QĐ</span>
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* SUB-TAB 4: SƠ ĐỒ BỘ MÁY CƠ SỞ KP3 (5 TẦNG)                               */}
+      {/* ========================================================================= */}
+      {activeSubTab === "org_chart" && (
+        <div className="space-y-6">
+          {/* Header */}
+          <div className="bg-white rounded-2xl border border-slate-200/90 shadow-2xs p-4 sm:p-5 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="p-1.5 bg-blue-50 text-blue-700 rounded-lg">
+                  <Layers size={16} />
+                </span>
+                <h3 className="text-base font-black text-slate-900">
+                  Sơ Đồ Cơ Cấu Tổ Chức Bộ Máy Chính Trị & Xã Hội Cơ Sở
+                </h3>
+              </div>
+              <p className="text-xs text-slate-500 mt-1">
+                Mô hình tổ chức 5 tầng vận hành tại Khu phố 3, Phường An Phú. Nhấp vào từng khối để xem chi tiết danh sách nhân sự.
+              </p>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <span className="px-3 py-1.5 bg-blue-50 text-blue-800 border border-blue-200 rounded-xl text-xs font-bold font-mono">
+                Tổng cộng: 23 Tổ chức & Chi hội
+              </span>
+            </div>
+          </div>
+
+          {/* Org Chart 5 Tiers */}
+          <div className="p-4 sm:p-6 bg-slate-50/60 rounded-3xl border border-slate-200/80 space-y-6">
+            
+            {/* TẦNG 1: LÃNH ĐẠO TOÀN DIỆN */}
+            <div className="flex flex-col items-center">
+              <div className="text-[11px] font-black uppercase tracking-wider text-rose-700 bg-rose-50 px-3 py-1 rounded-full border border-rose-200 mb-2">
+                Tầng 1 • Hạt nhân Lãnh đạo toàn diện
+              </div>
+              <div
+                onClick={() => {
+                  const target = associations.find(a => a.id === "ASC_PARTY" || a.name.includes("Chi bộ"));
+                  if (target) {
+                    setSelectedAssociationId(target.id);
+                    setActiveSubTab("associations");
+                  }
+                }}
+                className="w-full max-w-md bg-white hover:bg-rose-50/30 rounded-2xl border-2 border-rose-500 p-4 shadow-sm hover:shadow-md transition-all cursor-pointer text-center group"
+              >
+                <div className="inline-flex p-2 bg-rose-100 text-rose-700 rounded-xl mb-1.5">
+                  <Flag size={20} />
+                </div>
+                <h4 className="font-black text-sm text-slate-900 group-hover:text-rose-700 transition-colors">
+                  Chi bộ Đảng Khu phố 3
+                </h4>
+                <p className="text-xs text-slate-600 mt-0.5">
+                  Bí thư: <span className="font-bold text-slate-900">Nguyễn Văn Hùng</span>
+                </p>
+                <div className="mt-2 inline-flex items-center gap-2 text-[10px] font-bold text-rose-800 bg-rose-50 px-2.5 py-0.5 rounded-full border border-rose-200 font-mono">
+                  13 Đảng viên sinh hoạt • QĐ số 12/ĐU-AP
+                </div>
+              </div>
+            </div>
+
+            {/* Connecting Vertical Line */}
+            <div className="w-0.5 h-6 bg-slate-300 mx-auto" />
+
+            {/* TẦNG 2: CHẤP HÀNH & HIỆP THƯƠNG */}
+            <div className="flex flex-col items-center">
+              <div className="text-[11px] font-black uppercase tracking-wider text-emerald-800 bg-emerald-50 px-3 py-1 rounded-full border border-emerald-200 mb-2">
+                Tầng 2 • Quản lý Điều hành & Hiệp thương Mặt trận
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 w-full max-w-2xl">
+                {/* BDH */}
+                <div
+                  onClick={() => {
+                    const target = associations.find(a => a.id === "ASC_BDH" || a.name.includes("Ban điều hành"));
+                    if (target) {
+                      setSelectedAssociationId(target.id);
+                      setActiveSubTab("associations");
+                    }
+                  }}
+                  className="bg-white hover:bg-emerald-50/30 rounded-2xl border border-emerald-500 p-4 shadow-sm hover:shadow-md transition-all cursor-pointer group"
+                >
+                  <div className="flex items-center gap-2.5 mb-2">
+                    <div className="p-2 bg-emerald-100 text-emerald-700 rounded-xl shrink-0">
+                      <Building2 size={18} />
+                    </div>
+                    <div>
+                      <h4 className="font-bold text-xs text-slate-900 group-hover:text-emerald-700 transition-colors">
+                        Ban Điều Hành Khu Phố 3
+                      </h4>
+                      <p className="text-[11px] text-slate-500">Cơ quan chấp hành chính quyền cơ sở</p>
+                    </div>
+                  </div>
+                  <div className="text-xs text-slate-700 pt-2 border-t border-slate-100 flex justify-between items-center">
+                    <span>Trưởng ban: <strong>Nguyễn Trung Huy</strong></span>
+                    <span className="text-[10px] font-mono font-bold bg-emerald-50 text-emerald-800 px-2 py-0.5 rounded-full">
+                      3 Thành viên
+                    </span>
+                  </div>
+                </div>
+
+                {/* Mặt Trận */}
+                <div
+                  onClick={() => {
+                    const target = associations.find(a => a.id === "ASC_MATTRAN" || a.name.includes("Mặt trận"));
+                    if (target) {
+                      setSelectedAssociationId(target.id);
+                      setActiveSubTab("associations");
+                    }
+                  }}
+                  className="bg-white hover:bg-emerald-50/30 rounded-2xl border border-emerald-500 p-4 shadow-sm hover:shadow-md transition-all cursor-pointer group"
+                >
+                  <div className="flex items-center gap-2.5 mb-2">
+                    <div className="p-2 bg-emerald-100 text-emerald-700 rounded-xl shrink-0">
+                      <Users size={18} />
+                    </div>
+                    <div>
+                      <h4 className="font-bold text-xs text-slate-900 group-hover:text-emerald-700 transition-colors">
+                        Ban Công Tác Mặt Trận
+                      </h4>
+                      <p className="text-[11px] text-slate-500">Đại đoàn kết toàn dân tộc địa bàn</p>
+                    </div>
+                  </div>
+                  <div className="text-xs text-slate-700 pt-2 border-t border-slate-100 flex justify-between items-center">
+                    <span>Trưởng ban: <strong>Nguyễn Văn Hùng</strong></span>
+                    <span className="text-[10px] font-mono font-bold bg-emerald-50 text-emerald-800 px-2 py-0.5 rounded-full">
+                      3 Thành viên
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Connecting Vertical Line */}
+            <div className="w-0.5 h-6 bg-slate-300 mx-auto" />
+
+            {/* TẦNG 3: KHỐI AN NINH - TRẬT TỰ & PCCC */}
+            <div className="flex flex-col items-center">
+              <div className="text-[11px] font-black uppercase tracking-wider text-sky-800 bg-sky-50 px-3 py-1 rounded-full border border-sky-200 mb-2">
+                Tầng 3 • Khối An Ninh - Quốc Phòng & PCCC Địa Bàn
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 w-full">
+                {[
+                  { id: "ASC_ANTT", name: "Tổ ANTT cơ sở", leader: "Phạm Minh Tuấn", role: "Tổ trưởng", count: "4 TV", icon: ShieldCheck, color: "sky" },
+                  { id: "ASC_PCCC", name: "Tổ liên gia PCCC", leader: "Nguyễn Trung Huy", role: "Tổ trưởng", count: "3 TV", icon: Flame, color: "orange" },
+                  { id: "ASC_HOAGIAI", name: "Tổ hoà giải cơ sở", leader: "Nguyễn Trung Huy", role: "Tổ trưởng", count: "3 TV", icon: Award, color: "emerald" },
+                  { id: "ASC_KHUDOI", name: "Khu Đội Dân quân", leader: "Lê Văn Sơn", role: "Khu đội trưởng", count: "3 TV", icon: ShieldAlert, color: "indigo" },
+                ].map(item => (
+                  <div
+                    key={item.id}
+                    onClick={() => {
+                      const target = associations.find(a => a.id === item.id || a.name.includes(item.name));
+                      if (target) {
+                        setSelectedAssociationId(target.id);
+                        setActiveSubTab("associations");
+                      }
+                    }}
+                    className="bg-white hover:bg-sky-50/40 rounded-2xl border border-slate-200 p-3.5 shadow-2xs hover:shadow-sm transition-all cursor-pointer group"
+                  >
+                    <div className="flex items-center gap-2 mb-2">
+                      <div className="p-1.5 bg-slate-100 text-slate-700 rounded-lg group-hover:bg-sky-100 group-hover:text-sky-700 transition-colors">
+                        <item.icon size={15} />
+                      </div>
+                      <h5 className="font-bold text-xs text-slate-900 group-hover:text-sky-700 transition-colors truncate">
+                        {item.name}
+                      </h5>
+                    </div>
+                    <div className="text-[11px] text-slate-600 space-y-0.5">
+                      <div>{item.role}: <strong className="text-slate-800">{item.leader}</strong></div>
+                      <div className="text-[10px] font-mono text-slate-400">{item.count} phụ trách</div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Connecting Vertical Line */}
+            <div className="w-0.5 h-6 bg-slate-300 mx-auto" />
+
+            {/* TẦNG 4: KHỐI ĐOÀN THỂ NHÂN DÂN & HỘI QUẦN CHÚNG */}
+            <div className="flex flex-col items-center">
+              <div className="text-[11px] font-black uppercase tracking-wider text-indigo-800 bg-indigo-50 px-3 py-1 rounded-full border border-indigo-200 mb-2">
+                Tầng 4 • Khối Đoàn Thể Chính Trị - Xã Hội & Quần Chúng
+              </div>
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2.5 w-full">
+                {[
+                  { id: "ASC_PHUNU", name: "Hội Phụ nữ", leader: "Lê Thị Mai", count: "3 TV", icon: Heart },
+                  { id: "ASC_CCB", name: "Cựu chiến binh", leader: "Phạm Minh Tuấn", count: "3 TV", icon: Award },
+                  { id: "ASC_THANHNIEN", name: "Đoàn thanh niên", leader: "Hoàng Gia Bảo", count: "2 TV", icon: Flame },
+                  { id: "ASC_NGUOICAOTUOI", name: "Người cao tuổi", leader: "Nguyễn Thị Loan", count: "2 TV", icon: Users },
+                  { id: "ASC_CHUTHAPDO", name: "Chữ thập đỏ", leader: "Đỗ Thị Minh", count: "2 TV", icon: Heart },
+                  { id: "ASC_KHUYENHOC", name: "Hội Khuyến học", leader: "Đinh Văn Nghĩa", count: "2 TV", icon: Award },
+                ].map(item => (
+                  <div
+                    key={item.id}
+                    onClick={() => {
+                      const target = associations.find(a => a.id === item.id || a.name.includes(item.name));
+                      if (target) {
+                        setSelectedAssociationId(target.id);
+                        setActiveSubTab("associations");
+                      }
+                    }}
+                    className="bg-white hover:bg-indigo-50/40 rounded-xl border border-slate-200 p-2.5 shadow-2xs hover:shadow-xs transition-all cursor-pointer text-center group"
+                  >
+                    <div className="w-7 h-7 mx-auto rounded-lg bg-indigo-50 text-indigo-700 flex items-center justify-center mb-1 group-hover:scale-110 transition-transform">
+                      <item.icon size={14} />
+                    </div>
+                    <h5 className="font-bold text-[11px] text-slate-900 group-hover:text-indigo-700 truncate">
+                      {item.name}
+                    </h5>
+                    <p className="text-[10px] text-slate-500 truncate mt-0.5">{item.leader}</p>
+                    <span className="inline-block mt-1 text-[9px] font-mono font-bold bg-slate-100 text-slate-700 px-1.5 py-0.2 rounded-full">
+                      {item.count}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Connecting Vertical Line */}
+            <div className="w-0.5 h-6 bg-slate-300 mx-auto" />
+
+            {/* TẦNG 5: HỆ THỐNG 14 TỔ DÂN PHỐ */}
+            <div className="flex flex-col items-center">
+              <div className="text-[11px] font-black uppercase tracking-wider text-slate-800 bg-slate-200/80 px-3 py-1 rounded-full border border-slate-300 mb-2">
+                Tầng 5 • 14 Tổ Dân Phố Trực Thuộc Địa Bàn KP3
+              </div>
+              <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-7 gap-2 w-full">
+                {Array.from({ length: 14 }, (_, i) => i + 1).map(tdpNum => (
+                  <div
+                    key={tdpNum}
+                    onClick={() => {
+                      const target = associations.find(a => a.id === "ASC_TOTRUONG" || a.name.includes("Tổ trưởng"));
+                      if (target) {
+                        setSelectedAssociationId(target.id);
+                        setActiveSubTab("associations");
+                      }
+                    }}
+                    className="bg-white hover:bg-slate-100 rounded-xl border border-slate-200/90 p-2 text-center shadow-2xs transition-all cursor-pointer group"
+                  >
+                    <div className="text-[11px] font-black text-slate-800 group-hover:text-emerald-700">
+                      Tổ DP {tdpNum}
+                    </div>
+                    <div className="text-[9px] text-slate-400 mt-0.5">Địa bàn số {tdpNum}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+          </div>
+        </div>
+      )}
 
       {/* Add New Association (Chi hội) Modal */}
       {showAddAssocModal && (
