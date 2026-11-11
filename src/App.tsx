@@ -527,7 +527,16 @@ export default function App() {
   const [newsList, setNewsList] = useState<LocalNews[]>(() => {
     try {
       const saved = localStorage.getItem("kp3_local_news");
-      return saved ? JSON.parse(saved) : initialNewsList;
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        // Automatically hydrate rich images and fields if old cache lacks imageUrl
+        if (Array.isArray(parsed) && parsed.length > 0 && !parsed[0].imageUrl) {
+          localStorage.setItem("kp3_local_news", JSON.stringify(initialNewsList));
+          return initialNewsList;
+        }
+        return parsed;
+      }
+      return initialNewsList;
     } catch {
       return initialNewsList;
     }

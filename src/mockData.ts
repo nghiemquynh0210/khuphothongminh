@@ -1965,12 +1965,13 @@ export const initialWelfareRecipients: WelfareRecipient[] = [
 export const initialCommunityEvents: CommunityEvent[] = [
   {
     id: "EV001",
-    title: "Ngày Hội Toàn Dân Làm Vệ Sinh Môi Trường",
+    title: "Ngày Hội Toàn Dân Làm Vệ Sinh Môi Trường & Chủ Nhật Xanh",
     organizer: "Ban Điều hành Khu phố 3 & Chi đoàn Thanh niên",
     dateTime: "19/07/2026 - 07:00",
     location: "Sân vận động mini & các tuyến hẻm Khu phố 3",
     status: "Sắp diễn ra",
     expectedAttendees: 120,
+    imageUrl: "https://images.unsplash.com/photo-1542601906990-b4d3fb778b09?w=800&auto=format&fit=crop&q=80",
     description: "Chiến dịch dọn dẹp các điểm nóng rác thải tự phát, khơi thông cống rãnh chuẩn bị mùa mưa, phát tờ rơi tuyên truyền diệt lăng quăng phòng chống sốt xuất huyết."
   },
   {
@@ -1981,6 +1982,7 @@ export const initialCommunityEvents: CommunityEvent[] = [
     location: "Nhà Văn hóa Khu phố 3, An Phú",
     status: "Đã kết thúc",
     expectedAttendees: 80,
+    imageUrl: "https://images.unsplash.com/photo-1511632765486-a01980e01a18?w=800&auto=format&fit=crop&q=80",
     description: "Trao tặng 45 phần quà khuyến học cho các em học sinh có thành tích xuất sắc và vượt khó học giỏi năm học 2025-2026."
   },
   {
@@ -1991,6 +1993,7 @@ export const initialCommunityEvents: CommunityEvent[] = [
     location: "Nhà Văn hóa Khu phố 3, An Phú",
     status: "Đang diễn ra",
     expectedAttendees: 50,
+    imageUrl: "https://images.unsplash.com/photo-1508847154043-be5407fcaa5a?w=800&auto=format&fit=crop&q=80",
     description: "Phổ biến kiến thức cơ bản về an toàn điện, kỹ năng thoát hiểm và hướng dẫn thực hành sử dụng bình chữa cháy xách tay dập tắt đám cháy bình gas."
   }
 ];
@@ -2311,8 +2314,20 @@ export const initialNewsList: LocalNews[] = [
     category: "Thông báo khẩn",
     date: "14/10/2026",
     author: "Trạm Y tế Phường & Ban Điều hành KP3",
-    content: "Do xuất hiện 02 ca nhiễm sốt xuất huyết tại tuyến hẻm 42 Lương Định Của, Trạm Y tế phường sẽ phối hợp Ban Điều hành tổ chức phun hóa chất diệt muỗi vào lúc 08h00 ngày 16/10/2026. Đề nghị người dân mở cửa nhà, che đậy thức ăn nước uống và tạm sơ tán vật nuôi trong thời gian phun thuốc.",
-    isPinned: true
+    summary: "Do xuất hiện 02 ca nhiễm sốt xuất huyết tại tuyến hẻm 42 Lương Định Của, Trạm Y tế phường và Ban Điều hành tổ chức tổng vệ sinh và phun hóa chất phòng dịch diện rộng.",
+    content: "Do xuất hiện 02 ca nhiễm sốt xuất huyết tại tuyến hẻm 42 Lương Định Của, Trạm Y tế phường sẽ phối hợp Ban Điều hành tổ chức phun hóa chất diệt muỗi vào lúc 08h00 ngày 16/10/2026.\n\nĐề nghị toàn thể người dân trong khu vực:\n1. Chủ động mở toang cửa nhà, cửa sổ để hóa chất khuếch tán diệt muỗi triệt để.\n2. Che đậy kỹ càng nguồn nước sinh hoạt, thức ăn nước uống gia đình và các bể nuôi thủy sinh.\n3. Tạm thời sơ tán người già, trẻ nhỏ và vật nuôi trong thời gian đội ngũ kỹ thuật phun thuốc và 30 phút sau khi kết thúc.\n4. Tích cực lật úp các vật dụng phế thải đọng nước xung quanh sân vườn để triệt tiêu nguồn lăng quăng bọ gậy.",
+    isPinned: true,
+    imageUrl: "https://images.unsplash.com/photo-1584036561566-baf8f5f1b144?w=1200&auto=format&fit=crop&q=80",
+    imageGallery: [
+      "https://images.unsplash.com/photo-1576091160550-2173dba999ef?w=800&auto=format&fit=crop&q=80",
+      "https://images.unsplash.com/photo-1584515979956-d9f6e5d09982?w=800&auto=format&fit=crop&q=80"
+    ],
+    readTime: "3 phút đọc",
+    views: 428,
+    attachedFile: {
+      name: "Ke_hoach_so_42_phun_thuoc_diet_muoi_PCD_KP3.pdf",
+      size: "1.4 MB"
+    }
   },
   {
     id: "NEWS002",
@@ -2320,26 +2335,53 @@ export const initialNewsList: LocalNews[] = [
     category: "Hành chính",
     date: "12/10/2026",
     author: "Công an Phường An Phú (Đại úy Trần Quốc Hải)",
-    content: "Thực hiện Luật Căn cước mới, Công an phường tổ chức thu nhận thông tin cấp Căn cước cho trẻ em từ 0-6 tuổi và từ 6 đến dưới 14 tuổi trực tiếp tại trụ sở Công an phường từ thứ Hai đến thứ Bảy hằng tuần. Phụ huynh chuẩn bị giấy khai sinh và mang điện thoại thông minh để đồng bộ tài khoản định danh VNeID mức 2.",
-    isPinned: true
+    summary: "Công an Phường triển khai thu nhận hồ sơ cấp Căn cước mẫu mới theo Luật Căn cước và hỗ trợ kích hoạt tài khoản định danh điện tử VNeID mức 2 cho nhân dân.",
+    content: "Thực hiện Luật Căn cước mới, Công an phường An Phú tổ chức chiến dịch cao điểm cấp căn cước và định danh điện tử:\n\n- Đối tượng: Toàn bộ trẻ em từ 0-6 tuổi (thực hiện qua Cổng dịch vụ công trực tuyến) và trẻ em từ 6 đến dưới 14 tuổi (thu nhận trực tiếp tại trụ sở Công an phường).\n- Thời gian làm việc: Từ thứ Hai đến thứ Bảy hằng tuần, sáng từ 7h30 - 11h30, chiều từ 13h30 - 17h00.\n- Giấy tờ cần chuẩn bị: Bản gốc hoặc bản sao trích lục Giấy khai sinh; cha mẹ hoặc người giám hộ mang theo CCCD gắn chip và điện thoại thông minh để đồng bộ tài khoản VNeID.",
+    isPinned: true,
+    imageUrl: "https://images.unsplash.com/photo-1554224155-8d04cb21cd6c?w=1200&auto=format&fit=crop&q=80",
+    imageGallery: [
+      "https://images.unsplash.com/photo-1526374965328-7f61d4dc18c5?w=800&auto=format&fit=crop&q=80"
+    ],
+    readTime: "4 phút đọc",
+    views: 612,
+    attachedFile: {
+      name: "Huong_dan_quy_trinh_cap_can_cuoc_moi_2026.pdf",
+      size: "820 KB"
+    }
   },
   {
     id: "NEWS003",
     title: "Lịch tiếp công dân định kỳ của Thường trực Chi bộ và Ban Điều hành Khu phố 3",
     category: "Hành chính",
     date: "10/10/2026",
-    author: "Nguyễn Văn Hùng - Bí thư Chi bộ",
-    content: "Ban Điều hành Khu phố 3 thông báo lịch tiếp dân vào sáng thứ Bảy hàng tuần từ 8h00 đến 11h00 tại Nhà Văn hóa Khu phố 3. Mọi kiến nghị, phản ánh về thủ tục hành chính, an ninh trật tự, vệ sinh môi trường sẽ được trực tiếp ghi nhận và xử lý nhanh chóng.",
-    isPinned: true
+    author: "Nguyễn Văn Hùng - Bí thư Chi bộ KP3",
+    summary: "Lịch tiếp dân định kỳ sáng thứ Bảy hàng tuần tại Nhà Văn hóa Khu phố 3 nhằm tiếp nhận và giải quyết kịp thời phản ánh của cử tri và bà con hẻm.",
+    content: "Nhằm nâng cao hiệu quả đối thoại trực tiếp và giải quyết kịp thời các nguyện vọng chính đáng của nhân dân, Thường trực Chi bộ và Ban Điều hành Khu phố 3 duy trì lịch tiếp công dân định kỳ:\n\n- Thời gian: Sáng thứ Bảy hàng tuần từ 08h00 đến 11h00.\n- Địa điểm: Nhà Văn hóa Khu phố 3 (Số 12 đường Trần Não kéo dài).\n- Thành phần tiếp dân: Bí thư Chi bộ, Trưởng Ban Điều hành, Trưởng Ban Công tác Mặt trận và Cảnh sát khu vực.\n- Nội dung tiếp nhận: Thủ tục hành chính, giải quyết mâu thuẫn tranh chấp dân sự, vệ sinh môi trường, an ninh trật tự và kiến nghị chỉnh trang đô thị.",
+    isPinned: true,
+    imageUrl: "https://images.unsplash.com/photo-1517048676732-d65bc937f952?w=1200&auto=format&fit=crop&q=80",
+    readTime: "2 phút đọc",
+    views: 345,
+    attachedFile: {
+      name: "Thong_bao_Lich_tiep_dan_Chi_bo_BĐH_KP3.pdf",
+      size: "540 KB"
+    }
   },
   {
     id: "NEWS004",
     title: "Vận động đóng góp Quỹ Vì người nghèo và Quỹ Đền ơn đáp nghĩa năm 2026",
     category: "An sinh xã hội",
     date: "08/10/2026",
-    author: "Ban Vận động Khu phố 3",
-    content: "Kỷ niệm các ngày lễ lớn trong năm, Ban vận động khu phố kêu gọi các hộ gia đình, cơ sở kinh doanh phát huy truyền thống tương thân tương ái, tự nguyện đóng góp xây dựng quỹ tình nghĩa nhằm chăm lo cho gia đình chính sách và các hoàn cảnh khó khăn trên địa bàn.",
-    isPinned: false
+    author: "Ban Vận động Quỹ Vì Người nghèo KP3",
+    summary: "Phát huy truyền thống tương thân tương ái, Ban công tác Mặt trận vận động ủng hộ quỹ an sinh xã hội, chăm lo các hộ gia đình chính sách và người có hoàn cảnh khó khăn.",
+    content: "Kỷ niệm các ngày lễ lớn và ngày Vì người nghèo Việt Nam, Ban vận động Khu phố 3 tha thiết kêu gọi các cơ quan, đơn vị, hộ kinh doanh và toàn thể bà con nhân dân phát huy truyền thống 'Lá lành đùm lá rách', tích cực tham gia đóng góp:\n\n- Mục đích sử dụng nguồn quỹ: Xây dựng và sửa chữa Nhà tình nghĩa, trao thẻ BHYT cho người nghèo, tặng quà dịp Lễ Tết, trợ cấp đột xuất cho hộ gặp tai nạn rủi ro.\n- Mọi sự đóng góp đều được công khai minh bạch 100% trên bảng tin số cộng đồng và Cổng thông tin điều hành khu phố.",
+    isPinned: false,
+    imageUrl: "https://images.unsplash.com/photo-1532629345422-7515f3d16bb6?w=1200&auto=format&fit=crop&q=80",
+    readTime: "2 phút đọc",
+    views: 289,
+    attachedFile: {
+      name: "Thu_ngo_Van_dong_Quy_Vi_nguoi_ngheo_2026.pdf",
+      size: "950 KB"
+    }
   },
   {
     id: "NEWS005",
@@ -2347,8 +2389,33 @@ export const initialNewsList: LocalNews[] = [
     category: "Phong trào",
     date: "05/10/2026",
     author: "Chi đoàn Thanh niên & Hội Phụ nữ KP3",
-    content: "Chào mừng kỷ niệm thành lập khu phố, Hội thao cộng đồng và Hội thi tiếng hát chính thức khai mạc tại Nhà Văn hóa Khu phố 3 với các môn kéo co, cờ tướng, bóng bàn và văn nghệ quần chúng.",
-    isPinned: false
+    summary: "Sôi nổi chuỗi hoạt động thể thao phong trào bóng bàn, cờ vua và hội diễn văn nghệ quần chúng chào mừng các ngày lễ lớn của quê hương.",
+    content: "Hội thao cộng đồng và Hội thi tiếng hát Khu phố 3 đã chính thức khai mạc tại Nhà Văn hóa với hơn 150 vận động viên và diễn viên quần chúng không chuyên tham gia.\n\nCác môn thi đấu diễn ra hào hứng bao gồm: Cờ tướng cao tuổi, Giải bóng bàn giao hữu cán bộ, Kéo co liên tổ và Tiếng hát gia đình văn hóa. Chương trình đã tạo không khí đoàn kết, gắn bó sâu sắc trong toàn thể cư dân.",
+    isPinned: false,
+    imageUrl: "https://images.unsplash.com/photo-1511632765486-a01980e01a18?w=1200&auto=format&fit=crop&q=80",
+    readTime: "3 phút đọc",
+    views: 534,
+    attachedFile: {
+      name: "Dieu_le_va_Lich_thi_dau_Hoi_thao_KP3.pdf",
+      size: "1.1 MB"
+    }
+  },
+  {
+    id: "NEWS006",
+    title: "Diễn tập phương án PCCC & Cứu nạn cứu hộ tại Tổ liên gia an toàn hẻm 42 An Phú",
+    category: "Hành chính",
+    date: "01/10/2026",
+    author: "Tổ liên gia PCCC & Công an Phường An Phú",
+    summary: "Thực tập thuần thục kỹ năng báo động chuông liên gia, sử dụng bình chữa cháy mini dập lửa khí gas và thoát hiểm an toàn trong hẻm sâu.",
+    content: "Tổ liên gia an toàn PCCC số 1 phối hợp lực lượng Cảnh sát PCCC và cứu nạn cứu hộ Công an TP Thủ Đức tổ chức buổi diễn tập thực binh chữa cháy tại ngõ hẹp.\n\nTình huống giả định xảy ra chập điện dẫn đến cháy tại tầng trệt nhà dân trong hẻm sâu. Chỉ sau 2 phút từ khi bấm chuông báo cháy liên gia, các hộ dân xung quanh đã có mặt cùng bình bọt chữa cháy, cứu thoát 2 người an toàn và khống chế ngọn lửa trước khi lực lượng chuyên nghiệp tiếp cận.",
+    isPinned: false,
+    imageUrl: "https://images.unsplash.com/photo-1508847154043-be5407fcaa5a?w=1200&auto=format&fit=crop&q=80",
+    readTime: "3 phút đọc",
+    views: 418,
+    attachedFile: {
+      name: "Phuong_an_dien_tap_PCCC_to_lien_gia_KP3.pdf",
+      size: "1.2 MB"
+    }
   }
 ];
 

@@ -556,9 +556,9 @@ export default function PartyBranch({ partyMembers, residents = [] }: PartyBranc
   const selectedAssociation = associations.find(a => a.id === selectedAssociationId) || associations[0] || fallbackAssociation;
 
   // Modern Toast alert system for cross-origin iframe compliance (replaces window.alert)
-  const [toast, setToast] = useState<{ message: string; type: "success" | "error" | "info" } | null>(null);
+  const [toast, setToast] = useState<{ message: string; type: "success" | "error" } | null>(null);
   
-  const showToast = (message: string, type: "success" | "error" | "info" = "success") => {
+  const showToast = (message: string, type: "success" | "error" = "success") => {
     setToast({ message, type });
     setTimeout(() => {
       setToast(null);
@@ -703,57 +703,6 @@ export default function PartyBranch({ partyMembers, residents = [] }: PartyBranc
 
   // Member Detail Modal State (Modal chi tiết thành viên chuẩn như phân hệ quản lý cư dân)
   const [selectedMemberForDetail, setSelectedMemberForDetail] = useState<AssociationMember | null>(null);
-
-  // Custom Member Benefits Map State (Lưu trữ quyền lợi & chế độ hội viên theo CCCD)
-  const [memberBenefitsMap, setMemberBenefitsMap] = useState<Record<string, string[]>>(() => {
-    try {
-      const raw = localStorage.getItem("kp3_assoc_member_benefits");
-      if (raw) return JSON.parse(raw);
-    } catch {}
-    return {};
-  });
-  const [newMemberBenefitInput, setNewMemberBenefitInput] = useState<string>("");
-
-  const getMemberBenefits = (cccd: string, memberRole: string, assocName: string, decisionNum?: string): string[] => {
-    if (memberBenefitsMap[cccd] && memberBenefitsMap[cccd].length > 0) {
-      return memberBenefitsMap[cccd];
-    }
-    const defaultList = [
-      `Quyền biểu quyết và tham gia ý kiến trong các hoạt động, hội nghị của ${assocName}`,
-      "Được đề xuất, kiến nghị và bảo vệ quyền & lợi ích hợp pháp, chính đáng",
-      "Được bồi dưỡng kỹ năng công tác đoàn thể và nghiệp vụ phong trào cơ sở",
-      "Xét bình chọn thi đua, nhận kỷ niệm chương & khen thưởng định kỳ của Khu phố 3",
-      "Hỗ trợ, thăm hỏi kịp thời khi gặp hoàn cảnh khó khăn hoặc việc hiếu hỷ"
-    ];
-    if (decisionNum) {
-      defaultList.unshift(`Quyết định chuẩn y chức danh ${memberRole} số ${decisionNum}`);
-    }
-    return defaultList;
-  };
-
-  const handleAddMemberBenefit = (cccd: string, memberRole: string, assocName: string) => {
-    if (!newMemberBenefitInput.trim()) return;
-    const current = getMemberBenefits(cccd, memberRole, assocName);
-    const updated = [...current, newMemberBenefitInput.trim()];
-    const newMap = { ...memberBenefitsMap, [cccd]: updated };
-    setMemberBenefitsMap(newMap);
-    try {
-      localStorage.setItem("kp3_assoc_member_benefits", JSON.stringify(newMap));
-    } catch {}
-    setNewMemberBenefitInput("");
-    showToast("Đã bổ sung quyền lợi mới cho hội viên!", "success");
-  };
-
-  const handleRemoveMemberBenefit = (cccd: string, benefitText: string, memberRole: string, assocName: string) => {
-    const current = getMemberBenefits(cccd, memberRole, assocName);
-    const updated = current.filter(b => b !== benefitText);
-    const newMap = { ...memberBenefitsMap, [cccd]: updated };
-    setMemberBenefitsMap(newMap);
-    try {
-      localStorage.setItem("kp3_assoc_member_benefits", JSON.stringify(newMap));
-    } catch {}
-    showToast("Đã xóa quyền lợi khỏi hồ sơ hội viên!", "success");
-  };
 
   // Dynamic Customizable Roles List (Thêm, Sửa, Xóa chức danh trong dropdown)
   const DEFAULT_ROLES = [
@@ -2513,12 +2462,7 @@ export default function PartyBranch({ partyMembers, residents = [] }: PartyBranc
                         const memberAvatar = member.avatar || matchedRes?.avatar || "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150";
 
                         return (
-                          <tr 
-                            key={`${member.cccd}-${mIdx}`} 
-                            onClick={() => setSelectedMemberForDetail(member)}
-                            className="hover:bg-rose-50/50 hover:border-l-4 hover:border-l-rose-500 transition-all cursor-pointer group"
-                            title="Nhấp vào để xem chi tiết hồ sơ hội viên & quyền lợi"
-                          >
+                          <tr key={`${member.cccd}-${mIdx}`} className="hover:bg-slate-50/80 transition-colors">
                             <td className="py-2.5 px-3 text-center text-slate-400 font-mono text-[11px]">
                               {mIdx + 1}
                             </td>
@@ -2528,7 +2472,7 @@ export default function PartyBranch({ partyMembers, residents = [] }: PartyBranc
                                   <img 
                                     src={memberAvatar} 
                                     alt={member.fullName}
-                                    className="w-8 h-8 rounded-full border border-emerald-500/40 object-cover bg-slate-100 group-hover:border-rose-400 transition-colors"
+                                    className="w-8 h-8 rounded-full border border-emerald-500/40 object-cover bg-slate-100"
                                     referrerPolicy="no-referrer"
                                   />
                                   {isPartyMem && (
@@ -2543,11 +2487,8 @@ export default function PartyBranch({ partyMembers, residents = [] }: PartyBranc
                                 <div>
                                   <button
                                     type="button"
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      setSelectedMemberForDetail(member);
-                                    }}
-                                    className="font-bold text-slate-900 group-hover:text-rose-700 text-xs text-left cursor-pointer transition-colors block"
+                                    onClick={() => setSelectedMemberForDetail(member)}
+                                    className="font-bold text-slate-900 hover:text-emerald-700 text-xs text-left cursor-pointer transition-colors block"
                                   >
                                     {member.fullName}
                                   </button>
@@ -2584,19 +2525,16 @@ export default function PartyBranch({ partyMembers, residents = [] }: PartyBranc
                                   {member.decisionFile && (
                                     <button
                                       type="button"
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        setViewingDecisionDoc({
-                                          memberName: member.fullName,
-                                          memberRole: member.role,
-                                          memberCccd: member.cccd,
-                                          associationName: selectedAssociation.name,
-                                          decisionNumber: member.decisionNumber,
-                                          decisionDate: member.decisionDate,
-                                          joinDate: member.joinDate,
-                                          file: member.decisionFile!
-                                        });
-                                      }}
+                                      onClick={() => setViewingDecisionDoc({
+                                        memberName: member.fullName,
+                                        memberRole: member.role,
+                                        memberCccd: member.cccd,
+                                        associationName: selectedAssociation.name,
+                                        decisionNumber: member.decisionNumber,
+                                        decisionDate: member.decisionDate,
+                                        joinDate: member.joinDate,
+                                        file: member.decisionFile!
+                                      })}
                                       className="text-[10px] text-emerald-700 font-semibold hover:underline flex items-center gap-1 cursor-pointer"
                                     >
                                       <FileText size={10} /> Xem tệp
@@ -2609,26 +2547,19 @@ export default function PartyBranch({ partyMembers, residents = [] }: PartyBranc
                                 </span>
                               )}
                             </td>
-                            <td className="py-2.5 px-3 text-right" onClick={(e) => e.stopPropagation()}>
-                              <div className="flex items-center justify-end gap-1.5">
+                            <td className="py-2.5 px-3 text-right">
+                              <div className="flex items-center justify-end gap-1">
                                 <button
                                   type="button"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    setSelectedMemberForDetail(member);
-                                  }}
-                                  className="px-2.5 py-1 bg-rose-50 hover:bg-rose-600 hover:text-white text-rose-700 rounded-lg text-xs font-bold border border-rose-200 cursor-pointer transition-all flex items-center gap-1 shadow-2xs"
-                                  title="Xem chi tiết hồ sơ & quyền lợi"
+                                  onClick={() => setSelectedMemberForDetail(member)}
+                                  className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-md transition-colors cursor-pointer"
+                                  title="Xem chi tiết hồ sơ thành viên"
                                 >
-                                  <Eye size={12} />
-                                  <span>Hồ sơ</span>
+                                  <Eye size={13} />
                                 </button>
                                 <button
                                   type="button"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    handleOpenEditMember(member);
-                                  }}
+                                  onClick={() => handleOpenEditMember(member)}
                                   className="p-1.5 text-slate-400 hover:text-emerald-700 hover:bg-emerald-50 rounded-md transition-colors cursor-pointer"
                                   title="Sửa thông tin & Quyết định"
                                 >
@@ -2636,10 +2567,7 @@ export default function PartyBranch({ partyMembers, residents = [] }: PartyBranc
                                 </button>
                                 <button
                                   type="button"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    handleRemoveMember(member.cccd, member.fullName);
-                                  }}
+                                  onClick={() => handleRemoveMember(member.cccd, member.fullName)}
                                   className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-md transition-colors cursor-pointer"
                                   title="Xóa khỏi Chi hội"
                                 >
@@ -2666,161 +2594,156 @@ export default function PartyBranch({ partyMembers, residents = [] }: PartyBranc
                   return (
                     <div 
                       key={`${member.cccd}-${mIdx}`} 
-                      onClick={() => setSelectedMemberForDetail(member)}
-                      className={`bg-white rounded-2xl border-2 border-slate-200/90 hover:border-rose-500 hover:ring-2 hover:ring-rose-300/50 hover:shadow-xl hover:shadow-rose-100/70 p-4 transition-all duration-200 flex flex-col justify-between space-y-3 group cursor-pointer relative ${roleStyle.cardBorder}`}
-                      title="Nhấp vào để xem chi tiết hồ sơ hội viên & quyền lợi"
+                      className={`p-3.5 rounded-xl border relative transition-all hover:border-slate-300 hover:shadow-2xs flex flex-col justify-between ${roleStyle.cardBorder}`}
                     >
                       <div className="space-y-2.5">
-                        {/* Top Badges (Vai trò & Trạng thái hoạt động) - Khớp hình ảnh mẫu */}
-                        <div className="flex justify-between items-start gap-1.5">
-                          <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold border ${roleStyle.badgeClass}`}>
-                            <Award size={11} className="shrink-0" />
-                            <span>{member.role}</span>
-                          </span>
-                          <span className={`text-[10px] font-bold px-2.5 py-0.5 rounded-full border ${
-                            isPartyMem 
-                              ? "bg-rose-50 text-rose-700 border-rose-200" 
-                              : "bg-emerald-50 text-emerald-700 border-emerald-200"
-                          }`}>
-                            {isPartyMem ? "★ Đảng viên ĐCSVN" : "Đang sinh hoạt"}
-                          </span>
-                        </div>
+                        {/* Member Header with Avatar */}
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="flex items-start gap-2.5 min-w-0 flex-1">
+                            <div className="relative shrink-0 mt-0.5">
+                              <img 
+                                src={memberAvatar} 
+                                alt={member.fullName}
+                                className="w-10 h-10 rounded-full border-2 border-emerald-500/40 object-cover bg-slate-100"
+                                referrerPolicy="no-referrer"
+                              />
+                              {isPartyMem && (
+                                <span 
+                                  className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-rose-600 border border-white text-white flex items-center justify-center text-[10px] font-bold"
+                                  title="Đảng viên ĐCSVN"
+                                >
+                                  ★
+                                </span>
+                              )}
+                            </div>
 
-                        {/* Avatar, Full Name & Address */}
-                        <div className="flex items-center gap-3">
-                          <div className="relative shrink-0">
-                            <img 
-                              src={memberAvatar} 
-                              alt={member.fullName}
-                              className="w-11 h-11 rounded-full border-2 border-slate-200 object-cover bg-slate-100 group-hover:border-rose-400 transition-colors shadow-2xs"
-                              referrerPolicy="no-referrer"
-                            />
-                            {isPartyMem && (
-                              <span 
-                                className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-rose-600 border border-white text-white flex items-center justify-center text-[10px] font-bold shadow-xs"
-                                title="Đảng viên ĐCSVN"
+                            <div className="space-y-1 min-w-0 flex-1">
+                              <h4 
+                                onClick={() => setSelectedMemberForDetail(member)}
+                                className="font-bold text-slate-900 text-xs sm:text-[13px] truncate hover:text-emerald-700 cursor-pointer block leading-tight"
+                                title={member.fullName}
                               >
-                                ★
-                              </span>
-                            )}
-                          </div>
+                                {member.fullName}
+                              </h4>
 
-                          <div className="min-w-0 flex-1">
-                            <h4 className="font-bold text-slate-900 group-hover:text-rose-700 text-sm transition-colors truncate leading-tight">
-                              {member.fullName}
-                            </h4>
-                            <div className="text-xs text-slate-500 flex items-center gap-1 mt-0.5 truncate">
-                              <MapPin size={12} className="shrink-0 text-slate-400 group-hover:text-rose-500 transition-colors" />
-                              <span className="truncate">{matchedRes?.address || "Khu phố 3, Phường An Phú"}</span>
+                              <div>
+                                <span className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] whitespace-nowrap border ${roleStyle.badgeClass}`}>
+                                  {member.role}
+                                </span>
+                              </div>
+
+                              <div className="text-[11px] text-slate-400 font-mono">
+                                CCCD: <span className="text-slate-600 font-medium">{member.cccd}</span>
+                              </div>
                             </div>
                           </div>
-                        </div>
 
-                        {/* Quyền lợi / Chế độ hoạt động Chips - Khớp chuẩn hình ảnh */}
-                        <div className="pt-0.5 flex flex-wrap gap-1">
-                          <span className="text-[10px] bg-slate-50 text-slate-700 border border-slate-200 px-2 py-0.5 rounded truncate max-w-[200px]" title="Sinh hoạt định kỳ & biểu quyết">
-                            ✓ Sinh hoạt định kỳ
-                          </span>
-                          {member.decisionNumber ? (
-                            <span className="text-[10px] bg-blue-50 text-blue-800 border border-blue-200 px-2 py-0.5 rounded font-mono font-bold truncate max-w-[180px]" title={`Quyết định: ${member.decisionNumber}`}>
-                              ✓ QĐ: {member.decisionNumber}
-                            </span>
-                          ) : (
-                            <span className="text-[10px] bg-emerald-50 text-emerald-800 border border-emerald-200 px-2 py-0.5 rounded truncate max-w-[180px]">
-                              ✓ Bồi dưỡng nghiệp vụ
-                            </span>
-                          )}
-                          <span className="text-[10px] text-slate-400 font-bold self-center">
-                            +2 quyền lợi
-                          </span>
-                        </div>
-                      </div>
-
-                      {/* Footer Card: CCCD & Ngày tham gia + Cụm nút thao tác (Pill Hồ sơ & 3 nút tròn) */}
-                      <div className="pt-2.5 border-t border-slate-100 space-y-2">
-                        <div className="flex justify-between items-center text-xs">
-                          <span className="font-mono text-slate-500 text-[11px]">CCCD: {member.cccd.substring(0, 6)}***</span>
-                          <span className="font-bold text-emerald-800 text-[11px]">
-                            {member.joinDate ? `Từ ${member.joinDate}` : "Tham gia KP3"}
-                          </span>
-                        </div>
-
-                        {/* Card Action Buttons: Pill bên trái, 3 nút tròn bên phải */}
-                        <div className="flex items-center justify-between gap-1 pt-1">
-                          <button
-                            type="button"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setSelectedMemberForDetail(member);
-                            }}
-                            className="px-3 py-1.5 bg-rose-50 group-hover:bg-rose-600 group-hover:text-white text-rose-700 rounded-full text-xs font-bold flex items-center gap-1.5 border border-rose-200 group-hover:border-rose-600 cursor-pointer transition-all shadow-xs"
-                            title="Xem chi tiết hồ sơ hội viên & quyền lợi"
-                          >
-                            <Eye size={13} />
-                            <span>Hồ sơ & Quyền lợi</span>
-                          </button>
-
-                          <div className="flex items-center gap-1.5" onClick={(e) => e.stopPropagation()}>
-                            {member.decisionFile ? (
-                              <button
-                                type="button"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  setViewingDecisionDoc({
-                                    memberName: member.fullName,
-                                    memberRole: member.role,
-                                    memberCccd: member.cccd,
-                                    associationName: selectedAssociation.name,
-                                    decisionNumber: member.decisionNumber,
-                                    decisionDate: member.decisionDate,
-                                    joinDate: member.joinDate,
-                                    file: member.decisionFile!
-                                  });
-                                }}
-                                className="w-8 h-8 rounded-full bg-amber-50 hover:bg-amber-100 text-amber-700 border border-amber-200 flex items-center justify-center cursor-pointer transition-colors shadow-2xs"
-                                title="Xem tệp Quyết định công nhận"
-                              >
-                                <FileText size={13} />
-                              </button>
-                            ) : (
-                              <button
-                                type="button"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  handleOpenEditMember(member);
-                                }}
-                                className="w-8 h-8 rounded-full bg-amber-50 hover:bg-amber-100 text-amber-700 border border-amber-200 flex items-center justify-center cursor-pointer transition-colors shadow-2xs"
-                                title="Tải lên quyết định chuẩn y"
-                              >
-                                <UploadCloud size={13} />
-                              </button>
-                            )}
-
+                          {/* Action Buttons */}
+                          <div className="flex items-center gap-0.5 shrink-0">
                             <button
-                              type="button"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleOpenEditMember(member);
-                              }}
-                              className="w-8 h-8 rounded-full bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 flex items-center justify-center cursor-pointer transition-colors shadow-2xs"
-                              title="Chỉnh sửa thông tin hội viên"
+                              onClick={() => setSelectedMemberForDetail(member)}
+                              className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-md transition-colors cursor-pointer"
+                              title="Xem chi tiết hồ sơ thành viên"
+                            >
+                              <Eye size={14} />
+                            </button>
+                            <button
+                              onClick={() => handleOpenEditMember(member)}
+                              className="p-1.5 text-slate-400 hover:text-emerald-700 hover:bg-emerald-50 rounded-md transition-colors cursor-pointer"
+                              title="Sửa thông tin & Quyết định"
                             >
                               <Edit2 size={13} />
                             </button>
-
                             <button
-                              type="button"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleRemoveMember(member.cccd, member.fullName);
-                              }}
-                              className="w-8 h-8 rounded-full bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-200 flex items-center justify-center cursor-pointer transition-colors shadow-2xs"
+                              onClick={() => handleRemoveMember(member.cccd, member.fullName)}
+                              className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-md transition-colors cursor-pointer"
                               title="Xóa khỏi Chi hội"
                             >
                               <Trash2 size={13} />
                             </button>
                           </div>
                         </div>
+
+                        {/* Member Meta Info */}
+                        <div className="grid grid-cols-2 gap-x-2 gap-y-1 text-[11px] text-slate-500 pt-1 border-t border-slate-100">
+                          <div className="truncate">
+                            <span className="text-slate-400">SĐT:</span> <span className="font-mono text-slate-700 font-medium">{member.phone || matchedRes?.phone || "N/A"}</span>
+                          </div>
+                          <div className="truncate">
+                            <span className="text-slate-400">Năm sinh:</span> <span className="text-slate-700 font-medium">{(member.birthDate || matchedRes?.birthDate)?.split("/").pop() || "N/A"}</span>
+                          </div>
+                          <div className="col-span-2 flex items-center gap-1.5 truncate text-[10px]">
+                            <Calendar size={11} className="text-emerald-600 shrink-0" />
+                            <span className="text-slate-400">Tham gia:</span>
+                            <span className="font-semibold text-emerald-800">{member.joinDate || "Chưa cập nhật"}</span>
+                          </div>
+                        </div>
+
+                        {/* Decision info */}
+                        {member.decisionNumber && (
+                          <div className="pt-0.5">
+                            <div className="inline-flex items-center gap-1 bg-blue-50/80 border border-blue-200 text-blue-800 px-2 py-0.5 rounded text-[10px] font-mono">
+                              <FileCheck size={11} className="text-blue-600 shrink-0" />
+                              <span>QĐ: <strong>{member.decisionNumber}</strong></span>
+                              {member.decisionDate && <span className="text-blue-500 font-sans">({member.decisionDate})</span>}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* File Attachment / Upload Area */}
+                      <div className="pt-2.5 mt-2 border-t border-slate-100">
+                        {member.decisionFile ? (
+                          <div className="flex items-center justify-between w-full bg-slate-50 hover:bg-slate-100/90 border border-slate-200 rounded-lg px-2 py-1 transition-colors">
+                            <div className="flex items-center gap-1.5 min-w-0 pr-1">
+                              {member.decisionFile.type === "pdf" ? (
+                                <FileText size={13} className="text-rose-600 shrink-0" />
+                              ) : (
+                                <ImageIcon size={13} className="text-emerald-600 shrink-0" />
+                              )}
+                              <span className="text-[11px] font-medium text-slate-800 truncate" title={member.decisionFile.name}>
+                                {member.decisionFile.name}
+                              </span>
+                            </div>
+
+                            <div className="flex items-center gap-1 shrink-0">
+                              <button
+                                type="button"
+                                onClick={() => setViewingDecisionDoc({
+                                  memberName: member.fullName,
+                                  memberRole: member.role,
+                                  memberCccd: member.cccd,
+                                  associationName: selectedAssociation.name,
+                                  decisionNumber: member.decisionNumber,
+                                  decisionDate: member.decisionDate,
+                                  joinDate: member.joinDate,
+                                  file: member.decisionFile!
+                                })}
+                                className="text-emerald-700 hover:text-emerald-800 bg-white hover:bg-emerald-50 border border-slate-200 px-1.5 py-0.5 rounded text-[10px] font-bold transition-colors cursor-pointer"
+                                title="Xem trước văn bản"
+                              >
+                                <Eye size={11} className="inline mr-0.5" /> Xem
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleDownloadFile(member.decisionFile!)}
+                                className="text-slate-400 hover:text-slate-700 p-0.5 rounded transition-colors cursor-pointer"
+                                title="Tải về"
+                              >
+                                <Download size={12} />
+                              </button>
+                            </div>
+                          </div>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => handleOpenEditMember(member)}
+                            className="w-full flex items-center justify-center gap-1 py-1 border border-dashed border-slate-300 hover:border-emerald-500 hover:bg-emerald-50/50 rounded-lg text-[10px] font-medium text-slate-500 hover:text-emerald-700 transition-all cursor-pointer"
+                          >
+                            <UploadCloud size={11} className="text-slate-400" />
+                            <span>+ Tải lên hồ sơ / Quyết định</span>
+                          </button>
+                        )}
                       </div>
                     </div>
                   );
@@ -3214,19 +3137,13 @@ export default function PartyBranch({ partyMembers, residents = [] }: PartyBranc
                 return (
                   <div
                     key={item.resident.id || item.resident.cccd}
-                    onClick={() => {
-                      setQuickAssignResidentCccd(item.resident.cccd);
-                      setQuickAssignTab("by-resident");
-                      setShowQuickAssignModal(true);
-                    }}
-                    className={`bg-white rounded-2xl border-2 transition-all duration-200 hover:border-rose-500 hover:ring-2 hover:ring-rose-300/50 hover:shadow-xl hover:shadow-rose-100/70 p-4 flex flex-col justify-between group cursor-pointer relative ${
+                    className={`bg-white rounded-2xl border transition-all hover:shadow-md p-4 flex flex-col justify-between ${
                       isOverloaded 
-                        ? "border-rose-300 bg-rose-50/20" 
+                        ? "border-rose-300 bg-rose-50/20 shadow-rose-100" 
                         : isMulti 
-                        ? "border-amber-200/80" 
-                        : "border-slate-200/80"
+                        ? "border-amber-200/80 shadow-2xs" 
+                        : "border-slate-200/80 shadow-2xs"
                     }`}
-                    title="Nhấp vào để xem & điều chỉnh phân công cán bộ đa vai trò"
                   >
                     <div>
                       {/* Top Person Info */}
@@ -3242,7 +3159,7 @@ export default function PartyBranch({ partyMembers, residents = [] }: PartyBranc
                             {item.resident.fullName.trim().split(" ").pop()?.slice(0, 2).toUpperCase() || "CB"}
                           </div>
                           <div className="min-w-0">
-                            <h4 className="text-sm font-black text-slate-900 group-hover:text-rose-700 transition-colors truncate">
+                            <h4 className="text-sm font-black text-slate-900 truncate">
                               {item.resident.fullName}
                             </h4>
                             <div className="flex items-center gap-2 mt-0.5 text-[11px] text-slate-500 font-mono">
@@ -3267,7 +3184,7 @@ export default function PartyBranch({ partyMembers, residents = [] }: PartyBranc
 
                       {/* Address */}
                       <div className="flex items-center gap-1.5 text-[11px] text-slate-500 mt-2.5 mb-3">
-                        <MapPin size={12} className="text-slate-400 group-hover:text-rose-500 transition-colors shrink-0" />
+                        <MapPin size={12} className="text-slate-400 shrink-0" />
                         <span className="truncate">{item.resident.address || "Khu phố 3, Phường An Phú"}</span>
                       </div>
 
@@ -3314,8 +3231,7 @@ export default function PartyBranch({ partyMembers, residents = [] }: PartyBranc
                       </div>
 
                       <button
-                        onClick={(e) => {
-                          e.stopPropagation();
+                        onClick={() => {
                           setQuickAssignResidentCccd(item.resident.cccd);
                           setQuickAssignTab("by-resident");
                           setShowQuickAssignModal(true);
@@ -4076,8 +3992,6 @@ export default function PartyBranch({ partyMembers, residents = [] }: PartyBranc
           <div className={`px-4 py-3 rounded-xl shadow-lg border text-xs font-semibold flex items-center gap-2 ${
             toast.type === "success" 
               ? "bg-emerald-50 border-emerald-200 text-emerald-800 animate-pulse" 
-              : toast.type === "info"
-              ? "bg-blue-50 border-blue-200 text-blue-800"
               : "bg-rose-50 border-rose-200 text-rose-800"
           }`}>
             <span className="w-2 h-2 rounded-full bg-current"></span>
@@ -4786,8 +4700,8 @@ export default function PartyBranch({ partyMembers, residents = [] }: PartyBranc
               onClick={(e) => e.stopPropagation()}
               className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-3xl max-h-[92dvh] flex flex-col overflow-hidden animate-in zoom-in-95 duration-200 text-slate-800 relative"
             >
-              {/* Header: Executive Government Portal Theme with Centered Avatar/Emblem - Chuẩn như modal An Sinh */}
-              <div className="bg-gradient-to-b from-rose-50/50 via-white to-slate-50/40 px-5 sm:px-6 pt-6 pb-4 border-b border-slate-200 relative shrink-0 text-center">
+              {/* Header: Executive Government Portal Theme (Light Slate Gradient) */}
+              <div className="bg-gradient-to-r from-slate-50 via-white to-emerald-50/30 px-5 sm:px-6 pt-5 pb-4 border-b border-slate-200 relative shrink-0">
                 {/* Nút đóng ở góc trên bên phải */}
                 <button 
                   onClick={() => setSelectedMemberForDetail(null)}
@@ -4797,189 +4711,150 @@ export default function PartyBranch({ partyMembers, residents = [] }: PartyBranc
                   <X size={18} />
                 </button>
 
-                {/* Top Soft Circular Emblem */}
-                <div className="w-14 h-14 rounded-full bg-rose-50 border border-rose-200 flex items-center justify-center mx-auto text-rose-600 shadow-2xs mb-2">
-                  <Heart size={26} className="text-rose-600 fill-rose-500" />
+                {/* Official Masthead Tag */}
+                <div className="flex items-center gap-2 mb-2.5">
+                  <span className="text-[10px] font-bold tracking-wider uppercase font-mono px-2 py-0.5 rounded bg-emerald-50 text-emerald-800 border border-emerald-200 flex items-center gap-1">
+                    <ShieldCheck size={11} className="text-emerald-600" /> HỒ SƠ ĐOÀN THỂ & CÁN BỘ CƠ SỞ
+                  </span>
+                  <span className="text-[11px] text-slate-400 hidden sm:inline">• Chi bộ & Ban Công tác Mặt trận Khu phố 3</span>
                 </div>
 
-                {/* Member Full Name */}
-                <h2 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight uppercase">
-                  {member.fullName}
-                </h2>
-
-                {/* Centered Badges */}
-                <div className="flex flex-wrap items-center justify-center gap-2 mt-2">
-                  <span className="font-mono text-xs font-bold text-rose-700 bg-rose-50 px-2.5 py-0.5 rounded-full border border-rose-200">
-                    {member.id || `HV-${member.cccd.slice(-4)}`}
-                  </span>
-                  <span className="text-xs font-bold text-emerald-800 bg-emerald-50 px-3 py-0.5 rounded-full border border-emerald-200 flex items-center gap-1">
-                    <Award size={12} className="text-emerald-600" /> {member.role}
-                  </span>
-                  <span className={`text-xs font-bold px-3 py-0.5 rounded-full border ${
-                    isPartyMem 
-                      ? "bg-rose-50 text-rose-800 border-rose-200" 
-                      : "bg-blue-50 text-blue-800 border-blue-200"
-                  }`}>
-                    {isPartyMem ? "★ Đảng viên ĐCSVN" : "Đang sinh hoạt"}
-                  </span>
-                </div>
-
-                {/* Address */}
-                <p className="text-xs text-slate-500 mt-2 flex items-center justify-center gap-1.5 text-center">
-                  <MapPin size={13} className="text-rose-500 shrink-0" />
-                  <span>{matchedRes?.address || "Khu phố 3, Phường An Phú, TP. Hồ Chí Minh"}</span>
-                </p>
-
-                {/* Quick Action Header Controls */}
-                <div className="flex items-center justify-center gap-2 mt-3 pt-2.5 border-t border-slate-100">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setSelectedMemberForDetail(null);
-                      handleOpenEditMember(member);
-                    }}
-                    className="px-3 py-1 bg-white hover:bg-indigo-50 text-indigo-700 border border-indigo-200 rounded-lg text-xs font-bold flex items-center gap-1.5 shadow-2xs cursor-pointer transition-colors"
-                    title="Sửa thông tin hội viên"
-                  >
-                    <Edit2 size={12} />
-                    <span>Sửa thông tin hồ sơ</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setSelectedMemberForDetail(null);
-                      handleRemoveMember(member.cccd, member.fullName);
-                    }}
-                    className="px-3 py-1 bg-white hover:bg-rose-50 text-rose-600 border border-rose-200 rounded-lg text-xs font-bold flex items-center gap-1.5 shadow-2xs cursor-pointer transition-colors"
-                    title="Xóa khỏi chi hội"
-                  >
-                    <Trash2 size={12} />
-                    <span>Xóa khỏi chi hội</span>
-                  </button>
-                </div>
-              </div>
-
-              {/* Thân modal: Nền xám nhạt, các thẻ card chuyên nghiệp */}
-              <div className="flex-1 overflow-y-auto p-4 sm:p-5 space-y-3.5 bg-slate-50/60 text-xs">
-                
-                {/* THẺ 1: Thông tin Định danh & Cư trú */}
-                <div className="bg-white rounded-xl p-4 border border-slate-200 shadow-xs space-y-3">
-                  <div className="flex items-center justify-between pb-2 border-b border-slate-100">
-                    <div className="flex items-center gap-2 font-bold text-slate-900">
-                      <CreditCard size={15} className="text-rose-600" />
-                      <span className="text-sm">1. Thông tin Định danh & Cư trú</span>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setSelectedMemberForDetail(null);
-                        handleOpenEditMember(member);
-                      }}
-                      className="text-indigo-600 hover:text-indigo-800 text-[11px] font-bold flex items-center gap-1 cursor-pointer"
+                {/* Avatar & Main Info Row */}
+                <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 pr-8">
+                  {/* Avatar với nút Camera upload nhanh */}
+                  <div className="relative group shrink-0">
+                    <img 
+                      src={memberAvatar} 
+                      alt={member.fullName}
+                      className="w-16 h-16 sm:w-18 sm:h-18 rounded-2xl border border-slate-200/90 shadow-2xs object-cover bg-slate-100"
+                      referrerPolicy="no-referrer"
+                    />
+                    {isPartyMem && (
+                      <span 
+                        className="absolute -bottom-1 -right-1 w-5 h-5 rounded-full bg-rose-600 border-2 border-white flex items-center justify-center text-[10px] text-white font-bold shadow-xs"
+                        title="Đảng viên ĐCSVN"
+                      >
+                        ★
+                      </span>
+                    )}
+                    <label 
+                      className="absolute inset-0 rounded-2xl bg-slate-900/60 opacity-0 group-hover:opacity-100 flex flex-col items-center justify-center text-white cursor-pointer transition-opacity text-[10px] font-bold gap-0.5 backdrop-blur-2xs"
+                      title="Bấm để tải lên ảnh đại diện mới"
                     >
-                      <Edit2 size={11} /> Sửa
-                    </button>
+                      <Camera size={16} />
+                      <span>Đổi ảnh</span>
+                      <input 
+                        type="file" 
+                        accept="image/*" 
+                        className="hidden" 
+                        onChange={(e) => {
+                          const file = e.target.files?.[0];
+                          if (file) handleUploadMemberAvatar(member.cccd, file);
+                        }}
+                      />
+                    </label>
                   </div>
 
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    <div className="p-2.5 rounded-lg bg-slate-50 border border-slate-100">
-                      <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-0.5">Số CCCD / Định danh:</span>
-                      <span className="font-mono font-bold text-slate-900 text-sm tracking-wide">{member.cccd}</span>
-                    </div>
-
-                    <div className="p-2.5 rounded-lg bg-slate-50 border border-slate-100">
-                      <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-0.5">Số điện thoại liên hệ:</span>
-                      {member.phone || matchedRes?.phone ? (
-                        <span className="font-mono font-bold text-slate-900 text-sm">{member.phone || matchedRes?.phone}</span>
-                      ) : (
-                        <span className="inline-block px-2 py-0.5 rounded bg-slate-200/80 text-slate-600 font-semibold text-[11px]">Chưa cập nhật</span>
+                  {/* Badges & Name */}
+                  <div className="space-y-1.5 flex-1 min-w-0">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="px-2.5 py-0.5 rounded-md text-[11px] font-bold bg-emerald-50 text-emerald-800 border border-emerald-200">
+                        {selectedAssociation.name}
+                      </span>
+                      <span className="px-2.5 py-0.5 rounded-md text-[11px] font-bold bg-amber-50 text-amber-800 border border-amber-200">
+                        {member.role}
+                      </span>
+                      <span className="px-2.5 py-0.5 rounded-md text-[11px] font-mono font-bold bg-blue-50 text-blue-800 border border-blue-200">
+                        CCCD: {member.cccd}
+                      </span>
+                      {isPartyMem && (
+                        <span className="px-2 py-0.5 rounded-md text-[11px] font-bold bg-rose-50 text-rose-800 border border-rose-200 flex items-center gap-1">
+                          <span>★</span> Đảng viên ĐCSVN
+                        </span>
                       )}
                     </div>
 
-                    <div className="p-2.5 rounded-lg bg-emerald-50/60 border border-emerald-100">
-                      <span className="text-[10px] font-bold text-emerald-800 uppercase tracking-wider block mb-0.5">Chi hội & Vai trò:</span>
-                      <span className="text-sm font-black text-emerald-800">{selectedAssociation.name} ({member.role})</span>
-                    </div>
+                    <h2 className="text-lg sm:text-xl font-black text-slate-900 tracking-tight leading-snug">
+                      {member.fullName}
+                    </h2>
 
-                    <div className="p-2.5 rounded-lg bg-slate-50 border border-slate-100">
-                      <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-0.5">Ngày tham gia / Kết nạp:</span>
-                      <span className="font-mono font-bold text-slate-800 text-xs">{member.joinDate || "Hệ thống ghi nhận"}</span>
-                    </div>
-
-                    <div className="sm:col-span-2 p-2.5 rounded-lg bg-slate-50 border border-slate-100">
-                      <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-0.5">Nơi cư trú hiện tại:</span>
-                      <p className="text-xs font-semibold text-slate-800 leading-relaxed flex items-center gap-1.5">
-                        <MapPin size={13} className="text-rose-500 shrink-0" />
-                        {matchedRes?.address || "Khu phố 3, Phường An Phú, TP. Hồ Chí Minh"}
-                      </p>
+                    <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-slate-600">
+                      <span className="text-slate-500">
+                        Tham gia: <strong className="text-slate-700">{member.joinDate || "Hệ thống ghi nhận"}</strong>
+                      </span>
+                      {member.decisionNumber && (
+                        <span className="text-slate-400">• QĐ số: <strong className="text-blue-700 font-mono">{member.decisionNumber}</strong></span>
+                      )}
+                      {matchedRes?.address && (
+                        <span className="text-slate-400 truncate max-w-sm">• {matchedRes.address}</span>
+                      )}
                     </div>
                   </div>
                 </div>
+              </div>
 
-                {/* THẺ 2: Chế độ Chính sách & Quyền lợi được hưởng (Chuẩn Image 3) */}
-                {(() => {
-                  const benefitsList = getMemberBenefits(member.cccd, member.role, selectedAssociation.name, member.decisionNumber);
-                  return (
-                    <div className="bg-white rounded-xl p-4 border border-slate-200 shadow-xs space-y-3">
-                      <div className="flex items-center justify-between pb-2 border-b border-slate-100">
-                        <div className="flex items-center gap-2 font-bold text-slate-900">
-                          <CheckCircle2 size={15} className="text-emerald-600" />
-                          <span className="text-sm">2. Chế độ Chính sách & Quyền lợi ({benefitsList.length})</span>
-                        </div>
-                      </div>
-
-                      <div className="space-y-1.5">
-                        {benefitsList.map((ben, bIdx) => (
-                          <div key={bIdx} className="flex items-center justify-between p-2 rounded-lg bg-emerald-50/40 border border-emerald-200/80 text-xs text-slate-800">
-                            <span className="font-medium flex items-center gap-1.5">
-                              <CheckCircle2 size={13} className="text-emerald-600 shrink-0" />
-                              {ben}
-                            </span>
-                            <button
-                              type="button"
-                              onClick={() => handleRemoveMemberBenefit(member.cccd, ben, member.role, selectedAssociation.name)}
-                              className="text-slate-400 hover:text-rose-600 p-1 cursor-pointer transition-colors"
-                              title="Hủy quyền lợi này"
-                            >
-                              <X size={12} />
-                            </button>
-                          </div>
-                        ))}
-                      </div>
-
-                      {/* Form to add custom benefit to this member */}
-                      <div className="pt-2 border-t border-slate-100 flex items-center gap-2">
-                        <input
-                          type="text"
-                          placeholder="Thêm quyền lợi mới (e.g. Tham gia tổ phản ứng nhanh, sinh hoạt chuyên đề, quà Tết...)"
-                          value={newMemberBenefitInput}
-                          onChange={(e) => setNewMemberBenefitInput(e.target.value)}
-                          onKeyDown={(e) => {
-                            if (e.key === "Enter") {
-                              e.preventDefault();
-                              handleAddMemberBenefit(member.cccd, member.role, selectedAssociation.name);
-                            }
-                          }}
-                          className="flex-1 p-2 rounded-lg border border-slate-300 bg-white text-xs focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-600"
-                        />
-                        <button
-                          type="button"
-                          onClick={() => handleAddMemberBenefit(member.cccd, member.role, selectedAssociation.name)}
-                          className="px-3 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-lg text-xs cursor-pointer shrink-0 transition-colors shadow-xs"
-                        >
-                          + Thêm quyền lợi
-                        </button>
-                      </div>
+              {/* Thân modal: Nền xám nhạt, padding gọn gàng, các thẻ card chuyên nghiệp */}
+              <div className="flex-1 overflow-y-auto p-3.5 sm:p-4 space-y-3.5 bg-slate-100/70 text-xs">
+                
+                {/* THẺ 1: Thông tin định danh & Tham gia Chi hội */}
+                <div className="bg-white rounded-2xl p-3.5 border border-slate-200 shadow-2xs space-y-2.5">
+                  <div className="flex items-center justify-between pb-2 border-b border-slate-100">
+                    <div className="flex items-center gap-2 text-slate-900 font-bold text-xs">
+                      <CreditCard size={15} className="text-emerald-700" />
+                      <span>1. Định danh & Nhiệm vụ Chi hội</span>
                     </div>
-                  );
-                })()}
+                    <label className="text-[11px] text-emerald-700 hover:text-emerald-800 hover:underline font-bold flex items-center gap-1 cursor-pointer">
+                      <Camera size={12} />
+                      <span>Upload ảnh</span>
+                      <input 
+                        type="file" 
+                        accept="image/*" 
+                        className="hidden" 
+                        onChange={(e) => {
+                          const file = e.target.files?.[0];
+                          if (file) handleUploadMemberAvatar(member.cccd, file);
+                        }}
+                      />
+                    </label>
+                  </div>
+                  
+                  <DetailGrid>
+                    <DetailRow label="Số CCCD / Định danh" value={member.cccd} isMono />
+                    <DetailRow label="Chức danh / Vai trò" value={<span className="font-bold text-emerald-800">{member.role}</span>} />
+                    <DetailRow label="Ngày tham gia" value={member.joinDate || "Ghi nhận hệ thống"} isMono />
+                    <DetailRow
+                      label="Đảng viên ĐCSVN"
+                      value={
+                        <span className={isPartyMem ? "font-bold text-rose-600" : "font-bold text-slate-500"}>
+                          {isPartyMem ? "★ Đảng viên chính thức" : "Quần chúng"}
+                        </span>
+                      }
+                    />
+                  </DetailGrid>
+                </div>
+
+                {/* THẺ 2: Cư trú & Liên hệ */}
+                <div className="bg-white rounded-2xl p-3.5 border border-slate-200 shadow-2xs space-y-2.5">
+                  <div className="flex items-center gap-2 pb-2 border-b border-slate-100 text-slate-900 font-bold text-xs">
+                    <Home size={15} className="text-blue-700" />
+                    <span>2. Thông tin cư trú & Liên hệ</span>
+                  </div>
+
+                  <DetailGrid>
+                    <DetailRow label="Số điện thoại" value={member.phone || matchedRes?.phone || "Chưa cập nhật"} isMono />
+                    <DetailRow label="Ngày / Năm sinh" value={member.birthDate || matchedRes?.birthDate || "Chưa cập nhật"} isMono />
+                    <DetailRow label="Địa chỉ nơi cư trú" value={matchedRes?.address || "Khu phố 3, Phường An Phú, TP. Hồ Chí Minh"} colSpan={2} />
+                    <DetailRow label="Mã Hộ gia đình" value={matchedRes?.householdId || "N/A"} isMono />
+                    <DetailRow label="Tình trạng cư trú" value={<span className="font-semibold text-emerald-800">{matchedRes?.status || "Thường trú"}</span>} />
+                  </DetailGrid>
+                </div>
 
                 {/* THẺ 3: Hồ sơ Quyết định công nhận */}
-                <div className="bg-white rounded-xl p-4 border border-slate-200 shadow-xs space-y-3">
+                <div className="bg-white rounded-2xl p-3.5 border border-slate-200 shadow-2xs space-y-2.5">
                   <div className="flex items-center justify-between pb-2 border-b border-slate-100">
-                    <div className="flex items-center gap-2 font-bold text-slate-900">
+                    <div className="flex items-center gap-2 text-slate-900 font-bold text-xs">
                       <FileCheck size={15} className="text-amber-600" />
-                      <span className="text-sm">3. Hồ sơ & Quyết định công nhận</span>
+                      <span>3. Hồ sơ & Quyết định công nhận</span>
                     </div>
                     {member.decisionFile && (
                       <span className="text-[10px] font-mono font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
@@ -4989,16 +4864,10 @@ export default function PartyBranch({ partyMembers, residents = [] }: PartyBranc
                   </div>
 
                   <div className="space-y-2">
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                      <div className="p-2.5 rounded-lg bg-slate-50 border border-slate-100">
-                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-0.5">Số Quyết định:</span>
-                        <span className="font-mono font-bold text-blue-700 text-xs">{member.decisionNumber || "Chưa nhập số QĐ"}</span>
-                      </div>
-                      <div className="p-2.5 rounded-lg bg-slate-50 border border-slate-100">
-                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-0.5">Ngày ký quyết định:</span>
-                        <span className="font-mono font-bold text-slate-800 text-xs">{member.decisionDate || "N/A"}</span>
-                      </div>
-                    </div>
+                    <DetailGrid>
+                      <DetailRow label="Số Quyết định" value={member.decisionNumber || "Chưa nhập số QĐ"} isMono />
+                      <DetailRow label="Ngày ký quyết định" value={member.decisionDate || "N/A"} isMono />
+                    </DetailGrid>
 
                     {member.decisionFile ? (
                       <div className="flex items-center justify-between p-2.5 rounded-xl border border-emerald-200 bg-emerald-50/60 mt-1">
@@ -5057,11 +4926,11 @@ export default function PartyBranch({ partyMembers, residents = [] }: PartyBranc
                 </div>
 
                 {/* THẺ 4: Đa vai trò - Các vị trí / Kiêm nhiệm khác tại Khu phố 3 */}
-                <div className="bg-white rounded-xl p-4 border border-slate-200 shadow-xs space-y-3">
+                <div className="bg-white rounded-2xl p-3.5 border border-slate-200 shadow-2xs space-y-2.5">
                   <div className="flex items-center justify-between pb-2 border-b border-slate-100">
-                    <div className="flex items-center gap-2 font-bold text-slate-900">
+                    <div className="flex items-center gap-2 text-slate-900 font-bold text-xs">
                       <Sparkles size={15} className="text-amber-500" />
-                      <span className="text-sm">4. Đa vai trò & Kiêm nhiệm tại Khu phố 3</span>
+                      <span>4. Đa vai trò & Kiêm nhiệm tại Khu phố 3</span>
                     </div>
                     <span className="text-[10px] font-bold bg-amber-100 text-amber-900 px-2 py-0.5 rounded-full">
                       {allAssociatedRoles.length} tổ chức
@@ -5101,63 +4970,38 @@ export default function PartyBranch({ partyMembers, residents = [] }: PartyBranc
 
               </div>
 
-              {/* Modal Footer: Chuẩn An Sinh Xã Hội với Duyệt kiện toàn, In phiếu, Sửa hồ sơ, Đóng */}
-              <div className="p-3.5 px-4 bg-white border-t border-slate-200 flex flex-wrap items-center justify-between gap-2 shrink-0">
-                <div className="flex items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={() => showToast(`Đã xác nhận kiện toàn chức danh ${member.role} cho ${member.fullName}!`, "success")}
-                    className="flex items-center gap-1 px-3 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition-colors cursor-pointer shadow-xs"
-                  >
-                    <CheckCircle2 size={13} />
-                    <span>Duyệt chi / Kiện toàn</span>
-                  </button>
-
-                  <label className="flex items-center gap-1.5 px-3 py-2 border border-slate-200 hover:border-emerald-500 hover:bg-emerald-50 text-slate-700 rounded-xl text-xs font-semibold cursor-pointer transition-all">
-                    <Camera size={13} className="text-emerald-700" />
-                    <span>Đổi ảnh</span>
-                    <input 
-                      type="file" 
-                      accept="image/*" 
-                      className="hidden" 
-                      onChange={(e) => {
-                        const file = e.target.files?.[0];
-                        if (file) handleUploadMemberAvatar(member.cccd, file);
-                      }}
-                    />
-                  </label>
-                </div>
-
-                <div className="flex items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      window.print();
-                      showToast("Đã kích hoạt in phiếu hồ sơ hội viên!", "info");
+              {/* Modal Footer */}
+              <div className="p-3.5 px-4 bg-white border-t border-slate-200 flex items-center justify-between shrink-0">
+                <label className="flex items-center gap-1.5 px-3 py-1.5 border border-slate-200 hover:border-emerald-500 hover:bg-emerald-50 text-slate-700 rounded-xl text-xs font-semibold cursor-pointer transition-all">
+                  <Camera size={14} className="text-emerald-700" />
+                  <span>Đổi ảnh đại diện</span>
+                  <input 
+                    type="file" 
+                    accept="image/*" 
+                    className="hidden" 
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) handleUploadMemberAvatar(member.cccd, file);
                     }}
-                    className="flex items-center gap-1.5 px-3 py-2 border border-slate-300 hover:bg-slate-100 text-slate-700 rounded-xl text-xs font-bold transition-colors cursor-pointer"
-                    title="In phiếu hồ sơ hội viên"
-                  >
-                    <Printer size={13} />
-                    <span>In phiếu</span>
-                  </button>
+                  />
+                </label>
 
+                <div className="flex items-center gap-2">
                   <button
                     type="button"
                     onClick={() => {
                       setSelectedMemberForDetail(null);
                       handleOpenEditMember(member);
                     }}
-                    className="flex items-center gap-1.5 px-3.5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold transition-colors cursor-pointer shadow-xs"
+                    className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition-colors cursor-pointer shadow-xs"
                   >
                     <Edit2 size={13} />
                     <span>Sửa hồ sơ</span>
                   </button>
-
                   <button
                     type="button"
                     onClick={() => setSelectedMemberForDetail(null)}
-                    className="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold transition-colors cursor-pointer"
+                    className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition-colors cursor-pointer"
                   >
                     Đóng
                   </button>

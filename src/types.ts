@@ -307,6 +307,7 @@ export interface CommunityEvent {
   status: "Sắp diễn ra" | "Đang diễn ra" | "Đã kết thúc" | "Đã hủy";
   expectedAttendees: number;
   description: string;
+  imageUrl?: string;
 }
 
 export interface LocalNews {
@@ -318,6 +319,16 @@ export interface LocalNews {
   content: string;
   isPinned?: boolean;
   image?: string;
+  imageUrl?: string;
+  imageGallery?: string[];
+  summary?: string;
+  readTime?: string;
+  views?: number;
+  attachedFile?: {
+    name: string;
+    url?: string;
+    size?: string;
+  };
 }
 
 export interface FundContribution {
