@@ -958,7 +958,9 @@ export default function SocialWelfare({
                   return (
                     <div
                       key={rec.id}
-                      className="bg-white rounded-2xl border border-slate-200/90 hover:border-rose-300 p-4 hover:shadow-md transition-all flex flex-col justify-between space-y-3 group"
+                      onClick={() => setSelectedRecipient(rec)}
+                      className="bg-white rounded-2xl border-2 border-slate-200/90 hover:border-rose-500 hover:ring-2 hover:ring-rose-300/50 hover:shadow-xl hover:shadow-rose-100/70 p-4 transition-all duration-200 flex flex-col justify-between space-y-3 group cursor-pointer relative"
+                      title="Nhấp vào để xem chi tiết hồ sơ & quyền lợi"
                     >
                       <div className="space-y-2">
                         <div className="flex justify-between items-start gap-1.5">
@@ -968,12 +970,12 @@ export default function SocialWelfare({
                           </span>
                         </div>
 
-                        <h3 className="font-bold text-slate-900 text-sm group-hover:text-rose-700 transition-colors line-clamp-1">
+                        <h3 className="font-bold text-slate-900 text-sm group-hover:text-rose-600 transition-colors line-clamp-1">
                           {rec.fullName}
                         </h3>
 
                         <div className="text-xs text-slate-500 flex items-center gap-1">
-                          <MapPin size={12} className="shrink-0 text-slate-400" />
+                          <MapPin size={12} className="shrink-0 text-slate-400 group-hover:text-rose-500 transition-colors" />
                           <span className="truncate">{rec.address}</span>
                         </div>
 
@@ -1004,33 +1006,46 @@ export default function SocialWelfare({
                         <div className="flex items-center justify-between gap-1 pt-1">
                           <button
                             type="button"
-                            onClick={() => setSelectedRecipient(rec)}
-                            className="px-2.5 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-700 rounded-lg text-xs font-bold flex items-center gap-1 border border-rose-200 cursor-pointer transition-colors"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setSelectedRecipient(rec);
+                            }}
+                            className="px-2.5 py-1.5 bg-rose-50 group-hover:bg-rose-600 group-hover:text-white text-rose-700 rounded-lg text-xs font-bold flex items-center gap-1 border border-rose-200 group-hover:border-rose-600 cursor-pointer transition-all shadow-xs"
+                            title="Xem chi tiết hồ sơ & quyền lợi"
                           >
                             <Eye size={13} /> Hồ sơ & Quyền lợi
                           </button>
 
-                          <div className="flex items-center gap-1">
+                          <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
                             <button
                               type="button"
-                              onClick={() => handleOpenEmergencyForRecipient(rec)}
-                              className="p-1.5 bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200 rounded-lg text-xs font-bold flex items-center gap-1 cursor-pointer"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleOpenEmergencyForRecipient(rec);
+                              }}
+                              className="p-1.5 bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200 rounded-lg text-xs font-bold flex items-center gap-1 cursor-pointer transition-colors"
                               title="Hỗ trợ khẩn cấp ngay cho đối tượng này"
                             >
                               <Zap size={12} className="text-amber-600" />
                             </button>
                             <button
                               type="button"
-                              onClick={() => handleOpenEditRecipient(rec)}
-                              className="p-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 rounded-lg text-xs font-bold cursor-pointer"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleOpenEditRecipient(rec);
+                              }}
+                              className="p-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 rounded-lg text-xs font-bold cursor-pointer transition-colors"
                               title="Chỉnh sửa hồ sơ"
                             >
                               <Edit2 size={12} />
                             </button>
                             <button
                               type="button"
-                              onClick={() => setRecipientToDelete(rec)}
-                              className="p-1.5 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-lg text-xs font-bold cursor-pointer"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setRecipientToDelete(rec);
+                              }}
+                              className="p-1.5 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-lg text-xs font-bold cursor-pointer transition-colors"
                               title="Xóa đối tượng"
                             >
                               <Trash2 size={12} />
@@ -1061,9 +1076,14 @@ export default function SocialWelfare({
                   </thead>
                   <tbody className="divide-y divide-slate-100">
                     {paginatedRecipients.map(rec => (
-                      <tr key={rec.id} className="hover:bg-rose-50/30 transition-colors">
+                      <tr
+                        key={rec.id}
+                        onClick={() => setSelectedRecipient(rec)}
+                        className="hover:bg-rose-50/50 hover:border-l-4 hover:border-l-rose-500 transition-all cursor-pointer group"
+                        title="Nhấp vào để xem chi tiết hồ sơ & quyền lợi"
+                      >
                         <td className="py-3.5 px-4">
-                          <div className="font-bold text-slate-900 text-xs">{rec.fullName}</div>
+                          <div className="font-bold text-slate-900 group-hover:text-rose-700 text-xs transition-colors">{rec.fullName}</div>
                           <span className="font-mono text-[10px] font-bold text-rose-700 bg-rose-50 px-1.5 py-0.2 rounded border border-rose-100 mt-0.5 inline-block">
                             {rec.id}
                           </span>
@@ -1089,36 +1109,48 @@ export default function SocialWelfare({
                             {rec.status}
                           </span>
                         </td>
-                        <td className="py-3.5 px-4 text-center">
+                        <td className="py-3.5 px-4 text-center" onClick={(e) => e.stopPropagation()}>
                           <div className="flex items-center justify-center gap-1.5">
                             <button
                               type="button"
-                              onClick={() => setSelectedRecipient(rec)}
-                              className="px-2 py-1 bg-rose-50 hover:bg-rose-100 text-rose-700 rounded-lg text-xs font-semibold border border-rose-200 cursor-pointer"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setSelectedRecipient(rec);
+                              }}
+                              className="px-2 py-1 bg-rose-50 hover:bg-rose-100 text-rose-700 rounded-lg text-xs font-semibold border border-rose-200 cursor-pointer transition-colors"
                               title="Xem chi tiết hồ sơ & quyền lợi"
                             >
                               <Eye size={13} />
                             </button>
                             <button
                               type="button"
-                              onClick={() => handleOpenEditRecipient(rec)}
-                              className="p-1 text-indigo-600 hover:bg-indigo-50 rounded-lg cursor-pointer"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleOpenEditRecipient(rec);
+                              }}
+                              className="p-1 text-indigo-600 hover:bg-indigo-50 rounded-lg cursor-pointer transition-colors"
                               title="Chỉnh sửa thông tin đối tượng"
                             >
                               <Edit2 size={13} />
                             </button>
                             <button
                               type="button"
-                              onClick={() => handleOpenEmergencyForRecipient(rec)}
-                              className="p-1 text-amber-700 hover:bg-amber-50 rounded-lg cursor-pointer"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleOpenEmergencyForRecipient(rec);
+                              }}
+                              className="p-1 text-amber-700 hover:bg-amber-50 rounded-lg cursor-pointer transition-colors"
                               title="Hỗ trợ ngay"
                             >
                               <Zap size={14} />
                             </button>
                             <button
                               type="button"
-                              onClick={() => setRecipientToDelete(rec)}
-                              className="p-1 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg cursor-pointer"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setRecipientToDelete(rec);
+                              }}
+                              className="p-1 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg cursor-pointer transition-colors"
                               title="Xóa đối tượng"
                             >
                               <Trash2 size={13} />
