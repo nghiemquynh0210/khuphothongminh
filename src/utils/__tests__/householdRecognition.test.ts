@@ -3,7 +3,7 @@
  * Kiểm thử thuật toán nhận diện hộ gia đình & quan hệ phả hệ
  * Dự án: Khu phố 3 An Phú — Vitest (Công cụ #23)
  */
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect } from 'vitest';
 import type { Resident } from '../../types';
 
 // ============================================================

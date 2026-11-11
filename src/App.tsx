@@ -56,9 +56,6 @@ import {
 import { supabase, isSupabaseConfigured } from "./lib/supabase";
 import { 
   Bell, 
-  Search, 
-  Menu, 
-  User, 
   Users,
   ShieldAlert,
   ChevronDown,

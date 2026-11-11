@@ -4,9 +4,10 @@ import path from 'path';
 import { defineConfig } from 'vite';
 /// <reference types="vitest" />
 
-export default defineConfig(() => {
+export default defineConfig(({ mode }) => {
+  const isTest = Boolean(process.env.VITEST || mode === 'test');
   return {
-    plugins: [react(), tailwindcss()],
+    plugins: [react(), !isTest && tailwindcss()].filter(Boolean),
     define: {
       'process.env.GOOGLE_MAPS_PLATFORM_KEY': JSON.stringify(
         process.env.GOOGLE_MAPS_PLATFORM_KEY || ''
@@ -27,7 +28,7 @@ export default defineConfig(() => {
     // Vitest: kiểm thử tự động cho KP3 (Công cụ #23 trong danh sách 30)
     test: {
       globals: true,
-      environment: 'jsdom',
+      environment: 'node',
       setupFiles: ['./src/test/setup.ts'],
       include: ['src/**/*.{test,spec}.{ts,tsx}', 'src/**/__tests__/**/*.{ts,tsx}'],
       coverage: {

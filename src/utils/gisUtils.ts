@@ -26,8 +26,8 @@ export function parseCoordinates(coordStr?: string): { lat: number; lng: number 
   if (!coordStr) return null;
 
   // Try simple decimal format first (e.g., "10.936997, 106.744645" or "10.936997 106.744645")
-  if (!/[°'\"NSEWnsew]/i.test(coordStr)) {
-    const cleanStr = coordStr.trim().replace(/[\[\]\(\)]/g, "");
+  if (!/[°'"NSEWnsew]/i.test(coordStr)) {
+    const cleanStr = coordStr.trim().replace(/[()[\]]/g, "");
     const partsDecimal = cleanStr.split(/[\s,;]+/);
     if (partsDecimal.length === 2) {
       const lat = parseFloat(partsDecimal[0]);

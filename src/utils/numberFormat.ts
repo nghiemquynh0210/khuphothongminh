@@ -29,7 +29,7 @@ export function formatVNNumber(val: number | string | undefined | null): string 
  */
 export function formatTextNumbers(text: string): string {
   if (!text || typeof text !== "string") return text;
-  return text.replace(/(?<![\/\-\w])\d{4,}(?![\/\-\w])/g, (match) => {
+  return text.replace(/(?<![/\-\w])\d{4,}(?![/\-\w])/g, (match) => {
     // If it starts with 0 and has multiple digits, it's a phone number or citizen CCCD/ID
     if (match.startsWith("0") && match.length > 1) return match;
     const n = Number(match);

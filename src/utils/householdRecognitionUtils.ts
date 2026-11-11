@@ -1,4 +1,4 @@
-import { Resident, Household, Business } from "../types";
+import { Resident, Business } from "../types";
 import { normalizeAddress } from "../components/household/HouseholdDuplicates";
 
 /**
@@ -402,7 +402,7 @@ export function parseAccommodationInfo(rawAddress?: string): ParsedAccommodation
   let rest = match[1].trim();
 
   // Bóc tách SĐT nếu có: (SĐT: 0913137155) hoặc (0918312448) hoặc sđt: 0975054647...
-  const phoneMatch = rest.match(/(?:\((?:sđt:?|sdt:?|đt:?)?\s*([0-9\.\s\-]{8,15})\)|(?:sđt|sdt|đt)\s*[:.]?\s*([0-9\.\s\-]{8,15}))/i);
+  const phoneMatch = rest.match(/(?:\((?:sđt:?|sdt:?|đt:?)?\s*([0-9.\s-]{8,15})\)|(?:sđt|sdt|đt)\s*[:.]?\s*([0-9.\s-]{8,15}))/i);
   if (phoneMatch && phoneMatch.index !== undefined) {
     result.phone = (phoneMatch[1] || phoneMatch[2] || "").replace(/[^\d]/g, "").trim();
     rest = (rest.slice(0, phoneMatch.index) + " " + rest.slice(phoneMatch.index + phoneMatch[0].length)).trim();
@@ -410,7 +410,7 @@ export function parseAccommodationInfo(rawAddress?: string): ParsedAccommodation
 
   // Tách tên chủ nhà trọ và địa chỉ nhà trọ
   // Nhận diện địa chỉ bắt đầu bằng số nhà (17/A3, 14/B1, 39A/A11, Ô 30, Lô B...) hoặc "tại địa chỉ"
-  const addrMatch = rest.match(/(?:,\s*|\s+tại\s+địa\s+chỉ\s+|\s+địa\s+chỉ\s+|\s+)((?:\d+[A-Za-z0-9\/\-]*|Ô\s*\d+|Lô\s*[A-Za-z0-9]+)\s+.*)$/i);
+  const addrMatch = rest.match(/(?:,\s*|\s+tại\s+địa\s+chỉ\s+|\s+địa\s+chỉ\s+|\s+)((?:\d+[A-Za-z0-9/-]*|Ô\s*\d+|Lô\s*[A-Za-z0-9]+)\s+.*)$/i);
   if (addrMatch && addrMatch.index !== undefined) {
     result.owner = rest.slice(0, addrMatch.index).trim().replace(/^[:,\-\s]+|[:,\-\s]+$/g, "");
     result.address = addrMatch[1].trim();
