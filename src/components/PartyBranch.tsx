@@ -21,6 +21,7 @@ import {
   FileSpreadsheet,
   Pencil,
   AlertTriangle,
+  AlertCircle,
   FileText,
   UploadCloud,
   Download,
@@ -529,6 +530,8 @@ export default function PartyBranch({ partyMembers, residents = [] }: PartyBranc
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedGroupFilter, setSelectedGroupFilter] = useState<AssocGroupKey>("all");
   const [activeSubTab, setActiveSubTab] = useState<"associations" | "multi_role" | "decisions" | "org_chart">("associations");
+  // View mode for Associations in Sub-tab 1: "card" (Master-Detail 2-column) or "table" (Comprehensive full-width Table View)
+  const [assocViewMode, setAssocViewMode] = useState<"card" | "table">("card");
   const [decisionSearch, setDecisionSearch] = useState("");
   const [decisionAssocFilter, setDecisionAssocFilter] = useState("all");
   const [currentPage, setCurrentPage] = useState(1);
@@ -1433,8 +1436,9 @@ export default function PartyBranch({ partyMembers, residents = [] }: PartyBranc
   ).size;
 
   // Excel Export functions
-  const handleExportToExcel = () => {
-    if (!selectedAssociation) return;
+  const handleExportToExcel = (targetAssoc?: Association) => {
+    const assoc = targetAssoc || selectedAssociation;
+    if (!assoc) return;
     const headers = [
       "Mã Chi hội",
       "Tên Chi hội/Tổ chức",
@@ -1451,12 +1455,12 @@ export default function PartyBranch({ partyMembers, residents = [] }: PartyBranc
       "Tệp đính kèm QĐ"
     ];
 
-    const rows = selectedAssociation.members.map((member, index) => {
+    const rows = assoc.members.map((member, index) => {
       const birthYear = member.birthDate ? member.birthDate.split("/").pop() : "N/A";
       return [
-        selectedAssociation.id,
-        selectedAssociation.name,
-        selectedAssociation.category,
+        assoc.id,
+        assoc.name,
+        assoc.category,
         index + 1,
         member.fullName,
         member.role,
@@ -1482,7 +1486,7 @@ export default function PartyBranch({ partyMembers, residents = [] }: PartyBranc
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     
-    const safeName = selectedAssociation.name
+    const safeName = assoc.name
       .normalize("NFD")
       .replace(/[\u0300-\u036f]/g, "")
       .replace(/[đĐ]/g, "d")
@@ -1968,10 +1972,97 @@ export default function PartyBranch({ partyMembers, residents = [] }: PartyBranc
       </div>
 
       {/* ========================================================================= */}
-      {/* SUB-TAB 1: TỔ CHỨC & CHI HỘI (2-Column Administrative Master-Detail)      */}
+      {/* SUB-TAB 1: TỔ CHỨC & CHI HỘI (2-Column Master-Detail or Full Table View)   */}
       {/* ========================================================================= */}
       {activeSubTab === "associations" && (
-        <div className="flex flex-col lg:flex-row gap-4 items-start">
+        <div className="space-y-4">
+          {/* Sub-tab 1 Top Control Toolbar: Filter groups, Search, and View Mode Toggle */}
+          <div className="bg-white p-3.5 rounded-2xl border border-slate-200/90 shadow-2xs flex flex-col md:flex-row gap-3 items-stretch md:items-center justify-between">
+            {/* Category Filter Pills (Phân nhóm theo Khối) */}
+            <div className="flex items-center gap-1.5 overflow-x-auto pb-1 md:pb-0 scrollbar-none">
+              {ASSOC_GROUPS.map(grp => {
+                const isGrpActive = selectedGroupFilter === grp.key;
+                const count = grp.key === "all" 
+                  ? associations.length 
+                  : associations.filter(a => getAssocGroupKey(a.category, a.name) === grp.key).length;
+                return (
+                  <button
+                    key={grp.key}
+                    type="button"
+                    onClick={() => setSelectedGroupFilter(grp.key)}
+                    className={`px-3 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition-all cursor-pointer flex items-center gap-1.5 shrink-0 border ${
+                      isGrpActive
+                        ? "bg-slate-900 text-white border-slate-900 shadow-2xs"
+                        : "bg-slate-50 hover:bg-slate-100 text-slate-600 border-slate-200"
+                    }`}
+                  >
+                    <span>{grp.label}</span>
+                    <span className={`px-1.5 py-0.2 rounded-full text-[10px] font-mono ${
+                      isGrpActive ? "bg-white/20 text-white" : "bg-white text-slate-500 border border-slate-200"
+                    }`}>
+                      {count}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+
+            <div className="flex flex-wrap items-center gap-2.5 shrink-0 justify-between md:justify-end">
+              {/* Search Box in Toolbar */}
+              <div className="relative w-full sm:w-60">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={14} />
+                <input 
+                  type="text" 
+                  placeholder="Tìm chi hội, cán bộ, CCCD..."
+                  value={searchTerm}
+                  onChange={(e) => handleSearchChange(e.target.value)}
+                  className="w-full pl-9 pr-8 py-2 border border-slate-200 rounded-xl text-xs focus:outline-none focus:border-emerald-500 bg-slate-50/60"
+                />
+                {searchTerm && (
+                  <button
+                    onClick={() => handleSearchChange("")}
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 cursor-pointer p-0.5"
+                  >
+                    <X size={12} />
+                  </button>
+                )}
+              </div>
+
+              {/* View Mode Toggle: Card / Master-Detail vs Table View */}
+              <div className="flex items-center border border-slate-200 rounded-xl p-0.5 bg-slate-100 gap-0.5 shrink-0">
+                <button
+                  type="button"
+                  onClick={() => setAssocViewMode("card")}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                    assocViewMode === "card"
+                      ? "bg-white text-emerald-800 shadow-2xs font-extrabold"
+                      : "text-slate-500 hover:text-slate-800"
+                  }`}
+                  title="Chế độ xem Thẻ & Chi tiết (2 Cột)"
+                >
+                  <LayoutGrid size={14} />
+                  <span>Thẻ & Chi tiết</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setAssocViewMode("table")}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                    assocViewMode === "table"
+                      ? "bg-white text-emerald-800 shadow-2xs font-extrabold"
+                      : "text-slate-500 hover:text-slate-800"
+                  }`}
+                  title="Chế độ xem Bảng tổng hợp (Table view)"
+                >
+                  <List size={14} />
+                  <span>Bảng (Table view)</span>
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {/* CHẾ ĐỘ 1: THẺ & CHI TIẾT 2 CỘT (Master-Detail) */}
+          {assocViewMode === "card" && (
+            <div className="flex flex-col lg:flex-row gap-4 items-start">
         
         {/* LEFT COLUMN (Master): Rộng 320px - 340px để thông tin thoáng đẹp, không bị ép chữ */}
         <div className="w-full lg:w-[320px] xl:w-[340px] shrink-0 bg-white rounded-2xl border border-slate-200/90 shadow-2xs p-3.5 flex flex-col gap-3">
@@ -2662,6 +2753,293 @@ export default function PartyBranch({ partyMembers, residents = [] }: PartyBranc
           </div>
         </div>
       </div>
+          )}
+
+          {/* CHẾ ĐỘ 2: BẢNG TỔNG HỢP CHI HỘI & ĐOÀN THỂ (Table View) */}
+          {assocViewMode === "table" && (
+            <div className="bg-white rounded-2xl border border-slate-200/90 shadow-2xs overflow-hidden space-y-0">
+              {/* Table Header Action Bar */}
+              <div className="p-4 bg-gradient-to-r from-slate-50 via-white to-emerald-50/30 border-b border-slate-200 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                <div className="flex items-center gap-2.5">
+                  <div className="p-2 bg-emerald-100 text-emerald-800 rounded-xl">
+                    <Building2 size={18} />
+                  </div>
+                  <div>
+                    <h3 className="font-black text-slate-900 text-sm tracking-tight flex items-center gap-2">
+                      <span>Bảng Tổng Hợp Chi Hội & Khối Đoàn Thể Cơ Sở</span>
+                      <span className="px-2 py-0.5 rounded-full text-[11px] font-bold bg-emerald-100 text-emerald-800 font-mono">
+                        {filteredAssociations.length}/{associations.length} tổ chức
+                      </span>
+                    </h3>
+                    <p className="text-[11px] text-slate-500 mt-0.5">
+                      Danh bạ 23 tổ chức, đơn vị cơ sở trực thuộc Khu phố 3, Phường An Phú (Nhấp vào hàng để xem chi tiết & danh sách hội viên)
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
+                  <button
+                    type="button"
+                    onClick={handleExportAllToExcel}
+                    className="flex items-center gap-1.5 px-3 py-1.5 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 rounded-xl text-xs font-semibold shadow-2xs cursor-pointer transition-colors"
+                    title="Xuất bảng tổng hợp ra file Excel"
+                  >
+                    <FileSpreadsheet size={13} className="text-emerald-600" />
+                    <span>Xuất Excel</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setShowAddAssocModal(true)}
+                    className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold shadow-xs cursor-pointer transition-colors"
+                  >
+                    <Plus size={13} />
+                    <span>Thêm Chi hội mới</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Table Content */}
+              {filteredAssociations.length === 0 ? (
+                <div className="p-12 text-center space-y-3">
+                  <div className="w-12 h-12 rounded-full bg-slate-100 text-slate-400 flex items-center justify-center mx-auto">
+                    <Search size={20} />
+                  </div>
+                  <h4 className="font-bold text-slate-800 text-sm">Không tìm thấy chi hội phù hợp</h4>
+                  <p className="text-xs text-slate-500 max-w-sm mx-auto">
+                    Không có tổ chức chi hội nào khớp với từ khóa tìm kiếm "{searchTerm}" hoặc bộ lọc khối hiện tại.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSearchTerm("");
+                      setSelectedGroupFilter("all");
+                    }}
+                    className="px-3.5 py-1.5 bg-slate-900 text-white rounded-xl text-xs font-bold cursor-pointer hover:bg-slate-800 transition-colors"
+                  >
+                    Đặt lại bộ lọc
+                  </button>
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left text-xs border-collapse">
+                    <thead>
+                      <tr className="bg-slate-50/80 text-slate-600 border-b border-slate-200/90 text-[11px] font-bold uppercase tracking-wider">
+                        <th className="py-3 px-3.5 w-12 text-center">STT</th>
+                        <th className="py-3 px-4 min-w-[240px]">Tổ chức & Chi hội</th>
+                        <th className="py-3 px-4 min-w-[140px]">Khối trực thuộc</th>
+                        <th className="py-3 px-4 min-w-[210px]">Người đứng đầu / Trưởng ban</th>
+                        <th className="py-3 px-4 w-28 text-center">Hội viên</th>
+                        <th className="py-3 px-4 min-w-[160px]">Quyết định chuẩn y</th>
+                        <th className="py-3 px-4 w-32 text-center">Tình trạng</th>
+                        <th className="py-3 px-4 w-40 text-center">Thao tác</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {filteredAssociations.map((assoc, idx) => {
+                        const badgeStyle = getAssocBadgeStyle(assoc);
+                        const IconComp = badgeStyle.icon;
+                        const displayName = formatAssocName(assoc.name);
+                        const memberCount = assoc.members?.length || 0;
+                        const isSelected = selectedAssociation.id === assoc.id;
+                        const hasLeader = !!assoc.leaderName;
+
+                        return (
+                          <tr
+                            key={assoc.id}
+                            onClick={() => {
+                              setSelectedAssociationId(assoc.id);
+                              setAssocViewMode("card");
+                            }}
+                            className={`hover:bg-emerald-50/60 hover:border-l-4 hover:border-l-emerald-600 transition-all cursor-pointer group ${
+                              isSelected ? "bg-emerald-50/30" : ""
+                            }`}
+                            title="Nhấp để mở chi tiết & danh sách hội viên"
+                          >
+                            {/* STT & Mã */}
+                            <td className="py-3 px-3.5 text-center">
+                              <span className="font-mono text-slate-400 font-bold text-[11px] block">
+                                {(idx + 1).toString().padStart(2, "0")}
+                              </span>
+                              <span className="font-mono text-[9px] font-bold text-slate-500 bg-slate-100 px-1 py-0.2 rounded border border-slate-200 mt-0.5 inline-block">
+                                {assoc.id}
+                              </span>
+                            </td>
+
+                            {/* Tên Chi hội */}
+                            <td className="py-3 px-4">
+                              <div className="flex items-center gap-2.5">
+                                <div className={`p-2 rounded-xl shrink-0 ${badgeStyle.iconBg} ${badgeStyle.iconColor} shadow-2xs`}>
+                                  <IconComp size={16} />
+                                </div>
+                                <div className="min-w-0">
+                                  <div className="font-black text-slate-900 group-hover:text-emerald-800 text-xs transition-colors">
+                                    {displayName}
+                                  </div>
+                                  {assoc.description && (
+                                    <p className="text-[11px] text-slate-500 truncate max-w-[280px] mt-0.5">
+                                      {assoc.description}
+                                    </p>
+                                  )}
+                                </div>
+                              </div>
+                            </td>
+
+                            {/* Khối trực thuộc */}
+                            <td className="py-3 px-4">
+                              <span className={`inline-flex items-center gap-1.5 text-[10px] font-bold px-2.5 py-1 rounded-full border ${badgeStyle.iconBg} ${badgeStyle.iconColor}`}>
+                                <span className="w-1.5 h-1.5 rounded-full bg-current"></span>
+                                <span>{badgeStyle.groupLabel}</span>
+                              </span>
+                            </td>
+
+                            {/* Người đứng đầu */}
+                            <td className="py-3 px-4">
+                              {hasLeader ? (
+                                <div className="flex items-center gap-2.5">
+                                  <div className="w-8 h-8 rounded-full bg-gradient-to-br from-emerald-500 to-teal-600 text-white font-black text-xs flex items-center justify-center shrink-0 shadow-2xs">
+                                    {assoc.leaderName.split(" ").slice(-1)[0][0]}
+                                  </div>
+                                  <div className="min-w-0">
+                                    <span className="font-bold text-slate-900 block text-xs truncate">
+                                      {assoc.leaderName}
+                                    </span>
+                                    <div className="flex items-center gap-1.5 text-[10px] text-slate-500 font-mono mt-0.5">
+                                      <span className="text-emerald-700 font-semibold">{assoc.category}</span>
+                                      <span>•</span>
+                                      <span>{assoc.leaderCccd ? `CCCD: ${assoc.leaderCccd.substring(0, 6)}***` : "Chưa có CCCD"}</span>
+                                    </div>
+                                  </div>
+                                </div>
+                              ) : (
+                                <span className="text-[11px] font-medium text-amber-600 italic flex items-center gap-1">
+                                  <AlertCircle size={12} />
+                                  <span>Chưa kiện toàn</span>
+                                </span>
+                              )}
+                            </td>
+
+                            {/* Số lượng hội viên */}
+                            <td className="py-3 px-4 text-center">
+                              <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold font-mono bg-emerald-50 text-emerald-800 border border-emerald-200">
+                                <Users size={12} className="text-emerald-600" />
+                                <span>{memberCount} tv</span>
+                              </span>
+                            </td>
+
+                            {/* Quyết định thành lập / chuẩn y */}
+                            <td className="py-3 px-4">
+                              {assoc.establishmentDecision ? (
+                                <div>
+                                  <div className="font-mono text-xs font-bold text-indigo-950 flex items-center gap-1">
+                                    <FileCheck size={12} className="text-indigo-600 shrink-0" />
+                                    <span>{assoc.establishmentDecision.decisionNumber}</span>
+                                  </div>
+                                  <div className="text-[10px] text-slate-400 mt-0.5">
+                                    Ban hành: {assoc.establishmentDecision.issuedDate || "Đã lưu trữ"}
+                                  </div>
+                                </div>
+                              ) : (
+                                <span className="text-[11px] text-slate-400 font-mono">Lưu trữ Chi bộ</span>
+                              )}
+                            </td>
+
+                            {/* Tình trạng kiện toàn */}
+                            <td className="py-3 px-4 text-center">
+                              {hasLeader && memberCount > 0 ? (
+                                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-800 border border-emerald-200">
+                                  <CheckCircle2 size={11} className="text-emerald-600" />
+                                  <span>Đã kiện toàn</span>
+                                </span>
+                              ) : (
+                                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 text-amber-800 border border-amber-200">
+                                  <AlertCircle size={11} className="text-amber-600" />
+                                  <span>Cần bổ sung</span>
+                                </span>
+                              )}
+                            </td>
+
+                            {/* Thao tác */}
+                            <td className="py-3 px-4 text-center" onClick={(e) => e.stopPropagation()}>
+                              <div className="flex items-center justify-center gap-1">
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setSelectedAssociationId(assoc.id);
+                                    setAssocViewMode("card");
+                                  }}
+                                  className="p-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 rounded-lg text-xs font-semibold border border-emerald-200 cursor-pointer transition-colors"
+                                  title="Xem chi tiết & Quản lý hội viên"
+                                >
+                                  <Eye size={13} />
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setSelectedAssociationId(assoc.id);
+                                    setShowAddMemberModal(true);
+                                  }}
+                                  className="p-1.5 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-lg text-xs font-semibold border border-blue-200 cursor-pointer transition-colors"
+                                  title="Thêm hội viên vào chi hội"
+                                >
+                                  <UserPlus size={13} />
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleOpenEditAssoc(assoc);
+                                  }}
+                                  className="p-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded-lg text-xs font-semibold border border-indigo-200 cursor-pointer transition-colors"
+                                  title="Chỉnh sửa thông tin chi hội"
+                                >
+                                  <Pencil size={13} />
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleExportToExcel(assoc);
+                                  }}
+                                  className="p-1.5 bg-teal-50 hover:bg-teal-100 text-teal-700 rounded-lg text-xs font-semibold border border-teal-200 cursor-pointer transition-colors"
+                                  title="Xuất Excel chi hội"
+                                >
+                                  <FileSpreadsheet size={13} />
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleOpenDeleteAssoc(assoc);
+                                  }}
+                                  className="p-1.5 bg-rose-50 hover:bg-rose-100 text-rose-700 rounded-lg text-xs font-semibold border border-rose-200 cursor-pointer transition-colors"
+                                  title="Xóa / Giải thể chi hội"
+                                >
+                                  <Trash2 size={13} />
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+
+              {/* Table Footer */}
+              <div className="p-3 bg-slate-50 border-t border-slate-200 flex flex-col sm:flex-row items-center justify-between text-xs text-slate-500 gap-2">
+                <span>
+                  Đang hiển thị <strong className="text-slate-800">{filteredAssociations.length}</strong> trên tổng số <strong className="text-slate-800">{associations.length}</strong> tổ chức & chi hội đoàn thể
+                </span>
+                <span className="text-[11px] text-slate-400">
+                  Nhấp vào hàng bất kỳ để chuyển sang không gian quản lý chi tiết
+                </span>
+              </div>
+            </div>
+          )}
+        </div>
       )}
 
       {/* ========================================================================= */}
