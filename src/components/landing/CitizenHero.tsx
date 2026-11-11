@@ -8,7 +8,9 @@ import {
   MapPin,
   MessageSquare,
   Search,
-  Users
+  Users,
+  Landmark,
+  ExternalLink
 } from "lucide-react";
 import { AdministrativeForm, CommunityEvent, LocalNews } from "../../types";
 import { VERIFIED_LEADERSHIP, ROUTES, Link } from "./landingConstants";
@@ -54,9 +56,19 @@ export default function CitizenHero({
       <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-10 sm:pt-16 pb-20 sm:pb-24 grid lg:grid-cols-12 gap-10 items-center">
         {/* Left Column: Slogan, Actions & Search */}
         <div className="lg:col-span-7 space-y-6 kp3-fade-up">
-          <span className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/10 border border-white/20 text-xs font-semibold text-blue-100">
-            Khu phố 3 · Phường An Phú · TP. Hồ Chí Minh
-          </span>
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/10 border border-white/20 text-xs font-semibold text-blue-100">
+              Khu phố 3 · Phường An Phú · TP. Hồ Chí Minh
+            </span>
+            <a
+              href="https://danguy.phuonganphu.gov.vn/"
+              target="_blank"
+              rel="noreferrer"
+              className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-red-600/80 hover:bg-red-600 text-white text-xs font-bold transition-colors shadow-2xs"
+            >
+              🏛️ Không Gian Số Đảng Ủy Phường ↗
+            </a>
+          </div>
           <h1 className="text-3xl sm:text-4xl lg:text-5xl font-black leading-tight tracking-tight">
             Kết nối người dân – Xây dựng khu phố văn minh
           </h1>
@@ -70,9 +82,15 @@ export default function CitizenHero({
             </Link>
             <Link
               to={ROUTES.FORMS}
-              className="inline-flex items-center justify-center gap-2 min-h-12 px-6 rounded-xl text-base font-semibold bg-white/10 border border-white/30 hover:bg-white/20 transition-all cursor-pointer"
+              className="inline-flex items-center justify-center gap-2 min-h-12 px-5 rounded-xl text-base font-semibold bg-white/10 border border-white/30 hover:bg-white/20 transition-all cursor-pointer"
             >
               <FileText size={18} aria-hidden="true" /> Tra cứu biểu mẫu
+            </Link>
+            <Link
+              to={ROUTES.ABOUT}
+              className="inline-flex items-center justify-center gap-2 min-h-12 px-5 rounded-xl text-base font-bold bg-red-600/90 hover:bg-red-700 text-white shadow-lg transition-all cursor-pointer border border-red-500/40"
+            >
+              <Landmark size={18} aria-hidden="true" /> Giới thiệu KP3
             </Link>
           </div>
 
@@ -218,12 +236,20 @@ export default function CitizenHero({
             <p className="text-xs text-blue-100/90 leading-relaxed">
               Địa bàn khép kín theo các trục đường Song Hành, Lương Định Của, Mai Chí Thọ.
             </p>
-            <button
-              onClick={() => onNavigateToTab("gis")}
-              className="w-full min-h-11 inline-flex items-center justify-center gap-2 rounded-xl bg-white/15 hover:bg-white/25 text-sm font-semibold cursor-pointer"
-            >
-              <MapPin size={16} aria-hidden="true" /> Xem bản đồ số địa bàn
-            </button>
+            <div className="flex gap-2">
+              <button
+                onClick={() => onNavigateToTab("gis")}
+                className="flex-1 min-h-11 inline-flex items-center justify-center gap-2 rounded-xl bg-white/15 hover:bg-white/25 text-xs sm:text-sm font-semibold cursor-pointer"
+              >
+                <MapPin size={15} aria-hidden="true" /> Bản đồ số GIS
+              </button>
+              <Link
+                to={ROUTES.ABOUT}
+                className="flex-1 min-h-11 inline-flex items-center justify-center gap-2 rounded-xl bg-red-600/90 hover:bg-red-600 text-xs sm:text-sm font-bold text-white cursor-pointer shadow-xs border border-red-500/50"
+              >
+                <Compass size={15} aria-hidden="true" /> Bản đồ Đảng ủy
+              </Link>
+            </div>
           </div>
         </div>
       </div>

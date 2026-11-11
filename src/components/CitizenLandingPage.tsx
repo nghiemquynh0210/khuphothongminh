@@ -6,6 +6,7 @@ import CitizenFormsSection from "./landing/CitizenFormsSection";
 import CitizenHeader from "./landing/CitizenHeader";
 import CitizenHero from "./landing/CitizenHero";
 import CitizenLeadershipSection from "./landing/CitizenLeadershipSection";
+import CitizenAboutKP3Section from "./landing/CitizenAboutKP3Section";
 import CitizenModals from "./landing/CitizenModals";
 import CitizenNewsSection from "./landing/CitizenNewsSection";
 import CitizenNoticesSection from "./landing/CitizenNoticesSection";
@@ -247,6 +248,8 @@ export default function CitizenLandingPage({
         ) : (
           /* ROUTE CHUYÊN BIỆT: CHỈ RENDER PHÂN HỆ ĐƯỢC CHỌN */
           <div className="pb-16 min-h-[60vh]">
+            {activeRoute === "about" && <CitizenAboutKP3Section />}
+
             {activeRoute === "services" && (
               <div className="pt-8">
                 <CitizenQuickServices

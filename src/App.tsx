@@ -229,17 +229,9 @@ export default function App() {
         setActiveTab(tab as ActiveTab);
         setCitizenSubView(null);
       } else {
-        try {
-          const savedUserStr = localStorage.getItem("kp3_auth_user");
-          if (savedUserStr) {
-            const parsed = JSON.parse(savedUserStr);
-            if (parsed && parsed.username) {
-              setCurrentUser(parsed);
-              return;
-            }
-          }
-        } catch (e) {}
+        // Landing Page routes: /, /about, /reflection, /forms, /notices, /news, /leadership, /schedule
         setCurrentUser(PUBLIC_CITIZEN_USER);
+        setCitizenSubView(null);
       }
     };
 

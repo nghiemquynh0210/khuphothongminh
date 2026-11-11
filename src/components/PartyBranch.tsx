@@ -2140,68 +2140,54 @@ export default function PartyBranch({ partyMembers, residents = [] }: PartyBranc
             })}
           </div>
 
-          {/* Vertical Chi hội List */}
-          <div className="space-y-2 max-h-[calc(100vh-290px)] min-h-[500px] overflow-y-auto pr-1 scrollbar-thin">
+          {/* Vertical Chi hội List - Chuẩn 100% thiết kế theo Ảnh 1 */}
+          <div className="space-y-2.5 max-h-[calc(100vh-290px)] min-h-[500px] overflow-y-auto pr-1 scrollbar-thin">
             {filteredAssociations.length === 0 ? (
-              <div className="bg-slate-50 p-6 rounded-xl border border-dashed border-slate-200 text-center text-slate-400 text-xs">
+              <div className="bg-slate-50 p-6 rounded-2xl border border-dashed border-slate-200 text-center text-slate-400 text-xs">
                 Không tìm thấy chi hội phù hợp trong khối này
               </div>
             ) : (
               filteredAssociations.map((assoc) => {
                 const isSelected = selectedAssociation.id === assoc.id;
                 const displayName = formatAssocName(assoc.name);
-                const badgeStyle = getAssocBadgeStyle(assoc);
-                const IconComp = badgeStyle.icon;
 
                 return (
                   <div
                     key={assoc.id}
                     onClick={() => setSelectedAssociationId(assoc.id)}
-                    className={`p-3 rounded-2xl border transition-all cursor-pointer relative text-left group ${
+                    className={`p-3 rounded-2xl border-2 transition-all cursor-pointer relative text-left group ${
                       isSelected
-                        ? "bg-emerald-50/70 border-emerald-500 shadow-xs ring-1 ring-emerald-500/30"
-                        : "bg-white border-slate-200/90 hover:border-emerald-300 hover:bg-slate-50/50 hover:shadow-2xs"
+                        ? "bg-emerald-50/25 border-emerald-500 shadow-xs"
+                        : "bg-white border-slate-200/80 hover:border-emerald-300 hover:shadow-2xs"
                     }`}
                   >
                     {/* Active left indicator strip */}
                     {isSelected && (
-                      <div className="absolute left-0 top-2.5 bottom-2.5 w-1.5 bg-emerald-600 rounded-r-full"></div>
+                      <div className="absolute -left-[2px] top-2 bottom-2 w-1.5 bg-emerald-600 rounded-r-full" />
                     )}
 
-                    <div className="pl-1 space-y-2">
-                      {/* Row 1: Icon + Title + Quick Actions */}
-                      <div className="flex items-start justify-between gap-1.5">
-                        <div className="flex items-center gap-2 min-w-0 flex-1">
-                          <div className={`p-1.5 rounded-lg shrink-0 ${badgeStyle.iconBg} ${badgeStyle.iconColor}`}>
-                            <IconComp size={14} />
-                          </div>
-                          <div className="min-w-0 flex-1">
-                            <h3 
-                              className={`text-xs font-bold tracking-tight truncate leading-tight ${
-                                isSelected ? "text-emerald-950 font-black" : "text-slate-800 group-hover:text-emerald-900"
-                              }`}
-                              title={displayName}
-                            >
-                              {displayName}
-                            </h3>
-                            <span className="text-[10px] text-slate-400 font-mono block mt-0.5">
-                              {badgeStyle.groupLabel}
-                            </span>
-                          </div>
-                        </div>
+                    <div className="space-y-2">
+                      {/* Row 1: Pill vàng chứa tên Chi hội + Nút Sửa / Xóa */}
+                      <div className="flex items-center justify-between gap-1.5">
+                        <span 
+                          className="inline-block px-3 py-1 bg-amber-100/80 hover:bg-amber-100 text-amber-950 font-bold rounded-full text-xs shadow-2xs truncate max-w-[210px] transition-colors"
+                          title={displayName}
+                        >
+                          {displayName}
+                        </span>
 
-                        {/* Quick action buttons */}
-                        <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
+                        {/* Quick action buttons (Bút chì & Thùng rác) */}
+                        <div className="flex items-center gap-1 shrink-0 text-slate-300 group-hover:text-slate-400 transition-colors">
                           <button
                             type="button"
                             onClick={(e) => {
                               e.stopPropagation();
                               handleOpenEditAssoc(assoc);
                             }}
-                            className="p-1 text-slate-400 hover:text-indigo-600 hover:bg-white rounded-md transition-colors cursor-pointer shadow-2xs"
-                            title="Sửa thông tin"
+                            className="p-1 hover:text-emerald-700 hover:bg-slate-100 rounded-md transition-colors cursor-pointer"
+                            title="Sửa thông tin chi hội"
                           >
-                            <Pencil size={11} />
+                            <Pencil size={13} />
                           </button>
                           <button
                             type="button"
@@ -2209,29 +2195,29 @@ export default function PartyBranch({ partyMembers, residents = [] }: PartyBranc
                               e.stopPropagation();
                               handleOpenDeleteAssoc(assoc);
                             }}
-                            className="p-1 text-slate-400 hover:text-rose-600 hover:bg-white rounded-md transition-colors cursor-pointer shadow-2xs"
-                            title="Giải thể chi hội"
+                            className="p-1 hover:text-rose-600 hover:bg-slate-100 rounded-md transition-colors cursor-pointer"
+                            title="Xóa / Giải thể chi hội"
                           >
-                            <Trash2 size={11} />
+                            <Trash2 size={13} />
                           </button>
                         </div>
                       </div>
 
-                      {/* Row 2: Leader & Member count */}
-                      <div className="flex items-center justify-between gap-2 pt-1.5 border-t border-slate-100 text-[11px]">
-                        <div className="flex items-center gap-1.5 min-w-0 text-slate-600">
-                          <div className="w-5 h-5 rounded-full bg-slate-100 border border-slate-200/80 flex items-center justify-center text-[10px] font-bold text-slate-700 shrink-0">
-                            {assoc.leaderName ? assoc.leaderName.split(" ").slice(-1)[0][0] : "?"}
-                          </div>
-                          <span className="truncate max-w-[140px] text-[11px]" title={`Trưởng ban: ${assoc.leaderName}`}>
-                            <strong className="text-slate-700 font-medium">{assoc.leaderName || "Chưa kiện toàn"}</strong>
+                      {/* Row 2: Trưởng ban & Số lượng thành viên (tv) */}
+                      <div className="flex items-center justify-between gap-2 text-xs pt-0.5">
+                        <div className="truncate text-slate-500 font-medium text-xs flex-1">
+                          Trưởng:{" "}
+                          <span className="text-slate-800 font-bold">
+                            {assoc.leaderName || "Chưa kiện toàn"}
                           </span>
                         </div>
 
-                        <span className={`font-bold px-2 py-0.5 rounded-full text-[10px] shrink-0 font-mono ${
-                          isSelected ? "bg-emerald-600 text-white shadow-2xs" : "bg-slate-100 text-slate-700"
+                        <span className={`px-2.5 py-0.5 rounded-full text-[11px] font-bold shrink-0 transition-colors ${
+                          isSelected 
+                            ? "bg-emerald-600 text-white shadow-2xs" 
+                            : "bg-slate-100 text-slate-700"
                         }`}>
-                          {formatVNNumber(assoc.members.length)} TV
+                          {assoc.members.length} tv
                         </span>
                       </div>
                     </div>

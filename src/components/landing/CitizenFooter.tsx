@@ -25,9 +25,28 @@ export default function CitizenFooter({ onOpenStaff }: CitizenFooterProps) {
         {/* Column 2: Data Sources */}
         <div className="space-y-3">
           <p className="font-bold text-blue-200 uppercase text-xs tracking-wider">Nguồn tin & dữ liệu</p>
-          <p className="text-blue-100/90">
-            Thông báo, lịch hoạt động, biểu mẫu và phản ánh hiển thị từ hệ thống quản lý nội bộ của Khu phố 3. Số liệu quy mô địa bàn do Ban Điều hành cung cấp.
+          <p className="text-blue-100/90 leading-relaxed">
+            Hệ sinh thái số hóa đồng bộ cùng{" "}
+            <a 
+              href="https://danguy.phuonganphu.gov.vn/" 
+              target="_blank" 
+              rel="noreferrer"
+              className="text-white font-bold underline underline-offset-2 hover:text-teal-300 inline-flex items-center gap-1"
+            >
+              Không Gian Số Đảng Ủy Phường An Phú ↗
+            </a>. Số liệu địa bàn và cơ cấu Chi bộ theo bản đồ số 14 khu phố nhiệm kỳ 2025–2030.
           </p>
+          <div className="flex flex-wrap gap-2 pt-1 text-xs">
+            <Link to={ROUTES.ABOUT} className="text-teal-300 hover:underline">
+              • Giới thiệu Khu phố 3
+            </Link>
+            <a href="https://danguy.phuonganphu.gov.vn/ban-do" target="_blank" rel="noreferrer" className="text-blue-200 hover:text-white">
+              • Bản đồ số Phường ↗
+            </a>
+            <a href="https://danguy.phuonganphu.gov.vn/chi-bo" target="_blank" rel="noreferrer" className="text-blue-200 hover:text-white">
+              • 39 Chi bộ Phường ↗
+            </a>
+          </div>
         </div>
 
         {/* Column 3: Data Protection & Staff Portal */}

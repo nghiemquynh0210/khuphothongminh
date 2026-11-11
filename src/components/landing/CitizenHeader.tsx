@@ -87,6 +87,16 @@ export default function CitizenHeader({
 
         {/* Right action area: Link to staff portal / login & Mobile Trigger */}
         <div className="flex items-center gap-2 shrink-0">
+          <a
+            href="https://danguy.phuonganphu.gov.vn/"
+            target="_blank"
+            rel="noreferrer"
+            className="hidden xl:inline-flex items-center gap-1.5 whitespace-nowrap rounded-md text-xs font-bold transition-colors border border-red-200 bg-red-50 text-red-700 hover:bg-red-100 h-9 px-2.5"
+            title="Mở Không Gian Số Đảng Ủy Phường An Phú"
+          >
+            <span>🏛️ Đảng ủy Phường ↗</span>
+          </a>
+
           <button
             type="button"
             onClick={onOpenStaff}

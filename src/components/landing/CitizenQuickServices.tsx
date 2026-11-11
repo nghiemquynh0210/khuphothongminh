@@ -9,9 +9,11 @@ import {
   FileText,
   MapPin,
   MessageSquare,
-  ShieldCheck
+  ShieldCheck,
+  Landmark,
+  ExternalLink
 } from "lucide-react";
-import { btnGhost, Link, getPathFromRoute } from "./landingConstants";
+import { btnGhost, Link, getPathFromRoute, ROUTES } from "./landingConstants";
 
 export interface CitizenQuickServicesProps {
   formsCount: number;
@@ -25,6 +27,13 @@ export default function CitizenQuickServices({
   onNavigateToTab
 }: CitizenQuickServicesProps) {
   const cards = [
+    {
+      id: "about",
+      icon: <Landmark size={22} />,
+      title: "Giới thiệu Khu phố 3",
+      desc: "Địa giới, Chi bộ & Không gian số Đảng ủy Phường.",
+      accent: "bg-red-700"
+    },
     {
       id: "reflection",
       icon: <MessageSquare size={22} />,
@@ -97,9 +106,51 @@ export default function CitizenQuickServices({
                 <span className="flex items-center gap-1 font-bold text-sm sm:text-base text-gov-navy group-hover:text-gov-blue">
                   {card.title} <ChevronRight size={16} className="hidden sm:inline" aria-hidden="true" />
                 </span>
+                <span className="text-xs text-slate-500 line-clamp-1 block mt-0.5">
+                  {card.desc}
+                </span>
               </span>
             </Link>
           ))}
+        </div>
+
+        {/* Banner Liên Kết Trực Tiếp Không Gian Số Đảng Ủy Phường An Phú */}
+        <div className="bg-gradient-to-r from-red-700 via-rose-700 to-red-800 text-white p-4 sm:p-5 rounded-2xl shadow-sm flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+          <div className="flex items-center gap-3.5">
+            <div className="w-11 h-11 rounded-xl bg-white/20 backdrop-blur-xs flex items-center justify-center shrink-0 ring-2 ring-white/30 text-white">
+              <Landmark size={22} />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full bg-white text-red-800 shadow-2xs">
+                  CỔNG THÔNG TIN CẤP TRÊN
+                </span>
+                <span className="text-xs text-red-200 font-medium">Nhiệm kỳ 2025 – 2030</span>
+              </div>
+              <h3 className="font-extrabold text-sm sm:text-base text-white mt-0.5">
+                Không Gian Số Đảng Ủy Phường An Phú – TP. Hồ Chí Minh
+              </h3>
+              <p className="text-xs text-red-100/90 hidden sm:block">
+                Tra cứu bản đồ số 14 khu phố, cơ cấu 39 Chi bộ trực thuộc và thông tin chỉ đạo của Đảng ủy Phường.
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2 shrink-0 w-full sm:w-auto">
+            <Link
+              to={ROUTES.ABOUT}
+              className="flex-1 sm:flex-initial text-center px-4 py-2 rounded-xl bg-white/15 hover:bg-white/25 text-white font-bold text-xs transition-colors border border-white/25 cursor-pointer"
+            >
+              Xem Giới thiệu KP3
+            </Link>
+            <a
+              href="https://danguy.phuonganphu.gov.vn/"
+              target="_blank"
+              rel="noreferrer"
+              className="flex-1 sm:flex-initial text-center px-4 py-2 rounded-xl bg-white text-red-800 hover:bg-red-50 font-black text-xs transition-colors flex items-center justify-center gap-1.5 shadow-sm"
+            >
+              Truy cập Cổng Phường <ExternalLink size={13} />
+            </a>
+          </div>
         </div>
         <div className="flex flex-wrap gap-2 pt-1">
           <button onClick={() => onNavigateToTab("ai")} className={btnGhost}>

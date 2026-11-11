@@ -6,6 +6,7 @@ import React, { useEffect, useState } from "react";
  */
 export const ROUTES = {
   HOME: "/",
+  ABOUT: "/about",
   REFLECTION: "/reflection",
   FORMS: "/forms",
   NOTICES: "/notices",
@@ -39,6 +40,7 @@ export type RoutePath = typeof ROUTES[keyof typeof ROUTES];
 
 export type LandingRoute =
   | "all"
+  | "about"
   | "reflection"
   | "forms"
   | "notices"
@@ -57,6 +59,12 @@ export interface RouteConfig {
  * Danh sách cấu hình các Route trên Cổng Cư Dân
  */
 export const APP_ROUTES: RouteConfig[] = [
+  {
+    id: "about",
+    label: "Giới thiệu KP3",
+    path: ROUTES.ABOUT,
+    description: "Giới thiệu địa giới, Chi bộ & bản đồ số Khu phố 3 (Đảng ủy Phường An Phú)"
+  },
   {
     id: "reflection",
     label: "Phản ánh",
