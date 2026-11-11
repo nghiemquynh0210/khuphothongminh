@@ -802,6 +802,12 @@ export default function App() {
     try { localStorage.setItem("kp3_welfare_recipients", JSON.stringify(updated)); } catch {}
   };
 
+  const handleUpdateWelfareRecipient = (updatedRec: WelfareRecipient) => {
+    const updated = welfareRecipients.map(w => w.id === updatedRec.id ? updatedRec : w);
+    setWelfareRecipients(updated);
+    try { localStorage.setItem("kp3_welfare_recipients", JSON.stringify(updated)); } catch {}
+  };
+
   const handleDeleteWelfareRecipient = (id: string) => {
     const updated = welfareRecipients.filter(w => w.id !== id);
     setWelfareRecipients(updated);
@@ -1070,6 +1076,7 @@ export default function App() {
                 recipients={welfareRecipients}
                 onUpdateStatus={handleUpdateWelfareStatus}
                 onAddRecipient={handleAddWelfareRecipient}
+                onUpdateRecipient={handleUpdateWelfareRecipient}
                 onDeleteRecipient={handleDeleteWelfareRecipient}
                 residents={residents}
               />
@@ -1481,6 +1488,7 @@ export default function App() {
               recipients={welfareRecipients}
               onUpdateStatus={handleUpdateWelfareStatus}
               onAddRecipient={handleAddWelfareRecipient}
+              onUpdateRecipient={handleUpdateWelfareRecipient}
               onDeleteRecipient={handleDeleteWelfareRecipient}
               residents={residents}
             />

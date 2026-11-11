@@ -67,6 +67,7 @@ interface SocialWelfareProps {
   recipients: WelfareRecipient[];
   onUpdateStatus: (id: string, status: "Đang nhận trợ cấp" | "Chờ duyệt hồ sơ" | "Đã tạm ngưng") => void;
   onAddRecipient: (newRec: WelfareRecipient) => void;
+  onUpdateRecipient?: (updatedRec: WelfareRecipient) => void;
   onDeleteRecipient: (id: string) => void;
   residents?: Resident[];
 }
@@ -75,6 +76,7 @@ export default function SocialWelfare({
   recipients,
   onUpdateStatus,
   onAddRecipient,
+  onUpdateRecipient,
   onDeleteRecipient,
   residents = []
 }: SocialWelfareProps) {
@@ -121,6 +123,31 @@ export default function SocialWelfare({
   const [selectedCampaign, setSelectedCampaign] = useState<WelfareCampaign | null>(null);
   const [recipientToDelete, setRecipientToDelete] = useState<WelfareRecipient | null>(null);
   const [emergencyTargetRecipient, setEmergencyTargetRecipient] = useState<WelfareRecipient | null>(null);
+
+  // Edit Recipient Modal State
+  const [recipientToEdit, setRecipientToEdit] = useState<WelfareRecipient | null>(null);
+  const [editFullName, setEditFullName] = useState("");
+  const [editCccd, setEditCccd] = useState("");
+  const [editPhone, setEditPhone] = useState("");
+  const [editAddress, setEditAddress] = useState("");
+  const [editCategory, setEditCategory] = useState("Người có công");
+  const [editSupportLevel, setEditSupportLevel] = useState("2.500.000đ / tháng");
+  const [editStatus, setEditStatus] = useState<"Đang nhận trợ cấp" | "Chờ duyệt hồ sơ" | "Đã tạm ngưng">("Đang nhận trợ cấp");
+  const [editBenefits, setEditBenefits] = useState<string[]>([]);
+  const [editNotes, setEditNotes] = useState("");
+  const [editTempBenefitInput, setEditTempBenefitInput] = useState("");
+
+  // Edit & Delete SubCategory Modal State
+  const [subCategoryToEdit, setSubCategoryToEdit] = useState<WelfareSubCategory | null>(null);
+  const [editSubName, setEditSubName] = useState("");
+  const [editSubCode, setEditSubCode] = useState("");
+  const [editSubColor, setEditSubColor] = useState("indigo");
+  const [editSubDesc, setEditSubDesc] = useState("");
+  const [editSubCriteria, setEditSubCriteria] = useState("");
+  const [editSubBenefits, setEditSubBenefits] = useState<string[]>([]);
+  const [editSubTempBenefit, setEditSubTempBenefit] = useState("");
+  const [subCategoryToDelete, setSubCategoryToDelete] = useState<WelfareSubCategory | null>(null);
+  const [reassignCategoryTarget, setReassignCategoryTarget] = useState("");
 
   // Modern Toast system
   const [toast, setToast] = useState<{ message: string; type: "success" | "error" | "info" } | null>(null);
@@ -428,7 +455,8 @@ export default function SocialWelfare({
     const updatedList = recipients.map(r => r.id === selectedRecipient.id ? updatedRec : r);
     try {
       localStorage.setItem("kp3_welfare_recipients", JSON.stringify(updatedList));
-    } catch {}
+    } catch { }
+    if (onUpdateRecipient) onUpdateRecipient(updatedRec);
     setNewCustomBenefitName("");
     showToast(`Đã thêm quyền lợi "${newCustomBenefitName.trim()}" cho ${selectedRecipient.fullName}!`, "success");
   };
@@ -441,7 +469,8 @@ export default function SocialWelfare({
     const updatedList = recipients.map(r => r.id === selectedRecipient.id ? updatedRec : r);
     try {
       localStorage.setItem("kp3_welfare_recipients", JSON.stringify(updatedList));
-    } catch {}
+    } catch { }
+    if (onUpdateRecipient) onUpdateRecipient(updatedRec);
   };
 
   // Execute Recipient Deletion
@@ -450,6 +479,154 @@ export default function SocialWelfare({
     showToast("Đã xóa đối tượng khỏi danh sách trợ cấp thành công!", "info");
     setRecipientToDelete(null);
     if (selectedRecipient?.id === id) setSelectedRecipient(null);
+  };
+
+  // ================= FORM HANDLERS: EDIT RECIPIENT =================
+  const handleOpenEditRecipient = (rec: WelfareRecipient) => {
+    setRecipientToEdit(rec);
+    setEditFullName(rec.fullName);
+    setEditCccd(rec.cccd);
+    setEditPhone(rec.phone || "");
+    setEditAddress(rec.address);
+    setEditCategory(rec.category);
+    setEditSupportLevel(rec.supportLevel);
+    setEditStatus(rec.status);
+    setEditBenefits(rec.benefits ? [...rec.benefits] : []);
+    setEditNotes(rec.notes || "");
+    setEditTempBenefitInput("");
+  };
+
+  const handleAddBenefitToEdit = () => {
+    if (editTempBenefitInput.trim() && !editBenefits.includes(editTempBenefitInput.trim())) {
+      setEditBenefits(prev => [...prev, editTempBenefitInput.trim()]);
+      setEditTempBenefitInput("");
+    }
+  };
+
+  const handleRemoveBenefitFromEdit = (benefitText: string) => {
+    setEditBenefits(prev => prev.filter(b => b !== benefitText));
+  };
+
+  const handleSaveEditRecipient = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!recipientToEdit) return;
+    if (!editFullName.trim() || !editCccd.trim()) {
+      showToast("Vui lòng điền họ tên và số CCCD!", "error");
+      return;
+    }
+    const matchedSub = subCategories.find(s => s.name === editCategory);
+    const updated: WelfareRecipient = {
+      ...recipientToEdit,
+      fullName: editFullName.trim(),
+      cccd: editCccd.trim(),
+      phone: editPhone.trim() || undefined,
+      address: editAddress.trim() || "Khu phố 3, Phường An Phú",
+      category: editCategory,
+      subCategoryId: matchedSub?.id || recipientToEdit.subCategoryId,
+      supportLevel: editSupportLevel,
+      status: editStatus,
+      benefits: editBenefits,
+      notes: editNotes.trim() || undefined
+    };
+
+    if (onUpdateRecipient) {
+      onUpdateRecipient(updated);
+    } else {
+      try {
+        const stored = JSON.parse(localStorage.getItem("kp3_welfare_recipients") || "[]");
+        const newStored = stored.map((r: any) => r.id === updated.id ? updated : r);
+        localStorage.setItem("kp3_welfare_recipients", JSON.stringify(newStored));
+      } catch {}
+    }
+
+    if (selectedRecipient?.id === updated.id) {
+      setSelectedRecipient(updated);
+    }
+
+    setRecipientToEdit(null);
+    showToast(`Đã cập nhật hồ sơ đối tượng "${updated.fullName}" thành công!`, "success");
+  };
+
+  // ================= FORM HANDLERS: EDIT & DELETE SUB-CATEGORY =================
+  const handleOpenEditSubCategory = (sub: WelfareSubCategory) => {
+    setSubCategoryToEdit(sub);
+    setEditSubName(sub.name);
+    setEditSubCode(sub.code);
+    setEditSubColor(sub.color || "indigo");
+    setEditSubDesc(sub.description);
+    setEditSubCriteria(sub.criteria);
+    setEditSubBenefits([...(sub.standardBenefits || [])]);
+    setEditSubTempBenefit("");
+  };
+
+  const handleAddBenefitToEditSub = () => {
+    if (editSubTempBenefit.trim() && !editSubBenefits.includes(editSubTempBenefit.trim())) {
+      setEditSubBenefits(prev => [...prev, editSubTempBenefit.trim()]);
+      setEditSubTempBenefit("");
+    }
+  };
+
+  const handleRemoveBenefitFromEditSub = (benefitText: string) => {
+    setEditSubBenefits(prev => prev.filter(b => b !== benefitText));
+  };
+
+  const handleSaveEditSubCategory = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!subCategoryToEdit) return;
+    if (!editSubName.trim()) {
+      showToast("Vui lòng nhập tên phân hệ an sinh con!", "error");
+      return;
+    }
+    const oldName = subCategoryToEdit.name;
+    const newName = editSubName.trim();
+    const updatedSub: WelfareSubCategory = {
+      ...subCategoryToEdit,
+      name: newName,
+      code: editSubCode.trim().toUpperCase() || newName.substring(0, 3).toUpperCase(),
+      color: editSubColor,
+      description: editSubDesc.trim() || subCategoryToEdit.description,
+      criteria: editSubCriteria.trim() || subCategoryToEdit.criteria,
+      standardBenefits: editSubBenefits
+    };
+
+    const updatedList = subCategories.map(s => s.id === updatedSub.id ? updatedSub : s);
+    updateSubCategories(updatedList);
+
+    // If name changed, synchronize recipients whose category was oldName
+    if (oldName !== newName) {
+      recipients.forEach(r => {
+        if (r.category === oldName) {
+          const updatedRec = { ...r, category: newName };
+          if (onUpdateRecipient) onUpdateRecipient(updatedRec);
+        }
+      });
+      if (selectedRecipient && selectedRecipient.category === oldName) {
+        setSelectedRecipient({ ...selectedRecipient, category: newName });
+      }
+    }
+
+    setSubCategoryToEdit(null);
+    showToast(`Đã cập nhật phân hệ "${newName}" thành công!`, "success");
+  };
+
+  const handleConfirmDeleteSubCategory = (sub: WelfareSubCategory, reassignTarget?: string) => {
+    const affectedRecipients = recipients.filter(r => r.category === sub.name);
+    if (affectedRecipients.length > 0) {
+      if (!reassignTarget) {
+        showToast(`Vui lòng chọn phân hệ mới để chuyển ${affectedRecipients.length} đối tượng!`, "error");
+        return;
+      }
+      affectedRecipients.forEach(r => {
+        const updatedRec = { ...r, category: reassignTarget };
+        if (onUpdateRecipient) onUpdateRecipient(updatedRec);
+      });
+      showToast(`Đã chuyển giao ${affectedRecipients.length} đối tượng sang phân hệ "${reassignTarget}".`, "info");
+    }
+
+    const updated = subCategories.filter(s => s.id !== sub.id);
+    updateSubCategories(updated);
+    setSubCategoryToDelete(null);
+    showToast(`Đã xóa phân hệ an sinh "${sub.name}" thành công!`, "success");
   };
 
   // Filter Recipients
@@ -632,11 +809,10 @@ export default function SocialWelfare({
       <div className="flex items-center gap-1.5 bg-slate-100/90 p-1 rounded-2xl border border-slate-200/80 overflow-x-auto">
         <button
           onClick={() => setActiveTab("recipients")}
-          className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-2 shrink-0 ${
-            activeTab === "recipients"
+          className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-2 shrink-0 ${activeTab === "recipients"
               ? "bg-white text-rose-700 shadow-xs border border-slate-200"
               : "text-slate-600 hover:text-slate-900 hover:bg-white/60"
-          }`}
+            }`}
         >
           <Users size={14} className={activeTab === "recipients" ? "text-rose-600" : "text-slate-400"} />
           <span>Danh Sách Đối Tượng Thụ Hưởng ({recipients.length})</span>
@@ -644,23 +820,21 @@ export default function SocialWelfare({
 
         <button
           onClick={() => setActiveTab("submodules")}
-          className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-2 shrink-0 ${
-            activeTab === "submodules"
+          className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-2 shrink-0 ${activeTab === "submodules"
               ? "bg-white text-indigo-700 shadow-xs border border-slate-200"
               : "text-slate-600 hover:text-slate-900 hover:bg-white/60"
-          }`}
+            }`}
         >
           <FolderPlus size={14} className={activeTab === "submodules" ? "text-indigo-600" : "text-slate-400"} />
-          <span>Phân Hệ Con & Chế Độ Chính Sách ({subCategories.length})</span>
+          <span>Phân Hệ & Chế Độ Chính Sách ({subCategories.length})</span>
         </button>
 
         <button
           onClick={() => setActiveTab("campaigns")}
-          className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-2 shrink-0 ${
-            activeTab === "campaigns"
+          className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-2 shrink-0 ${activeTab === "campaigns"
               ? "bg-white text-emerald-700 shadow-xs border border-slate-200"
               : "text-slate-600 hover:text-slate-900 hover:bg-white/60"
-          }`}
+            }`}
         >
           <Gift size={14} className={activeTab === "campaigns" ? "text-emerald-600" : "text-slate-400"} />
           <span>Đợt Hỗ Trợ & Cấp Phát Tập Trung ({campaigns.length})</span>
@@ -668,11 +842,10 @@ export default function SocialWelfare({
 
         <button
           onClick={() => setActiveTab("emergency")}
-          className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-2 shrink-0 ${
-            activeTab === "emergency"
+          className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-2 shrink-0 ${activeTab === "emergency"
               ? "bg-white text-amber-800 shadow-xs border border-slate-200"
               : "text-slate-600 hover:text-slate-900 hover:bg-white/60"
-          }`}
+            }`}
         >
           <Zap size={14} className={activeTab === "emergency" ? "text-amber-500 fill-amber-500" : "text-slate-400"} />
           <span>Hỗ Trợ Ngay & Cứu Trợ Khẩn Cấp ({emergencyRecords.length})</span>
@@ -688,11 +861,10 @@ export default function SocialWelfare({
           <div className="flex items-center gap-1.5 overflow-x-auto pb-1">
             <button
               onClick={() => { setSelectedCategoryPill("all"); setCurrentPage(1); }}
-              className={`px-3 py-1.5 rounded-xl text-xs font-bold shrink-0 transition-all cursor-pointer border ${
-                selectedCategoryPill === "all"
+              className={`px-3 py-1.5 rounded-xl text-xs font-bold shrink-0 transition-all cursor-pointer border ${selectedCategoryPill === "all"
                   ? "bg-slate-900 text-white border-slate-900 shadow-xs"
                   : "bg-white text-slate-600 border-slate-200 hover:bg-slate-50"
-              }`}
+                }`}
             >
               Tất cả phân hệ ({recipients.length})
             </button>
@@ -702,16 +874,14 @@ export default function SocialWelfare({
                 <button
                   key={sub.id}
                   onClick={() => { setSelectedCategoryPill(sub.name); setCurrentPage(1); }}
-                  className={`px-3 py-1.5 rounded-xl text-xs font-bold shrink-0 transition-all cursor-pointer border flex items-center gap-1.5 ${
-                    selectedCategoryPill === sub.name
+                  className={`px-3 py-1.5 rounded-xl text-xs font-bold shrink-0 transition-all cursor-pointer border flex items-center gap-1.5 ${selectedCategoryPill === sub.name
                       ? "bg-rose-600 text-white border-rose-600 shadow-xs"
                       : "bg-white text-slate-700 border-slate-200 hover:bg-rose-50/50"
-                  }`}
+                    }`}
                 >
                   <span>{sub.name}</span>
-                  <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-mono ${
-                    selectedCategoryPill === sub.name ? "bg-white/20 text-white" : "bg-slate-100 text-slate-600"
-                  }`}>
+                  <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-mono ${selectedCategoryPill === sub.name ? "bg-white/20 text-white" : "bg-slate-100 text-slate-600"
+                    }`}>
                     {count}
                   </span>
                 </button>
@@ -840,14 +1010,32 @@ export default function SocialWelfare({
                             <Eye size={13} /> Hồ sơ & Quyền lợi
                           </button>
 
-                          <button
-                            type="button"
-                            onClick={() => handleOpenEmergencyForRecipient(rec)}
-                            className="p-1.5 bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200 rounded-lg text-xs font-bold flex items-center gap-1 cursor-pointer"
-                            title="Hỗ trợ khẩn cấp ngay cho đối tượng này"
-                          >
-                            <Zap size={12} className="text-amber-600" /> Hỗ trợ ngay
-                          </button>
+                          <div className="flex items-center gap-1">
+                            <button
+                              type="button"
+                              onClick={() => handleOpenEmergencyForRecipient(rec)}
+                              className="p-1.5 bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200 rounded-lg text-xs font-bold flex items-center gap-1 cursor-pointer"
+                              title="Hỗ trợ khẩn cấp ngay cho đối tượng này"
+                            >
+                              <Zap size={12} className="text-amber-600" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleOpenEditRecipient(rec)}
+                              className="p-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 rounded-lg text-xs font-bold cursor-pointer"
+                              title="Chỉnh sửa hồ sơ"
+                            >
+                              <Edit2 size={12} />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setRecipientToDelete(rec)}
+                              className="p-1.5 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-lg text-xs font-bold cursor-pointer"
+                              title="Xóa đối tượng"
+                            >
+                              <Trash2 size={12} />
+                            </button>
+                          </div>
                         </div>
                       </div>
                     </div>
@@ -913,6 +1101,14 @@ export default function SocialWelfare({
                             </button>
                             <button
                               type="button"
+                              onClick={() => handleOpenEditRecipient(rec)}
+                              className="p-1 text-indigo-600 hover:bg-indigo-50 rounded-lg cursor-pointer"
+                              title="Chỉnh sửa thông tin đối tượng"
+                            >
+                              <Edit2 size={13} />
+                            </button>
+                            <button
+                              type="button"
                               onClick={() => handleOpenEmergencyForRecipient(rec)}
                               className="p-1 text-amber-700 hover:bg-amber-50 rounded-lg cursor-pointer"
                               title="Hỗ trợ ngay"
@@ -949,7 +1145,7 @@ export default function SocialWelfare({
       )}
 
       {/* ========================================================================= */}
-      {/* SUB-TAB 2: PHÂN HỆ CON & CHẾ ĐỘ CHÍNH SÁCH QUYỀN LỢI                     */}
+      {/* SUB-TAB 2: PHÂN HỆ & CHẾ ĐỘ CHÍNH SÁCH QUYỀN LỢI                     */}
       {/* ========================================================================= */}
       {activeTab === "submodules" && (
         <div className="space-y-4">
@@ -1024,28 +1220,42 @@ export default function SocialWelfare({
                     </div>
                   </div>
 
-                  <div className="pt-3 border-t border-slate-100 flex items-center justify-between">
+                  <div className="pt-3 border-t border-slate-100 flex items-center justify-between gap-2">
                     <button
                       type="button"
                       onClick={() => {
                         setSelectedCategoryPill(sub.name);
                         setActiveTab("recipients");
                       }}
-                      className="text-xs font-bold text-indigo-700 hover:text-indigo-800 flex items-center gap-1 cursor-pointer"
+                      className="text-xs font-bold text-indigo-700 hover:text-indigo-800 flex items-center gap-1 cursor-pointer truncate"
                     >
                       Xem {count} đối tượng ➜
                     </button>
 
-                    {sub.isCustom && (
+                    <div className="flex items-center gap-1.5 shrink-0">
                       <button
                         type="button"
-                        onClick={() => handleDeleteSubCategory(sub.id)}
-                        className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg cursor-pointer"
-                        title="Xóa phân hệ tự tạo"
+                        onClick={() => handleOpenEditSubCategory(sub)}
+                        className="px-2 py-1 text-indigo-700 hover:bg-indigo-50 border border-indigo-200 rounded-lg cursor-pointer flex items-center gap-1 text-xs font-bold transition-colors"
+                        title="Chỉnh sửa phân hệ & tiêu chuẩn chính sách"
                       >
-                        <Trash2 size={13} />
+                        <Edit2 size={12} />
+                        <span>Sửa</span>
                       </button>
-                    )}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setSubCategoryToDelete(sub);
+                          const others = subCategories.filter(s => s.id !== sub.id);
+                          setReassignCategoryTarget(others[0]?.name || "");
+                        }}
+                        className="px-2 py-1 text-slate-500 hover:text-rose-600 hover:bg-rose-50 border border-slate-200 rounded-lg cursor-pointer flex items-center gap-1 text-xs transition-colors"
+                        title="Xóa phân hệ"
+                      >
+                        <Trash2 size={12} />
+                        <span>Xóa</span>
+                      </button>
+                    </div>
                   </div>
                 </div>
               );
@@ -1972,10 +2182,11 @@ export default function SocialWelfare({
             className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-xl max-h-[92vh] flex flex-col overflow-hidden animate-in zoom-in-95 duration-200 text-slate-800"
           >
             {/* Header */}
-            <div className="bg-gradient-to-b from-slate-50 via-white to-rose-50/30 px-5 pt-6 pb-5 text-slate-800 relative text-center border-b border-slate-200 shrink-0">
+            <div className="bg-gradient-to-b from-slate-50 via-white to-rose-50/30 px-5 pt-6 pb-4 text-slate-800 relative text-center border-b border-slate-200 shrink-0">
               <button
                 onClick={() => setSelectedRecipient(null)}
                 className="absolute top-3.5 right-3.5 p-1.5 rounded-full text-slate-400 hover:text-slate-600 hover:bg-slate-100 cursor-pointer transition-colors"
+                title="Đóng modal"
               >
                 <X size={18} />
               </button>
@@ -1984,7 +2195,7 @@ export default function SocialWelfare({
                 <Heart size={26} className="fill-rose-500/20 text-rose-600" />
               </div>
 
-              <h3 className="text-lg font-black text-slate-900 leading-snug">
+              <h3 className="text-lg font-black text-slate-900 leading-snug tracking-tight">
                 {selectedRecipient.fullName}
               </h3>
 
@@ -1993,39 +2204,109 @@ export default function SocialWelfare({
                   {selectedRecipient.id}
                 </span>
                 {getSubCategoryBadge(selectedRecipient.category)}
-                <span className="text-[11px] font-bold px-2.5 py-0.5 rounded-full border bg-emerald-50 text-emerald-800 border-emerald-200">
+                <span className={`text-[11px] font-bold px-2.5 py-0.5 rounded-full border ${
+                  selectedRecipient.status === "Đang nhận trợ cấp" ? "bg-emerald-50 text-emerald-800 border-emerald-200" :
+                  selectedRecipient.status === "Chờ duyệt hồ sơ" ? "bg-amber-50 text-amber-800 border-amber-200" :
+                  "bg-slate-100 text-slate-700 border-slate-300"
+                }`}>
                   {selectedRecipient.status}
                 </span>
               </div>
 
               <p className="text-slate-500 text-xs mt-2 flex items-center justify-center gap-1 font-medium">
                 <MapPin size={12} className="text-rose-500 shrink-0" />
-                <span className="truncate max-w-xs">{selectedRecipient.address}</span>
+                <span className="truncate max-w-sm">{selectedRecipient.address}</span>
               </p>
+
+              {/* Quick Action Header Controls */}
+              <div className="flex items-center justify-center gap-2 mt-3 pt-2.5 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => handleOpenEditRecipient(selectedRecipient)}
+                  className="px-3 py-1 bg-white hover:bg-indigo-50 text-indigo-700 border border-indigo-200 rounded-lg text-xs font-bold flex items-center gap-1.5 shadow-2xs cursor-pointer transition-colors"
+                  title="Sửa thông tin đối tượng"
+                >
+                  <Edit2 size={12} />
+                  <span>Sửa thông tin hồ sơ</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setRecipientToDelete(selectedRecipient)}
+                  className="px-3 py-1 bg-white hover:bg-rose-50 text-rose-600 border border-rose-200 rounded-lg text-xs font-bold flex items-center gap-1.5 shadow-2xs cursor-pointer transition-colors"
+                  title="Xóa đối tượng khỏi danh sách"
+                >
+                  <Trash2 size={12} />
+                  <span>Xóa hồ sơ</span>
+                </button>
+              </div>
             </div>
 
             {/* Scrollable Body */}
             <div className="flex-1 overflow-y-auto p-4 sm:p-5 space-y-3.5 bg-slate-50/60 text-xs">
               {/* Thẻ 1: Thông tin định danh */}
-              <div className="bg-white rounded-xl p-3.5 border border-slate-200 shadow-xs space-y-2">
-                <div className="flex items-center gap-2 pb-2 border-b border-slate-100 font-bold text-slate-900">
-                  <User size={14} className="text-rose-600" />
-                  <span>1. Thông tin Định danh & Cư trú</span>
+              <div className="bg-white rounded-xl p-4 border border-slate-200 shadow-xs space-y-3">
+                <div className="flex items-center justify-between pb-2 border-b border-slate-100">
+                  <div className="flex items-center gap-2 font-bold text-slate-900">
+                    <User size={15} className="text-rose-600" />
+                    <span className="text-sm">1. Thông tin Định danh & Cư trú</span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => handleOpenEditRecipient(selectedRecipient)}
+                    className="text-indigo-600 hover:text-indigo-800 text-[11px] font-bold flex items-center gap-1 cursor-pointer"
+                  >
+                    <Edit2 size={11} /> Sửa
+                  </button>
                 </div>
-                <DetailGrid>
-                  <DetailRow label="Số CCCD" value={selectedRecipient.cccd} isMono />
-                  <DetailRow label="Số điện thoại" value={selectedRecipient.phone || "Chưa cập nhật"} isMono />
-                  <DetailRow label="Mức trợ cấp hàng tháng" value={<span className="font-black text-rose-700 text-sm">{selectedRecipient.supportLevel}</span>} />
-                  <DetailRow label="Nơi cư trú" value={selectedRecipient.address} colSpan={2} />
-                </DetailGrid>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div className="p-2.5 rounded-lg bg-slate-50 border border-slate-100">
+                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-0.5">Số CCCD / Định danh:</span>
+                    <span className="font-mono font-bold text-slate-900 text-sm tracking-wide">{selectedRecipient.cccd}</span>
+                  </div>
+                  
+                  <div className="p-2.5 rounded-lg bg-slate-50 border border-slate-100">
+                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-0.5">Số điện thoại liên hệ:</span>
+                    {selectedRecipient.phone ? (
+                      <span className="font-mono font-bold text-slate-900 text-sm">{selectedRecipient.phone}</span>
+                    ) : (
+                      <span className="inline-block px-2 py-0.5 rounded bg-slate-200/80 text-slate-600 font-semibold text-[11px]">Chưa cập nhật</span>
+                    )}
+                  </div>
+
+                  <div className="p-2.5 rounded-lg bg-rose-50/60 border border-rose-100">
+                    <span className="text-[10px] font-bold text-rose-700 uppercase tracking-wider block mb-0.5">Mức trợ cấp hàng tháng:</span>
+                    <span className="text-base font-black text-rose-700">{selectedRecipient.supportLevel}</span>
+                  </div>
+
+                  <div className="p-2.5 rounded-lg bg-slate-50 border border-slate-100">
+                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-0.5">Trạng thái thụ hưởng:</span>
+                    <span className={`inline-flex items-center gap-1.5 text-xs font-bold px-2 py-0.5 rounded-full border ${
+                      selectedRecipient.status === "Đang nhận trợ cấp" ? "bg-emerald-50 text-emerald-800 border-emerald-200" :
+                      selectedRecipient.status === "Chờ duyệt hồ sơ" ? "bg-amber-50 text-amber-800 border-amber-200" :
+                      "bg-slate-100 text-slate-700 border-slate-300"
+                    }`}>
+                      <span className={`w-1.5 h-1.5 rounded-full ${selectedRecipient.status === "Đang nhận trợ cấp" ? "bg-emerald-600 animate-pulse" : "bg-slate-400"}`} />
+                      {selectedRecipient.status}
+                    </span>
+                  </div>
+
+                  <div className="sm:col-span-2 p-2.5 rounded-lg bg-slate-50 border border-slate-100">
+                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-0.5">Nơi cư trú hiện tại:</span>
+                    <p className="text-xs font-semibold text-slate-800 leading-relaxed flex items-center gap-1.5">
+                      <MapPin size={13} className="text-rose-500 shrink-0" />
+                      {selectedRecipient.address}
+                    </p>
+                  </div>
+                </div>
               </div>
 
               {/* Thẻ 2: Chế độ Chính sách & Quyền lợi được hưởng */}
-              <div className="bg-white rounded-xl p-3.5 border border-slate-200 shadow-xs space-y-2.5">
+              <div className="bg-white rounded-xl p-4 border border-slate-200 shadow-xs space-y-3">
                 <div className="flex items-center justify-between pb-2 border-b border-slate-100">
                   <div className="flex items-center gap-2 font-bold text-slate-900">
-                    <Gift size={14} className="text-emerald-600" />
-                    <span>2. Chế độ Chính sách & Quyền lợi ({selectedRecipient.benefits?.length || 0})</span>
+                    <Gift size={15} className="text-emerald-600" />
+                    <span className="text-sm">2. Chế độ Chính sách & Quyền lợi ({selectedRecipient.benefits?.length || 0})</span>
                   </div>
                 </div>
 
@@ -2061,12 +2342,13 @@ export default function SocialWelfare({
                     placeholder="Thêm quyền lợi mới (e.g. Cấp máy may, học bổng, quà Tết...)"
                     value={newCustomBenefitName}
                     onChange={e => setNewCustomBenefitName(e.target.value)}
-                    className="flex-1 p-1.5 rounded-lg border border-slate-300 bg-white text-xs"
+                    onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); handleAddBenefitToSelected(); } }}
+                    className="flex-1 p-2 rounded-lg border border-slate-300 bg-white text-xs"
                   />
                   <button
                     type="button"
                     onClick={handleAddBenefitToSelected}
-                    className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-lg text-xs cursor-pointer shrink-0"
+                    className="px-3 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-lg text-xs cursor-pointer shrink-0"
                   >
                     + Thêm quyền lợi
                   </button>
@@ -2075,12 +2357,12 @@ export default function SocialWelfare({
 
               {/* Thẻ 3: Hoàn cảnh & Ghi chú khảo sát */}
               {selectedRecipient.notes && (
-                <div className="bg-white rounded-xl p-3.5 border border-slate-200 shadow-xs space-y-1.5">
+                <div className="bg-white rounded-xl p-4 border border-slate-200 shadow-xs space-y-2">
                   <div className="font-bold text-slate-900 flex items-center gap-1.5">
                     <FileCheck size={14} className="text-indigo-600" />
                     <span>3. Ghi chú khảo sát hoàn cảnh</span>
                   </div>
-                  <p className="text-slate-600 leading-relaxed bg-slate-50 p-2.5 rounded-lg border border-slate-200">
+                  <p className="text-slate-600 leading-relaxed bg-slate-50 p-3 rounded-lg border border-slate-200">
                     {selectedRecipient.notes}
                   </p>
                 </div>
@@ -2117,6 +2399,22 @@ export default function SocialWelfare({
               </div>
 
               <div className="flex items-center gap-1.5">
+                <button
+                  type="button"
+                  onClick={() => handleOpenEditRecipient(selectedRecipient)}
+                  className="px-2.5 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 rounded-lg text-xs font-bold flex items-center gap-1 cursor-pointer"
+                  title="Chỉnh sửa toàn bộ hồ sơ"
+                >
+                  <Edit2 size={13} /> Sửa
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setRecipientToDelete(selectedRecipient)}
+                  className="px-2.5 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-lg text-xs font-bold flex items-center gap-1 cursor-pointer"
+                  title="Xóa đối tượng"
+                >
+                  <Trash2 size={13} /> Xóa
+                </button>
                 <button
                   type="button"
                   onClick={() => window.print()}
@@ -2246,6 +2544,570 @@ export default function SocialWelfare({
           </div>
         </div>
       )}
+
+      {/* ========================================================================= */}
+      {/* MODAL 7: CHỈNH SỬA THÔNG TIN ĐỐI TƯỢNG THỤ HƯỞNG                          */}
+      {/* ========================================================================= */}
+      {recipientToEdit && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/70 backdrop-blur-sm animate-in fade-in duration-150"
+          onClick={() => setRecipientToEdit(null)}
+        >
+          <div
+            onClick={e => e.stopPropagation()}
+            className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-2xl max-h-[92vh] flex flex-col overflow-hidden animate-in zoom-in-95 duration-200 text-slate-800 text-xs"
+          >
+            {/* Header */}
+            <div className="p-4 bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 text-white flex items-center justify-between shrink-0 border-b border-indigo-900/60">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-lg bg-indigo-500/20 border border-indigo-400/30 flex items-center justify-center text-indigo-300">
+                  <Edit2 size={16} />
+                </div>
+                <div>
+                  <h3 className="font-bold text-sm tracking-wide text-white">
+                    Chỉnh sửa hồ sơ đối tượng thụ hưởng
+                  </h3>
+                  <p className="text-[11px] text-indigo-200/80">
+                    Mã hồ sơ: <span className="font-mono font-bold text-white">{recipientToEdit.id}</span> • Đối tượng: <span className="font-bold text-emerald-300">{recipientToEdit.fullName}</span>
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setRecipientToEdit(null)}
+                className="p-1 rounded-full text-slate-400 hover:text-white hover:bg-white/10 cursor-pointer"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            {/* Form Body */}
+            <form onSubmit={handleSaveEditRecipient} className="flex flex-col flex-1 overflow-hidden">
+              <div className="p-4 sm:p-5 space-y-4 overflow-y-auto flex-1">
+                {/* 1. Định danh & Cư trú */}
+                <div className="bg-slate-50/70 rounded-xl p-3.5 border border-slate-200/80 space-y-3">
+                  <div className="font-bold text-slate-900 flex items-center gap-1.5 text-xs">
+                    <User size={14} className="text-indigo-600" />
+                    <span>1. Thông tin định danh & Cư trú</span>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                        Họ và tên đối tượng <span className="text-rose-500">*</span>
+                      </label>
+                      <input
+                        type="text"
+                        required
+                        value={editFullName}
+                        onChange={e => setEditFullName(e.target.value)}
+                        className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-600"
+                        placeholder="Nhập họ và tên..."
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                        Số CCCD / Định danh cá nhân <span className="text-rose-500">*</span>
+                      </label>
+                      <input
+                        type="text"
+                        required
+                        value={editCccd}
+                        onChange={e => setEditCccd(e.target.value)}
+                        className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-xs font-mono font-semibold focus:outline-none focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-600"
+                        placeholder="Ví dụ: 079..."
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                        Số điện thoại liên hệ
+                      </label>
+                      <input
+                        type="text"
+                        value={editPhone}
+                        onChange={e => setEditPhone(e.target.value)}
+                        className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-xs font-mono focus:outline-none focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-600"
+                        placeholder="Ví dụ: 0912 345 678"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                        Địa chỉ cư trú
+                      </label>
+                      <input
+                        type="text"
+                        value={editAddress}
+                        onChange={e => setEditAddress(e.target.value)}
+                        className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-600"
+                        placeholder="Địa chỉ tại KP3..."
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* 2. Phân hệ & Mức trợ cấp & Trạng thái */}
+                <div className="bg-slate-50/70 rounded-xl p-3.5 border border-slate-200/80 space-y-3">
+                  <div className="font-bold text-slate-900 flex items-center gap-1.5 text-xs">
+                    <Heart size={14} className="text-rose-600" />
+                    <span>2. Phân loại đối tượng & Mức hỗ trợ</span>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                        Phân hệ an sinh trực thuộc
+                      </label>
+                      <select
+                        value={editCategory}
+                        onChange={e => setEditCategory(e.target.value)}
+                        className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-xs font-bold text-indigo-900 focus:outline-none focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-600 cursor-pointer"
+                      >
+                        {subCategories.map(cat => (
+                          <option key={cat.id} value={cat.name}>
+                            {cat.name} ({cat.code})
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                        Trạng thái thụ hưởng
+                      </label>
+                      <select
+                        value={editStatus}
+                        onChange={e => setEditStatus(e.target.value as any)}
+                        className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-xs font-bold focus:outline-none focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-600 cursor-pointer"
+                      >
+                        <option value="Đang nhận trợ cấp">🟢 Đang nhận trợ cấp</option>
+                        <option value="Chờ duyệt hồ sơ">🟡 Chờ duyệt hồ sơ</option>
+                        <option value="Đã tạm ngưng">🔴 Đã tạm ngưng</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                      Mức trợ cấp hàng tháng
+                    </label>
+                    <div className="space-y-1.5">
+                      <input
+                        type="text"
+                        value={editSupportLevel}
+                        onChange={e => setEditSupportLevel(e.target.value)}
+                        className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-xs font-bold text-rose-700 focus:outline-none focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-600"
+                        placeholder="Ví dụ: 2.500.000đ / tháng"
+                      />
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        <span className="text-[10px] text-slate-400 font-medium">Gợi ý nhanh:</span>
+                        {["1.000.000đ / tháng", "1.200.000đ / tháng", "1.500.000đ / tháng", "2.000.000đ / tháng", "2.500.000đ / tháng", "3.000.000đ / tháng"].map(lvl => (
+                          <button
+                            key={lvl}
+                            type="button"
+                            onClick={() => setEditSupportLevel(lvl)}
+                            className={`px-2 py-0.5 rounded text-[10px] font-bold transition-all cursor-pointer ${
+                              editSupportLevel === lvl
+                                ? "bg-rose-600 text-white shadow-xs"
+                                : "bg-white border border-slate-200 text-slate-700 hover:bg-slate-100"
+                            }`}
+                          >
+                            {lvl}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* 3. Chế độ chính sách & Quyền lợi */}
+                <div className="bg-slate-50/70 rounded-xl p-3.5 border border-slate-200/80 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div className="font-bold text-slate-900 flex items-center gap-1.5 text-xs">
+                      <Gift size={14} className="text-emerald-600" />
+                      <span>3. Chế độ chính sách & Quyền lợi ({editBenefits.length})</span>
+                    </div>
+                    <span className="text-[10px] text-slate-400">Tùy biến theo từng hồ sơ</span>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    {editBenefits.length === 0 ? (
+                      <p className="text-[11px] text-slate-400 italic py-2 text-center bg-white rounded-lg border border-dashed border-slate-200">
+                        Chưa có chế độ quyền lợi nào. Hãy nhập thêm bên dưới.
+                      </p>
+                    ) : (
+                      <div className="flex flex-wrap gap-1.5 max-h-36 overflow-y-auto p-1">
+                        {editBenefits.map((ben, idx) => (
+                          <span
+                            key={idx}
+                            className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-medium bg-emerald-50 text-emerald-900 border border-emerald-200 group"
+                          >
+                            <CheckCircle2 size={12} className="text-emerald-600 shrink-0" />
+                            <span>{ben}</span>
+                            <button
+                              type="button"
+                              onClick={() => handleRemoveBenefitFromEdit(ben)}
+                              className="w-4 h-4 rounded-full flex items-center justify-center text-emerald-600 hover:text-rose-600 hover:bg-rose-100 transition-colors cursor-pointer"
+                              title="Bỏ quyền lợi này"
+                            >
+                              <X size={10} />
+                            </button>
+                          </span>
+                        ))}
+                      </div>
+                    )}
+
+                    <div className="flex items-center gap-2 pt-1">
+                      <input
+                        type="text"
+                        value={editTempBenefitInput}
+                        onChange={e => setEditTempBenefitInput(e.target.value)}
+                        onKeyDown={e => {
+                          if (e.key === "Enter") {
+                            e.preventDefault();
+                            handleAddBenefitToEdit();
+                          }
+                        }}
+                        placeholder="Thêm quyền lợi mới (e.g. Quà Tết, Hỗ trợ học bổng...)..."
+                        className="flex-1 px-3 py-1.5 bg-white border border-slate-300 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-600"
+                      />
+                      <button
+                        type="button"
+                        onClick={handleAddBenefitToEdit}
+                        className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-lg text-xs cursor-pointer shrink-0 transition-colors"
+                      >
+                        + Thêm
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                {/* 4. Ghi chú khảo sát */}
+                <div className="bg-slate-50/70 rounded-xl p-3.5 border border-slate-200/80 space-y-2">
+                  <div className="font-bold text-slate-900 flex items-center gap-1.5 text-xs">
+                    <FileCheck size={14} className="text-indigo-600" />
+                    <span>4. Ghi chú thẩm tra hoàn cảnh</span>
+                  </div>
+                  <textarea
+                    rows={2}
+                    value={editNotes}
+                    onChange={e => setEditNotes(e.target.value)}
+                    placeholder="Ghi chú hoàn cảnh gia đình, điều kiện sinh hoạt, nhu cầu trợ cấp..."
+                    className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-600"
+                  />
+                </div>
+              </div>
+
+              {/* Footer */}
+              <div className="p-3.5 bg-white border-t border-slate-200 flex items-center justify-between shrink-0">
+                <button
+                  type="button"
+                  onClick={() => setRecipientToEdit(null)}
+                  className="px-4 py-2 border border-slate-200 text-slate-600 hover:bg-slate-50 font-bold rounded-lg text-xs transition-colors cursor-pointer"
+                >
+                  Hủy bỏ
+                </button>
+                <button
+                  type="submit"
+                  className="px-5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-lg text-xs flex items-center gap-1.5 shadow-sm transition-colors cursor-pointer"
+                >
+                  <Check size={14} />
+                  <span>Lưu thay đổi hồ sơ</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* MODAL 8: CHỈNH SỬA PHÂN HỆ AN SINH XÃ HỘI CON                            */}
+      {/* ========================================================================= */}
+      {subCategoryToEdit && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/70 backdrop-blur-sm animate-in fade-in duration-150"
+          onClick={() => setSubCategoryToEdit(null)}
+        >
+          <div
+            onClick={e => e.stopPropagation()}
+            className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-xl max-h-[92vh] flex flex-col overflow-hidden animate-in zoom-in-95 duration-200 text-slate-800 text-xs"
+          >
+            {/* Header */}
+            <div className="p-4 bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 text-white flex items-center justify-between shrink-0 border-b border-indigo-900/60">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-lg bg-indigo-500/20 border border-indigo-400/30 flex items-center justify-center text-indigo-300">
+                  <FolderPlus size={16} />
+                </div>
+                <div>
+                  <h3 className="font-bold text-sm tracking-wide text-white">
+                    Chỉnh sửa phân hệ an sinh con
+                  </h3>
+                  <p className="text-[11px] text-indigo-200/80">
+                    Mã phân hệ: <span className="font-mono font-bold text-white">{subCategoryToEdit.code}</span> • Đang có <span className="font-bold text-emerald-300">{recipients.filter(r => r.category === subCategoryToEdit.name).length}</span> đối tượng
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setSubCategoryToEdit(null)}
+                className="p-1 rounded-full text-slate-400 hover:text-white hover:bg-white/10 cursor-pointer"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            {/* Form */}
+            <form onSubmit={handleSaveEditSubCategory} className="flex flex-col flex-1 overflow-hidden">
+              <div className="p-4 sm:p-5 space-y-4 overflow-y-auto flex-1">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                      Tên phân hệ an sinh <span className="text-rose-500">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      value={editSubName}
+                      onChange={e => setEditSubName(e.target.value)}
+                      placeholder="Ví dụ: Nạn nhân chất độc da cam..."
+                      className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-600"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                      Mã ký hiệu
+                    </label>
+                    <input
+                      type="text"
+                      value={editSubCode}
+                      onChange={e => setEditSubCode(e.target.value.toUpperCase())}
+                      placeholder="Ví dụ: DCD, TB, ..."
+                      className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-xs font-mono font-bold focus:outline-none focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-600"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-700 mb-1.5">
+                    Màu sắc nhận diện
+                  </label>
+                  <div className="flex flex-wrap gap-2">
+                    {[
+                      { key: "rose", label: "Đỏ hồng", bg: "bg-rose-500" },
+                      { key: "amber", label: "Hổ phách", bg: "bg-amber-500" },
+                      { key: "emerald", label: "Ngọc bích", bg: "bg-emerald-500" },
+                      { key: "sky", label: "Xanh da trời", bg: "bg-sky-500" },
+                      { key: "indigo", label: "Chàm", bg: "bg-indigo-500" },
+                      { key: "purple", label: "Tím", bg: "bg-purple-500" },
+                      { key: "teal", label: "Mòng két", bg: "bg-teal-500" },
+                    ].map(c => (
+                      <button
+                        key={c.key}
+                        type="button"
+                        onClick={() => setEditSubColor(c.key)}
+                        className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg border text-xs font-medium cursor-pointer transition-all ${
+                          editSubColor === c.key
+                            ? "border-slate-800 bg-slate-900 text-white font-bold shadow-xs"
+                            : "border-slate-200 bg-white hover:bg-slate-50 text-slate-700"
+                        }`}
+                      >
+                        <span className={`w-2.5 h-2.5 rounded-full ${c.bg}`}></span>
+                        <span>{c.label}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                    Mô tả phân hệ
+                  </label>
+                  <textarea
+                    rows={2}
+                    value={editSubDesc}
+                    onChange={e => setEditSubDesc(e.target.value)}
+                    placeholder="Mô tả nhóm đối tượng và mục đích bảo trợ..."
+                    className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-600"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                    Tiêu chí xét duyệt hồ sơ
+                  </label>
+                  <textarea
+                    rows={2}
+                    value={editSubCriteria}
+                    onChange={e => setEditSubCriteria(e.target.value)}
+                    placeholder="Căn cứ pháp lý, điều kiện thu nhập, tình trạng sức khỏe..."
+                    className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-600"
+                  />
+                </div>
+
+                <div>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="block text-[11px] font-bold text-slate-700">
+                      Danh mục chính sách & quyền lợi chuẩn ({editSubBenefits.length})
+                    </label>
+                    <span className="text-[10px] text-slate-400">Áp dụng mặc định khi thêm đối tượng mới</span>
+                  </div>
+
+                  <div className="space-y-1.5 p-2.5 bg-slate-50 rounded-xl border border-slate-200">
+                    <div className="flex flex-wrap gap-1.5 max-h-32 overflow-y-auto">
+                      {editSubBenefits.map((ben, idx) => (
+                        <span
+                          key={idx}
+                          className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-medium bg-indigo-50 text-indigo-900 border border-indigo-200"
+                        >
+                          <CheckCircle2 size={12} className="text-indigo-600 shrink-0" />
+                          <span>{ben}</span>
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveBenefitFromEditSub(ben)}
+                            className="w-4 h-4 rounded-full flex items-center justify-center text-indigo-600 hover:text-rose-600 hover:bg-rose-100 transition-colors cursor-pointer"
+                          >
+                            <X size={10} />
+                          </button>
+                        </span>
+                      ))}
+                    </div>
+
+                    <div className="flex items-center gap-2 pt-1">
+                      <input
+                        type="text"
+                        value={editSubTempBenefit}
+                        onChange={e => setEditSubTempBenefit(e.target.value)}
+                        onKeyDown={e => {
+                          if (e.key === "Enter") {
+                            e.preventDefault();
+                            handleAddBenefitToEditSub();
+                          }
+                        }}
+                        placeholder="Thêm quyền lợi chuẩn mới..."
+                        className="flex-1 px-3 py-1.5 bg-white border border-slate-300 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-600"
+                      />
+                      <button
+                        type="button"
+                        onClick={handleAddBenefitToEditSub}
+                        className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-lg text-xs cursor-pointer shrink-0 transition-colors"
+                      >
+                        + Thêm
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Footer */}
+              <div className="p-3.5 bg-white border-t border-slate-200 flex items-center justify-between shrink-0">
+                <button
+                  type="button"
+                  onClick={() => setSubCategoryToEdit(null)}
+                  className="px-4 py-2 border border-slate-200 text-slate-600 hover:bg-slate-50 font-bold rounded-lg text-xs transition-colors cursor-pointer"
+                >
+                  Hủy bỏ
+                </button>
+                <button
+                  type="submit"
+                  className="px-5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-lg text-xs flex items-center gap-1.5 shadow-sm transition-colors cursor-pointer"
+                >
+                  <Check size={14} />
+                  <span>Lưu phân hệ</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* MODAL 9: XÁC NHẬN XÓA PHÂN HỆ AN SINH VÀ CHUYỂN GIAO ĐỐI TƯỢNG             */}
+      {/* ========================================================================= */}
+      {subCategoryToDelete && (() => {
+        const affectedCount = recipients.filter(r => r.category === subCategoryToDelete.name).length;
+        const otherCategories = subCategories.filter(s => s.id !== subCategoryToDelete.id);
+
+        return (
+          <div
+            className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/70 backdrop-blur-sm animate-in fade-in duration-150"
+            onClick={() => setSubCategoryToDelete(null)}
+          >
+            <div
+              onClick={e => e.stopPropagation()}
+              className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-md overflow-hidden animate-in zoom-in-95 duration-200 text-slate-800 text-xs p-5 space-y-4"
+            >
+              <div className="flex items-start gap-3">
+                <div className="w-10 h-10 rounded-xl bg-rose-50 border border-rose-200 flex items-center justify-center text-rose-600 shrink-0">
+                  <AlertTriangle size={20} />
+                </div>
+                <div>
+                  <h3 className="font-bold text-slate-900 text-sm">
+                    Xác nhận xóa phân hệ an sinh
+                  </h3>
+                  <p className="text-slate-500 text-xs mt-0.5">
+                    Phân hệ: <strong className="text-slate-900">{subCategoryToDelete.name}</strong> ({subCategoryToDelete.code})
+                  </p>
+                </div>
+              </div>
+
+              {affectedCount > 0 ? (
+                <div className="space-y-3">
+                  <div className="p-3 bg-amber-50 rounded-xl border border-amber-200 text-amber-900 text-xs space-y-1">
+                    <div className="font-bold flex items-center gap-1.5 text-amber-950">
+                      <AlertCircle size={14} className="text-amber-600 shrink-0" />
+                      <span>Cảnh báo: Đang có {affectedCount} đối tượng thuộc phân hệ này!</span>
+                    </div>
+                    <p className="leading-relaxed text-[11px]">
+                      Để không làm mất dữ liệu an sinh xã hội của người dân, toàn bộ {affectedCount} đối tượng sẽ được tự động chuyển sang phân hệ bạn chỉ định dưới đây:
+                    </p>
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                      Chọn phân hệ tiếp nhận chuyển giao <span className="text-rose-500">*</span>
+                    </label>
+                    <select
+                      value={reassignCategoryTarget}
+                      onChange={e => setReassignCategoryTarget(e.target.value)}
+                      className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-xs font-bold text-indigo-900 focus:outline-none focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-600 cursor-pointer"
+                    >
+                      {otherCategories.map(c => (
+                        <option key={c.id} value={c.name}>
+                          {c.name} ({c.code})
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+              ) : (
+                <p className="text-slate-600 leading-relaxed text-xs">
+                  Phân hệ này hiện chưa có đối tượng thụ hưởng nào. Bạn có chắc chắn muốn xóa vĩnh viễn phân hệ <strong className="text-slate-900">"{subCategoryToDelete.name}"</strong> không? Hành động này không thể hoàn tác.
+                </p>
+              )}
+
+              <div className="flex justify-end gap-2 pt-3 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => setSubCategoryToDelete(null)}
+                  className="px-4 py-2 border border-slate-200 rounded-lg text-xs font-semibold text-slate-600 hover:bg-slate-50 transition-colors cursor-pointer"
+                >
+                  Hủy bỏ
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleConfirmDeleteSubCategory(subCategoryToDelete, affectedCount > 0 ? reassignCategoryTarget : undefined)}
+                  className="px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white font-bold rounded-lg text-xs transition-colors cursor-pointer flex items-center gap-1.5 shadow-sm"
+                >
+                  <Trash2 size={13} />
+                  <span>{affectedCount > 0 ? "Chuyển giao & Xóa" : "Xác nhận xóa"}</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
     </div>
   );
 }
