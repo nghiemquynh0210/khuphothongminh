@@ -65,7 +65,7 @@ import { StatCard } from "./common/StatCard";
 import { ReportSelect } from "./reports/ReportSelect";
 import { ConfirmModal, InlineNotice } from "./ui/ConfirmModal";
 import { Modal } from "./ui/Modal";
-import { KP3_TO_LIST, extractToDanPho } from "../utils/kp3Utils";
+import { KP3_AREA_LIST, extractKp3Area } from "../utils/kp3Utils";
 import { formatVNNumber } from "../utils/numberFormat";
 import {
   INITIAL_ASSOCIATIONS,
@@ -94,8 +94,8 @@ const DEFAULT_PARTY_RESOLUTIONS: PartyResolution[] = [
     sessionTitle: "Sinh hoạt Chi bộ định kỳ Tháng 11/2026",
     meetingDate: "2026-11-03",
     attendance: "42/44 đảng viên",
-    title: "Kiểm tra Tổ liên gia PCCC tại 14 Tổ dân phố",
-    summary: "Đảng viên phụ trách tổ phối hợp Ban Bảo vệ ANTT rà soát bình chữa cháy, lối thoát hiểm tại nhà trọ và hẻm nhỏ trước cao điểm cuối năm.",
+    title: "Kiểm tra Tổ liên gia PCCC toàn Khu phố 3",
+    summary: "Đảng viên phụ trách địa bàn phối hợp Ban Bảo vệ ANTT rà soát bình chữa cháy, lối thoát hiểm tại nhà trọ và các tuyến hẻm trước cao điểm cuối năm.",
     assigneeUnit: "Tổ An ninh trật tự & PCCC KP3",
     assigneeName: "Nguyễn Trung Huy",
     deadline: "2026-11-25"
@@ -106,7 +106,7 @@ const DEFAULT_PARTY_RESOLUTIONS: PartyResolution[] = [
     meetingDate: "2026-11-03",
     attendance: "42/44 đảng viên",
     title: "Rà soát cấp thẻ BHYT & hộ cận nghèo dịp cuối năm",
-    summary: "Chi hội Phụ nữ và Ban Công tác Mặt trận phối hợp Tổ dân phố cập nhật danh sách đối tượng yếu thế đồng bộ sang phân hệ An sinh Xã hội.",
+    summary: "Chi hội Phụ nữ và Ban Công tác Mặt trận phối hợp Ban Điều hành KP3 cập nhật danh sách đối tượng yếu thế đồng bộ sang phân hệ An sinh Xã hội.",
     assigneeUnit: "Ban Công tác Mặt trận KP3",
     assigneeName: "Lê Thị Hồng Sâm",
     deadline: "2026-11-20"
@@ -117,7 +117,7 @@ const DEFAULT_PARTY_RESOLUTIONS: PartyResolution[] = [
     meetingDate: "2026-10-20",
     attendance: "40/44 đảng viên",
     title: "Ra quân Chủ nhật Xanh dọn dẹp hẻm 42 Lương Định Của",
-    summary: "Huy động Đảng viên 213 và Đoàn Thanh niên tham gia tổng vệ sinh, xóa điểm rác tự phát tại Tổ 3, Tổ 4.",
+    summary: "Huy động Đảng viên 213 và Đoàn Thanh niên tham gia tổng vệ sinh, xóa điểm rác tự phát tại tuyến hẻm 42 và đường nội bộ KP3.",
     assigneeUnit: "Đoàn Thanh niên & Đảng viên 213",
     assigneeName: "Phạm Hoàng Long",
     deadline: "2026-11-18"
@@ -353,11 +353,11 @@ export const TARGET_GROUPS: TargetGroupConfig[] = [
   },
   {
     id: "ASC_TOTRUONG",
-    name: "Tổ trưởng dân phố",
+    name: "Mạng lưới Tự quản KP3",
     section: "Chính quyền",
-    defaultRole: "Tổ trưởng dân phố",
-    roles: ["Tổ trưởng dân phố", "Tổ phó dân phố", "Cán sự phụ trách cụm liên gia"],
-    description: "Cầu nối trực tiếp giữa Ban điều hành khu phố và từng hộ gia đình trong tổ dân phố.",
+    defaultRole: "Thành viên Ban Điều hành",
+    roles: ["Thành viên Ban Điều hành", "Cán sự phụ trách tuyến đường", "Cán sự phụ trách cụm liên gia"],
+    description: "Cầu nối trực tiếp giữa Ban Điều hành Khu phố 3 và từng hộ gia đình trên địa bàn.",
     badgeBg: "bg-yellow-100",
     badgeText: "text-yellow-800",
     category: "Chính quyền cơ sở"
@@ -3363,8 +3363,8 @@ export default function PartyBranch({
         const all213List = Array.from(merged213Map.values());
         const filtered213List = all213List.filter(item => {
           if (to213Filter === "all") return true;
-          const toNum = extractToDanPho(item.address);
-          return toNum !== null && String(toNum) === to213Filter;
+          const areaLabel = extractKp3Area(item.address);
+          return areaLabel === to213Filter;
         });
 
         return (
@@ -3401,7 +3401,7 @@ export default function PartyBranch({
                         required
                         value={newResTitle}
                         onChange={e => setNewResTitle(e.target.value)}
-                        placeholder="Ví dụ: Ra quân kiểm tra PCCC tại 14 Tổ..."
+                        placeholder="Ví dụ: Ra quân kiểm tra PCCC tại các tuyến hẻm KP3..."
                         className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-xs font-semibold"
                       />
                     </div>
@@ -3441,7 +3441,7 @@ export default function PartyBranch({
                       rows={2}
                       value={newResSummary}
                       onChange={e => setNewResSummary(e.target.value)}
-                      placeholder="Ghi rõ mục tiêu, địa bàn tổ dân phố..."
+                      placeholder="Ghi rõ mục tiêu, tuyến đường / khu vực KP3..."
                       className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-xs"
                     />
                   </div>
@@ -3499,7 +3499,7 @@ export default function PartyBranch({
               <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
                 <div>
                   <h3 className="text-sm sm:text-base font-black text-slate-900">
-                    Đảng viên sinh hoạt nơi cư trú (Quy định 213) theo Tổ 1–14
+                    Đảng viên sinh hoạt nơi cư trú (Quy định 213) tại Khu phố 3
                   </h3>
                   <p className="text-xs text-slate-600 mt-0.5">
                     Tổng số {all213List.length} đảng viên đang công tác sinh hoạt hai chiều tại KP3.
@@ -3507,12 +3507,12 @@ export default function PartyBranch({
                 </div>
                 <div className="min-w-[165px] shrink-0">
                   <ReportSelect
-                    aria-label="Lọc Đảng viên 213 theo Tổ"
+                    aria-label="Lọc Đảng viên 213 theo khu vực KP3"
                     value={to213Filter}
                     onChange={val => setTo213Filter(val)}
                     options={[
-                      { value: "all", label: `Tất cả Tổ 1–14 (${all213List.length})` },
-                      ...KP3_TO_LIST.map(n => ({ value: String(n), label: `Tổ dân phố ${n}` }))
+                      { value: "all", label: `Toàn địa bàn KP3 (${all213List.length})` },
+                      ...KP3_AREA_LIST.map(area => ({ value: area, label: area }))
                     ]}
                     className="text-xs"
                   />
@@ -3526,19 +3526,19 @@ export default function PartyBranch({
                       <th className="py-2.5 px-3">Họ và tên</th>
                       <th className="py-2.5 px-3">CCCD</th>
                       <th className="py-2.5 px-3">Vai trò 213</th>
-                      <th className="py-2.5 px-3">Địa chỉ &amp; Tổ dân phố</th>
+                      <th className="py-2.5 px-3">Địa chỉ &amp; Khu vực KP3</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
                     {filtered213List.length === 0 ? (
                       <tr>
                         <td colSpan={4} className="py-8 text-center text-slate-600">
-                          Không có Đảng viên 213 thuộc Tổ dân phố đang chọn.
+                          Không có Đảng viên 213 thuộc khu vực KP3 đang chọn.
                         </td>
                       </tr>
                     ) : (
                       filtered213List.map((m, idx) => {
-                        const toNum = extractToDanPho(m.address);
+                        const areaLabel = extractKp3Area(m.address);
                         return (
                           <tr key={`${m.cccd}-${idx}`} className="hover:bg-slate-50/70">
                             <td className="py-2.5 px-3 font-bold text-slate-900">{m.fullName}</td>
@@ -3550,9 +3550,9 @@ export default function PartyBranch({
                             </td>
                             <td className="py-2.5 px-3 text-slate-700">
                               <span>{m.address}</span>
-                              {toNum !== null && (
+                              {areaLabel && (
                                 <span className="ml-2 px-1.5 py-0.5 rounded bg-slate-100 border border-slate-200 font-semibold text-xs">
-                                  Tổ {toNum}
+                                  {areaLabel}
                                 </span>
                               )}
                             </td>
@@ -4138,28 +4138,35 @@ export default function PartyBranch({
             {/* Connecting Vertical Line */}
             <div className="w-0.5 h-6 bg-slate-300 mx-auto" />
 
-            {/* TẦNG 5: HỆ THỐNG 14 TỔ DÂN PHỐ */}
+            {/* TẦNG 5: MẠNG LƯỚI TỰ QUẢN & TUYẾN ĐỊA BÀN TRỰC THUỘC KP3 */}
             <div className="flex flex-col items-center">
               <div className="text-xs font-black uppercase tracking-wider text-slate-800 bg-slate-200/80 px-3 py-1 rounded-full border border-slate-300 mb-2">
-                Tầng 5 • 14 Tổ Dân Phố Trực Thuộc Địa Bàn KP3
+                Tầng 5 • Mạng Lưới Tự Quản & Tuyến Địa Bàn KP3
               </div>
-              <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-7 gap-2 w-full">
-                {Array.from({ length: 14 }, (_, i) => i + 1).map(tdpNum => (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5 w-full">
+                {[
+                  { title: "Trục Lương Định Của", desc: "Thương mại, dịch vụ & tuyến dân cư trung tâm" },
+                  { title: "Trục Song Hành & Mai Chí Thọ", desc: "Khu dân cư, chung cư & kết nối cửa ngõ" },
+                  { title: "16 Tuyến Hẻm Nội Khu", desc: "Bê tông hóa 100%, đồng bộ camera an ninh" },
+                  { title: "Tổ Liên Gia An Toàn PCCC", desc: "Phủ 100% các tuyến hẻm & khu nhà trọ KP3" },
+                  { title: "Ban Bảo Vệ ANTT Cơ Sở", desc: "Tuần tra, hỗ trợ giữ gìn trật tự địa bàn" },
+                  { title: "Tổ Công Nghệ Số Cộng Đồng", desc: "Hỗ trợ VNeID, dịch vụ công & số hóa KP3" }
+                ].map(zone => (
                   <div
-                    key={tdpNum}
+                    key={zone.title}
                     onClick={() => {
-                      const target = associations.find(a => a.id === "ASC_TOTRUONG" || a.name.includes("Tổ trưởng"));
+                      const target = associations.find(a => a.id === "ASC_BQL" || a.id === "ASC_ANTT") || associations[0];
                       if (target) {
                         setSelectedAssociationId(target.id);
                         setActiveSubTab("associations");
                       }
                     }}
-                    className="bg-white hover:bg-slate-100 rounded-xl border border-slate-200/90 p-2 text-center shadow-2xs transition-all cursor-pointer group"
+                    className="bg-white hover:bg-slate-100 rounded-xl border border-slate-200/90 p-3 text-left shadow-2xs transition-all cursor-pointer group"
                   >
                     <div className="text-xs font-black text-slate-800 group-hover:text-emerald-700">
-                      Tổ DP {tdpNum}
+                      {zone.title}
                     </div>
-                    <div className="text-xs text-slate-600 mt-0.5">Địa bàn số {tdpNum}</div>
+                    <div className="text-xs text-slate-600 mt-0.5">{zone.desc}</div>
                   </div>
                 ))}
               </div>

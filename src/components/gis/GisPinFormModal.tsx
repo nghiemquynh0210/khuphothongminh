@@ -63,7 +63,7 @@ export default function GisPinFormModal({
       setCoordInput(`${pickedLocation.lat.toFixed(6)}, ${pickedLocation.lng.toFixed(6)}`);
       setErrorText("");
       if (pickedLocation.detectedTo && !pinLocation.trim()) {
-        setPinLocation(`Tổ dân phố ${pickedLocation.detectedTo}, Khu phố 3, Phường An Phú`);
+        setPinLocation(`Phân khu GIS #${pickedLocation.detectedTo}, Khu phố 3, Phường An Phú`);
       }
     }
   }, [pickedLocation]);
@@ -162,7 +162,7 @@ export default function GisPinFormModal({
 
     const gen = generateToAwareCoordinates(address || "Khu phố 3", seed);
     setCoordInput(`${gen.lat.toFixed(6)}, ${gen.lng.toFixed(6)}`);
-    setGpsStatus("Đã tự đặt tọa độ ước lượng vào vùng Tổ dân phố tương ứng.");
+    setGpsStatus("Đã tự đặt tọa độ ước lượng vào phân khu tương ứng trên địa bàn KP3.");
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -339,7 +339,7 @@ export default function GisPinFormModal({
                 type="text"
                 value={pinLocation}
                 onChange={(e) => setPinLocation(e.target.value)}
-                placeholder="Ví dụ: Đầu hẻm Tổ 8, Đường N1, Khu phố 3"
+                placeholder="Ví dụ: Đầu hẻm 42, Đường N1, Khu phố 3"
                 className="w-full min-h-9 px-3 bg-white border border-slate-300 rounded-xl text-xs text-slate-900 placeholder:text-slate-500 focus:outline-none focus:border-emerald-700"
               />
             </div>

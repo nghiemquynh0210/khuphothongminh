@@ -59,7 +59,7 @@ import { ReportSelect } from "./reports/ReportSelect";
 import { Modal } from "./ui/Modal";
 import { ConfirmModal, InlineNotice } from "./ui/ConfirmModal";
 import { formatVNNumber } from "../utils/numberFormat";
-import { KP3_TO_LIST, extractToDanPho, formatShortRecordId, maskCccd } from "../utils/kp3Utils";
+import { KP3_AREA_LIST, extractKp3Area, formatShortRecordId, maskCccd } from "../utils/kp3Utils";
 
 export const isForeignResident = (r: Resident): boolean => {
   return r.isForeigner === true || (Boolean(r.nationality) && r.nationality !== "Việt Nam") || Boolean(r.passportNumber);
@@ -1421,7 +1421,7 @@ NGƯỜI NƯỚC NGOÀI KHAI BÁO       CHỦ CƠ SỞ LƯU TRÚ       XÁC NH�
 
       if (genderFilter !== "Tất cả" && res.gender !== genderFilter) return false;
       if (policyFilter !== "Tất cả" && (!res.policyGroup || !res.policyGroup.includes(policyFilter))) return false;
-      if (toFilter !== "all" && extractToDanPho(res.address) !== toFilter) return false;
+      if (toFilter !== "all" && extractKp3Area(res.address) !== toFilter) return false;
 
       if (!hasQuery) return true;
 
@@ -1647,18 +1647,18 @@ NGƯỜI NƯỚC NGOÀI KHAI BÁO       CHỦ CƠ SỞ LƯU TRÚ       XÁC NH�
               </div>
             )}
 
-            {/* KP3 Residential Group Tổ 1–14 Filter */}
-            <div className="w-40">
+            {/* KP3 Area Filter */}
+            <div className="w-48">
               <ReportSelect
-                aria-label="Lọc theo Tổ dân phố"
+                aria-label="Lọc theo tuyến / khu vực KP3"
                 value={toFilter}
                 onChange={(val) => {
                   setToFilter(val);
                   setCurrentPage(1);
                 }}
                 options={[
-                  { value: "all", label: "Tất cả 14 Tổ KP3" },
-                  ...KP3_TO_LIST.map((to) => ({ value: to, label: to })),
+                  { value: "all", label: "Toàn Khu phố 3" },
+                  ...KP3_AREA_LIST.map((area) => ({ value: area, label: area })),
                 ]}
                 className="w-full"
               />
@@ -2089,7 +2089,7 @@ NGƯỜI NƯỚC NGOÀI KHAI BÁO       CHỦ CƠ SỞ LƯU TRÚ       XÁC NH�
                               <span>{res.householdId}</span>
                             </button>
                             <span className="text-xs font-semibold px-2 py-0.5 rounded bg-slate-50 text-slate-700 border border-slate-200">
-                              {extractToDanPho(res.address)}
+                              {extractKp3Area(res.address)}
                             </span>
                           </div>
                           {res.relationToOwner && (
@@ -2378,7 +2378,7 @@ NGƯỜI NƯỚC NGOÀI KHAI BÁO       CHỦ CƠ SỞ LƯU TRÚ       XÁC NH�
                         <p className="text-xs text-slate-800 mt-1 font-mono font-bold flex items-center justify-between gap-1 flex-wrap">
                           <span>{isForeign ? `HC: ${maskCccd(res.passportNumber || res.cccd, showFullCccd)}` : `CCCD: ${maskCccd(res.cccd, showFullCccd)}`}</span>
                           <span className="text-slate-600 font-medium text-xs bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200">
-                            {extractToDanPho(res.address)} • {res.householdId}
+                            {extractKp3Area(res.address)} • {res.householdId}
                           </span>
                         </p>
                       </div>

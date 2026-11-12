@@ -34,14 +34,14 @@ export const CreateScheduleModal: React.FC<CreateScheduleModalProps> = ({
 }) => {
   const [title, setTitle] = useState("");
   const [titleError, setTitleError] = useState("");
-  const [type, setType] = useState<string>("Họp Tổ Dân Phố");
+  const [type, setType] = useState<string>("Họp Ban Điều hành KP3");
   const [customType, setCustomType] = useState("");
   const [date, setDate] = useState("2026-10-22");
   const [time, setTime] = useState("08:30 - 10:30");
   const [location, setLocation] = useState("Văn phòng Ban Điều hành KP3");
   const [host, setHost] = useState(DEFAULT_HOSTS[1]);
   const [customHost, setCustomHost] = useState("");
-  const [attendees, setAttendees] = useState("Đại diện 14 Tổ dân phố");
+  const [attendees, setAttendees] = useState("Ban Điều hành KP3 & Đại diện cụm dân cư");
   const [desc, setDesc] = useState("");
   const [notes, setNotes] = useState("");
   const [attachments, setAttachments] = useState<TaskAttachment[]>([]);
@@ -79,14 +79,14 @@ export const CreateScheduleModal: React.FC<CreateScheduleModalProps> = ({
     }
     setTitle("");
     setTitleError("");
-    setType("Họp Tổ Dân Phố");
+    setType("Họp Ban Điều hành KP3");
     setCustomType("");
     setDate("2026-10-22");
     setTime("08:30 - 10:30");
     setLocation("Văn phòng Ban Điều hành KP3");
     setHost(DEFAULT_HOSTS[1]);
     setCustomHost("");
-    setAttendees("Đại diện 14 Tổ dân phố");
+    setAttendees("Ban Điều hành KP3 & Đại diện cụm dân cư");
     setDesc("");
     setNotes("");
     setAttachments([]);
@@ -137,7 +137,7 @@ export const CreateScheduleModal: React.FC<CreateScheduleModalProps> = ({
         isOpen={isOpen}
         onClose={onClose}
         title={editingSchedule ? "Cập nhật lịch họp & sự kiện" : "Tạo lịch họp & sự kiện mới"}
-        description="Thiết lập lịch giao ban KP3, họp 14 Tổ dân phố hoặc hoạt động cộng đồng"
+        description="Thiết lập lịch giao ban KP3, họp cư dân hoặc hoạt động cộng đồng"
         size="lg"
         footer={
           <div className="flex justify-end gap-2">
@@ -170,7 +170,7 @@ export const CreateScheduleModal: React.FC<CreateScheduleModalProps> = ({
               if (!title.trim()) setTitleError("Vui lòng nhập tên lịch họp / sự kiện.");
             }}
             error={titleError}
-            placeholder="Ví dụ: Họp giao ban Tổ trưởng Tổ 1–14 tháng 11"
+            placeholder="Ví dụ: Họp giao ban Ban Điều hành KP3 tháng 11"
           />
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
@@ -215,7 +215,7 @@ export const CreateScheduleModal: React.FC<CreateScheduleModalProps> = ({
               label="Họ tên & chức vụ người chủ trì"
               value={customHost}
               onChange={(e) => setCustomHost(e.target.value)}
-              placeholder="Ví dụ: Ông Nguyễn Văn A - Tổ trưởng Tổ 7"
+              placeholder="Ví dụ: Ông Nguyễn Văn A - Thành viên Ban Điều hành KP3"
             />
           )}
 

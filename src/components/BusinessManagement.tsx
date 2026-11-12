@@ -94,7 +94,7 @@ import { supabase } from "../lib/supabase";
 import { ReportSelect } from "./reports/ReportSelect";
 import { ConfirmModal, InlineNotice } from "./ui/ConfirmModal";
 import { Modal } from "./ui/Modal";
-import { KP3_TO_LIST, extractToDanPho, isSmallBusinessOrHostel, formatShortRecordId } from "../utils/kp3Utils";
+import { KP3_AREA_LIST, extractKp3Area, isSmallBusinessOrHostel, formatShortRecordId } from "../utils/kp3Utils";
 
 export interface IndustrySectorDef {
   id: string;
@@ -665,7 +665,7 @@ export default function BusinessManagement({
   const [newBusinessType, setNewBusinessType] = useState<"Công ty TNHH" | "Công ty Cổ phần" | "Doanh nghiệp tư nhân" | "Hộ kinh doanh" | "Cơ sở kinh doanh khác">("Công ty TNHH");
   const [newEnterpriseScale, setNewEnterpriseScale] = useState<"Siêu nhỏ (< 5 LĐ)" | "Nhỏ (5 - 20 LĐ)" | "Vừa (20 - 50 LĐ)" | "Lớn (> 50 LĐ)">("Nhỏ (5 - 20 LĐ)");
   const [newStartDate, setNewStartDate] = useState("01/01/2024");
-  const [newVerificationSource, setNewVerificationSource] = useState("Khảo sát Tổ dân phố & Ban Điều hành KP3");
+  const [newVerificationSource, setNewVerificationSource] = useState("Khảo sát Ban Điều hành KP3 & CSKV");
   const [newStreetArea, setNewStreetArea] = useState("Mặt tiền Lương Định Của");
   const [newPremisesType, setNewPremisesType] = useState<"Nhà phố" | "Văn phòng" | "Cửa hàng" | "Nhà xưởng" | "Ki-ốt" | "Địa điểm thuê" | "Chung cư / Căn hộ">("Cửa hàng");
   const [newPremisesOwner, setNewPremisesOwner] = useState("");
@@ -1044,7 +1044,7 @@ export default function BusinessManagement({
     setEditBusinessType(business.businessType || (business.isAccommodation ? "Hộ kinh doanh" : "Hộ kinh doanh"));
     setEditEnterpriseScale(business.enterpriseScale || "Siêu nhỏ (< 5 LĐ)");
     setEditStartDate(business.startDate || "01/01/2023");
-    setEditVerificationSource(business.verificationSource || "Khảo sát Tổ dân phố & Ban Điều hành KP3");
+    setEditVerificationSource(business.verificationSource || "Khảo sát Ban Điều hành KP3 & CSKV");
     setEditStreetArea(business.streetArea || (business.address.includes("42") ? "Hẻm 42 Lương Định Của" : "Mặt tiền Lương Định Của"));
     setEditPremisesType(business.premisesType || (isAccommodationBusiness(business) ? "Nhà phố" : "Cửa hàng"));
     setEditPremisesOwner(business.premisesOwner || business.owner);
@@ -1397,7 +1397,7 @@ export default function BusinessManagement({
       }
     }
 
-    const matchesTo = toFilter === "Tất cả" || extractToDanPho(b.address) === toFilter;
+    const matchesTo = toFilter === "Tất cả" || extractKp3Area(b.address) === toFilter;
 
     return matchesSearch && matchesStatus && matchesCategory && matchesEstablishmentFilter && matchesPccc && matchesStreet && matchesTo;
   });
@@ -1724,14 +1724,14 @@ export default function BusinessManagement({
               className="w-full"
             />
 
-            {/* To Dan Pho Filter */}
+            {/* Khu vuc KP3 Filter */}
             <ReportSelect
-              aria-label="Tổ dân phố KP3"
+              aria-label="Tuyến đường / khu vực KP3"
               value={toFilter}
               onChange={(nextVal) => { setToFilter(nextVal); setCurrentPage(1); }}
               options={[
-                { value: "Tất cả", label: "Tất cả 14 Tổ KP3" },
-                ...KP3_TO_LIST.map((to) => ({ value: to, label: to })),
+                { value: "Tất cả", label: "Toàn Khu phố 3" },
+                ...KP3_AREA_LIST.map((area) => ({ value: area, label: area })),
               ]}
               className="w-full"
             />
@@ -2489,7 +2489,7 @@ export default function BusinessManagement({
                         label="Xác minh & Nguồn dữ liệu"
                         value={
                           <span className="text-slate-700 leading-relaxed font-normal">
-                            Nguồn thu thập: <strong className="font-semibold text-slate-800">{selectedBusiness.verificationSource || "Khảo sát Tổ dân phố & Ban Điều hành KP3"}</strong> (phục vụ quản lý địa bàn hành chính tại chỗ)
+                            Nguồn thu thập: <strong className="font-semibold text-slate-800">{selectedBusiness.verificationSource || "Khảo sát Ban Điều hành KP3 & CSKV"}</strong> (phục vụ quản lý địa bàn hành chính tại chỗ)
                           </span>
                         }
                         colSpan={2}

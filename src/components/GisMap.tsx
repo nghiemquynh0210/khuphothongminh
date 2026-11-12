@@ -123,7 +123,7 @@ export default function GisMap({
   readOnly = false,
 }: GisMapProps) {
   const [workspaceMode, setWorkspaceMode] = useState<GisWorkspaceMode>("map");
-  const [showSidebar, setShowSidebar] = useState(true);
+  const [showSidebar, setShowSidebar] = useState(false);
 
   const [boundaryCoords, setBoundaryCoords] = useState<{ lat: number; lng: number }[]>(
     () => {
@@ -357,7 +357,7 @@ export default function GisMap({
         pin.name.toLowerCase().includes(q) ||
         pin.location.toLowerCase().includes(q) ||
         pin.details.toLowerCase().includes(q) ||
-        (pin.toNumber ? `tổ ${pin.toNumber}`.includes(q) : false)
+        (pin.toNumber ? `phân khu #${pin.toNumber} pk ${pin.toNumber}`.includes(q) : false)
       );
     });
   }, [allPins, activeFilterType, activeToFilter, searchQuery]);
@@ -454,7 +454,7 @@ export default function GisMap({
     const zone = KP3_14_ZONES.find((z) => z.toNumber === toNum);
     if (zone) {
       setFocusZoomCoord({ lat: zone.center.lat, lng: zone.center.lng, zoom: 18, ts: Date.now() });
-      notify(`Đã chuyển đến Tổ dân phố ${toNum} (Cụm ${zone.cluster}).`);
+      notify(`Đã chuyển đến Phân khu GIS #${toNum} (Cụm ${zone.cluster}).`);
     }
   };
 
@@ -513,7 +513,7 @@ export default function GisMap({
       setPickPurpose(null);
       notify(
         `Đã cập nhật tọa độ mới (${formatLatLngVN(loc.lat, loc.lng)})${
-          loc.detectedTo ? ` · Tổ ${loc.detectedTo}` : ""
+          loc.detectedTo ? ` · Phân khu #${loc.detectedTo}` : ""
         }.`
       );
       return;
@@ -525,7 +525,7 @@ export default function GisMap({
     setIsPinFormOpen(true);
     notify(
       `Đã lấy tọa độ ${formatLatLngVN(loc.lat, loc.lng)}${
-        loc.detectedTo ? ` (Tổ ${loc.detectedTo})` : ""
+        loc.detectedTo ? ` (Phân khu #${loc.detectedTo})` : ""
       }.`
     );
   };
@@ -586,7 +586,7 @@ export default function GisMap({
       );
     }
     notify(
-      `Đã đồng bộ tọa độ GIS theo Tổ dân phố cho ${formatVNNumber(
+      `Đã đồng bộ tọa độ GIS trên địa bàn KP3 cho ${formatVNNumber(
         missingHouseholds.length + missingBusinesses.length
       )} hồ sơ.`
     );
@@ -631,12 +631,12 @@ export default function GisMap({
       <PageHeader
         badgeIcon={<MapIcon size={14} className="text-emerald-700 shrink-0" />}
         badgeText="GIS KHU PHỐ 3"
-        badgeSubtext={readOnly ? "CƯ DÂN" : "14 TỔ DP"}
+        badgeSubtext={readOnly ? "CƯ DÂN" : "TOÀN KP3"}
         title="Bản đồ Số GIS & Sơ đồ Khu phố 3"
         description={
           readOnly
-            ? "Tra cứu điểm hành chính, phản ánh 1022, camera an ninh, trụ PCCC, cơ sở kinh doanh và sơ đồ 14 Tổ dân phố Khu phố 3."
-            : "Điều hành không gian thực địa 14 Tổ Dân Phố, lớp phản ánh 1022, hạ tầng an ninh – PCCC và ranh giới địa bàn KP3."
+            ? "Tra cứu điểm hành chính, phản ánh 1022, camera an ninh, trụ PCCC, cơ sở kinh doanh và sơ đồ địa bàn Khu phố 3."
+            : "Điều hành không gian thực địa Khu phố 3, lớp phản ánh 1022, hạ tầng an ninh – PCCC và ranh giới địa bàn."
         }
         actions={
           !readOnly ? (
@@ -691,7 +691,7 @@ export default function GisMap({
               ? "Thống kê tổng hợp KP3"
               : `${households.length - missingHouseholds.length} hộ đã gắn tọa độ`
           }
-          subtextRight="14 Tổ DP"
+          subtextRight="Toàn KP3"
           onClick={
             readOnly
               ? () => setWorkspaceMode("schematic")
@@ -772,7 +772,7 @@ export default function GisMap({
                 : "bg-slate-100 text-slate-800 hover:bg-slate-200"
             }`}
           >
-            <LayoutGrid size={14} /> Sơ đồ KP3 (14 Tổ)
+            <LayoutGrid size={14} /> Sơ đồ KP3
           </button>
         </div>
 

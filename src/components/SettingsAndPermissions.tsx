@@ -42,16 +42,26 @@ import {
   Send,
   Sparkles
 } from "lucide-react";
-import { Resident, ActiveTab, AdministrativeForm, LocalNews } from "../types";
+import { Resident, ActiveTab, AdministrativeForm, LandingConfig, LocalNews } from "../types";
 import AdministrativeForms from "./AdministrativeForms";
 import { ReportSelect } from "./reports/ReportSelect";
 import { InlineNotice } from "./ui/ConfirmModal";
-import { KP3_TO_LIST } from "../utils/kp3Utils";
 import { initialAdministrativeForms } from "../mockForms";
 import { initialNewsList } from "../mockData";
 import { supabase, isSupabaseConfigured } from "../lib/supabase";
+import { DEFAULT_LANDING_CONFIG } from "./landing/landingConstants";
+import { PortalConfigSettings } from "./settings/PortalConfigSettings";
 
-const TO_SCOPES_STORAGE_KEY = "kp3_to_permission_scopes_v1";
+const AREA_SCOPES_STORAGE_KEY = "kp3_area_permission_scopes_v1";
+
+const KP3_OPERATIONAL_ZONES = [
+  { id: "all_kp3", name: "Toàn địa bàn KP3" },
+  { id: "luong_dinh_cua", name: "Trục Lương Định Của" },
+  { id: "song_hanh", name: "Trục Song Hành" },
+  { id: "mai_chi_tho", name: "Trục Mai Chí Thọ" },
+  { id: "hem_tu_quan", name: "Các cụm hẻm nội khu" },
+  { id: "nha_van_hoa", name: "Nhà Văn hóa KP3" },
+];
 
 export interface PendingRegistration {
   id: string;
@@ -90,7 +100,9 @@ interface SettingsAndPermissionsProps {
     fullName?: string;
     phone?: string;
   } | null;
-  defaultSubTab?: "approvals" | "forms" | "news" | "permissions" | "plan";
+  landingConfig?: LandingConfig;
+  onUpdateLandingConfig?: (next: LandingConfig) => void;
+  defaultSubTab?: "approvals" | "portal" | "forms" | "news" | "permissions" | "plan";
   onNavigate?: (tab: ActiveTab) => void;
 }
 
@@ -109,10 +121,26 @@ export default function SettingsAndPermissions({
   onUpdateNews: _onUpdateNews,
   onDeleteNews: _onDeleteNews,
   currentUser,
+  landingConfig,
+  onUpdateLandingConfig,
   defaultSubTab = "approvals",
   onNavigate
 }: SettingsAndPermissionsProps) {
-  const [activeSubTab, setActiveSubTab] = useState<"approvals" | "forms" | "news" | "permissions" | "plan">(defaultSubTab);
+  const [activeSubTab, setActiveSubTab] = useState<"approvals" | "portal" | "forms" | "news" | "permissions" | "plan">(defaultSubTab);
+  const [localLandingConfig, setLocalLandingConfig] = useState<LandingConfig>(
+    landingConfig || DEFAULT_LANDING_CONFIG
+  );
+
+  useEffect(() => {
+    if (landingConfig) {
+      setLocalLandingConfig(landingConfig);
+    }
+  }, [landingConfig]);
+
+  const handleSaveLandingConfig = (next: LandingConfig) => {
+    setLocalLandingConfig(next);
+    onUpdateLandingConfig?.(next);
+  };
 
   // Supabase Cadre Approval state
   const [pendingCadres, setPendingCadres] = useState<any[]>([]);
@@ -179,22 +207,21 @@ export default function SettingsAndPermissions({
     }
   }, [defaultSubTab]);
 
-  // Tổ 1-14 permission scope state per officer group
-  const [selectedScopeGroup, setSelectedScopeGroup] = useState<string>("totruong");
-  const [toScopesByGroup, setToScopesByGroup] = useState<Record<string, Record<string, boolean>>>(() => {
+  // Cụm địa bàn & Tuyến đường KP3 permission scope state per officer group
+  const [selectedScopeGroup, setSelectedScopeGroup] = useState<string>("bandieuhanh");
+  const [areaScopesByGroup, setAreaScopesByGroup] = useState<Record<string, Record<string, boolean>>>(() => {
     try {
-      const saved = localStorage.getItem(TO_SCOPES_STORAGE_KEY);
+      const saved = localStorage.getItem(AREA_SCOPES_STORAGE_KEY);
       if (saved) return JSON.parse(saved);
     } catch {}
-    const default14: Record<string, boolean> = {};
-    KP3_TO_LIST.forEach((toName, idx) => {
-      default14[String(idx + 1)] = true;
-      void toName;
+    const defaultAreas: Record<string, boolean> = {};
+    KP3_OPERATIONAL_ZONES.forEach((zone) => {
+      defaultAreas[zone.id] = true;
     });
     return {
-      totruong: { ...default14 },
-      mattran: { ...default14 },
-      congtacvien: { ...default14 }
+      bandieuhanh: { ...defaultAreas },
+      mattran: { ...defaultAreas },
+      congtacvien: { ...defaultAreas }
     };
   });
   const [newsActionToast, setNewsActionToast] = useState<string | null>(null);
@@ -204,31 +231,34 @@ export default function SettingsAndPermissions({
     setTimeout(() => setNewsActionToast(null), 3500);
   };
 
-  const handleToggleToScope = (toId: number) => {
-    const key = String(toId);
-    const currentGroup = toScopesByGroup[selectedScopeGroup] || {};
-    const nextGroup = { ...currentGroup, [key]: !(currentGroup[key] ?? true) };
-    const nextAll = { ...toScopesByGroup, [selectedScopeGroup]: nextGroup };
-    setToScopesByGroup(nextAll);
+  const handleToggleAreaScope = (zoneId: string, zoneName: string) => {
+    const currentGroup = areaScopesByGroup[selectedScopeGroup] || {};
+    const nextGroup = { ...currentGroup, [zoneId]: !(currentGroup[zoneId] ?? true) };
+    const nextAll = { ...areaScopesByGroup, [selectedScopeGroup]: nextGroup };
+    setAreaScopesByGroup(nextAll);
     try {
-      localStorage.setItem(TO_SCOPES_STORAGE_KEY, JSON.stringify(nextAll));
+      localStorage.setItem(AREA_SCOPES_STORAGE_KEY, JSON.stringify(nextAll));
     } catch {}
     showNewsToast(
-      `Đã ${(nextGroup[key] ? "bật" : "khóa")} phạm vi Tổ ${toId} cho nhóm quyền đang chọn.`
+      `Đã ${(nextGroup[zoneId] ? "bật" : "khóa")} phạm vi ${zoneName} cho nhóm quyền đang chọn.`
     );
   };
 
-  const handleSetAllToScope = (enabled: boolean) => {
+  const handleSetAllAreaScope = (enabled: boolean) => {
     const nextGroup: Record<string, boolean> = {};
-    KP3_TO_LIST.forEach((_, idx) => {
-      nextGroup[String(idx + 1)] = enabled;
+    KP3_OPERATIONAL_ZONES.forEach((zone) => {
+      nextGroup[zone.id] = enabled;
     });
-    const nextAll = { ...toScopesByGroup, [selectedScopeGroup]: nextGroup };
-    setToScopesByGroup(nextAll);
+    const nextAll = { ...areaScopesByGroup, [selectedScopeGroup]: nextGroup };
+    setAreaScopesByGroup(nextAll);
     try {
-      localStorage.setItem(TO_SCOPES_STORAGE_KEY, JSON.stringify(nextAll));
+      localStorage.setItem(AREA_SCOPES_STORAGE_KEY, JSON.stringify(nextAll));
     } catch {}
-    showNewsToast(enabled ? "Đã mở toàn bộ 14 Tổ dân phố KP3." : "Đã giới hạn phạm vi 14 Tổ.");
+    showNewsToast(
+      enabled
+        ? "Đã mở toàn bộ cụm địa bàn & tuyến đường KP3."
+        : "Đã giới hạn phạm vi điều hành cụm địa bàn."
+    );
   };
 
   // Mock data for Roadmap / Kế hoạch triển khai
@@ -238,7 +268,7 @@ export default function SettingsAndPermissions({
       title: "Phân tích & Thiết kế Mô hình Phân quyền (RBAC)",
       status: "completed",
       date: "Tháng 07/2026",
-      desc: "Xác định 2 nhóm người dùng chính cho KP3 An Phú: Cán bộ (Bí thư, Tổ trưởng, Ban chỉ đạo) với quyền quản trị tối đa; và Người dân (Chủ hộ, cư dân tự do) với quyền tự phục vụ bản thân."
+      desc: "Xác định 2 nhóm người dùng chính cho KP3 An Phú: Cán bộ (Chi ủy, Ban Điều hành khu phố, Ban Công tác Mặt trận) với quyền quản trị tập trung; và Người dân (Chủ hộ, cư dân) với quyền tự phục vụ bản thân."
     },
     {
       phase: "Giai đoạn 2: Phát triển Giao diện",
@@ -256,7 +286,7 @@ export default function SettingsAndPermissions({
     },
     {
       phase: "Giai đoạn 4: Thử nghiệm thực tế",
-      title: "Triển khai Alpha Test 50 hộ dân tại Tổ tự quản 12",
+      title: "Triển khai thí điểm 50 hộ dân trên các tuyến đường KP3",
       status: "upcoming",
       date: "Tháng 09/2026",
       desc: "Thử nghiệm tải thực tế, đánh giá độ tiện dụng cho người cao tuổi, sửa đổi biểu mẫu phản ánh hiện trường 1022 cục bộ."
@@ -270,7 +300,7 @@ export default function SettingsAndPermissions({
     enterprises: { label: "Quản lý Doanh nghiệp (DNNVV)", icon: Building2, desc: "Theo dõi tổ chức kinh tế, mã số thuế, quy mô lao động theo NĐ 80/2021" },
     businesses: { label: "Cơ sở Kinh doanh & Hộ cá thể", icon: Store, desc: "Cấp phép hoạt động, duyệt an toàn phòng cháy chữa cháy, cơ sở lưu trú" },
     gis: { label: "Bản đồ không gian GIS", icon: Map, desc: "Định vị vị trí hộ dân, điểm nóng ANTT trên bản đồ số" },
-    tasks: { label: "Lịch công tác & Nhiệm vụ", icon: Calendar, desc: "Theo dõi lịch họp chi bộ, phân công nhiệm vụ 14 Tổ dân phố KP3, kiểm tra hạn chót" },
+    tasks: { label: "Lịch công tác & Nhiệm vụ", icon: Calendar, desc: "Theo dõi lịch họp chi bộ, phân công nhiệm vụ Ban Điều hành KP3, kiểm tra hạn chót" },
     ai: { label: "Hỏi đáp Trợ lý AI", icon: Bot, desc: "Hỏi đáp pháp luật, quy trình thủ tục hành chính tự động" },
     reports: { label: "Phản ánh hiện trường", icon: MessageSquare, desc: "Gửi phản ánh 1022 về rác thải, tiếng ồn, lấn chiếm hẻm" },
     party: { label: "Quản lý Chi hội Đảng", icon: ShieldAlert, desc: "Danh sách đảng viên miễn sinh hoạt, đảng viên 76" },
@@ -322,6 +352,18 @@ export default function SettingsAndPermissions({
           </button>
           <button
             type="button"
+            onClick={() => setActiveSubTab("portal")}
+            className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-colors cursor-pointer flex items-center gap-1.5 border
+              ${activeSubTab === "portal"
+                ? "bg-emerald-700 border-emerald-700 text-white"
+                : "bg-white border-slate-200 text-slate-700 hover:bg-slate-100"
+              }
+            `}
+          >
+            <Building2 size={14} /> Trang chủ, Ảnh &amp; Cán bộ
+          </button>
+          <button
+            type="button"
             onClick={() => setActiveSubTab("forms")}
             className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-colors cursor-pointer flex items-center gap-1.5 border
               ${activeSubTab === "forms"
@@ -342,7 +384,7 @@ export default function SettingsAndPermissions({
               }
             `}
           >
-            <Shield size={14} /> Phân quyền Cán bộ &amp; Tổ 1–14
+            <Shield size={14} /> Phân quyền Cán bộ &amp; Địa bàn KP3
           </button>
           <button
             type="button"
@@ -370,6 +412,15 @@ export default function SettingsAndPermissions({
           </button>
         </div>
       </div>
+
+      {/* Portal Config Tab (Trang chủ, Hình ảnh, Cán bộ & Giới thiệu KP3) */}
+      {activeSubTab === "portal" && (
+        <PortalConfigSettings
+          landingConfig={localLandingConfig}
+          onUpdateLandingConfig={handleSaveLandingConfig}
+          onNotify={showNewsToast}
+        />
+      )}
 
       {/* Approvals tab */}
       {activeSubTab === "approvals" && (
@@ -753,26 +804,26 @@ export default function SettingsAndPermissions({
             </div>
           </div>
 
-          {/* Phạm vi Phân quyền Theo Tổ Dân Phố (Tổ 1 - Tổ 14 KP3) */}
+          {/* Phạm vi Phân quyền Theo Cụm địa bàn & Tuyến đường KP3 */}
           <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden">
             <div className="p-4 border-b border-slate-200 bg-slate-50 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <div>
                 <h5 className="font-bold text-slate-900 text-xs uppercase tracking-wider flex items-center gap-1.5">
                   <MapPin size={14} className="text-emerald-700" />
-                  Phạm vi Phụ trách 14 Tổ Dân Phố KP3
+                  Phạm vi Phụ trách Cụm địa bàn &amp; Tuyến đường KP3
                 </h5>
                 <p className="text-xs text-slate-600 mt-0.5">
-                  Cấp hoặc giới hạn quyền thao tác dữ liệu theo từng Tổ dân phố (1–14) cho nhóm cán bộ phụ trách
+                  Khu phố 3 điều hành trực tiếp toàn địa bàn (không chia tổ dân phố); cấp quyền phụ trách theo các trục đường và cụm tự quản
                 </p>
               </div>
               <div className="flex flex-wrap items-center gap-2">
-                <div className="w-56">
+                <div className="w-60">
                   <ReportSelect
-                    aria-label="Chọn nhóm quyền áp dụng phạm vi Tổ"
+                    aria-label="Chọn nhóm quyền áp dụng phạm vi địa bàn KP3"
                     value={selectedScopeGroup}
                     onChange={(val) => setSelectedScopeGroup(val)}
                     options={[
-                      { value: "totruong", label: "Tổ trưởng & Tổ phó (14 Tổ)" },
+                      { value: "bandieuhanh", label: "Ban Điều hành Khu phố 3" },
                       { value: "mattran", label: "Ban Công tác Mặt trận KP3" },
                       { value: "congtacvien", label: "Cộng tác viên Dân số & An sinh" }
                     ]}
@@ -780,30 +831,29 @@ export default function SettingsAndPermissions({
                 </div>
                 <button
                   type="button"
-                  onClick={() => handleSetAllToScope(true)}
+                  onClick={() => handleSetAllAreaScope(true)}
                   className="px-3 py-2 rounded-xl border border-slate-200 bg-white hover:bg-emerald-50 text-emerald-800 text-xs font-semibold cursor-pointer"
                 >
-                  Mở 14 Tổ
+                  Mở toàn địa bàn
                 </button>
               </div>
             </div>
-            <div className="p-4 grid grid-cols-2 sm:grid-cols-4 md:grid-cols-7 gap-2.5">
-              {KP3_TO_LIST.map((toName, idx) => {
-                const toId = idx + 1;
-                const enabled = toScopesByGroup[selectedScopeGroup]?.[String(toId)] ?? true;
+            <div className="p-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5">
+              {KP3_OPERATIONAL_ZONES.map((zone) => {
+                const enabled = areaScopesByGroup[selectedScopeGroup]?.[zone.id] ?? true;
                 return (
                   <button
-                    key={toId}
+                    key={zone.id}
                     type="button"
-                    onClick={() => handleToggleToScope(toId)}
-                    className={`p-2.5 rounded-xl border text-left transition-colors cursor-pointer ${
+                    onClick={() => handleToggleAreaScope(zone.id, zone.name)}
+                    className={`p-3 rounded-xl border text-left transition-colors cursor-pointer ${
                       enabled
                         ? "bg-emerald-50 border-emerald-200 text-emerald-900"
                         : "bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100"
                     }`}
                   >
                     <div className="flex items-center justify-between gap-1">
-                      <span className="text-xs font-bold">{toName}</span>
+                      <span className="text-xs font-bold">{zone.name}</span>
                       {enabled ? (
                         <CheckCircle2 size={13} className="text-emerald-700 shrink-0" />
                       ) : (

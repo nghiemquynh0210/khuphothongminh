@@ -45,7 +45,7 @@ export default function HouseholdDashboard({ households, residents }: HouseholdD
           icon={FileText}
           color="emerald"
           subtext={`Định mức KP3: ${formatVNNumber(KP3_OFFICIAL_BASELINE.households)} hộ`}
-          subtextRight="14 Tổ dân phố"
+          subtextRight="Toàn địa bàn KP3"
         />
         <StatCard
           label="Hộ Thường trú (KT1)"

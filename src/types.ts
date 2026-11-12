@@ -356,6 +356,12 @@ export interface CommunityEvent {
   imageUrl?: string;
 }
 
+export interface NewsLinkAttachment {
+  id: string;
+  label: string;
+  url: string;
+}
+
 export interface LocalNews {
   id: string;
   title: string;
@@ -375,6 +381,7 @@ export interface LocalNews {
     url?: string;
     size?: string;
   };
+  links?: NewsLinkAttachment[];
 }
 
 export type FundGroup =
@@ -439,7 +446,7 @@ export interface AdministrativeForm {
   id: string;
   code: string;
   title: string;
-  category: "Cư trú & Hộ khẩu" | "Địa chính & Nhà ở" | "Hộ kinh doanh" | "Hộ tịch & Tư pháp" | "An sinh xã hội" | "Tổ dân phố & Chi bộ";
+  category: "Cư trú & Hộ khẩu" | "Địa chính & Nhà ở" | "Hộ kinh doanh" | "Hộ tịch & Tư pháp" | "An sinh xã hội" | "Điều hành KP3 & Chi bộ";
   issuingBody: string;
   description: string;
   requiredDocuments: string[];
@@ -560,7 +567,7 @@ export interface TaskItem {
 export interface ScheduleEvent {
   id: string;
   title: string;
-  type: "Họp Chi bộ" | "Họp Tổ Dân Phố" | "Tuần tra ANTT" | "Chủ Nhật Xanh" | "Tiếp công dân" | "Hội nghị Khu phố" | "Khác" | (string & {});
+  type: "Họp Chi bộ" | "Họp Giao ban KP3" | "Họp Tổ Dân Phố" | "Tuần tra ANTT" | "Chủ Nhật Xanh" | "Tiếp công dân" | "Hội nghị Khu phố" | "Khác" | (string & {});
   date: string; // YYYY-MM-DD
   time: string; // HH:mm - HH:mm
   location: string;
@@ -603,6 +610,39 @@ export interface RecurringReminder {
   createdAt: string;
 }
 
+export interface LeadershipMember {
+  id: string;
+  name: string;
+  role: string;
+  subRole?: string;
+  group: "Cấp ủy Chi bộ" | "Ban Điều hành Khu phố" | "Công an khu vực" | "Đoàn thể";
+  scope: string;
+  phone?: string;
+  avatar?: string;
+  description?: string;
+  schedule?: string;
+  isHighlight?: boolean;
+}
+
+export interface LandingGalleryImage {
+  id: string;
+  url: string;
+  caption: string;
+}
+
+export interface LandingAboutConfig {
+  summaryText: string;
+  mapImageUrl: string;
+  mapCaption: string;
+  transportTitle: string;
+  transportIntro: string;
+  transportRoutes: string[];
+  selfGovTitle: string;
+  selfGovDescription: string;
+  civilizedStatValue: string;
+  civilizedStatLabel: string;
+}
+
 export interface LandingConfig {
   siteTitle: string;
   siteSubtitle: string;
@@ -615,5 +655,10 @@ export interface LandingConfig {
   workingHours: string;
   hotline: string;
   footerOperator: string;
+  logoUrl?: string;
+  heroCoverUrl?: string;
+  galleryImages?: LandingGalleryImage[];
+  leadership?: LeadershipMember[];
+  about?: LandingAboutConfig;
 }
 

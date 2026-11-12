@@ -17,6 +17,38 @@ export const KP3_OFFICIAL_BASELINE = {
   residentialGroups: 14,
 } as const;
 
+export const KP3_AREA_LIST: string[] = [
+  "Đường Lương Định Của",
+  "Đường Song Hành",
+  "Đại lộ Mai Chí Thọ",
+  "Khu nội bộ (Đường N, X, D)",
+  "Các tuyến hẻm KP3",
+  "Toàn địa bàn KP3",
+];
+
+/**
+ * Classifies a KP3 address into its unified corridor / area label (without Tổ 1–14 splits).
+ */
+export function extractKp3Area(address?: string): string {
+  const lower = (address || "").toLowerCase();
+  if (lower.includes("lương định của") || lower.includes("luong dinh cua")) {
+    return "Đường Lương Định Của";
+  }
+  if (lower.includes("song hành") || lower.includes("song hanh")) {
+    return "Đường Song Hành";
+  }
+  if (lower.includes("mai chí thọ") || lower.includes("mai chi tho")) {
+    return "Đại lộ Mai Chí Thọ";
+  }
+  if (/\b(?:n1|n2|n3|n4|x1|x2|x3|d1|d2|ap\d+)\b/i.test(lower)) {
+    return "Khu nội bộ (Đường N, X, D)";
+  }
+  if (lower.includes("hẻm") || lower.includes("hem")) {
+    return "Các tuyến hẻm KP3";
+  }
+  return "Toàn địa bàn KP3";
+}
+
 export const KP3_TO_LIST: string[] = Array.from(
   { length: KP3_OFFICIAL_BASELINE.residentialGroups },
   (_, idx) => `Tổ ${idx + 1}`
@@ -209,11 +241,11 @@ export function createTaskFromReport(report: FieldReport, creatorName = "Ban Đi
     id: `TASK-PA-${Date.now().toString().slice(-5)}`,
     title: `[1022] ${report.title}`,
     description: `Xử lý phản ánh tại ${report.location}. Nội dung: ${report.description}`,
-    unit: report.assignedUnit || extractToDanPho(report.location),
+    unit: report.assignedUnit || extractKp3Area(report.location),
     assignee: {
-      name: report.assignedOfficer || "Tổ trưởng phụ trách",
+      name: report.assignedOfficer || "Cán bộ Ban Điều hành KP3",
       role: "Cán bộ xử lý hiện trường",
-      unit: report.assignedUnit || extractToDanPho(report.location),
+      unit: report.assignedUnit || extractKp3Area(report.location),
     },
     creator: creatorName,
     priority: priorityMap[report.priority || "Bình thường"] || "Trung bình",
@@ -274,7 +306,7 @@ export function generateKp3AssistantReply(
       "**Hướng dẫn Đăng ký Tạm trú / Khai báo lưu trú tại Khu phố 3:**",
       "1. Chuẩn bị **CCCD gắn chip**, **Tờ khai CT01** (tải tại mục *Biểu mẫu hành chính*) và hợp đồng thuê nhà hoặc văn bản đồng ý của chủ hộ.",
       "2. Thực hiện trực tuyến qua ứng dụng **VNeID (mức 2)** hoặc **Cổng Dịch vụ công Quốc gia (`dichvucong.gov.vn`)**.",
-      "3. Liên hệ Tổ trưởng Tổ dân phố (Tổ 1–14) hoặc Cảnh sát khu vực Công an Phường An Phú khi cần xác nhận cư trú thực tế.",
+      "3. Liên hệ Ban Điều hành Khu phố 3 hoặc Cảnh sát khu vực Công an Phường An Phú khi cần xác nhận cư trú thực tế.",
     ].join("\n");
   }
 
@@ -286,7 +318,7 @@ export function generateKp3AssistantReply(
         ? `- Hồ sơ ưu tiên gần nhất: **${openReports[0].title}** tại *${openReports[0].location}* (${openReports[0].status}).`
         : "- Tất cả phản ánh đã được xử lý xong.",
       mode === "canbo"
-        ? "1. Vào **Phản ánh hiện trường** để phân công cho Tổ dân phố hoặc đẩy sang **Lịch & Nhiệm vụ**.\n2. Cập nhật ảnh nghiệm thu sau xử lý để cư dân đánh giá hài lòng."
+        ? "1. Vào **Phản ánh hiện trường** để phân công cán bộ phụ trách hoặc đẩy sang **Lịch & Nhiệm vụ**.\n2. Cập nhật ảnh nghiệm thu sau xử lý để cư dân đánh giá hài lòng."
         : "1. Vào **Phản ánh hiện trường** -> nhấn **Gửi phản ánh mới** kèm ảnh chụp & vị trí 1 chạm trên Sơ đồ KP3.\n2. Theo dõi phản hồi của cán bộ trực tiếp trên dòng thời gian của hồ sơ.",
     ].join("\n");
   }
@@ -331,7 +363,7 @@ export function generateKp3AssistantReply(
     `- Quy mô: **${pop.officialHouseholds.toLocaleString("vi-VN")} hộ** / **${pop.officialPopulation.toLocaleString("vi-VN")} nhân khẩu** (${ctx.residents.length} hồ sơ số hóa chi tiết).`,
     `- Phản ánh 1022 chưa xử lý: **${openReports.length} hồ sơ** • Công việc đang mở: **${openTasks.length} việc**.`,
     `- Đối tượng An sinh: **${ctx.welfareRecipients.length} người** • Sự kiện cộng đồng: **${ctx.communityEvents.length}**.`,
-    `Bạn có thể hỏi cụ thể hơn về: *tạm trú*, *phản ánh 1022*, *quỹ VietQR*, *nhiệm vụ tổ dân phố* hoặc *liên hệ Ban Điều hành*.`,
+    `Bạn có thể hỏi cụ thể hơn về: *tạm trú*, *phản ánh 1022*, *quỹ VietQR*, *nhiệm vụ KP3* hoặc *liên hệ Ban Điều hành*.`,
   ].join("\n");
 }
 

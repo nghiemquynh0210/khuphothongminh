@@ -31,7 +31,7 @@ import { ReportSelect } from "./reports/ReportSelect";
 import { ConfirmModal, InlineNotice } from "./ui/ConfirmModal";
 import { Modal } from "./ui/Modal";
 import { DetailRow, DetailGrid } from "./common/DetailRow";
-import { KP3_TO_LIST, formatShortRecordId } from "../utils/kp3Utils";
+import { KP3_AREA_LIST, formatShortRecordId } from "../utils/kp3Utils";
 import { formatVNNumber } from "../utils/numberFormat";
 
 interface AdministrativeFormsProps {
@@ -104,7 +104,7 @@ export default function AdministrativeForms({
     "Hộ kinh doanh",
     "Hộ tịch & Tư pháp",
     "An sinh xã hội",
-    "Tổ dân phố & Chi bộ"
+    "Điều hành KP3 & Chi bộ"
   ];
 
   const filterCategories = ["Tất cả", ...categories];
@@ -474,7 +474,7 @@ export default function AdministrativeForms({
           </div>
           <div className="w-full sm:w-56 shrink-0">
             <ReportSelect
-              aria-label="Chọn Tổ dân phố nhận hồ sơ"
+              aria-label="Chọn tuyến đường / khu vực KP3 nhận hồ sơ"
               value={selectedTo}
               onChange={(val) => {
                 setSelectedTo(val);
@@ -485,8 +485,8 @@ export default function AdministrativeForms({
                 }
               }}
               options={[
-                { value: "all", label: "Mặc định: Toàn KP3 (14 Tổ)" },
-                ...KP3_TO_LIST.map((toName) => ({ value: toName, label: `Áp dụng cho ${toName}` }))
+                { value: "all", label: "Mặc định: Toàn địa bàn Khu phố 3" },
+                ...KP3_AREA_LIST.map((areaName) => ({ value: areaName, label: `Áp dụng cho ${areaName}` }))
               ]}
             />
           </div>

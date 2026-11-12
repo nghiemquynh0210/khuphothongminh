@@ -195,7 +195,7 @@ NGƯỜI KÊ KHAI
     title: "Đơn xin xác nhận tình trạng cư trú thực tế tại Khu phố 3",
     category: "Cư trú & Hộ khẩu",
     issuingBody: "Ban Điều hành Khu phố 3, Phường An Phú",
-    description: "Dành cho cư dân tạm trú, công nhân thuê trọ, sinh viên hoặc người lao động cần Tổ dân phố và Trưởng khu phố xác nhận tình trạng sinh sống thực tế trên địa bàn để nộp hồ sơ xin việc, bảo hiểm xã hội.",
+    description: "Dành cho cư dân tạm trú, công nhân thuê trọ, sinh viên hoặc người lao động cần Ban Điều hành Khu phố 3 và Trưởng khu phố xác nhận tình trạng sinh sống thực tế trên địa bàn để nộp hồ sơ xin việc, bảo hiểm xã hội.",
     requiredDocuments: [
       "Đơn xin xác nhận tình trạng cư trú",
       "Bản sao CCCD và Hợp đồng thuê phòng trọ/nhà ở",
@@ -219,7 +219,7 @@ Kính gửi:
 Tôi tên là: [TRẦN THỊ C]
 Sinh ngày: [20/11/1995]           CCCD số: [079195009876]
 Quê quán: [...........................................................................]
-Hiện đang tạm trú thực tế tại: [Phòng số 4, nhà số 30/8 Lương Định Của, Tổ 2, Khu phố 3, Phường An Phú]
+Hiện đang tạm trú thực tế tại: [Phòng số 4, nhà số 30/8 Lương Định Của, Khu phố 3, Phường An Phú]
 Chủ nhà trọ / Hộ gia đình cho thuê: [................................................]
 Thời gian bắt đầu cư trú tại địa phương: Từ tháng [..../........] đến nay.
 
@@ -394,7 +394,7 @@ NGƯỜI KÊ KHAI / NGƯỜI ĐẠI DIỆN
     id: "FORM-010",
     code: "Mẫu QĐ213-CB",
     title: "Phiếu nhận xét đảng viên sinh hoạt nơi cư trú (Quy định 213)",
-    category: "Tổ dân phố & Chi bộ",
+    category: "Điều hành KP3 & Chi bộ",
     issuingBody: "Ban Chấp hành Trung ương Đảng (Quy định 213-QĐ/TW)",
     description: "Dành cho cán bộ, công chức, viên chức là đảng viên đang công tác gửi về Chi ủy Chi bộ Khu phố 3 xin nhận xét, đánh giá việc chấp hành chủ trương, nghĩa vụ công dân nơi cư trú cuối năm.",
     requiredDocuments: [

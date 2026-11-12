@@ -359,7 +359,7 @@ export default function Dashboard({
       { id: "ai", title: "Hỏi đáp Trợ lý KP3", icon: Bot, tone: "indigo" },
       { id: "welfare", title: "An sinh Xã hội", icon: Heart, tone: "rose" },
       { id: "cultural", title: "Tin tức & Sinh hoạt KP3", icon: Bell, tone: "emerald" },
-      { id: "party", title: "Ban Điều hành & 14 Tổ", icon: Users, tone: "slate" },
+      { id: "party", title: "Ban Điều hành & Chi bộ KP3", icon: Users, tone: "slate" },
     ];
 
     return (
@@ -383,7 +383,7 @@ export default function Dashboard({
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           <StatCard
-            label="Dân số KP3 (14 Tổ)"
+            label="Dân số Toàn Khu phố 3"
             value={formatVNNumber(KP3_OFFICIAL_BASELINE.population)}
             icon={Users}
             color="emerald"
@@ -396,7 +396,7 @@ export default function Dashboard({
             icon={Home}
             color="indigo"
             subtext="Sổ hộ khẩu điện tử"
-            subtextRight="14 Tổ dân phố"
+            subtextRight="Toàn địa bàn KP3"
           />
           <StatCard
             label="Doanh nghiệp & Hộ KD"
@@ -567,7 +567,7 @@ export default function Dashboard({
               <span className="text-xs font-bold text-emerald-900 uppercase">Lịch vệ sinh</span>
               <h3 className="text-sm font-bold text-slate-900">Thu gom rác sinh hoạt hằng ngày</h3>
               <p className="text-xs text-slate-700 leading-relaxed">
-                Đề nghị các hộ dân buộc kín túi rác trước cửa từ 19h00 – 21h00 để đảm bảo mỹ quan 14 Tổ dân phố.
+                Đề nghị các hộ dân buộc kín túi rác trước cửa từ 19h00 – 21h00 để đảm bảo mỹ quan toàn Khu phố 3.
               </p>
             </div>
             <div className="p-4 rounded-xl bg-amber-50/60 border border-amber-200 space-y-1">
@@ -655,7 +655,7 @@ export default function Dashboard({
         badgeIcon={<Activity size={14} className="text-emerald-700" />}
         badgeText="TRUNG TÂM ĐIỀU HÀNH SỐ • KP3 PHƯỜNG AN PHÚ"
         badgeSubtext="CSDL THỐNG NHẤT"
-        title="Bảng Điều Hành Khu Phố 3 (14 Tổ Dân Phố)"
+        title="Bảng Điều Hành Khu Phố 3"
         actions={
           <div className="inline-flex items-center gap-2 bg-slate-50 px-3 py-2 rounded-lg border border-slate-200 text-xs font-mono text-slate-700 shrink-0">
             <Clock size={14} className="text-emerald-700" aria-hidden="true" />
@@ -685,7 +685,7 @@ export default function Dashboard({
           icon={Home}
           color="indigo"
           subtext={`TB: ${metrics.popMetrics.avgPerDigitizedHouseholdLabel} người/hộ`}
-          subtextRight="14 Tổ dân phố"
+          subtextRight="Toàn địa bàn KP3"
           onClick={() => setActiveTab("households")}
         />
         <StatCard

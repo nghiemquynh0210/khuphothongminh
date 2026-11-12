@@ -267,14 +267,14 @@ const roadmapPhases: RoadmapPhase[] = [
     ],
     outputs: [
       "Giao diện quản lý dân cư (CitizenManagement Component) hoàn chỉnh",
-      "Công cụ lọc nâng cao theo độ tuổi, giới tính, tổ dân phố, trạng thái",
+      "Công cụ lọc nâng cao theo độ tuổi, giới tính, tuyến đường / khu vực KP3, trạng thái",
       "Hệ thống parser tệp Excel client-side bảo mật"
     ],
     criteria: [
       "Các thao tác CRUD hoạt động trơn tru không lỗi, hiển thị dữ liệu chính xác",
       "Import file Excel chứa hàng trăm dòng hoạt động thành công dưới 3 giây"
     ],
-    prompt: "Hãy xây dựng module Quản lý Dân cư trong React. Thiết kế giao diện CRUD hiện đại, hỗ trợ tìm kiếm nâng cao, bộ lọc thông minh theo tổ dân phố và trạng thái cư trú, tích hợp chức năng import/export Excel và tạo mã định danh QR Code."
+    prompt: "Hãy xây dựng module Quản lý Dân cư trong React. Thiết kế giao diện CRUD hiện đại, hỗ trợ tìm kiếm nâng cao, bộ lọc thông minh theo tuyến đường KP3 và trạng thái cư trú, tích hợp chức năng import/export Excel và tạo mã định danh QR Code."
   },
   {
     id: 10,
@@ -356,7 +356,7 @@ const roadmapPhases: RoadmapPhase[] = [
     outputs: [
       "Giao diện quản lý chi bộ (PartyBranch Component) hoàn chỉnh",
       "Kho tư liệu Nghị quyết và Biên bản sinh hoạt Đảng",
-      "Bảng phân công đảng viên theo dõi, giúp đỡ hộ nghèo/tổ dân phố"
+      "Bảng phân công đảng viên theo dõi, giúp đỡ hộ nghèo & địa bàn KP3"
     ],
     criteria: [
       "Tuyệt đối bảo mật thông tin hồ sơ lý lịch chính trị đảng viên theo quy định",
@@ -391,9 +391,9 @@ const roadmapPhases: RoadmapPhase[] = [
     title: "Giai đoạn 15",
     name: "Tích hợp bản đồ số GIS",
     iconName: "MapPin",
-    objective: "Tích hợp Google Maps và PostGIS hiển thị trực quan không gian địa bàn Khu phố 3, ranh giới tổ dân phố.",
+    objective: "Tích hợp Leaflet/OpenStreetMap và PostGIS hiển thị trực quan không gian địa bàn Khu phố 3 và các phân khu GIS.",
     requirements: [
-      "Vẽ và số hóa ranh giới đa giác (MultiPolygon) của 15 tổ dân phố trên bản đồ số",
+      "Vẽ và số hóa ranh giới đa giác (MultiPolygon) địa bàn KP3 & các phân khu GIS trên bản đồ số",
       "Định vị tọa độ (Point) của từng hộ dân, hộ kinh doanh trên bản đồ nền",
       "Tích hợp hiển thị vị trí các camera giám sát an ninh và điểm nóng ANTT"
     ],
@@ -459,7 +459,7 @@ const roadmapPhases: RoadmapPhase[] = [
     iconName: "TrendingUp",
     objective: "Thiết kế Dashboard trung tâm tổng hợp KPIs chỉ số và biểu đồ thống kê động sử dụng Recharts.",
     requirements: [
-      "Vẽ biểu đồ Recharts cơ cấu dân số theo giới tính, độ tuổi, tổ dân phố",
+      "Vẽ biểu đồ Recharts cơ cấu dân số theo giới tính, độ tuổi, khu vực KP3",
       "Vẽ biểu đồ thu chi quỹ tự quản và tiến độ giải quyết các phản ánh hiện trường",
       "Hiển thị bảng điều khiển chuyên biệt cho từng vai trò cán bộ"
     ],
@@ -632,7 +632,7 @@ const getPhaseExtraInfo = (id: number) => {
       return {
         risk: "Bản đồ không tải được khi không có kết nối internet hoặc vượt hạn mức API Key.",
         mitigation: "Thiết lập hạn mức ngân sách Google Cloud, tích hợp bản đồ tĩnh OpenStreetMap làm dự phòng.",
-        handover: ["Module Bản đồ GIS", "Dữ liệu ranh giới GeoJSON Tổ dân phố", "Mẫu cấu hình Google Maps API"]
+        handover: ["Module Bản đồ GIS", "Dữ liệu ranh giới GeoJSON Khu phố 3", "Mẫu cấu hình bản đồ GIS"]
       };
     case 16:
       return {
@@ -847,7 +847,7 @@ Sau khi các **Tổ nhân dân tự quản kết thúc hoạt động** theo ch�
 - **Quản lý chính xác 100%** các hộ kinh doanh trên địa bàn, bao gồm trạng thái giấy phép, PCCC, vệ sinh an toàn thực phẩm.
 - **Rút ngắn 80%** thời gian tổng hợp số liệu, làm báo cáo hành chính của cán bộ khu phố nhờ chức năng kết xuất báo cáo tự động và trợ lý AI soạn thảo văn bản.
 - **Giải quyết trên 90%** các phản ánh hiện trường của người dân (rác thải, tiếng ồn, trật tự đô thị) trong vòng 24 giờ kể từ khi tiếp nhận.
-- **Vẽ bản đồ GIS số hóa** ranh giới 15 tổ dân phố cũ, định vị chính xác vị trí hộ dân, camera an ninh và các điểm nóng trật tự.`
+- **Vẽ bản đồ GIS số hóa** ranh giới Khu phố 3 và các phân khu chức năng, định vị chính xác vị trí hộ dân, camera an ninh và các điểm nóng trật tự.`
     },
     {
       title: "5. Nội dung triển khai",
@@ -920,17 +920,17 @@ Sau khi các **Tổ nhân dân tự quản kết thúc hoạt động** theo ch�
     {
       id: "A",
       title: "A. DỮ LIỆU ĐỊA BÀN",
-      description: "Quản lý ranh giới địa lý, tổ dân phố, số nhà và hệ thống GIS cơ bản của khu phố.",
+      description: "Quản lý ranh giới địa lý, phân khu GIS, trục đường và hệ thống địa chỉ số của Khu phố 3.",
       tables: [
         {
-          name: "to_dan_pho",
-          purpose: "Quản lý danh mục các Tổ dân phố thuộc Khu phố 3 (gồm 15 tổ cũ và cơ cấu sắp xếp mới).",
+          name: "phan_khu_gis",
+          purpose: "Quản lý danh mục phân khu địa bàn & cụm tuyến đường trực thuộc Khu phố 3 (vận hành tập trung toàn KP3).",
           columns: [
-            { name: "id", type: "UUID", constraints: "PRIMARY KEY", description: "Mã định danh duy nhất của tổ dân phố", sample: "a1b2c3d4-e5f6-7a8b-9c0d-1e2f3a4b5c6d" },
-            { name: "name", type: "VARCHAR(100)", constraints: "NOT NULL UNIQUE", description: "Tên tổ dân phố (Ví dụ: 'Tổ dân phố 1')", sample: "Tổ dân phố 3" },
-            { name: "leader_name", type: "VARCHAR(255)", constraints: "", description: "Họ tên Tổ trưởng tổ dân phố", sample: "Trần Văn A" },
-            { name: "leader_phone", type: "VARCHAR(20)", constraints: "", description: "Số điện thoại liên lạc của Tổ trưởng", sample: "0903123456" },
-            { name: "description", type: "TEXT", constraints: "", description: "Mô tả phạm vi ranh giới hoặc đặc thù của tổ", sample: "Dọc trục đường Lương Định Của từ số 10 đến số 40" }
+            { name: "id", type: "UUID", constraints: "PRIMARY KEY", description: "Mã định danh duy nhất của phân khu", sample: "a1b2c3d4-e5f6-7a8b-9c0d-1e2f3a4b5c6d" },
+            { name: "name", type: "VARCHAR(100)", constraints: "NOT NULL UNIQUE", description: "Tên phân khu / tuyến đường (Ví dụ: 'Cụm Đường Lương Định Của')", sample: "Phân khu GIS #3 (Đường N4)" },
+            { name: "leader_name", type: "VARCHAR(255)", constraints: "", description: "Họ tên cán bộ Ban Điều hành KP3 phụ trách", sample: "Trần Văn A" },
+            { name: "leader_phone", type: "VARCHAR(20)", constraints: "", description: "Số điện thoại liên lạc cán bộ phụ trách", sample: "0903123456" },
+            { name: "description", type: "TEXT", constraints: "", description: "Mô tả phạm vi ranh giới hoặc đặc thù tuyến đường", sample: "Dọc trục đường Lương Định Của từ số 10 đến số 40" }
           ]
         },
         {
@@ -949,7 +949,7 @@ Sau khi các **Tổ nhân dân tự quản kết thúc hoạt động** theo ch�
             { name: "id", type: "UUID", constraints: "PRIMARY KEY", description: "Mã địa chỉ số", sample: "d4c3b2a1-e5f6-7a8b-9c0d-1e2f3a4b5c6d" },
             { name: "house_number", type: "VARCHAR(50)", constraints: "NOT NULL", description: "Số nhà chính xác", sample: "42/18" },
             { name: "street", type: "VARCHAR(150)", constraints: "NOT NULL", description: "Tên đường/hẻm", sample: "Lương Định Của" },
-            { name: "to_dan_pho_id", type: "UUID", constraints: "REFERENCES to_dan_pho(id)", description: "Thuộc tổ dân phố nào", sample: "a1b2c3d4-e5f6-7a8b-9c0d-1e2f3a4b5c6d" }
+            { name: "phan_khu_id", type: "UUID", constraints: "REFERENCES phan_khu_gis(id)", description: "Thuộc phân khu / tuyến đường KP3 nào", sample: "a1b2c3d4-e5f6-7a8b-9c0d-1e2f3a4b5c6d" }
           ]
         },
         {
@@ -977,7 +977,7 @@ Sau khi các **Tổ nhân dân tự quản kết thúc hoạt động** theo ch�
             { name: "household_code", type: "VARCHAR(50)", constraints: "NOT NULL UNIQUE", description: "Số sổ hộ khẩu hoặc số định danh hộ của địa phương", sample: "HK-KP3-301" },
             { name: "owner_name", type: "VARCHAR(255)", constraints: "NOT NULL", description: "Họ và tên chủ hộ gia đình", sample: "Nguyễn Văn Hùng" },
             { name: "address", type: "TEXT", constraints: "NOT NULL", description: "Địa chỉ thường trú/tạm trú của hộ tại Khu phố 3", sample: "Số 42/18 Lương Định Của, Phường An Phú" },
-            { name: "to_dan_pho_id", type: "UUID", constraints: "REFERENCES to_dan_pho(id)", description: "Thuộc tổ dân phố quản lý", sample: "a1b2c3d4-e5f6-7a8b-9c0d-1e2f3a4b5c6d" }
+            { name: "phan_khu_id", type: "UUID", constraints: "REFERENCES phan_khu_gis(id)", description: "Thuộc phân khu KP3 quản lý", sample: "a1b2c3d4-e5f6-7a8b-9c0d-1e2f3a4b5c6d" }
           ]
         },
         {
@@ -1174,7 +1174,7 @@ Sau khi các **Tổ nhân dân tự quản kết thúc hoạt động** theo ch�
       tables: [
         {
           name: "officers",
-          purpose: "Hồ sơ các cán bộ Ban Điều hành, chi hội trưởng, tổ trưởng tổ dân phố.",
+          purpose: "Hồ sơ các cán bộ Ban Điều hành Khu phố 3, chi hội trưởng đoàn thể.",
           columns: [
             { name: "id", type: "UUID", constraints: "PRIMARY KEY", description: "Mã cán bộ", sample: "d7e8f9a0-b1c2-3d4e-5f6a-7b8c9d0e1f2a" },
             { name: "citizen_id", type: "UUID", constraints: "REFERENCES citizens(id) UNIQUE", description: "Thông tin cá nhân cán bộ", sample: "a2b3c4d5-e6f7-8a9b-0c1d-2e3f4a5b6c7d" },
@@ -1233,7 +1233,7 @@ Sau khi các **Tổ nhân dân tự quản kết thúc hoạt động** theo ch�
           columns: [
             { name: "id", type: "UUID", constraints: "PRIMARY KEY", description: "Mã phân hội", sample: "c2d3e4f5-a6b7-8c9d-0e1f-2a3b4c5d6e7f" },
             { name: "org_id", type: "UUID", constraints: "REFERENCES organizations(id)", description: "Thuộc tổ chức nào", sample: "b1c2d3e4-f5a6-7b8c-9d0e-1f2a3b4c5d6e" },
-            { name: "name", type: "VARCHAR(150)", constraints: "NOT NULL", description: "Tên phân hội", sample: "Chi hội Phụ nữ Tổ dân phố 12" }
+            { name: "name", type: "VARCHAR(150)", constraints: "NOT NULL", description: "Tên phân hội", sample: "Chi hội Phụ nữ Khu phố 3" }
           ]
         },
         {
@@ -1438,9 +1438,9 @@ Sau khi các **Tổ nhân dân tự quản kết thúc hoạt động** theo ch�
   };
 
   // GIS advanced SQL queries
-  const gisSqlSchema = `-- 1. Kích hoạt tiện ích mở rộng không gian PostGIS nếu chưa có\nCREATE EXTENSION IF NOT EXISTS postgis;\n\n-- 2. Tạo bảng quản lý ranh giới địa lý tổ dân phố (MultiPolygon)\nCREATE TABLE boundaries (\n  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),\n  name VARCHAR(100) NOT NULL,\n  geom GEOMETRY(MultiPolygon, 4326) -- SRID 4326 (WGS84)\n);\n\n-- 3. Tạo bảng lưu trữ vị trí GPS của từng hộ dân (Point)\nCREATE TABLE households_map (\n  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),\n  household_id UUID REFERENCES households(id),\n  geom GEOMETRY(Point, 4326)\n);\n\n-- 4. Tạo bảng quản lý vị trí camera giám sát an ninh (Point)\nCREATE TABLE cameras (\n  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),\n  camera_code VARCHAR(50) UNIQUE,\n  stream_url VARCHAR(500),\n  geom GEOMETRY(Point, 4326)\n);`;
+  const gisSqlSchema = `-- 1. Kích hoạt tiện ích mở rộng không gian PostGIS nếu chưa có\nCREATE EXTENSION IF NOT EXISTS postgis;\n\n-- 2. Tạo bảng quản lý ranh giới địa lý khu phố & phân khu (MultiPolygon)\nCREATE TABLE boundaries (\n  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),\n  name VARCHAR(100) NOT NULL,\n  geom GEOMETRY(MultiPolygon, 4326) -- SRID 4326 (WGS84)\n);\n\n-- 3. Tạo bảng lưu trữ vị trí GPS của từng hộ dân (Point)\nCREATE TABLE households_map (\n  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),\n  household_id UUID REFERENCES households(id),\n  geom GEOMETRY(Point, 4326)\n);\n\n-- 4. Tạo bảng quản lý vị trí camera giám sát an ninh (Point)\nCREATE TABLE cameras (\n  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),\n  camera_code VARCHAR(50) UNIQUE,\n  stream_url VARCHAR(500),\n  geom GEOMETRY(Point, 4326)\n);`;
 
-  const gisQueryExample = `-- 1. Tìm các hộ dân nằm bên trong ranh giới của 'Tổ dân phố 12'\nSELECT h.household_id, h.id\nFROM households_map h, boundaries b\nWHERE b.name = 'Tổ dân phố 12'\n  AND ST_Contains(b.geom, h.geom);\n\n-- 2. Tìm kiếm Camera an ninh trong bán kính 100m tính từ điểm nóng phản ánh tai nạn\nSELECT c.camera_code, ST_Distance(c.geom, ST_SetSRID(ST_MakePoint(106.723456, 10.787654), 4326)) as distance_meters\nFROM cameras c\nWHERE ST_DWithin(\n  c.geom,\n  ST_SetSRID(ST_MakePoint(106.723456, 10.787654), 4326),\n  0.001 -- Khoảng 100 mét trong hệ tọa độ WGS84\n)\nORDER BY distance_meters ASC;`;
+  const gisQueryExample = `-- 1. Tìm các hộ dân nằm bên trong ranh giới của 'Cụm Đường Lương Định Của'\nSELECT h.household_id, h.id\nFROM households_map h, boundaries b\nWHERE b.name = 'Cụm Đường Lương Định Của'\n  AND ST_Contains(b.geom, h.geom);\n\n-- 2. Tìm kiếm Camera an ninh trong bán kính 100m tính từ điểm nóng phản ánh tai nạn\nSELECT c.camera_code, ST_Distance(c.geom, ST_SetSRID(ST_MakePoint(106.723456, 10.787654), 4326)) as distance_meters\nFROM cameras c\nWHERE ST_DWithin(\n  c.geom,\n  ST_SetSRID(ST_MakePoint(106.723456, 10.787654), 4326),\n  0.001 -- Khoảng 100 mét trong hệ tọa độ WGS84\n)\nORDER BY distance_meters ASC;`;
 
   // RBAC permissions matrix
   const rbacRoles = [
@@ -1876,7 +1876,7 @@ Sau khi các **Tổ nhân dân tự quản kết thúc hoạt động** theo ch�
                   Mô hình lưu trữ không gian PostGIS
                 </h3>
                 <p className="text-xs text-slate-600 leading-relaxed">
-                  Để vẽ ranh giới tổ dân phố và hiển thị bản đồ trực quan mật độ nhân khẩu, hệ thống tận dụng tối đa sức mạnh của tiện ích **PostGIS** của PostgreSQL, hỗ trợ các đối tượng hình học dạng điểm (Point) và đa giác (Polygon) theo chuẩn không gian WGS84 (SRID 4326).
+                  Để vẽ ranh giới Khu phố 3, các phân khu GIS và hiển thị bản đồ trực quan mật độ nhân khẩu, hệ thống tận dụng tối đa sức mạnh của tiện ích **PostGIS** của PostgreSQL, hỗ trợ các đối tượng hình học dạng điểm (Point) và đa giác (Polygon) theo chuẩn không gian WGS84 (SRID 4326).
                 </p>
 
                 <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 text-slate-800 font-mono text-xs leading-relaxed relative max-h-[300px] overflow-y-auto">

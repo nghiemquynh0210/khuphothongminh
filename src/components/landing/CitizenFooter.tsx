@@ -1,5 +1,5 @@
 import React from "react";
-import { Clock, Edit2, LayoutDashboard, LockKeyhole, Mail, MapPin, Phone } from "lucide-react";
+import { Clock, LayoutDashboard, LockKeyhole, Mail, MapPin, Phone } from "lucide-react";
 import { LandingConfig } from "../../types";
 import { DEFAULT_LANDING_CONFIG, ROUTES, Link } from "./landingConstants";
 
@@ -7,14 +7,12 @@ export interface CitizenFooterProps {
   onOpenStaff: () => void;
   isAdmin?: boolean;
   landingConfig?: LandingConfig;
-  onEditConfig?: () => void;
 }
 
 export default function CitizenFooter({
   onOpenStaff,
   isAdmin = false,
   landingConfig = DEFAULT_LANDING_CONFIG,
-  onEditConfig,
 }: CitizenFooterProps) {
   return (
     <footer className="bg-gov-navy text-white">
@@ -23,15 +21,6 @@ export default function CitizenFooter({
         <div className="space-y-2.5 md:col-span-1">
           <div className="flex items-center justify-between gap-2">
             <p className="font-black text-base">{landingConfig.siteTitle}</p>
-            {isAdmin && onEditConfig && (
-              <button
-                type="button"
-                onClick={onEditConfig}
-                className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-white/10 hover:bg-white/20 text-xs font-semibold text-emerald-200 cursor-pointer"
-              >
-                <Edit2 size={12} aria-hidden="true" /> Sửa
-              </button>
-            )}
           </div>
           <p className="text-blue-100/90">{landingConfig.footerOperator}</p>
           <p className="text-xs text-blue-100/90 flex items-start gap-2">

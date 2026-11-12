@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { Calendar, CheckCircle2, Edit2, FileText, Plus, Trash2 } from "lucide-react";
 import { Association, TaskAttachment, TaskItem } from "../../types";
-import { KP3_TO_LIST } from "../../utils/kp3Utils";
+import { KP3_AREA_LIST } from "../../utils/kp3Utils";
 import { Button, Input, Modal, ReportSelect } from "../ui";
 import { DetailRow } from "../common/DetailRow";
 import { getPriorityBadge, getStatusBadge } from "./taskBadges";
@@ -87,8 +87,8 @@ export const CreateTaskModal: React.FC<CreateTaskModalProps> = ({
 
   const unitOptions = useMemo(() => {
     const assocOpts = associationsList.map((a) => ({ value: a.id, label: a.name }));
-    const toOpts = KP3_TO_LIST.map((t) => ({ value: `TDP_${t}`, label: `Tổ dân phố (${t})` }));
-    return [...assocOpts, ...toOpts];
+    const areaOpts = KP3_AREA_LIST.map((area) => ({ value: `AREA_${area}`, label: `Khu vực KP3 (${area})` }));
+    return [...assocOpts, ...areaOpts];
   }, [associationsList]);
 
   const currentMembers = useMemo(() => {
@@ -97,13 +97,13 @@ export const CreateTaskModal: React.FC<CreateTaskModalProps> = ({
   }, [associationsList, associationId, unit]);
 
   const handleUnitSelect = (val: string) => {
-    if (val.startsWith("TDP_")) {
-      const label = val.replace("TDP_", "");
+    if (val.startsWith("AREA_") || val.startsWith("TDP_")) {
+      const label = val.replace(/^(AREA_|TDP_)/, "");
       setAssociationId("");
       setUnit(label);
       setIsCustomAssignee(true);
-      setAssigneeName(`Tổ trưởng ${label}`);
-      setAssigneeRole(`Tổ trưởng ${label}`);
+      setAssigneeName(`Cán bộ phụ trách ${label}`);
+      setAssigneeRole(`Phụ trách ${label}`);
       setAssigneePhone("");
       return;
     }
@@ -170,7 +170,7 @@ export const CreateTaskModal: React.FC<CreateTaskModalProps> = ({
         isOpen={isOpen}
         onClose={onClose}
         title={editingTask ? "Cập nhật nhiệm vụ" : "Giao nhiệm vụ mới"}
-        description="Phân công trực tiếp cho Chi hội, Tổ dân phố (Tổ 1–14) hoặc lực lượng chuyên trách KP3"
+        description="Phân công trực tiếp cho Chi hội, cụm địa bàn hoặc lực lượng chuyên trách KP3"
         size="lg"
         footer={
           <div className="flex items-center justify-end gap-2">
@@ -203,17 +203,17 @@ export const CreateTaskModal: React.FC<CreateTaskModalProps> = ({
               if (!title.trim()) setTitleError("Vui lòng nhập tiêu đề nhiệm vụ.");
             }}
             error={titleError}
-            placeholder="Ví dụ: Kiểm tra PCCC các nhà trọ tại Tổ 5"
+            placeholder="Ví dụ: Kiểm tra PCCC các nhà trọ tại Đường Lương Định Của"
           />
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
             <div className="space-y-1.5">
               <label className="block text-sm font-medium text-slate-700">
-                Đơn vị / Tổ dân phố thực hiện
+                Đơn vị / Khu vực KP3 thực hiện
               </label>
               <ReportSelect
                 aria-label="Đơn vị thực hiện nhiệm vụ"
-                value={associationId || `TDP_${unit}`}
+                value={associationId || `AREA_${unit}`}
                 onChange={handleUnitSelect}
                 options={unitOptions}
               />
@@ -253,7 +253,7 @@ export const CreateTaskModal: React.FC<CreateTaskModalProps> = ({
                 <Input
                   value={assigneeName}
                   onChange={(e) => setAssigneeName(e.target.value)}
-                  placeholder="Tên cán bộ / Tổ trưởng"
+                  placeholder="Tên cán bộ phụ trách"
                 />
               )}
             </div>

@@ -47,7 +47,7 @@ import { ReportSelect } from "./reports/ReportSelect";
 import { Modal } from "./ui/Modal";
 import { ConfirmModal, InlineNotice } from "./ui/ConfirmModal";
 import { formatVNNumber } from "../utils/numberFormat";
-import { KP3_TO_LIST, extractToDanPho, maskCccd, maskPhone } from "../utils/kp3Utils";
+import { KP3_AREA_LIST, extractKp3Area, maskCccd, maskPhone } from "../utils/kp3Utils";
 
 // Sub-component imports
 import HouseholdDashboard from "./household/HouseholdDashboard";
@@ -356,7 +356,7 @@ export default function HouseholdManagement({
     setParsedGPS(parsed);
   };
 
-  // Filter households by search, type, Tổ dân phố, and soft-delete status (Memoized)
+  // Filter households by search, type, area, and soft-delete status (Memoized)
   const filteredHouseholds = useMemo(() => {
     const q = searchTerm.toLowerCase().trim();
     const hasQuery = q.length > 0;
@@ -368,7 +368,7 @@ export default function HouseholdManagement({
       const matchesType = typeFilter === "Tất cả" || (h.type || "Thường trú") === typeFilter;
       if (!matchesType) return false;
 
-      if (toFilter !== "all" && extractToDanPho(h.address) !== toFilter) return false;
+      if (toFilter !== "all" && extractKp3Area(h.address) !== toFilter) return false;
 
       if (!hasQuery) return true;
 
@@ -1033,17 +1033,17 @@ export default function HouseholdManagement({
                 </button>
               </div>
 
-              <div className="w-40">
+              <div className="w-48">
                 <ReportSelect
-                  aria-label="Lọc theo Tổ dân phố"
+                  aria-label="Lọc theo tuyến / khu vực KP3"
                   value={toFilter}
                   onChange={(val) => {
                     setToFilter(val);
                     setCurrentPage(1);
                   }}
                   options={[
-                    { value: "all", label: "Tất cả 14 Tổ KP3" },
-                    ...KP3_TO_LIST.map((to) => ({ value: to, label: to })),
+                    { value: "all", label: "Toàn Khu phố 3" },
+                    ...KP3_AREA_LIST.map((area) => ({ value: area, label: area })),
                   ]}
                   className="w-full"
                 />
@@ -1124,7 +1124,7 @@ export default function HouseholdManagement({
                               {h.code}
                             </span>
                             <span className="text-xs font-semibold px-2 py-0.5 rounded-md bg-slate-50 text-slate-700 border border-slate-200">
-                              {extractToDanPho(h.address)}
+                              {extractKp3Area(h.address)}
                             </span>
                             <h3 
                               onClick={() => handleOpenDetailModal(h)}
@@ -1238,7 +1238,7 @@ export default function HouseholdManagement({
                           <div className="flex items-center justify-between gap-2 flex-wrap">
                             <div className="flex items-center gap-1.5 flex-wrap">
                               <span className="font-mono text-xs font-bold px-2 py-0.5 rounded bg-slate-100 text-slate-700 border border-slate-200">{h.code}</span>
-                              <span className="text-xs font-semibold px-2 py-0.5 rounded bg-slate-50 text-slate-700 border border-slate-200">{extractToDanPho(h.address)}</span>
+                              <span className="text-xs font-semibold px-2 py-0.5 rounded bg-slate-50 text-slate-700 border border-slate-200">{extractKp3Area(h.address)}</span>
                             </div>
                             <span className={`px-2 py-0.5 rounded text-xs font-bold shrink-0 border ${hType === "Tạm trú" ? "bg-amber-50 text-amber-800 border-amber-200" : "bg-emerald-50 text-emerald-800 border-emerald-200"}`}>
                               {hType}
@@ -1337,7 +1337,7 @@ export default function HouseholdManagement({
                           {selectedHousehold.type || "Thường trú"}
                         </span>
                         <span className="font-semibold text-slate-600">
-                          {extractToDanPho(selectedHousehold.address)} · {selectedHousehold.members.length} nhân khẩu
+                          {extractKp3Area(selectedHousehold.address)} · {selectedHousehold.members.length} nhân khẩu
                         </span>
                       </div>
                       <h2 className="text-lg sm:text-xl font-extrabold text-slate-900 tracking-tight leading-snug break-words">
@@ -1491,7 +1491,7 @@ export default function HouseholdManagement({
                         <DetailRow label="Mã sổ hộ khẩu" value={selectedHousehold.code} copyValue={selectedHousehold.code} isMono />
                         <DetailRow label="Chủ hộ" value={selectedHousehold.ownerName} />
                         <DetailRow label="Loại cư trú" value={selectedHousehold.type || "Thường trú"} />
-                        <DetailRow label="Tổ dân phố" value={extractToDanPho(selectedHousehold.address)} />
+                        <DetailRow label="Khu vực KP3" value={extractKp3Area(selectedHousehold.address)} />
                         <DetailRow label="Số nhân khẩu" value={`${selectedHousehold.members.length} người`} isNumeric />
                         <DetailRow label="Tọa độ GIS" value={selectedHousehold.coordinates} copyValue={selectedHousehold.coordinates} isMono />
                         <DetailRow label="Địa chỉ thường trú" value={selectedHousehold.address} colSpan={2} />
@@ -2360,7 +2360,7 @@ export default function HouseholdManagement({
                     onClick={() => setGisPinInput('10°56\'12.5"N 106°44\'42.6"E')}
                     className="p-2 text-left bg-slate-50 hover:bg-emerald-50 hover:border-emerald-200 border border-slate-200 rounded-lg text-slate-700 transition-colors cursor-pointer"
                   >
-                    <strong className="block text-slate-900">KDC Tổ dân phố 12-14</strong>
+                    <strong className="block text-slate-900">KDC Giáp ranh Tây Bắc KP3</strong>
                     <span className="text-xs text-slate-600 font-mono">10.936800, 106.744600</span>
                   </button>
                 </div>

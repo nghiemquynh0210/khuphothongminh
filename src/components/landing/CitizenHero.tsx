@@ -222,7 +222,7 @@ export default function CitizenHero({
         <div className="lg:col-span-5 min-w-0">
           <div className="rounded-2xl bg-white/10 border border-white/25 p-5 sm:p-6 space-y-4">
             <div className="flex items-center gap-2 text-sm font-semibold text-blue-100">
-              <Compass size={16} aria-hidden="true" /> Quy mô địa bàn Khu phố 3 (14 Tổ Dân Phố)
+              <Compass size={16} aria-hidden="true" /> Quy mô địa bàn Khu phố 3
             </div>
             <dl className="grid grid-cols-3 gap-2 sm:gap-3">
               {[

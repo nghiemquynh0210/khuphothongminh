@@ -87,7 +87,7 @@ export default function LoginAndRegister({
   const [cadrePassword, setCadrePassword] = useState("");
   const [cadreFullName, setCadreFullName] = useState("");
   const [cadrePhone, setCadrePhone] = useState("");
-  const [cadrePosition, setCadrePosition] = useState("Cán bộ Tổ dân phố");
+  const [cadrePosition, setCadrePosition] = useState("Cán bộ Ban Điều hành KP3");
 
   // Resident Register form state
   const [regFullName, setRegFullName] = useState("");
@@ -121,89 +121,13 @@ export default function LoginAndRegister({
     try {
       const lowerUser = inputUser.toLowerCase();
 
-      // TRƯỜNG HỢP 1: Tài khoản Quản trị / Cán bộ Ban điều hành (admin, canbo, bdhkhupho3.ap@gmail.com)
-      const isAdminAlias = lowerUser === "admin" || lowerUser === "canbo" || lowerUser === "bdhkhupho3.ap@gmail.com";
-      const isKnownAdminPass =
-        inputPass === "Trunghuy741" ||
-        inputPass === "admin123" ||
-        inputPass === "admin" ||
-        inputPass === "Canbo@KP3AnPhu" ||
-        inputPass === "123456";
-
-      if (isAdminAlias) {
-        if (isKnownAdminPass) {
-          // Thử kết nối Supabase session thật với tài khoản admin chính thức
-          if (isSupabaseConfigured && supabase) {
-            try {
-              await supabase.auth.signInWithPassword({
-                email: "bdhkhupho3.ap@gmail.com",
-                password: "Trunghuy741"
-              });
-            } catch (authErr) {
-              console.warn("Supabase Auth session note:", authErr);
-            }
-          }
-
-          const adminUser = {
-            username: "admin",
-            fullName: "Bí thư Nguyễn Văn Hùng",
-            role: "canbo" as const,
-            phone: "0901234567"
-          };
-
-          if (rememberMe) {
-            try {
-              localStorage.setItem("kp3_auth_user", JSON.stringify(adminUser));
-              localStorage.setItem("kp3_saved_login_user", inputUser);
-            } catch (e) { }
-          } else {
-            try {
-              localStorage.removeItem("kp3_saved_login_user");
-            } catch (e) { }
-          }
-
-          onLoginSuccess(adminUser);
-          return;
-        } else {
-          // Nếu người dùng gõ mật khẩu riêng, thử xác thực trực tiếp qua Supabase Auth
-          if (isSupabaseConfigured && supabase) {
-            const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
-              email: "bdhkhupho3.ap@gmail.com",
-              password: inputPass
-            });
-
-            if (authError) {
-              throw new Error("Mật khẩu tài khoản Cán bộ không chính xác! Vui lòng kiểm tra lại.");
-            }
-
-            if (authData?.user) {
-              const adminUser = {
-                username: "admin",
-                fullName: "Bí thư Nguyễn Văn Hùng",
-                role: "canbo" as const,
-                phone: "0901234567"
-              };
-
-              if (rememberMe) {
-                try {
-                  localStorage.setItem("kp3_auth_user", JSON.stringify(adminUser));
-                } catch (e) { }
-              }
-
-              onLoginSuccess(adminUser);
-              return;
-            }
-          } else {
-            throw new Error("Mật khẩu tài khoản Cán bộ không chính xác!");
-          }
-        }
-      }
-
-      // TRƯỜNG HỢP 2: Đăng nhập bằng Email thật (Đã đăng ký tài khoản qua Supabase Auth)
-      if (inputUser.includes("@")) {
+      // TRƯỜNG HỢP 1: Tài khoản Quản trị / Cán bộ (xác thực trực tiếp qua Supabase Auth)
+      const isAdminAlias = lowerUser === "admin" || lowerUser === "canbo";
+      if (isAdminAlias || inputUser.includes("@")) {
+        const targetEmail = isAdminAlias ? "bdhkhupho3.ap@gmail.com" : inputUser;
         if (isSupabaseConfigured && supabase) {
           const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
-            email: inputUser,
+            email: targetEmail,
             password: inputPass,
           });
 
@@ -248,6 +172,11 @@ export default function LoginAndRegister({
               if (rememberMe) {
                 try {
                   localStorage.setItem("kp3_auth_user", JSON.stringify(authenticatedUser));
+                  localStorage.setItem("kp3_saved_login_user", inputUser);
+                } catch (e) { }
+              } else {
+                try {
+                  localStorage.removeItem("kp3_saved_login_user");
                 } catch (e) { }
               }
 
@@ -265,6 +194,7 @@ export default function LoginAndRegister({
               if (rememberMe) {
                 try {
                   localStorage.setItem("kp3_auth_user", JSON.stringify(defaultUser));
+                  localStorage.setItem("kp3_saved_login_user", inputUser);
                 } catch (e) { }
               }
 
@@ -273,44 +203,18 @@ export default function LoginAndRegister({
             }
           }
         } else {
-          throw new Error("Dịch vụ xác thực đám mây tạm thời không khả dụng. Bạn có thể đăng nhập bằng tài khoản quản trị mặc định (admin).");
+          throw new Error("Dịch vụ xác thực đám mây tạm thời không khả dụng. Vui lòng thử lại sau.");
         }
       }
 
-      // TRƯỜNG HỢP 3: Đăng nhập Cư dân (nguoidan hoặc Số CCCD / Số điện thoại)
-      if (lowerUser === "nguoidan" || lowerUser === "cudan") {
-        if (inputPass === "user123" || inputPass === "123456" || inputPass === "nguoidan" || inputPass === "admin") {
-          const citizenUser = {
-            username: "nguoidan",
-            fullName: "Nguyễn Thị Mai",
-            role: "nguoidan" as const,
-            cccd: "079195000456",
-            householdCode: "HK-301",
-            phone: "0918765432"
-          };
-
-          if (rememberMe) {
-            try {
-              localStorage.setItem("kp3_auth_user", JSON.stringify(citizenUser));
-            } catch (e) { }
-          }
-
-          onLoginSuccess(citizenUser);
-          return;
-        } else {
-          throw new Error("Mật khẩu cư dân không đúng! (Mặc định: user123)");
-        }
-      }
-
-      // Tra cứu số CCCD (12 chữ số) hoặc Số điện thoại trong CSDL Cư dân KP3
+      // TRƯỜNG HỢP 2: Tra cứu số CCCD (12 chữ số) hoặc Số điện thoại trong CSDL Cư dân KP3
       const matchedResident = initialResidents.find(
         r => r.cccd === inputUser || (r.phone && r.phone.replace(/\s/g, "") === inputUser.replace(/\s/g, ""))
       );
 
       if (matchedResident) {
-        // Cho phép đăng nhập bằng 6 số cuối CCCD, user123 hoặc 123456
         const cccdLast6 = matchedResident.cccd.slice(-6);
-        const isValidResidentPass = inputPass === "user123" || inputPass === "123456" || inputPass === cccdLast6;
+        const isValidResidentPass = Boolean(cccdLast6) && inputPass === cccdLast6;
 
         if (isValidResidentPass) {
           const citizenUser = {
@@ -325,13 +229,14 @@ export default function LoginAndRegister({
           if (rememberMe) {
             try {
               localStorage.setItem("kp3_auth_user", JSON.stringify(citizenUser));
+              localStorage.setItem("kp3_saved_login_user", inputUser);
             } catch (e) { }
           }
 
           onLoginSuccess(citizenUser);
           return;
         } else {
-          throw new Error(`Mật khẩu không đúng! Bạn có thể sử dụng 6 số cuối CCCD (${cccdLast6}) hoặc mật khẩu 'user123'.`);
+          throw new Error("Mật khẩu cư dân không chính xác! Vui lòng nhập đúng 6 số cuối CCCD.");
         }
       }
 
@@ -644,7 +549,7 @@ export default function LoginAndRegister({
                 {/* Field: Username or Email */}
                 <div className="space-y-1">
                   <label htmlFor="auth-username-input" className="text-xs font-bold text-slate-700 block">
-                    {loginRoleTab === "canbo" ? "Tên đăng nhập hoặc Email công vụ *" : "Số CCCD hoặc Tên đăng nhập *"}
+                    {loginRoleTab === "canbo" ? "Email công vụ hoặc Tên đăng nhập *" : "Số CCCD (12 số) hoặc Số điện thoại *"}
                   </label>
                   <div className="relative">
                     <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-500" aria-hidden="true">
@@ -666,7 +571,7 @@ export default function LoginAndRegister({
                       onChange={(e) => setUsername(e.target.value)}
                       placeholder={
                         loginRoleTab === "canbo"
-                          ? "admin hoặc bdhkhupho3.ap@gmail.com"
+                          ? "Nhập email công vụ đã đăng ký"
                           : "Số CCCD (12 số) hoặc SĐT đã đăng ký"
                       }
                       className="w-full min-h-[44px] pl-9 pr-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 text-sm focus:outline-none focus:border-emerald-600 focus:bg-white user-invalid:border-rose-500 user-invalid:bg-rose-50/40 transition-colors font-medium"
@@ -751,39 +656,6 @@ export default function LoginAndRegister({
                   )}
                 </button>
               </form>
-
-              {/* 1-click Demo Role Quick-Fill */}
-              <div className="pt-2 border-t border-slate-100 space-y-2">
-                <p className="text-xs font-semibold text-slate-600 text-center">
-                  Điền nhanh tài khoản dùng thử:
-                </p>
-                <div className="grid grid-cols-2 gap-2">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setLoginRoleTab("canbo");
-                      setUsername("admin");
-                      setPassword("Trunghuy741");
-                      setError("");
-                    }}
-                    className="min-h-[44px] px-3 py-2 rounded-xl border border-slate-200 bg-slate-50 hover:bg-emerald-50 hover:border-emerald-300 text-xs font-semibold text-slate-700 hover:text-emerald-800 transition-colors cursor-pointer"
-                  >
-                    Cán bộ (admin)
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setLoginRoleTab("nguoidan");
-                      setUsername("nguoidan");
-                      setPassword("user123");
-                      setError("");
-                    }}
-                    className="min-h-[44px] px-3 py-2 rounded-xl border border-slate-200 bg-slate-50 hover:bg-emerald-50 hover:border-emerald-300 text-xs font-semibold text-slate-700 hover:text-emerald-800 transition-colors cursor-pointer"
-                  >
-                    Cư dân (nguoidan)
-                  </button>
-                </div>
-              </div>
 
               {/* Bottom Nav Links */}
               <div className="pt-2 border-t border-slate-100 flex flex-wrap items-center justify-between gap-2 text-xs font-semibold">
@@ -873,7 +745,7 @@ export default function LoginAndRegister({
                   Đăng ký Tài khoản Cán bộ
                 </h3>
                 <p className="text-slate-600 text-xs mt-0.5">
-                  Dành cho Cán bộ chi bộ, Ban điều hành, Tổ dân phố & Trưởng các đoàn thể
+                  Dành cho Cán bộ Chi bộ, Ban Điều hành Khu phố 3 &amp; Trưởng các đoàn thể
                 </p>
               </div>
 
@@ -930,7 +802,7 @@ export default function LoginAndRegister({
                   value={cadrePosition}
                   onChange={setCadrePosition}
                   options={[
-                    { value: "Cán bộ Tổ dân phố", label: "Cán bộ Tổ dân phố" },
+                    { value: "Cán bộ Ban Điều hành KP3", label: "Cán bộ Ban Điều hành KP3" },
                     { value: "Chi ủy viên / Đảng viên", label: "Chi ủy viên / Đảng viên" },
                     { value: "Tổ trưởng / Tổ phó Tổ ANTT", label: "Tổ trưởng / Tổ phó Tổ ANTT" },
                     { value: "Trưởng / Phó Chi hội đoàn thể", label: "Trưởng / Phó Chi hội đoàn thể" },

@@ -284,7 +284,7 @@ export default function LeafletGisMap({
 
       poly.bindTooltip(
         `<div class="text-xs font-sans">
-          <div class="font-bold text-slate-900">${escapeHtml(zone.name)} · Cụm ${escapeHtml(zone.cluster)}</div>
+          <div class="font-bold text-slate-900">Phân khu GIS #${escapeHtml(String(zone.toNumber))} · Cụm ${escapeHtml(zone.cluster)}</div>
           <div class="text-slate-600 mt-0.5">${escapeHtml(zone.streets)}</div>
         </div>`,
         { sticky: true }
@@ -292,14 +292,14 @@ export default function LeafletGisMap({
 
       poly.addTo(group);
 
-      // Center pill badge for Tổ number when zones are shown
+      // Center pill badge for subzone number when zones are shown
       if (showTdpZones || isActive) {
         const badgeIcon = L.divIcon({
           className: "kp3-zone-label",
           html: `<div style="background:${
             isActive ? "#073B72" : "#0f172a"
-          };color:#ffffff;font-size:12px;font-weight:700;padding:2px 8px;border-radius:9999px;border:1.5px solid #ffffff;white-space:nowrap;box-shadow:0 2px 4px rgba(0,0,0,0.22);">${escapeHtml(
-            zone.shortLabel
+          };color:#ffffff;font-size:12px;font-weight:700;padding:2px 8px;border-radius:9999px;border:1.5px solid #ffffff;white-space:nowrap;box-shadow:0 2px 4px rgba(0,0,0,0.22);">PK ${escapeHtml(
+            String(zone.toNumber)
           )}</div>`,
           iconSize: [52, 22],
           iconAnchor: [26, 11],
@@ -608,7 +608,7 @@ export default function LeafletGisMap({
         }
       });
 
-      const toTag = pin.toNumber ? ` · Tổ ${pin.toNumber}` : "";
+      const toTag = pin.toNumber ? ` · PK #${pin.toNumber}` : "";
       marker.bindTooltip(
         `<div class="text-xs font-sans">
           <div class="font-bold text-slate-900">${escapeHtml(pin.name)}</div>
@@ -716,7 +716,7 @@ export default function LeafletGisMap({
           <div className="flex items-center gap-2 text-xs font-medium min-w-0">
             <Crosshair size={16} className="text-emerald-400 shrink-0" aria-hidden="true" />
             <span className="text-pretty">
-              Chạm vào bất kỳ điểm nào trên bản đồ để lấy tọa độ tự động nhận diện Tổ DP
+              Chạm vào bất kỳ điểm nào trên bản đồ để lấy tọa độ tự động nhận diện Phân khu KP3
             </span>
           </div>
           {onCancelPickLocation && (
@@ -772,7 +772,7 @@ export default function LeafletGisMap({
               }`}
             >
               <Layers size={14} aria-hidden="true" />
-              <span>14 Tổ</span>
+              <span>Phân khu</span>
             </button>
 
             {onToggleCoverageRadius && (
@@ -816,7 +816,7 @@ export default function LeafletGisMap({
               onClick={() => onSelectToFilter?.(null)}
               className="min-h-8 px-2.5 rounded-lg bg-amber-700 hover:bg-amber-800 text-white font-semibold cursor-pointer transition-colors"
             >
-              Tổ {activeToFilter} ×
+              Phân khu #{activeToFilter} ×
             </button>
           )}
           <button

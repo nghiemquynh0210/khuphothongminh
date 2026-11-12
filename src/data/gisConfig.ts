@@ -275,7 +275,7 @@ export const DEFAULT_INFRASTRUCTURE_PINS: GisPin[] = [
     lng: KP3_CENTER.lng,
     toNumber: 8,
     details:
-      "Điểm tiếp công dân, tiếp nhận phản ánh 1022 và điều phối 14 Tổ dân phố Khu phố 3.",
+      "Điểm tiếp công dân, tiếp nhận phản ánh 1022 và điều phối hoạt động Khu phố 3.",
   },
   {
     id: "P_CIVIC_CHOT",
@@ -292,7 +292,7 @@ export const DEFAULT_INFRASTRUCTURE_PINS: GisPin[] = [
   {
     id: "P_CAM_1",
     type: "camera",
-    name: "Camera An Ninh Tổ 12",
+    name: "Camera An Ninh Giao lộ ĐT.743B",
     location: "Giao lộ ĐT.743B & Đường X1",
     status: "Hoạt động",
     lat: 10.936997,
@@ -331,7 +331,7 @@ export const DEFAULT_INFRASTRUCTURE_PINS: GisPin[] = [
   {
     id: "P_FIRE_1",
     type: "fire",
-    name: "Trụ Nước Chữa Cháy Tổ 3",
+    name: "Trụ Nước Chữa Cháy Đường X1",
     location: "Giao lộ Đường X1 & Đường PKV AP29",
     status: "Hoạt động",
     lat: 10.9368,
@@ -358,7 +358,7 @@ export const DEFAULT_INFRASTRUCTURE_PINS: GisPin[] = [
     id: "P_LIGHT_1",
     type: "light",
     name: "Đèn Chiếu Sáng ĐT.743B - Trụ 04",
-    location: "Dọc tuyến ĐT.743B, Tổ 12",
+    location: "Dọc tuyến ĐT.743B, Khu phố 3",
     status: "Hoạt động",
     lat: 10.9385,
     lng: 106.7432,
@@ -371,7 +371,7 @@ export const DEFAULT_INFRASTRUCTURE_PINS: GisPin[] = [
     id: "P_LIGHT_2",
     type: "light",
     name: "Đèn Chiếu Sáng Đường PKV AP28",
-    location: "Tuyến Đường PKV AP28, Tổ dân phố 14",
+    location: "Tuyến Đường PKV AP28, Khu phố 3",
     status: "Cảnh báo",
     lat: 10.9365,
     lng: 106.7465,

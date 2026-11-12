@@ -19,7 +19,7 @@ import {
 } from "lucide-react";
 import { RecurringReminder, ScheduleEvent, TaskAttachment, TaskItem } from "../types";
 import { getStoredAssociations } from "../data/associationsData";
-import { KP3_TO_LIST, extractToDanPho } from "../utils/kp3Utils";
+import { KP3_AREA_LIST, extractKp3Area } from "../utils/kp3Utils";
 import { StatCard } from "./common/StatCard";
 import { PageHeader } from "./common/PageHeader";
 import { Button, ConfirmModal, EmptyState, InlineNotice, ReportSelect } from "./ui";
@@ -175,8 +175,8 @@ export default function TaskAndSchedule({
     return tasks.filter((t) => {
       const matchUnit = taskUnitFilter === "all" || t.unit === taskUnitFilter;
       const matchPriority = taskPriorityFilter === "all" || t.priority === taskPriorityFilter;
-      const toExtracted = extractToDanPho(`${t.unit} ${t.title} ${t.description}`);
-      const matchTo = taskToFilter === "all" || toExtracted === taskToFilter;
+      const areaExtracted = extractKp3Area(`${t.unit} ${t.title} ${t.description}`);
+      const matchTo = taskToFilter === "all" || areaExtracted === taskToFilter;
       const matchSearch =
         !q ||
         t.title.toLowerCase().includes(q) ||
@@ -457,13 +457,13 @@ export default function TaskAndSchedule({
               />
 
               <ReportSelect
-                aria-label="Lọc theo Tổ dân phố 1–14"
+                aria-label="Lọc theo khu vực KP3"
                 value={taskToFilter}
                 onChange={setTaskToFilter}
                 className="w-full"
                 options={[
-                  { value: "all", label: "Cả 14 Tổ" },
-                  ...KP3_TO_LIST.map((t) => ({ value: t, label: t })),
+                  { value: "all", label: "Toàn Khu phố 3" },
+                  ...KP3_AREA_LIST.map((area) => ({ value: area, label: area })),
                 ]}
               />
 
@@ -802,7 +802,7 @@ export default function TaskAndSchedule({
             <EmptyState
               icon={<CalendarIcon size={28} />}
               title="Không có lịch công tác trong tháng đã chọn"
-              description="Chọn 'Tất cả tháng' hoặc tạo mới lịch họp Ban điều hành / Tổ dân phố KP3."
+              description="Chọn 'Tất cả tháng' hoặc tạo mới lịch họp Ban Điều hành / Chi hội đoàn thể KP3."
             />
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">

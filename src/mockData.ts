@@ -853,7 +853,7 @@ export const initialBusinesses: Business[] = [
     licenseNumber: "GP-12345/AP",
     status: "Đang hoạt động",
     startDate: "12/03/2019",
-    verificationSource: "Khảo sát Tổ dân phố & Ban Điều hành KP3",
+    verificationSource: "Khảo sát Ban Điều hành KP3 & CSKV",
     streetArea: "Mặt tiền Lương Định Của",
     premisesType: "Nhà phố",
     premisesOwner: "Trần Văn Bình",
@@ -903,7 +903,7 @@ export const initialBusinesses: Business[] = [
         date: "15/04/2026",
         type: "Khác",
         description: "Hoàn thành khắc phục bình chữa cháy theo khuyến nghị của Công an PCCC",
-        recordedBy: "Tổ dân phố số 1"
+        recordedBy: "Ban Điều hành Khu phố 3"
       }
     ],
     inspections: [
@@ -1986,7 +1986,7 @@ export const initialWelfareRecipients: WelfareRecipient[] = [
       "Mừng thọ & quà tặng Ngày Người cao tuổi 1/10 và Tết Nguyên Đán",
       "Chi hội Chữ thập đỏ & Phụ nữ KP3 cử cán bộ chăm sóc tại nhà"
     ],
-    notes: "Cụ bà 85 tuổi, sống một mình, tổ dân phố cử chi hội phụ nữ tới thăm hỏi định kỳ.",
+    notes: "Cụ bà 85 tuổi, sống một mình, Ban Điều hành KP3 cử chi hội phụ nữ tới thăm hỏi định kỳ.",
     joinedDate: "2024-06-20",
     disbursedTotal: 24000000
   },
@@ -2026,7 +2026,7 @@ export const initialWelfareRecipients: WelfareRecipient[] = [
       "Quà tặng Chủ tịch nước & UBND TP dịp 27/7 và Tết Nguyên Đán",
       "Hỗ trợ chi phí sửa chữa nhà ở chống dột"
     ],
-    notes: "Mẹ liệt sĩ Trần Quốc Khánh (hy sinh năm 1979). Chi hội Cựu chiến binh và TDP thường xuyên thăm hỏi.",
+    notes: "Mẹ liệt sĩ Trần Quốc Khánh (hy sinh năm 1979). Chi hội Cựu chiến binh và Ban Điều hành KP3 thường xuyên thăm hỏi.",
     joinedDate: "2023-01-01",
     disbursedTotal: 78000000
   },

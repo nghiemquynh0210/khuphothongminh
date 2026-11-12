@@ -43,7 +43,7 @@ export interface AiAssistantProps {
 
 const CANBO_PROMPTS = [
   "Tình hình tạm trú sắp hết hạn và công việc ưu tiên tuần này?",
-  "Thống kê quỹ khu phố và các tổ dân phố (Tổ 1–14) hiện nay?",
+  "Thống kê quỹ khu phố và tình hình thu chi tại KP3 hiện nay?",
   "Quy trình tiếp nhận phản ánh 1022 và giao việc cho Tổ trưởng?",
   "Tổng hợp nhân khẩu thường trú, tạm trú và hộ gia đình KP3?",
 ];
@@ -62,7 +62,7 @@ export default function AiAssistant({ context, currentUser }: AiAssistantProps =
     {
       role: "assistant",
       content:
-        "Xin chào! Tôi là **Trợ lý Số Khu phố 3 (Phường An Phú)**. Tôi có thể hỗ trợ tra cứu nhanh số liệu điều hành 14 Tổ dân phố, thủ tục cư trú, phản ánh 1022, tình hình Quỹ khu phố hoặc thông tin Ban điều hành. Anh/chị cần tra cứu nội dung gì hôm nay?",
+        "Xin chào! Tôi là **Trợ lý Số Khu phố 3 (Phường An Phú)**. Tôi có thể hỗ trợ tra cứu nhanh số liệu điều hành toàn địa bàn Khu phố 3, thủ tục cư trú, phản ánh 1022, tình hình Quỹ khu phố hoặc thông tin Ban điều hành. Anh/chị cần tra cứu nội dung gì hôm nay?",
       source: "kp3-local",
     },
   ]);
@@ -245,7 +245,7 @@ export default function AiAssistant({ context, currentUser }: AiAssistantProps =
         <div className="bg-white border border-slate-200 rounded-xl px-4 py-3">
           <div className="text-xs font-semibold text-slate-600">Quy mô KP3</div>
           <div className="text-lg font-bold text-slate-900">
-            {formatVNNumber(KP3_OFFICIAL_BASELINE.households)} hộ / {KP3_OFFICIAL_BASELINE.residentialGroups} Tổ
+            {formatVNNumber(KP3_OFFICIAL_BASELINE.households)} hộ gia đình
           </div>
         </div>
         <div className="bg-white border border-slate-200 rounded-xl px-4 py-3">
@@ -375,7 +375,7 @@ export default function AiAssistant({ context, currentUser }: AiAssistantProps =
                 id="ai-assistant-question-input"
                 name="aiQuestion"
                 type="text"
-                placeholder="Nhập câu hỏi (ví dụ: Tạm trú sắp hết hạn, số dư Quỹ, Tổ 1–14)..."
+                placeholder="Nhập câu hỏi (ví dụ: Tạm trú sắp hết hạn, số dư Quỹ, tuyến hẻm KP3)..."
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
                 onKeyDown={(e) => {

@@ -176,10 +176,10 @@ export default function GisPinListPanel({
 
   const toOptions = useMemo(
     () => [
-      { value: "ALL", label: "Tất cả 14 Tổ dân phố" },
+      { value: "ALL", label: "Toàn địa bàn KP3" },
       ...KP3_14_ZONES.map((z) => ({
         value: String(z.toNumber),
-        label: `Tổ dân phố ${z.toNumber} (Cụm ${z.cluster})`,
+        label: `Phân khu GIS #${z.toNumber} (Cụm ${z.cluster})`,
       })),
     ],
     []
@@ -318,7 +318,7 @@ export default function GisPinListPanel({
         {/* Combobox filters */}
         <div className="grid grid-cols-1 gap-2">
           <ReportSelect
-            aria-label="Lọc theo Tổ dân phố"
+            aria-label="Lọc theo phân khu GIS KP3"
             value={activeToFilter !== null ? String(activeToFilter) : "ALL"}
             onChange={(val) => {
               onChangeToFilter(val === "ALL" ? null : parseInt(val, 10));
@@ -375,7 +375,7 @@ export default function GisPinListPanel({
                   </p>
                   <div className="flex items-center justify-between gap-2 text-xs">
                     <span className="font-semibold text-slate-700">
-                      {pin.toNumber ? `Tổ ${pin.toNumber}` : "Địa bàn KP3"}
+                      {pin.toNumber ? `Phân khu GIS #${pin.toNumber}` : "Địa bàn KP3"}
                     </span>
                     <span className="font-semibold text-slate-700">{pin.status}</span>
                   </div>

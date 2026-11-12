@@ -35,12 +35,20 @@ export default function CitizenHeader({
           className="flex items-center gap-2.5 text-left cursor-pointer group min-w-0 flex-1 lg:flex-initial lg:shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 rounded-lg p-1 -ml-1 transition-opacity hover:opacity-90"
           aria-label="Về trang chủ Cổng Cư dân số"
         >
-          <div
-            className="w-9 h-9 rounded-lg bg-gov-navy text-white flex items-center justify-center shrink-0"
-            aria-hidden="true"
-          >
-            <Building2 size={20} />
-          </div>
+          {landingConfig.logoUrl ? (
+            <img
+              src={landingConfig.logoUrl}
+              alt=""
+              className="w-9 h-9 rounded-lg object-cover border border-slate-200 bg-white shrink-0"
+            />
+          ) : (
+            <div
+              className="w-9 h-9 rounded-lg bg-gov-navy text-white flex items-center justify-center shrink-0"
+              aria-hidden="true"
+            >
+              <Building2 size={20} />
+            </div>
+          )}
           <div className="flex flex-col min-w-0">
             <span className="text-sm sm:text-base font-bold text-slate-900 tracking-tight leading-tight truncate">
               {landingConfig.siteTitle}

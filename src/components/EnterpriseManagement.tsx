@@ -59,7 +59,7 @@ import StatCard from "./common/StatCard";
 import { ReportSelect } from "./reports/ReportSelect";
 import { ConfirmModal, InlineNotice } from "./ui/ConfirmModal";
 import { Modal } from "./ui/Modal";
-import { KP3_TO_LIST, extractToDanPho, formatShortRecordId } from "../utils/kp3Utils";
+import { KP3_AREA_LIST, extractKp3Area, formatShortRecordId } from "../utils/kp3Utils";
 
 interface EnterpriseManagementProps {
   businesses: Business[];
@@ -438,9 +438,9 @@ export default function EnterpriseManagement({
         if (street !== streetFilter) return false;
       }
 
-      // To Dan Pho filter
+      // Khu vuc KP3 filter
       if (toFilter !== "Tất cả") {
-        if (extractToDanPho(item.address) !== toFilter) return false;
+        if (extractKp3Area(item.address) !== toFilter) return false;
       }
 
       // Status filter
@@ -1072,14 +1072,14 @@ export default function EnterpriseManagement({
               </div>
 
               <div>
-                <label className="text-xs font-semibold text-slate-600 block mb-1">Tổ dân phố (KP3)</label>
+                <label className="text-xs font-semibold text-slate-600 block mb-1">Tuyến đường / khu vực (KP3)</label>
                 <ReportSelect
-                  aria-label="Tổ dân phố KP3"
+                  aria-label="Tuyến đường / khu vực KP3"
                   value={toFilter}
                   onChange={(nextVal) => setToFilter(nextVal)}
                   options={[
-                    { value: "Tất cả", label: "Tất cả 14 Tổ KP3" },
-                    ...KP3_TO_LIST.map((to) => ({ value: to, label: to })),
+                    { value: "Tất cả", label: "Toàn Khu phố 3" },
+                    ...KP3_AREA_LIST.map((area) => ({ value: area, label: area })),
                   ]}
                   className="w-full"
                 />
@@ -1193,9 +1193,9 @@ export default function EnterpriseManagement({
                           <span className="text-slate-600 font-mono">
                             MST: <strong className="text-slate-800">{ent.taxCode || "Đang xác minh"}</strong>
                           </span>
-                          {extractToDanPho(ent.address) ? (
+                          {extractKp3Area(ent.address) ? (
                             <span className="font-semibold text-slate-700 bg-slate-100 px-2 py-0.5 rounded-full text-xs border border-slate-200">
-                              {extractToDanPho(ent.address)}
+                              {extractKp3Area(ent.address)}
                             </span>
                           ) : (
                             <span className="font-semibold text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded-full text-xs">

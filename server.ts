@@ -32,7 +32,7 @@ async function startServer() {
         } else if (lower.includes("phản ánh") || lower.includes("rác") || lower.includes("tiếng ồn")) {
           reply = `Cảm ơn bạn đã phản ánh tình hình khu phố! Ban quản lý Khu phố 3 đã tiếp nhận ý kiến của bạn về tình trạng này. Chúng tôi sẽ chuyển thông tin trực tiếp đến Đội Quản lý trật tự đô thị Phường An Phú để kiểm tra, xử lý và cập nhật tiến độ cho bạn trên bảng điều khiển 'Phản ánh hiện trường'. Xin cảm ơn đóng góp giúp khu phố văn minh sạch đẹp!`;
         } else if (lower.includes("bí thư") || lower.includes("trưởng khu phố") || lower.includes("liên hệ")) {
-          reply = `Dạ thông tin liên hệ của Ban tự quản Khu phố 3 An Phú như sau:\n- **Bí thư Chi bộ:** Ông Nguyễn Văn Hùng (SĐT: 0903.xxx.123)\n- **Trưởng Khu phố:** Bà Lê Thị Mai (SĐT: 0918.xxx.456)\n- **Công an khu vực:** Đại úy Trần Quốc Hải (SĐT: 0989.xxx.789)\n- **Địa chỉ Văn phòng Ban điều hành:** Tổ dân phố 12, hẻm 42 Lương Định Của, Phường An Phú, TP. Hồ Chí Minh.`;
+          reply = `Dạ thông tin liên hệ của Ban tự quản Khu phố 3 An Phú như sau:\n- **Bí thư Chi bộ:** Ông Nguyễn Văn Hùng (SĐT: 0903.xxx.123)\n- **Trưởng Khu phố:** Bà Lê Thị Mai (SĐT: 0918.xxx.456)\n- **Công an khu vực:** Đại úy Trần Quốc Hải (SĐT: 0989.xxx.789)\n- **Địa chỉ Văn phòng Ban điều hành:** Hẻm 42 Lương Định Của, Khu phố 3, Phường An Phú, TP. Hồ Chí Minh.`;
         } else {
           reply = `Xin chào cư dân Khu phố 3 An Phú! Tôi là Trợ lý AI Thông minh của khu phố. Tôi có thể giúp bạn tra cứu nhanh thông tin hộ khẩu, hướng dẫn thủ tục hành chính (tạm trú, kết hôn, giấy tờ...), xem danh sách cơ sở kinh doanh hoặc tiếp nhận các phản ánh hiện trường về môi trường, an ninh trật tự. Bạn cần tôi trợ giúp gì thêm hôm nay ạ?`;
         }

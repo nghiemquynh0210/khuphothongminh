@@ -64,13 +64,13 @@ export const BOUNDARY_PRESETS: BoundaryPreset[] = [
   {
     id: "kp3_full",
     name: "Toàn bộ Khu phố 3 (Ranh giới chuẩn 51,26 ha)",
-    description: "Đường biên đầy đủ 12 mốc giới bao quanh 14 Tổ Dân Phố của Khu phố 3, Phường An Phú.",
+    description: "Đường biên đầy đủ 12 mốc giới bao quanh toàn địa bàn Khu phố 3, Phường An Phú.",
     color: "#047857",
     coords: DEFAULT_KP3_BOUNDARY,
   },
   {
     id: "subzone_north",
-    name: "Cụm Bắc: Trục ĐT.743A & Cửa ngõ Bắc (Tổ 1 – 5)",
+    name: "Cụm Bắc: Trục ĐT.743A & Cửa ngõ Bắc",
     description: "Khu vực giáp hành lang ĐT.743A/ĐT.743B, cụm dân cư và cơ sở thương mại phía Bắc.",
     color: "#1d4ed8",
     coords: [
@@ -85,7 +85,7 @@ export const BOUNDARY_PRESETS: BoundaryPreset[] = [
   },
   {
     id: "subzone_center",
-    name: "Cụm Trung tâm: Văn phòng KP3 & Các tuyến hẻm (Tổ 6 – 10)",
+    name: "Cụm Trung tâm: Văn phòng KP3 & Các tuyến hẻm (Phân khu 6 – 10)",
     description: "Khu vực trung tâm hành chính Văn phòng Khu phố 3 và các cụm sinh hoạt cộng đồng.",
     color: "#6d28d9",
     coords: [
@@ -99,7 +99,7 @@ export const BOUNDARY_PRESETS: BoundaryPreset[] = [
   },
   {
     id: "subzone_south",
-    name: "Cụm Nam: Khu nhà trọ & Giáp ranh Dĩ An (Tổ 11 – 14)",
+    name: "Cụm Nam: Khu nhà trọ & Giáp ranh Dĩ An (Phân khu 11 – 14)",
     description: "Khu vực nhà trọ công nhân, cơ sở sản xuất vừa và nhỏ và ranh giới giáp TP. Dĩ An.",
     color: "#b45309",
     coords: [
@@ -539,7 +539,7 @@ export default function GisBoundaryManagerModal({
                 : "border-transparent text-slate-600 hover:text-slate-900"
             }`}
           >
-            <Layers size={14} /> Mẫu phân khu (14 Tổ)
+            <Layers size={14} /> Mẫu phân vùng KP3
           </button>
           <button
             type="button"
@@ -772,7 +772,7 @@ export default function GisBoundaryManagerModal({
         {activeTab === "presets" && (
           <div className="space-y-3">
             <p className="text-slate-700 leading-relaxed text-xs">
-              Chọn mẫu khoanh vùng chuẩn cho toàn địa bàn hoặc từng cụm Tổ Dân Phố thuộc Khu phố 3, Phường An Phú:
+              Chọn mẫu khoanh vùng chuẩn cho toàn địa bàn hoặc từng cụm địa bàn thuộc Khu phố 3, Phường An Phú:
             </p>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">

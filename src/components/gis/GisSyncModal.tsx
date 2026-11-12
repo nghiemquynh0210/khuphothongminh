@@ -29,8 +29,8 @@ export default function GisSyncModal({
       isOpen={isOpen}
       onClose={onClose}
       size="xl"
-      title="Đồng bộ Tọa độ GIS theo 14 Tổ Dân Phố"
-      description="Tự động phân bổ tọa độ thực địa vào đúng phân khu Tổ dân phố (Tổ 1 – Tổ 14) cho dữ liệu chưa gắn GPS"
+      title="Đồng bộ Tọa độ GIS theo Cụm địa bàn KP3"
+      description="Tự động phân bổ tọa độ thực địa vào đúng phân khu bản đồ trên địa bàn Khu phố 3 cho dữ liệu chưa gắn GPS"
       footer={
         <div className="flex items-center justify-end gap-2 w-full">
           <button
@@ -72,7 +72,7 @@ export default function GisSyncModal({
             </span>
           </div>
           <div className="p-3 rounded-xl bg-slate-50 border border-slate-200">
-            <span className="text-slate-600 block">Phản ánh 1022 ước lượng Tổ</span>
+            <span className="text-slate-600 block">Phản ánh 1022 ước lượng vị trí</span>
             <span className="text-base font-bold text-slate-900 mt-0.5 block">
               {formatVNNumber(unpinnedReportCount)} phản ánh
             </span>
@@ -82,7 +82,7 @@ export default function GisSyncModal({
         <div className="p-3.5 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-950 flex items-start gap-2.5">
           <Sparkles size={16} className="text-emerald-700 shrink-0 mt-0.5" />
           <p className="leading-relaxed">
-            Hệ thống đọc địa chỉ của từng hộ dân và cơ sở kinh doanh (ví dụ <b>Tổ 1 – Tổ 14</b>) để đặt ghim vào đúng polygon Tổ Dân Phố trên bản đồ Khu phố 3. Sau khi đồng bộ, cán bộ vẫn có thể chỉnh lại từng điểm bằng 1 chạm thực địa.
+            Hệ thống đọc địa chỉ của từng hộ dân và cơ sở kinh doanh trên địa bàn để đặt ghim vào đúng phân khu bản đồ Khu phố 3. Sau khi đồng bộ, cán bộ vẫn có thể chỉnh lại từng điểm bằng 1 chạm thực địa.
           </p>
         </div>
 
@@ -127,7 +127,7 @@ export default function GisSyncModal({
                         {row.kind}
                       </span>
                       <span className="px-2 py-0.5 rounded-md bg-emerald-100 border border-emerald-200 font-bold text-emerald-900">
-                        {row.toNum ? `Tổ ${row.toNum}` : "Trung tâm KP3"}
+                        {row.toNum ? `Phân khu GIS #${row.toNum}` : "Trung tâm KP3"}
                       </span>
                     </div>
                   </div>

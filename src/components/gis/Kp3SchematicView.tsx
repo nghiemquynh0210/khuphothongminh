@@ -33,10 +33,10 @@ interface Kp3SchematicViewProps {
 }
 
 const CLUSTERS: Array<{ id: "ALL" | GisClusterName; label: string }> = [
-  { id: "ALL", label: "Tất cả 14 Tổ" },
-  { id: "Bắc", label: "Cụm Bắc (Tổ 5, 6, 7, 9, 11, 12)" },
-  { id: "Trung tâm", label: "Cụm Trung tâm (Tổ 4, 8, 10, 13)" },
-  { id: "Nam", label: "Cụm Nam (Tổ 1, 2, 3, 14)" },
+  { id: "ALL", label: "Toàn địa bàn KP3" },
+  { id: "Bắc", label: "Cụm Bắc (Trục ĐT.743A)" },
+  { id: "Trung tâm", label: "Cụm Trung tâm (Nhà Văn hóa)" },
+  { id: "Nam", label: "Cụm Nam (Trục Song Hành)" },
 ];
 
 function FallbackKp3SvgDiagram() {
@@ -44,7 +44,7 @@ function FallbackKp3SvgDiagram() {
     <svg
       viewBox="0 0 640 400"
       role="img"
-      aria-label="Sơ đồ phân vùng 14 Tổ Dân Phố Khu phố 3"
+      aria-label="Sơ đồ phân vùng không gian Khu phố 3"
       className="w-full h-full bg-slate-900 rounded-lg select-none"
     >
       <defs>
@@ -76,20 +76,20 @@ function FallbackKp3SvgDiagram() {
 
       {/* Zone cells (North -> Center -> South) */}
       {[
-        { x: 115, y: 105, w: 120, h: 52, t: "Tổ 12", sub: "Cổng X3", c: "#047857" },
-        { x: 245, y: 105, w: 120, h: 52, t: "Tổ 11", sub: "Lô A6-A10", c: "#0369a1" },
-        { x: 375, y: 108, w: 135, h: 50, t: "Tổ 9", sub: "Đông Bắc", c: "#4338ca" },
-        { x: 105, y: 165, w: 120, h: 52, t: "Tổ 7", sub: "Lô A12", c: "#0f766e" },
-        { x: 235, y: 165, w: 130, h: 52, t: "Tổ 5", sub: "Đường X1", c: "#1d4ed8" },
-        { x: 375, y: 165, w: 155, h: 52, t: "Tổ 6", sub: "Đường X2", c: "#b45309" },
-        { x: 100, y: 225, w: 110, h: 52, t: "Tổ 10", sub: "X1 Tây", c: "#be123c" },
-        { x: 218, y: 225, w: 135, h: 52, t: "Tổ 8 ★", sub: "Trụ sở KP3", c: "#059669" },
-        { x: 360, y: 225, w: 110, h: 52, t: "Tổ 4", sub: "N1–N2 Đông", c: "#6d28d9" },
-        { x: 478, y: 225, w: 68, h: 52, t: "Tổ 13", sub: "AP12", c: "#0e7490" },
-        { x: 125, y: 284, w: 96, h: 42, t: "Tổ 1", sub: "D1", c: "#0284c7" },
-        { x: 228, y: 284, w: 96, h: 42, t: "Tổ 2", sub: "D2", c: "#4f46e5" },
-        { x: 332, y: 284, w: 98, h: 42, t: "Tổ 3", sub: "N4", c: "#c2410c" },
-        { x: 438, y: 284, w: 96, h: 42, t: "Tổ 14", sub: "AP28-30", c: "#7c3aed" },
+        { x: 115, y: 105, w: 120, h: 52, t: "PK 12", sub: "Cổng X3", c: "#047857" },
+        { x: 245, y: 105, w: 120, h: 52, t: "PK 11", sub: "Lô A6-A10", c: "#0369a1" },
+        { x: 375, y: 108, w: 135, h: 50, t: "PK 9", sub: "Đông Bắc", c: "#4338ca" },
+        { x: 105, y: 165, w: 120, h: 52, t: "PK 7", sub: "Lô A12", c: "#0f766e" },
+        { x: 235, y: 165, w: 130, h: 52, t: "PK 5", sub: "Đường X1", c: "#1d4ed8" },
+        { x: 375, y: 165, w: 155, h: 52, t: "PK 6", sub: "Đường X2", c: "#b45309" },
+        { x: 100, y: 225, w: 110, h: 52, t: "PK 10", sub: "X1 Tây", c: "#be123c" },
+        { x: 218, y: 225, w: 135, h: 52, t: "PK 8 ★", sub: "Trụ sở KP3", c: "#059669" },
+        { x: 360, y: 225, w: 110, h: 52, t: "PK 4", sub: "N1–N2 Đông", c: "#6d28d9" },
+        { x: 478, y: 225, w: 68, h: 52, t: "PK 13", sub: "AP12", c: "#0e7490" },
+        { x: 125, y: 284, w: 96, h: 42, t: "PK 1", sub: "D1", c: "#0284c7" },
+        { x: 228, y: 284, w: 96, h: 42, t: "PK 2", sub: "D2", c: "#4f46e5" },
+        { x: 332, y: 284, w: 98, h: 42, t: "PK 3", sub: "N4", c: "#c2410c" },
+        { x: 438, y: 284, w: 96, h: 42, t: "PK 14", sub: "AP28-30", c: "#7c3aed" },
       ].map((box) => (
         <g key={box.t}>
           <rect
@@ -162,7 +162,7 @@ export default function Kp3SchematicView({
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
-      {/* Left 8 cols: Interactive 14 Tổ Dân Phố Schematic Grid */}
+      {/* Left 8 cols: Interactive KP3 Subzone Schematic Grid */}
       <div className="lg:col-span-8 min-w-0 bg-white rounded-2xl border border-slate-200 p-4 sm:p-5 space-y-4">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-4">
           <div className="space-y-1 min-w-0">
@@ -171,11 +171,11 @@ export default function Kp3SchematicView({
                 <MapIcon size={13} className="text-emerald-700" /> Sơ đồ hành chính KP3
               </span>
               <span className="text-xs font-semibold text-slate-600">
-                14 Tổ Dân Phố · 3 Cụm địa bàn
+                Điều hành tập trung · 3 Cụm địa bàn
               </span>
             </div>
             <h2 className="text-base sm:text-lg font-bold text-slate-900">
-              Phân vùng 14 Tổ Dân Phố Khu phố 3, Phường An Phú
+              Sơ đồ Không gian &amp; Phân vùng Địa bàn Khu phố 3, Phường An Phú
             </h2>
           </div>
 
@@ -185,14 +185,14 @@ export default function Kp3SchematicView({
               onClick={onResetToFilter}
               className="min-h-9 px-3 bg-slate-100 hover:bg-slate-200 text-slate-800 border border-slate-300 rounded-xl text-xs font-bold cursor-pointer shrink-0"
             >
-              Đang lọc Tổ {activeToFilter} · Bỏ lọc
+              Đang lọc Phân khu #{activeToFilter} · Bỏ lọc
             </button>
           )}
         </div>
 
         {/* Filter bar */}
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
-          <div className="flex flex-wrap items-center gap-1.5" role="group" aria-label="Lọc theo cụm Tổ dân phố">
+          <div className="flex flex-wrap items-center gap-1.5" role="group" aria-label="Lọc theo cụm địa bàn KP3">
             {CLUSTERS.map((c) => {
               const isActive = selectedCluster === c.id;
               return (
@@ -221,8 +221,8 @@ export default function Kp3SchematicView({
               type="text"
               value={searchTo}
               onChange={(e) => setSearchTo(e.target.value)}
-              placeholder="Tìm số Tổ hoặc tên đường..."
-              aria-label="Tìm Tổ dân phố theo tên đường hoặc số tổ"
+              placeholder="Tìm phân khu hoặc tên đường..."
+              aria-label="Tìm phân khu GIS theo tên đường hoặc mã phân khu"
               className="w-full min-h-9 pl-9 pr-3 bg-slate-50 border border-slate-300 rounded-xl text-xs text-slate-900 placeholder:text-slate-500 focus:outline-none focus:bg-white focus:border-emerald-700"
             />
           </div>
@@ -231,7 +231,7 @@ export default function Kp3SchematicView({
         {/* 14 Zones Grid */}
         {filteredZones.length === 0 ? (
           <div className="p-8 text-center bg-slate-50 rounded-xl border border-slate-200 text-xs text-slate-600">
-            Không tìm thấy Tổ Dân Phố phù hợp với từ khóa "{searchTo}".
+            Không tìm thấy phân khu GIS phù hợp với từ khóa "{searchTo}".
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
@@ -255,7 +255,7 @@ export default function Kp3SchematicView({
                           className="w-3.5 h-3.5 rounded-full shrink-0 border border-slate-300"
                           style={{ backgroundColor: zone.fillColor }}
                         />
-                        <h3 className="font-bold text-slate-900 text-sm">{zone.name}</h3>
+                        <h3 className="font-bold text-slate-900 text-sm">Phân khu GIS #{zone.toNumber}</h3>
                       </div>
                       <div className="flex items-center gap-1.5 shrink-0 flex-wrap justify-end">
                         <span className="px-2 py-0.5 rounded-md bg-slate-100 border border-slate-200 text-slate-800 text-xs font-semibold">
@@ -313,7 +313,7 @@ export default function Kp3SchematicView({
                         : "bg-slate-100 hover:bg-emerald-700 hover:text-white text-slate-900"
                     }`}
                   >
-                    <MapPin size={14} /> Mở {zone.shortLabel} trên Bản đồ GIS
+                    <MapPin size={14} /> Mở Phân khu #{zone.toNumber} trên Bản đồ GIS
                   </button>
                 </div>
               );
@@ -332,7 +332,7 @@ export default function Kp3SchematicView({
             Ranh giới chính thức & Quy hoạch phân khu
           </h3>
           <p className="text-xs text-slate-600 leading-relaxed">
-            Đối chiếu sơ đồ tổng thể 14 Tổ Dân Phố giáp trục ĐT.743A và ranh giới TP. Dĩ An.
+            Đối chiếu sơ đồ tổng thể địa bàn Khu phố 3 giáp trục Lương Định Của, Song Hành &amp; Mai Chí Thọ.
           </p>
         </div>
 
@@ -403,7 +403,7 @@ export default function Kp3SchematicView({
         onClose={() => setIsZoomOpen(false)}
         size="4xl"
         title="Bản đồ Địa giới Khu phố 3 – Phường An Phú"
-        description={`Diện tích ${areaFormatted} · Chu vi ${perimeterFormatted} · 14 Tổ Dân Phố`}
+        description={`Diện tích ${areaFormatted} · Chu vi ${perimeterFormatted} · Quản lý tập trung toàn KP3`}
       >
         <div className="space-y-3">
           <div className="w-full aspect-[16/10] rounded-xl overflow-hidden border border-slate-200 bg-slate-900">
@@ -419,7 +419,7 @@ export default function Kp3SchematicView({
             )}
           </div>
           <p className="text-xs text-slate-600 leading-relaxed">
-            Sơ đồ địa giới Khu phố 3 gồm 3 cụm địa bàn (Bắc, Trung tâm, Nam) với 14 Tổ Dân Phố trực thuộc. Nhấn vào từng Tổ ở tab Sơ đồ để phóng to trực tiếp trên nền bản đồ thực địa OpenStreetMap / Vệ tinh.
+            Sơ đồ địa giới Khu phố 3 gồm 3 cụm không gian điều hành (Bắc, Trung tâm, Nam). Nhấn vào từng phân khu ở tab Sơ đồ để phóng to trực tiếp trên nền bản đồ thực địa OpenStreetMap / Vệ tinh.
           </p>
         </div>
       </Modal>

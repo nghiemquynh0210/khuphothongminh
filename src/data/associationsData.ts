@@ -269,16 +269,16 @@ export const INITIAL_ASSOCIATIONS: Association[] = [
     },
     {
       id: "ASC_TOTRUONG",
-      name: "Tổ trưởng dân phố",
+      name: "Mạng lưới Tự quản KP3",
       category: "Chính quyền cơ sở",
-      description: "Ban cán sự gồm các tổ trưởng, tổ phó các tổ dân phố 1, 2, 3, 4 trên địa bàn Khu phố 3.",
+      description: "Đội ngũ cán sự điều hành và cộng tác viên phụ trách các trục đường, tuyến hẻm trực thuộc Ban Điều hành Khu phố 3.",
       leaderName: "Lê Văn Sơn",
       leaderCccd: "079070003112",
       members: [
         {
           id: "M_SON_TT",
           fullName: "Lê Văn Sơn",
-          role: "Tổ trưởng dân phố Tổ 1",
+          role: "Cán sự phụ trách Cụm Đường D1–D2",
           cccd: "079070003112",
           phone: "0944112233",
           birthDate: "08/12/1970",
@@ -288,7 +288,7 @@ export const INITIAL_ASSOCIATIONS: Association[] = [
         {
           id: "M_LAN_TT",
           fullName: "Trần Thị Lan",
-          role: "Tổ trưởng dân phố Tổ 2",
+          role: "Cán sự phụ trách Cụm Đường Lương Định Của",
           cccd: "079071004567",
           phone: "0918345678",
           birthDate: "22/11/1971",
@@ -751,7 +751,19 @@ export function getStoredAssociations(): Association[] {
     const data = localStorage.getItem(STORAGE_KEY);
     if (data) {
       const parsed = JSON.parse(data);
-      if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        let migrated = false;
+        const normalized = (parsed as Association[]).map((assoc) => {
+          if (assoc.id === "ASC_TOTRUONG" && assoc.name === "Tổ trưởng dân phố") {
+            migrated = true;
+            const fresh = INITIAL_ASSOCIATIONS.find((x) => x.id === "ASC_TOTRUONG");
+            return fresh ? { ...assoc, name: fresh.name, description: fresh.description } : assoc;
+          }
+          return assoc;
+        });
+        if (migrated) saveStoredAssociations(normalized);
+        return normalized;
+      }
     }
   } catch (e) {
     console.warn("Could not load associations from storage:", e);

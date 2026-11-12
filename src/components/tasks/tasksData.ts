@@ -17,7 +17,7 @@ export const RECIPIENT_ORGS = [
 export const SCHEDULE_TYPES = [
   "Họp Chi bộ",
   "Họp Ban Điều hành KP3",
-  "Họp Tổ Dân Phố",
+  "Họp Giao ban KP3",
   "Tuần tra ANTT",
   "Chủ Nhật Xanh",
   "Tiếp công dân",
@@ -29,13 +29,13 @@ export const INITIAL_TASKS: TaskItem[] = [
     id: "TASK-001",
     title: "Tổ chức chiến dịch 'Chủ Nhật Xanh' dọn dẹp hẻm 124 đường KV AP12",
     description:
-      "Vận động 100% hộ dân tại Tổ 12 tham gia phát quang bụi rậm, khơi thông cống rãnh chống ngập và dịch sốt xuất huyết.",
-    unit: "Tổ trưởng dân phố",
+      "Vận động 100% hộ dân tại tuyến hẻm 124 AP12 tham gia phát quang bụi rậm, khơi thông cống rãnh chống ngập và dịch sốt xuất huyết.",
+    unit: "Mạng lưới Tự quản KP3",
     associationId: "ASC_TOTRUONG",
     assignee: {
       name: "Bà Lê Thị Mai",
-      role: "Tổ trưởng Tổ 12",
-      unit: "Tổ trưởng dân phố",
+      role: "Trưởng Khu phố",
+      unit: "Mạng lưới Tự quản KP3",
       phone: "0908 123 456",
     },
     creator: "Đ/c Nguyễn Văn Hùng (Bí thư Chi bộ)",
@@ -107,12 +107,12 @@ export const INITIAL_TASKS: TaskItem[] = [
     id: "TASK-003",
     title: "Cập nhật dữ liệu CCCD và mã định danh VNeID mức 2 cho 18 công dân tạm trú",
     description:
-      "Hỗ trợ người lao động thuê trọ tại Tổ 12 hoàn tất xác thực sinh trắc học và khai báo cư trú.",
-    unit: "Tổ dân phố 12",
+      "Hỗ trợ người lao động thuê trọ tại Khu phố 3 hoàn tất xác thực sinh trắc học và khai báo cư trú.",
+    unit: "Ban Điều hành KP3",
     assignee: {
       name: "Ông Hoàng Văn Thái",
-      role: "Tổ trưởng Tổ 12",
-      unit: "Tổ dân phố 12",
+      role: "Thành viên Ban Điều hành KP3",
+      unit: "Ban Điều hành KP3",
       phone: "0977 456 789",
     },
     creator: "Đ/c Nguyễn Văn Hùng (Bí thư Chi bộ)",
@@ -125,14 +125,14 @@ export const INITIAL_TASKS: TaskItem[] = [
   },
   {
     id: "TASK-004",
-    title: "Thu nộp Quỹ Vì người nghèo & Quỹ Khuyến học năm 2026 tại Tổ 11",
+    title: "Thu nộp Quỹ Vì người nghèo & Quỹ Khuyến học năm 2026 tại Khu phố 3",
     description:
       "Phát hành phiếu thu điện tử có VietQR đến từng hộ gia đình, công khai danh sách ủng hộ trên cổng khu phố.",
-    unit: "Tổ dân phố 11",
+    unit: "Ban Công tác Mặt trận KP3",
     assignee: {
       name: "Ông Nguyễn Văn Hùng",
-      role: "Tổ trưởng Tổ 11",
-      unit: "Tổ dân phố 11",
+      role: "Bí thư Chi bộ KP3",
+      unit: "Ban Công tác Mặt trận KP3",
       phone: "0912 345 678",
     },
     creator: "Trần Quốc Tuấn (Trưởng ban ĐHKP)",
@@ -147,12 +147,12 @@ export const INITIAL_TASKS: TaskItem[] = [
     id: "TASK-005",
     title: "Sửa chữa 2 bóng đèn chiếu sáng năng lượng mặt trời hẻm KV AP29",
     description:
-      "Thay pin lưu trữ cho đèn chiếu sáng công cộng do bà con Tổ 14 phản ánh chập chờn.",
-    unit: "Tổ dân phố 14",
+      "Thay pin lưu trữ cho đèn chiếu sáng công cộng do bà con tuyến hẻm KV AP29 phản ánh chập chờn.",
+    unit: "Ban Điều hành KP3",
     assignee: {
       name: "Bà Phạm Thị Lan",
-      role: "Tổ trưởng Tổ 14",
-      unit: "Tổ dân phố 14",
+      role: "Cán sự phụ trách KV AP28-30",
+      unit: "Ban Điều hành KP3",
       phone: "0988 654 321",
     },
     creator: "Trần Quốc Tuấn (Trưởng ban ĐHKP)",
@@ -216,13 +216,13 @@ export const INITIAL_SCHEDULES: ScheduleEvent[] = [
   },
   {
     id: "SCH-002",
-    title: "Họp giao ban Tổ trưởng 14 Tổ dân phố (Tổ 1 - Tổ 14)",
-    type: "Họp Tổ Dân Phố",
+    title: "Họp giao ban Ban Điều hành & Lực lượng nòng cốt Khu phố 3",
+    type: "Họp Giao Ban KP3",
     date: "2026-10-14",
     time: "08:30 - 10:30",
     location: "Hội trường Khu phố 3",
     host: "Ông Trần Quốc Tuấn - Trưởng ban Điều hành KP3",
-    attendees: "Tổ trưởng & Tổ phó 14 TDP, Đại diện CSKV",
+    attendees: "Ban Điều hành KP3, CSKV & Đại diện các Chi hội",
     status: "Sắp diễn ra",
     description:
       "Rà soát tiến độ thu các loại Quỹ công ích; triển khai đợt cao điểm tuyên truyền kiểm tra an toàn PCCC tại các khu nhà trọ, cơ sở sản xuất kinh doanh có nguy cơ cháy nổ cao.",
@@ -256,13 +256,13 @@ export const INITIAL_SCHEDULES: ScheduleEvent[] = [
   },
   {
     id: "SCH-004",
-    title: "Ra quân ngày 'Chủ Nhật Xanh' dọn vệ sinh tuyến hẻm kiểu mẫu Tổ 12",
+    title: "Ra quân ngày 'Chủ Nhật Xanh' dọn vệ sinh tuyến hẻm kiểu mẫu KP3",
     type: "Chủ Nhật Xanh",
     date: "2026-10-18",
     time: "06:30 - 09:30",
     location: "Điểm tập kết: Đầu hẻm 124 đường KV AP12",
-    host: "Đ/c Bí thư Chi đoàn TN & Tổ trưởng Tổ 12",
-    attendees: "Đoàn viên thanh niên, Hội viên Phụ nữ, Cư dân Tổ 12",
+    host: "Đ/c Bí thư Chi đoàn TN & Ban Điều hành KP3",
+    attendees: "Đoàn viên thanh niên, Hội viên Phụ nữ, Cư dân Khu phố 3",
     status: "Sắp diễn ra",
     description:
       "Phát động toàn dân ra quân quét dọn, bóc xóa quảng cáo sai quy định, khơi thông dòng chảy thoát nước chống ngập cục bộ và phòng trừ muỗi sốt xuất huyết.",
@@ -512,7 +512,25 @@ export function loadStoredTasks(): TaskItem[] {
     const saved = localStorage.getItem(TASK_STORAGE_KEY);
     if (saved) {
       const parsed = JSON.parse(saved);
-      if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        const freshMap = new Map(INITIAL_TASKS.map((t) => [t.id, t]));
+        let migrated = false;
+        const normalized = (parsed as TaskItem[]).map((item) => {
+          const fresh = freshMap.get(item.id);
+          if (
+            fresh &&
+            (/Tổ\s*(?:1[0-4]|[1-9])|Tổ\s*(?:trưởng\s*)?dân\s*phố/i.test(item.title) ||
+              /Tổ\s*(?:1[0-4]|[1-9])|Tổ\s*(?:trưởng\s*)?dân\s*phố/i.test(item.description) ||
+              /Tổ\s*(?:1[0-4]|[1-9])|Tổ\s*(?:trưởng\s*)?dân\s*phố/i.test(item.unit))
+          ) {
+            migrated = true;
+            return { ...item, title: fresh.title, description: fresh.description, unit: fresh.unit, assignee: fresh.assignee };
+          }
+          return item;
+        });
+        if (migrated) saveStoredTasks(normalized);
+        return normalized;
+      }
     }
   } catch {}
   return INITIAL_TASKS;

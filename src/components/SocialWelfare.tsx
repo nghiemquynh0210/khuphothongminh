@@ -55,7 +55,7 @@ import { PageHeader } from "./common/PageHeader";
 import { ReportSelect } from "./reports/ReportSelect";
 import { ConfirmModal, InlineNotice } from "./ui/ConfirmModal";
 import { Modal } from "./ui/Modal";
-import { KP3_TO_LIST, extractToDanPho, formatShortRecordId } from "../utils/kp3Utils";
+import { KP3_AREA_LIST, extractKp3Area, formatShortRecordId } from "../utils/kp3Utils";
 import { formatVNNumber } from "../utils/numberFormat";
 import {
   DEFAULT_WELFARE_SUBCATEGORIES,
@@ -319,7 +319,7 @@ export default function SocialWelfare({
       color: newSubColor,
       iconName: "FolderPlus",
       description: newSubDesc.trim() || "Phân hệ bảo trợ an sinh xã hội cơ sở Khu phố 3",
-      criteria: newSubCriteria.trim() || "Theo biên bản thẩm tra hoàn cảnh gia đình của Tổ dân phố",
+      criteria: newSubCriteria.trim() || "Theo biên bản thẩm tra hoàn cảnh gia đình của Ban Điều hành Khu phố 3",
       standardBenefits: newSubBenefits,
       isCustom: true,
       createdAt: new Date().toISOString().split("T")[0]
@@ -681,8 +681,8 @@ export default function SocialWelfare({
 
       const matchCategory = selectedCategoryPill === "all" || r.category === selectedCategoryPill;
       const matchStatus = statusFilter === "all" || r.status === statusFilter;
-      const toNum = extractToDanPho(r.address);
-      const matchTo = toFilter === "all" || (toNum !== null && String(toNum) === toFilter);
+      const areaLabel = extractKp3Area(r.address);
+      const matchTo = toFilter === "all" || areaLabel === toFilter;
 
       return matchSearch && matchCategory && matchStatus && matchTo;
     });
@@ -930,12 +930,12 @@ export default function SocialWelfare({
             <div className="flex flex-wrap items-center gap-2 shrink-0">
               <div className="min-w-[145px]">
                 <ReportSelect
-                  aria-label="Lọc theo Tổ dân phố"
+                  aria-label="Lọc theo tuyến đường / khu vực KP3"
                   value={toFilter}
                   onChange={val => { setToFilter(val); setCurrentPage(1); }}
                   options={[
-                    { value: "all", label: "Tất cả Tổ 1–14" },
-                    ...KP3_TO_LIST.map(n => ({ value: String(n), label: `Tổ dân phố ${n}` }))
+                    { value: "all", label: "Toàn địa bàn KP3" },
+                    ...KP3_AREA_LIST.map(area => ({ value: area, label: area }))
                   ]}
                   className="text-xs"
                 />
@@ -995,7 +995,7 @@ export default function SocialWelfare({
                     "Đã tạm ngưng": "bg-slate-100 text-slate-700 border-slate-200"
                   };
                   const bhyt = getBhytInfo(rec);
-                  const toNum = extractToDanPho(rec.address);
+                  const areaLabel = extractKp3Area(rec.address);
                   return (
                     <div
                       key={rec.id}
@@ -1016,9 +1016,9 @@ export default function SocialWelfare({
                         <div className="text-xs text-slate-600 flex items-center gap-1.5 min-w-0">
                           <MapPin size={12} className="shrink-0 text-slate-500" />
                           <span className="truncate">{rec.address}</span>
-                          {toNum !== null && (
+                          {areaLabel && (
                             <span className="shrink-0 px-1.5 py-0.5 rounded bg-slate-100 border border-slate-200 text-slate-700 font-semibold text-xs">
-                              Tổ {toNum}
+                              {areaLabel}
                             </span>
                           )}
                         </div>
@@ -1126,7 +1126,7 @@ export default function SocialWelfare({
                     ) : (
                       paginatedRecipients.map(rec => {
                         const bhyt = getBhytInfo(rec);
-                        const toNum = extractToDanPho(rec.address);
+                        const areaLabel = extractKp3Area(rec.address);
                         const statusClasses =
                           rec.status === "Đang nhận trợ cấp"
                             ? "bg-emerald-50 text-emerald-800 border-emerald-200"
@@ -1165,8 +1165,8 @@ export default function SocialWelfare({
                                 <MapPin size={12} className="text-slate-500 shrink-0" />
                                 <span className="truncate">{rec.address}</span>
                               </div>
-                              {toNum !== null && (
-                                <span className="text-xs font-semibold text-slate-600">Tổ dân phố {toNum}</span>
+                              {areaLabel && (
+                                <span className="text-xs font-semibold text-slate-600">{areaLabel}</span>
                               )}
                             </td>
                             <td className="py-3.5 px-4 whitespace-nowrap">
@@ -1781,7 +1781,7 @@ export default function SocialWelfare({
                 <label className="block font-bold text-slate-700 mb-1">Hoàn cảnh thực tế & Đề xuất của cơ sở</label>
                 <textarea
                   rows={2}
-                  placeholder="Ghi rõ hoàn cảnh gia đình, thương tật, độ tuổi, kết quả bình xét của Tổ dân phố..."
+                  placeholder="Ghi rõ hoàn cảnh gia đình, thương tật, độ tuổi, kết quả bình xét của Ban Điều hành Khu phố 3..."
                   value={recNotes}
                   onChange={e => setRecNotes(e.target.value)}
                   className="w-full p-2.5 rounded-xl border border-slate-300 bg-white text-xs focus:outline-none focus:border-rose-500"

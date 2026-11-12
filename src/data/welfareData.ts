@@ -27,7 +27,7 @@ export const DEFAULT_WELFARE_SUBCATEGORIES: WelfareSubCategory[] = [
     color: "amber",
     iconName: "HeartHandshake",
     description: "Hộ gia đình có mức thu nhập bình quân và thiếu hụt các dịch vụ xã hội cơ bản theo chuẩn nghèo đa chiều TP.HCM.",
-    criteria: "Được bình xét dân chủ tại Tổ dân phố, có mã số quản lý hộ nghèo/cận nghèo cấp phường phê duyệt.",
+    criteria: "Được bình xét dân chủ tại Ban Điều hành Khu phố 3, có mã số quản lý hộ nghèo/cận nghèo cấp phường phê duyệt.",
     standardBenefits: [
       "Trợ cấp tiền mặt bảo trợ xã hội hàng tháng",
       "Cấp thẻ BHYT hộ nghèo miễn phí 100%",
@@ -66,7 +66,7 @@ export const DEFAULT_WELFARE_SUBCATEGORIES: WelfareSubCategory[] = [
     color: "cyan",
     iconName: "Baby",
     description: "Trẻ em dưới 16 tuổi (hoặc dưới 22 tuổi đang học đại học) mồ côi cả cha và mẹ hoặc mồ côi cha/mẹ có hoàn cảnh đặc biệt khó khăn.",
-    criteria: "Có Giấy chứng tử của cha/mẹ, biên bản thẩm tra hoàn cảnh gia đình của Hội Bảo trợ Trẻ em & Tổ dân phố.",
+    criteria: "Có Giấy chứng tử của cha/mẹ, biên bản thẩm tra hoàn cảnh gia đình của Hội Bảo trợ Trẻ em & Ban Điều hành KP3.",
     standardBenefits: [
       "Trợ cấp nuôi dưỡng hàng tháng theo Nghị định 20/2021/NĐ-CP",
       "Cấp thẻ BHYT trẻ em miễn phí 100%",
@@ -268,7 +268,7 @@ export const INITIAL_EMERGENCY_RECORDS: EmergencySupportRecord[] = [
     disbursedDate: "2026-10-18",
     disbursedBy: "Lê Văn Sơn (Phó Ban điều hành KP3)",
     approver: "Nguyễn Trung Huy (Trưởng ban ĐHKP)",
-    fundingSource: "Quỹ Vì người nghèo & Vận động đột xuất tổ dân phố",
+    fundingSource: "Quỹ Vì người nghèo & Vận động đột xuất tại Khu phố 3",
     status: "Đã hỗ trợ ngay",
     notes: "Đồng thời Chi đoàn Thanh niên đã cử lực lượng hỗ trợ lợp lại mái tôn và dọn dẹp hiện trường an toàn."
   },

@@ -38,7 +38,7 @@ import {
   Trash2,
   RotateCcw
 } from "lucide-react";
-import { CommunityEvent, LocalNews } from "../types";
+import { CommunityEvent, LocalNews, NewsLinkAttachment } from "../types";
 import Pagination from "./Pagination";
 import { StatCard } from "./common/StatCard";
 import { PageHeader } from "./common/PageHeader";
@@ -49,13 +49,23 @@ import { DetailRow, DetailGrid } from "./common/DetailRow";
 import { formatVNNumber } from "../utils/numberFormat";
 import { formatShortRecordId } from "../utils/kp3Utils";
 import { initialNewsList } from "../mockData";
+import {
+  COVER_PRESETS,
+  getCategoryTheme,
+  getNewsImage,
+  getNewsReadTime,
+  getNewsSummary,
+  getNewsViews,
+} from "./news/newsHelpers";
+import { NewsMediaAndLinksFields } from "./news/NewsMediaAndLinksFields";
+import { NewsNewspaperFeed } from "./news/NewsNewspaperFeed";
 
 const EVENT_RSVP_KEY = "kp3_event_rsvp_v1";
 const CULTURAL_VENUES = [
   "Nhà Văn hóa Khu phố 3 (Hội trường 80 chỗ)",
   "Phòng Sinh hoạt Chi bộ KP3 (30 chỗ)",
   "Sân Nhà Văn hóa Khu phố 3 (120 chỗ)",
-  "Điểm sinh hoạt Liên tổ 1–14"
+  "Điểm sinh hoạt cụm dân cư KP3"
 ];
 
 interface CommunityEventsProps {
@@ -70,59 +80,6 @@ interface CommunityEventsProps {
   onDeleteNews?: (newsId: string) => void;
 }
 
-// 7 Preset chủ đề ảnh bìa minh họa chuẩn báo chí cộng đồng
-const COVER_PRESETS = [
-  {
-    id: "med",
-    label: "Y tế & Phòng dịch",
-    category: "Thông báo khẩn",
-    url: "https://images.unsplash.com/photo-1584036561566-baf8f5f1b144?w=1200&auto=format&fit=crop&q=80",
-    desc: "Phun thuốc diệt muỗi, phòng chống dịch sốt xuất huyết"
-  },
-  {
-    id: "id_card",
-    label: "Căn cước & VNeID",
-    category: "Hành chính",
-    url: "https://images.unsplash.com/photo-1554224155-8d04cb21cd6c?w=1200&auto=format&fit=crop&q=80",
-    desc: "Làm thẻ căn cước mới, chuyển đổi số & định danh VNeID"
-  },
-  {
-    id: "meeting",
-    label: "Tiếp dân & Họp Chi bộ",
-    category: "Hành chính",
-    url: "https://images.unsplash.com/photo-1517048676732-d65bc937f952?w=1200&auto=format&fit=crop&q=80",
-    desc: "Hội nghị đối thoại, tiếp công dân định kỳ tại Nhà văn hóa"
-  },
-  {
-    id: "charity",
-    label: "An sinh & Đền ơn đáp nghĩa",
-    category: "An sinh xã hội",
-    url: "https://images.unsplash.com/photo-1532629345422-7515f3d16bb6?w=1200&auto=format&fit=crop&q=80",
-    desc: "Trao quà tình nghĩa, trợ cấp hộ nghèo & gia đình chính sách"
-  },
-  {
-    id: "sport",
-    label: "Thể thao & Hội thi hè",
-    category: "Phong trào",
-    url: "https://images.unsplash.com/photo-1511632765486-a01980e01a18?w=1200&auto=format&fit=crop&q=80",
-    desc: "Hội thao cộng đồng, tiếng hát thiếu nhi & sinh hoạt hè"
-  },
-  {
-    id: "pccc",
-    label: "Diễn tập PCCC hẻm",
-    category: "Hành chính",
-    url: "https://images.unsplash.com/photo-1508847154043-be5407fcaa5a?w=1200&auto=format&fit=crop&q=80",
-    desc: "Tổ liên gia an toàn PCCC, tập huấn cứu nạn & bình bọt dập lửa"
-  },
-  {
-    id: "green",
-    label: "Chủ nhật Xanh & Môi trường",
-    category: "Phong trào",
-    url: "https://images.unsplash.com/photo-1542601906990-b4d3fb778b09?w=1200&auto=format&fit=crop&q=80",
-    desc: "Ngày hội vệ sinh hẻm, dọn rác khai thông cống rãnh"
-  }
-];
-
 export default function CommunityEvents({ 
   events, 
   onAddEvent, 
@@ -135,20 +92,13 @@ export default function CommunityEvents({
   onDeleteNews
 }: CommunityEventsProps) {
   const [activeSubTab, setActiveSubTab] = useState<"news" | "events">("news");
-  const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
-  
-  // Pagination states
-  const [currentNewsPage, setCurrentNewsPage] = useState(1);
   const [currentEventsPage, setCurrentEventsPage] = useState(1);
-  const newsPerPage = 6;
   const eventsPerPage = 6;
 
   // States for News Board
   const [showNewsModal, setShowNewsModal] = useState(false);
   const [editingNews, setEditingNews] = useState<LocalNews | null>(null);
   const [selectedNewsForModal, setSelectedNewsForModal] = useState<LocalNews | null>(null);
-  const [newsSearch, setNewsSearch] = useState("");
-  const [newsFilter, setNewsFilter] = useState<string>("Tất cả");
   const [copiedLink, setCopiedLink] = useState(false);
   const [newsList, setNewsList] = useState<LocalNews[]>(propNewsList || initialNewsList);
 
@@ -159,6 +109,8 @@ export default function CommunityEvents({
   const [newNewsContent, setNewNewsContent] = useState("");
   const [newNewsAuthor, setNewNewsAuthor] = useState("Ban Điều hành Khu phố 3");
   const [newNewsImage, setNewNewsImage] = useState(COVER_PRESETS[1].url);
+  const [newNewsImageGallery, setNewNewsImageGallery] = useState<string[]>([]);
+  const [newNewsLinks, setNewNewsLinks] = useState<NewsLinkAttachment[]>([]);
   const [newNewsFileName, setNewNewsFileName] = useState("");
   const [newNewsIsPinned, setNewNewsIsPinned] = useState(false);
 
@@ -219,144 +171,6 @@ export default function CommunityEvents({
     }
   }, [propNewsList]);
 
-  // Helpers to resolve data safely with fallbacks
-  const getNewsImage = (news: LocalNews): string => {
-    // If news has custom user-provided image that is not the old deprecated placeholder
-    if (news.imageUrl && !news.imageUrl.includes("1450133064473") && !news.imageUrl.includes("554224155-8d04cb21cd6c")) {
-      return news.imageUrl;
-    }
-
-    // Match smart contextual keywords in news title
-    const t = (news.title || "").toLowerCase();
-    if (t.includes("sốt xuất huyết") || t.includes("diệt muỗi") || t.includes("tiêm") || t.includes("y tế") || t.includes("khử khuẩn")) {
-      return COVER_PRESETS[0].url; // Y tế phun thuốc
-    }
-    if (t.includes("căn cước") || t.includes("vneid") || t.includes("định danh")) {
-      return COVER_PRESETS[1].url; // Căn cước VNeID
-    }
-    if (t.includes("tiếp công dân") || t.includes("tiếp dân") || t.includes("chi bộ") || t.includes("đối thoại") || t.includes("lịch tiếp")) {
-      return COVER_PRESETS[2].url; // Tiếp dân & Họp Chi bộ
-    }
-    if (t.includes("nghèo") || t.includes("đền ơn") || t.includes("tình nghĩa") || t.includes("an sinh") || t.includes("cứu trợ") || t.includes("quỹ")) {
-      return COVER_PRESETS[3].url; // An sinh & Quỹ vì người nghèo
-    }
-    if (t.includes("thể thao") || t.includes("tiếng hát") || t.includes("thiếu nhi") || t.includes("hè") || t.includes("văn nghệ")) {
-      return COVER_PRESETS[4].url; // Thể thao & Hội thi hè
-    }
-    if (t.includes("chữa cháy") || t.includes("pccc") || t.includes("cứu nạn") || t.includes("bình gas") || t.includes("cháy")) {
-      return COVER_PRESETS[5].url; // PCCC hẻm
-    }
-    if (t.includes("môi trường") || t.includes("chủ nhật xanh") || t.includes("rác") || t.includes("vệ sinh")) {
-      return COVER_PRESETS[6].url; // Môi trường & Chủ nhật Xanh
-    }
-
-    if (news.imageUrl && !news.imageUrl.includes("1450133064473")) return news.imageUrl;
-    if (news.image && !news.image.includes("1450133064473")) return news.image;
-
-    // Fallback based on category
-    switch (news.category) {
-      case "Thông báo khẩn":
-        return COVER_PRESETS[0].url;
-      case "Hành chính":
-        return COVER_PRESETS[1].url;
-      case "Y tế & Đời sống":
-        return COVER_PRESETS[0].url;
-      case "An sinh xã hội":
-        return COVER_PRESETS[3].url;
-      case "Phong trào":
-        return COVER_PRESETS[4].url;
-      default:
-        return COVER_PRESETS[2].url;
-    }
-  };
-
-  const getNewsSummary = (news: LocalNews): string => {
-    if (news.summary && news.summary.trim().length > 0) return news.summary;
-    const cleanContent = news.content.replace(/\n+/g, " ");
-    return cleanContent.length > 130 ? cleanContent.substring(0, 130) + "..." : cleanContent;
-  };
-
-  const getNewsReadTime = (news: LocalNews): string => {
-    if (news.readTime) return news.readTime;
-    const wordCount = news.content.split(/\s+/).length;
-    return `${Math.max(2, Math.ceil(wordCount / 50))} phút đọc`;
-  };
-
-  const getNewsViews = (news: LocalNews): number => {
-    if (news.views) return news.views;
-    const charCodeSum = news.id.split("").reduce((acc, c) => acc + c.charCodeAt(0), 100);
-    return (charCodeSum * 3) % 400 + 180;
-  };
-
-  const getCategoryTheme = (category: LocalNews["category"]) => {
-    switch (category) {
-      case "Thông báo khẩn":
-        return {
-          pill: "bg-rose-50 text-rose-700 border-rose-200",
-          solid: "bg-rose-600 text-white",
-          dot: "bg-rose-500",
-          ring: "ring-rose-500/20",
-          border: "border-rose-200",
-          icon: AlertTriangle
-        };
-      case "Hành chính":
-        return {
-          pill: "bg-blue-50 text-blue-700 border-blue-200",
-          solid: "bg-blue-600 text-white",
-          dot: "bg-blue-500",
-          ring: "ring-blue-500/20",
-          border: "border-blue-200",
-          icon: BookOpen
-        };
-      case "Y tế & Đời sống":
-        return {
-          pill: "bg-teal-50 text-teal-700 border-teal-200",
-          solid: "bg-teal-600 text-white",
-          dot: "bg-teal-500",
-          ring: "ring-teal-500/20",
-          border: "border-teal-200",
-          icon: Sparkles
-        };
-      case "An sinh xã hội":
-        return {
-          pill: "bg-pink-50 text-pink-700 border-pink-200",
-          solid: "bg-pink-600 text-white",
-          dot: "bg-pink-500",
-          ring: "ring-pink-500/20",
-          border: "border-pink-200",
-          icon: Award
-        };
-      case "Phong trào":
-        return {
-          pill: "bg-emerald-50 text-emerald-700 border-emerald-200",
-          solid: "bg-emerald-600 text-white",
-          dot: "bg-emerald-500",
-          ring: "ring-emerald-500/20",
-          border: "border-emerald-200",
-          icon: Users
-        };
-      default:
-        return {
-          pill: "bg-slate-50 text-slate-700 border-slate-200",
-          solid: "bg-slate-700 text-white",
-          dot: "bg-slate-500",
-          ring: "ring-slate-500/20",
-          border: "border-slate-200",
-          icon: Newspaper
-        };
-    }
-  };
-
-  const handleNewsSearchChange = (val: string) => {
-    setNewsSearch(val);
-    setCurrentNewsPage(1);
-  };
-
-  const handleNewsFilterChange = (val: string) => {
-    setNewsFilter(val);
-    setCurrentNewsPage(1);
-  };
-
   const handleEventFilterChange = (val: "Tất cả" | "Sắp diễn ra" | "Đang diễn ra" | "Đã kết thúc") => {
     setEventFilter(val);
     setCurrentEventsPage(1);
@@ -384,6 +198,8 @@ export default function CommunityEvents({
         author: newNewsAuthor,
         imageUrl: newNewsImage,
         image: newNewsImage,
+        imageGallery: newNewsImageGallery,
+        links: newNewsLinks,
         isPinned: newNewsIsPinned,
         attachedFile: newNewsFileName ? { name: newNewsFileName, size: "1.2 MB" } : editingNews.attachedFile
       };
@@ -407,6 +223,8 @@ export default function CommunityEvents({
         isPinned: newNewsIsPinned,
         imageUrl: newNewsImage,
         image: newNewsImage,
+        imageGallery: newNewsImageGallery,
+        links: newNewsLinks,
         readTime: "3 phút đọc",
         views: 1,
         attachedFile: newNewsFileName ? { name: newNewsFileName, size: "1.2 MB" } : undefined
@@ -430,6 +248,8 @@ export default function CommunityEvents({
     setNewNewsContent("");
     setNewNewsAuthor("Ban Điều hành Khu phố 3");
     setNewNewsImage(COVER_PRESETS[1].url);
+    setNewNewsImageGallery([]);
+    setNewNewsLinks([]);
     setNewNewsFileName("");
     setNewNewsIsPinned(false);
     setEditingNews(null);
@@ -443,6 +263,8 @@ export default function CommunityEvents({
     setNewNewsContent(news.content);
     setNewNewsAuthor(news.author);
     setNewNewsImage(getNewsImage(news));
+    setNewNewsImageGallery(news.imageGallery || []);
+    setNewNewsLinks(news.links || []);
     setNewNewsFileName(news.attachedFile?.name || "");
     setNewNewsIsPinned(Boolean(news.isPinned));
     setShowNewsModal(true);
@@ -463,14 +285,6 @@ export default function CommunityEvents({
     }
     setNotice({ message: `Đã xóa bản tin "${deleteNewsTarget.title}".`, type: "info" });
     setDeleteNewsTarget(null);
-  };
-
-  const handleTogglePin = (news: LocalNews) => {
-    const updated = { ...news, isPinned: !news.isPinned };
-    if (onUpdateNews) {
-      onUpdateNews(updated);
-    }
-    setNewsList(prev => prev.map(n => n.id === updated.id ? updated : n));
   };
 
   const handleResetToSampleNews = () => {
@@ -583,28 +397,6 @@ export default function CommunityEvents({
   });
 
   const activeNewsList = propNewsList && propNewsList.length > 0 ? propNewsList : newsList;
-  const filteredNews = activeNewsList.filter(news => {
-    const matchesSearch = news.title.toLowerCase().includes(newsSearch.toLowerCase()) || 
-                          news.content.toLowerCase().includes(newsSearch.toLowerCase()) ||
-                          news.author.toLowerCase().includes(newsSearch.toLowerCase());
-    const matchesCategory = newsFilter === "Tất cả" || news.category === newsFilter;
-    return matchesSearch && matchesCategory;
-  });
-
-  // Urgent News for Alert Banner
-  const urgentNews = activeNewsList.find(n => n.category === "Thông báo khẩn");
-
-  // Spotlight / Featured News
-  const pinnedNews = activeNewsList.filter(n => n.isPinned);
-  const heroNews = pinnedNews.length > 0 ? pinnedNews[0] : activeNewsList[0];
-  const subFeaturedNews = pinnedNews.length > 1 ? pinnedNews.slice(1, 3) : activeNewsList.slice(1, 3);
-
-  // Pagination for News
-  const totalNewsItems = filteredNews.length;
-  const totalNewsPages = Math.ceil(totalNewsItems / newsPerPage) || 1;
-  const activeNewsPage = currentNewsPage > totalNewsPages ? totalNewsPages : currentNewsPage;
-  const startNewsIndex = (activeNewsPage - 1) * newsPerPage;
-  const paginatedNews = filteredNews.slice(startNewsIndex, startNewsIndex + newsPerPage);
 
   // Pagination for Events
   const totalEventsItems = filteredEvents.length;
@@ -739,483 +531,14 @@ export default function CommunityEvents({
           RENDER TAB 1: NEWS & ANNOUNCEMENTS (BẢN TIN SỐ SỐNG ĐỘNG)
           ======================================================== */}
       {activeSubTab === "news" && (
-        <div className="space-y-6">
-
-          {/* DẢI CẢNH BÁO KHẨN CẤP (FLAT HAIRLINE ALERT BANNER) */}
-          {urgentNews && (
-            <div className="bg-rose-50 border border-rose-200 border-l-4 border-l-rose-600 text-slate-900 p-3.5 sm:p-4 rounded-xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-              <div className="flex items-center gap-3">
-                <div className="p-2.5 bg-rose-100 text-rose-700 rounded-xl border border-rose-200 shrink-0 flex items-center justify-center">
-                  <BellRing size={20} />
-                </div>
-                <div className="space-y-0.5">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <span className="text-xs font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-rose-700 text-white">
-                      THÔNG BÁO KHẨN CẤP
-                    </span>
-                    <span className="text-xs text-rose-800 font-mono font-medium">{urgentNews.date}</span>
-                  </div>
-                  <p className="font-bold text-xs sm:text-sm line-clamp-1 text-slate-900">
-                    {urgentNews.title}
-                  </p>
-                </div>
-              </div>
-              <button
-                type="button"
-                onClick={() => setSelectedNewsForModal(urgentNews)}
-                className="shrink-0 text-xs font-bold bg-rose-700 hover:bg-rose-800 text-white px-4 py-2 rounded-xl transition-colors cursor-pointer flex items-center gap-1.5 w-full sm:w-auto justify-center"
-              >
-                Xem chỉ đạo ngay <ChevronRight size={14} />
-              </button>
-            </div>
-          )}
-
-          {/* KHỐI TIÊU ĐIỂM BÁO CHÍ (FLAT HAIRLINE SPOTLIGHT SECTION) */}
-          {newsFilter === "Tất cả" && newsSearch === "" && heroNews && (
-            <div className="space-y-3">
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-2">
-                  <Sparkles size={14} className="text-amber-600" /> Tiêu Điểm Truyền Thông Khu Phố
-                </span>
-                <span className="text-xs text-slate-600 font-medium">Cập nhật liên tục 24/7</span>
-              </div>
-
-              <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
-                {/* Tin Tiêu Điểm Lớn (Hero Card - Flat Hairline, NO dark overlay over text) */}
-                <div
-                  onClick={() => setSelectedNewsForModal(heroNews)}
-                  className="lg:col-span-7 group bg-white rounded-2xl overflow-hidden border border-slate-200 cursor-pointer flex flex-col justify-between transition-colors hover:border-emerald-300"
-                >
-                  <div className="relative h-56 sm:h-64 w-full bg-slate-100 overflow-hidden shrink-0">
-                    <img
-                      src={getNewsImage(heroNews)}
-                      alt={heroNews.title}
-                      className="w-full h-full object-cover"
-                    />
-                    <div className="absolute top-3 left-3 right-3 flex flex-wrap items-center justify-between gap-2">
-                      <div className="flex items-center gap-2">
-                        <span className="px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider bg-rose-700 text-white flex items-center gap-1.5">
-                          <Flame size={12} /> TIÊU ĐIỂM
-                        </span>
-                        <span className="px-2.5 py-1 rounded-full text-xs font-bold bg-white text-slate-800 border border-slate-200">
-                          {heroNews.category}
-                        </span>
-                      </div>
-                      <span className="px-2.5 py-1 rounded-full text-xs font-bold bg-white text-slate-700 border border-slate-200 font-mono">
-                        {heroNews.date}
-                      </span>
-                    </div>
-                  </div>
-
-                  {/* Crisp White Flat Content Body */}
-                  <div className="p-5 sm:p-6 space-y-3 flex-1 flex flex-col justify-between bg-white">
-                    <div className="space-y-2">
-                      <h2 className="text-lg sm:text-xl font-bold text-slate-900 leading-snug group-hover:text-emerald-700 transition-colors line-clamp-2">
-                        {heroNews.title}
-                      </h2>
-                      <p className="text-slate-600 text-xs sm:text-sm line-clamp-2 sm:line-clamp-3 leading-relaxed">
-                        {getNewsSummary(heroNews)}
-                      </p>
-                    </div>
-
-                    <div className="pt-3 border-t border-slate-100 flex flex-wrap items-center justify-between gap-3 text-xs text-slate-600">
-                      <div className="flex items-center gap-4">
-                        <span className="flex items-center gap-1.5 font-medium text-slate-700">
-                          <User size={13} className="text-emerald-700" /> {heroNews.author}
-                        </span>
-                        <span className="flex items-center gap-1.5 font-mono text-xs text-slate-600">
-                          <Clock size={12} className="text-emerald-700" /> {getNewsReadTime(heroNews)}
-                        </span>
-                        <span className="hidden sm:flex items-center gap-1.5 font-mono text-xs text-slate-600">
-                          <Eye size={12} className="text-emerald-700" /> {getNewsViews(heroNews)} đọc
-                        </span>
-                      </div>
-
-                      <span className="inline-flex items-center gap-1 font-bold text-emerald-700 group-hover:underline">
-                        Đọc toàn văn <ChevronRight size={14} />
-                      </span>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Các Tin Nổi Bật Kế Tiếp (Sub-featured - 5 cột) */}
-                <div className="lg:col-span-5 flex flex-col gap-4">
-                  {subFeaturedNews.map(subNews => {
-                    const theme = getCategoryTheme(subNews.category);
-                    return (
-                      <div 
-                        key={subNews.id}
-                        onClick={() => setSelectedNewsForModal(subNews)}
-                        className="group flex-1 bg-white p-4 rounded-2xl border border-slate-200/80 shadow-sm hover:shadow-md hover:border-teal-300 transition-all cursor-pointer flex flex-col justify-between"
-                      >
-                        <div className="flex gap-4">
-                          <div className="w-28 sm:w-32 h-24 sm:h-26 rounded-xl overflow-hidden shrink-0 relative">
-                            <img 
-                              src={getNewsImage(subNews)} 
-                              alt={subNews.title}
-                              className="w-full h-full object-cover" 
-                            />
-                            <span className="absolute bottom-1 right-1 px-1.5 py-0.5 rounded text-xs font-mono bg-black/60 text-white backdrop-blur-xs">
-                              {getNewsReadTime(subNews)}
-                            </span>
-                          </div>
-
-                          <div className="flex-1 space-y-1.5 min-w-0">
-                            <div className="flex items-center justify-between gap-1">
-                              <span className={`text-xs font-extrabold px-2 py-0.5 rounded-full border ${theme.pill}`}>
-                                {subNews.category}
-                              </span>
-                              <span className="text-xs text-slate-600 font-mono">{subNews.date}</span>
-                            </div>
-                            <h4 className="font-bold text-slate-900 text-xs sm:text-sm line-clamp-2 leading-snug group-hover:text-emerald-700 transition-colors">
-                              {subNews.title}
-                            </h4>
-                            <p className="text-slate-500 text-xs line-clamp-1 leading-relaxed">
-                              {getNewsSummary(subNews)}
-                            </p>
-                          </div>
-                        </div>
-
-                        <div className="mt-2 pt-2 border-t border-slate-100 flex items-center justify-between text-xs text-slate-600">
-                          <span className="truncate max-w-[160px] font-medium text-slate-600">
-                            {subNews.author}
-                          </span>
-                          <span className="text-emerald-700 font-bold group-hover:underline flex items-center gap-0.5">
-                            Chi tiết <ChevronRight size={12} />
-                          </span>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* THANH TÌM KIẾM, BỘ LỌC CHUYÊN MỤC & CHẾ ĐỘ XEM */}
-          <div className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-xs space-y-3">
-            <div className="flex flex-col md:flex-row gap-3 items-stretch md:items-center justify-between">
-              
-              {/* Search Box */}
-              <div className="relative flex-1">
-                <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-600" size={16} />
-                <input 
-                  id="news-search-input"
-                  name="newsSearch"
-                  type="text" 
-                  placeholder="Tìm kiếm bản tin, thông báo hành chính, lịch tiêm ngừa, PCCC..."
-                  value={newsSearch}
-                  onChange={(e) => handleNewsSearchChange(e.target.value)}
-                  className="w-full pl-10 pr-9 py-2.5 border border-slate-200 rounded-xl text-xs sm:text-sm focus:outline-none focus:border-teal-500 bg-slate-50/50 hover:bg-white transition-colors"
-                />
-                {newsSearch && (
-                  <button 
-                    onClick={() => handleNewsSearchChange("")}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-600 hover:text-slate-600"
-                  >
-                    <X size={14} />
-                  </button>
-                )}
-              </div>
-
-              {/* View Mode Toggle */}
-              <div className="flex items-center gap-1.5 self-end md:self-auto shrink-0 bg-slate-100 p-1 rounded-xl">
-                <button
-                  onClick={() => setViewMode("grid")}
-                  title="Chế độ Lưới Ảnh Lớn"
-                  className={`min-h-[36px] px-2.5 py-1.5 rounded-lg text-xs font-bold transition-colors flex items-center gap-1.5 cursor-pointer ${viewMode === "grid" ? "bg-white text-emerald-800 border border-slate-200" : "text-slate-700 hover:text-slate-900"}`}
-                >
-                  <LayoutGrid size={15} /> <span className="hidden sm:inline">Lưới ảnh</span>
-                </button>
-                <button
-                  onClick={() => setViewMode("list")}
-                  title="Chế độ Danh Sách Báo"
-                  className={`min-h-[36px] px-2.5 py-1.5 rounded-lg text-xs font-bold transition-colors flex items-center gap-1.5 cursor-pointer ${viewMode === "list" ? "bg-white text-emerald-800 border border-slate-200" : "text-slate-700 hover:text-slate-900"}`}
-                >
-                  <List size={15} /> <span className="hidden sm:inline">Dòng báo</span>
-                </button>
-              </div>
-            </div>
-
-            {/* Category Filter Pills */}
-            <div className="pt-2 border-t border-slate-100 space-y-1.5">
-              <span className="text-xs font-bold text-slate-600 inline-flex items-center gap-1">
-                <Tag size={12} /> Chuyên mục:
-              </span>
-              <div className="grid grid-cols-2 sm:flex sm:flex-wrap items-center gap-1.5">
-              {[
-                { name: "Tất cả", icon: Newspaper, count: activeNewsList.length },
-                { name: "Thông báo khẩn", icon: AlertTriangle, count: activeNewsList.filter(n => n.category === "Thông báo khẩn").length },
-                { name: "Hành chính", icon: BookOpen, count: activeNewsList.filter(n => n.category === "Hành chính").length },
-                { name: "Y tế & Đời sống", icon: Sparkles, count: activeNewsList.filter(n => n.category === "Y tế & Đời sống").length },
-                { name: "An sinh xã hội", icon: Award, count: activeNewsList.filter(n => n.category === "An sinh xã hội").length },
-                { name: "Phong trào", icon: Users, count: activeNewsList.filter(n => n.category === "Phong trào").length }
-              ].map(cat => {
-                const isSelected = newsFilter === cat.name;
-                const IconComponent = cat.icon;
-                return (
-                  <button
-                    key={cat.name}
-                    onClick={() => handleNewsFilterChange(cat.name)}
-                    className={`min-h-[36px] px-3 py-1.5 rounded-xl text-xs font-semibold transition-colors cursor-pointer flex items-center justify-between sm:justify-start gap-1.5
-                      ${isSelected 
-                        ? "bg-emerald-700 text-white font-bold" 
-                        : "bg-slate-100 text-slate-700 hover:bg-slate-200"
-                      }`}
-                  >
-                    <span className="inline-flex items-center gap-1.5">
-                      <IconComponent size={12} />
-                      <span>{cat.name}</span>
-                    </span>
-                    <span className={`text-xs px-1.5 py-0.5 rounded-full font-mono ${isSelected ? "bg-emerald-950/60 text-white" : "bg-slate-200 text-slate-700"}`}>
-                      {cat.count}
-                    </span>
-                  </button>
-                );
-              })}
-              </div>
-            </div>
-          </div>
-
-          {/* DANH SÁCH BẢN TIN CHÍNH (MULTIMEDIA NEWS STREAM) */}
-          <div className="space-y-4">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-extrabold text-slate-600 uppercase tracking-wider">
-                {newsFilter === "Tất cả" ? "Tất Cả Bản Tin Cập Nhật" : `Chuyên mục: ${newsFilter}`} ({filteredNews.length})
-              </span>
-              <span className="text-xs text-slate-600">
-                Trang {activeNewsPage} / {totalNewsPages}
-              </span>
-            </div>
-
-            {filteredNews.length === 0 ? (
-              <div className="bg-white p-12 text-center text-slate-600 border border-slate-200 rounded-3xl shadow-xs space-y-3">
-                <Newspaper size={40} className="mx-auto text-slate-300" />
-                <p className="font-semibold text-sm text-slate-600">Không tìm thấy bản tin nào phù hợp</p>
-                <p className="text-xs text-slate-600">Vui lòng thử tìm kiếm bằng từ khóa khác hoặc chuyển sang chuyên mục "Tất cả".</p>
-                <button 
-                  onClick={() => {
-                    setNewsSearch("");
-                    setNewsFilter("Tất cả");
-                  }}
-                  className="px-4 py-2 bg-emerald-50 text-emerald-700 rounded-xl text-xs font-bold hover:bg-emerald-100 transition-colors cursor-pointer"
-                >
-                  Xóa bộ lọc
-                </button>
-              </div>
-            ) : viewMode === "grid" ? (
-              /* CHẾ ĐỘ XEM LƯỚI ẢNH (GRID VIEW - 3 CỘT) */
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {paginatedNews.map(news => {
-                  const theme = getCategoryTheme(news.category);
-                  const imageUrl = getNewsImage(news);
-
-                  return (
-                    <div 
-                      key={news.id} 
-                      className="group bg-white rounded-2xl border border-slate-200/80 shadow-xs hover:shadow-xl hover:border-teal-300 transition-all duration-300 flex flex-col justify-between overflow-hidden cursor-pointer"
-                      onClick={() => setSelectedNewsForModal(news)}
-                    >
-                      <div>
-                        {/* Thumbnail Image with aspect ratio 16:9 */}
-                        <div className="relative aspect-video w-full overflow-hidden bg-slate-100">
-                          <img 
-                            src={imageUrl} 
-                            alt={news.title}
-                            className="w-full h-full object-cover" 
-                            loading="lazy"
-                          />
-                          
-                          {/* Badge Category overlay */}
-                          <div className="absolute top-3 left-3 flex items-center gap-1.5">
-                            <span className={`text-xs font-black px-2.5 py-0.5 rounded-full border shadow-xs backdrop-blur-md ${theme.pill} bg-white/90`}>
-                              {news.category}
-                            </span>
-                            {news.isPinned && (
-                              <span className="text-xs font-black px-2 py-0.5 rounded-full bg-rose-600 text-white shadow-xs flex items-center gap-1">
-                                <Pin size={10} /> Ghim
-                              </span>
-                            )}
-                          </div>
-
-                          {/* Read time and views badge */}
-                          <div className="absolute bottom-2 right-2 flex items-center gap-1.5">
-                            <span className="text-xs font-mono bg-black/60 backdrop-blur-xs text-white px-2 py-0.5 rounded-md flex items-center gap-1">
-                              <Clock size={10} /> {getNewsReadTime(news)}
-                            </span>
-                          </div>
-                        </div>
-
-                        {/* Article Snippet Content */}
-                        <div className="p-4 sm:p-5 space-y-2.5">
-                          <div className="flex items-center justify-between text-xs text-slate-600 font-mono">
-                            <span className="flex items-center gap-1">
-                              <CalendarDays size={12} className="text-slate-600" /> {news.date}
-                            </span>
-                            <span className="flex items-center gap-1">
-                              <Eye size={12} className="text-slate-600" /> {getNewsViews(news)}
-                            </span>
-                          </div>
-
-                          <h3 className="font-extrabold text-slate-900 text-sm sm:text-base leading-snug line-clamp-2 group-hover:text-emerald-700 transition-colors">
-                            {news.title}
-                          </h3>
-
-                          <p className="text-slate-600 text-xs leading-relaxed line-clamp-3">
-                            {getNewsSummary(news)}
-                          </p>
-
-                          {/* Attached File indicator */}
-                          {news.attachedFile && (
-                            <div className="mt-2.5 px-3 py-1.5 rounded-xl bg-slate-50 border border-slate-200/80 flex items-center justify-between text-xs text-slate-600">
-                              <span className="flex items-center gap-1.5 truncate max-w-[200px] font-medium">
-                                <FileText size={13} className="text-rose-500 shrink-0" />
-                                <span className="truncate">{news.attachedFile.name}</span>
-                              </span>
-                              <span className="text-xs font-mono text-slate-600 shrink-0">
-                                {news.attachedFile.size}
-                              </span>
-                            </div>
-                          )}
-                        </div>
-                      </div>
-
-                      {/* Card Footer with Author and Actions */}
-                      <div className="p-4 sm:px-5 sm:py-3.5 bg-slate-50/50 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500">
-                        <div className="flex items-center gap-2 truncate max-w-[180px]">
-                          <div className="w-6 h-6 rounded-full bg-emerald-100 text-emerald-800 flex items-center justify-center font-bold text-xs shrink-0">
-                            {news.author.charAt(0)}
-                          </div>
-                          <span className="truncate text-xs font-medium text-slate-700">
-                            {news.author}
-                          </span>
-                        </div>
-
-                        <div className="flex items-center gap-1.5 shrink-0">
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleOpenEditNews(news);
-                            }}
-                            title="Sửa bản tin"
-                            className="min-h-[36px] min-w-[36px] inline-flex items-center justify-center p-1.5 rounded-lg text-slate-600 hover:text-blue-700 hover:bg-blue-50 border border-slate-200 transition-colors cursor-pointer"
-                          >
-                            <Edit3 size={13} />
-                          </button>
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleDeleteNewsItem(news.id, news.title);
-                            }}
-                            title="Xóa bản tin"
-                            className="min-h-[36px] min-w-[36px] inline-flex items-center justify-center p-1.5 rounded-lg text-slate-600 hover:text-rose-700 hover:bg-rose-50 border border-slate-200 transition-colors cursor-pointer"
-                          >
-                            <Trash2 size={13} />
-                          </button>
-                          <span className="text-emerald-700 font-bold text-xs flex items-center gap-0.5 ml-1">
-                            Đọc tiếp <ChevronRight size={13} />
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            ) : (
-              /* CHẾ ĐỘ XEM DÒNG BÁO (LIST VIEW - DẠNG BÀI VIẾT NGANG) */
-              <div className="space-y-4">
-                {paginatedNews.map(news => {
-                  const theme = getCategoryTheme(news.category);
-                  const imageUrl = getNewsImage(news);
-
-                  return (
-                    <div 
-                      key={news.id} 
-                      className="group bg-white rounded-2xl border border-slate-200/80 p-4 sm:p-5 shadow-xs hover:shadow-lg hover:border-teal-300 transition-all cursor-pointer flex flex-col sm:flex-row gap-5 items-start sm:items-center justify-between"
-                      onClick={() => setSelectedNewsForModal(news)}
-                    >
-                      <div className="w-full sm:w-52 h-36 sm:h-32 rounded-xl overflow-hidden shrink-0 relative">
-                        <img 
-                          src={imageUrl} 
-                          alt={news.title}
-                          className="w-full h-full object-cover" 
-                        />
-                        <span className={`absolute top-2 left-2 text-xs font-black px-2 py-0.5 rounded-full border shadow-xs bg-white/95 ${theme.pill}`}>
-                          {news.category}
-                        </span>
-                        <span className="absolute bottom-2 right-2 text-xs font-mono bg-black/60 text-white px-1.5 py-0.5 rounded">
-                          {getNewsReadTime(news)}
-                        </span>
-                      </div>
-
-                      <div className="flex-1 space-y-2 min-w-0">
-                        <div className="flex items-center gap-3 text-xs text-slate-600 font-mono">
-                          <span className="flex items-center gap-1 font-semibold text-slate-600">
-                            <CalendarDays size={13} /> {news.date}
-                          </span>
-                          <span>•</span>
-                          <span className="flex items-center gap-1">
-                            <Eye size={13} /> {getNewsViews(news)} lượt đọc
-                          </span>
-                          {news.isPinned && (
-                            <span className="text-rose-600 font-bold flex items-center gap-0.5">
-                              <Pin size={11} /> Đã ghim
-                            </span>
-                          )}
-                        </div>
-
-                        <h3 className="font-extrabold text-slate-900 text-sm sm:text-base line-clamp-2 group-hover:text-emerald-700 transition-colors leading-snug">
-                          {news.title}
-                        </h3>
-
-                        <p className="text-slate-600 text-xs sm:text-sm line-clamp-2 leading-relaxed">
-                          {getNewsSummary(news)}
-                        </p>
-
-                        <div className="pt-2 flex items-center justify-between text-xs text-slate-500">
-                          <span className="font-medium text-slate-700 flex items-center gap-1">
-                            <User size={12} className="text-emerald-600" /> {news.author}
-                          </span>
-                          {news.attachedFile && (
-                            <span className="text-xs font-mono text-rose-600 flex items-center gap-1 bg-rose-50 px-2 py-0.5 rounded-md">
-                              <FileText size={11} /> {news.attachedFile.name}
-                            </span>
-                          )}
-                        </div>
-                      </div>
-
-                      <div className="flex sm:flex-col items-center justify-end gap-2 w-full sm:w-auto pt-3 sm:pt-0 border-t sm:border-t-0 border-slate-100">
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleOpenEditNews(news);
-                          }}
-                          className="px-3 py-1.5 rounded-lg text-xs font-semibold text-slate-600 hover:bg-slate-100 transition-colors flex items-center gap-1"
-                        >
-                          <Edit3 size={12} /> Sửa
-                        </button>
-                        <button 
-                          className="px-4 py-1.5 rounded-xl text-xs font-bold bg-emerald-50 text-emerald-800 hover:bg-emerald-100 transition-colors flex items-center gap-1"
-                        >
-                          Đọc <ChevronRight size={13} />
-                        </button>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-
-            {/* Pagination Controls */}
-            <Pagination
-              id="news-pagination"
-              currentPage={activeNewsPage}
-              totalItems={totalNewsItems}
-              itemsPerPage={newsPerPage}
-              onPageChange={setCurrentNewsPage}
-            />
-          </div>
-        </div>
+        <NewsNewspaperFeed
+          newsList={activeNewsList}
+          onSelectNews={setSelectedNewsForModal}
+          onEditNews={handleOpenEditNews}
+          onDeleteNews={(item) => handleDeleteNewsItem(item.id, item.title)}
+          showMasthead={false}
+          itemsPerPage={6}
+        />
       )}
 
       {/* ========================================================
@@ -1624,58 +947,14 @@ export default function CommunityEvents({
                 />
               </div>
 
-              {/* CHỌN ẢNH BÌA MINH HỌA (PRESET PICKER HOẶC CUSTOM URL) */}
-              <div className="space-y-2 pt-2 border-t border-slate-100">
-                <label className="text-xs font-bold text-slate-700 flex items-center justify-between">
-                  <span className="flex items-center gap-1.5">
-                    <ImageIcon size={14} className="text-emerald-600" /> Chọn ảnh bìa minh họa sinh động:
-                  </span>
-                  <span className="text-xs text-emerald-700 font-medium">Bấm vào ảnh mẫu để chọn nhanh</span>
-                </label>
-
-                {/* Preset image cards */}
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
-                  {COVER_PRESETS.map((preset) => {
-                    const isSelected = newNewsImage === preset.url;
-                    return (
-                      <div
-                        key={preset.id}
-                        onClick={() => setNewNewsImage(preset.url)}
-                        className={`group relative rounded-xl overflow-hidden border-2 cursor-pointer transition-all ${isSelected ? "border-emerald-600 ring-2 ring-emerald-500/30 scale-[1.02]" : "border-slate-200 hover:border-emerald-400"}`}
-                      >
-                        <div className="aspect-video w-full">
-                          <img 
-                            src={preset.url} 
-                            alt={preset.label}
-                            className="w-full h-full object-cover" 
-                          />
-                        </div>
-                        <div className="p-1.5 bg-white text-center">
-                          <span className="text-xs font-bold text-slate-800 truncate block">
-                            {preset.label}
-                          </span>
-                        </div>
-                        {isSelected && (
-                          <div className="absolute top-1 right-1 w-5 h-5 bg-emerald-600 text-white rounded-full flex items-center justify-center shadow-xs">
-                            <Check size={12} />
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
-
-                {/* Custom URL fallback input */}
-                <div className="pt-1.5">
-                  <input 
-                    type="url" 
-                    placeholder="Hoặc dán URL ảnh bìa tùy chỉnh (https://...)"
-                    value={newNewsImage}
-                    onChange={(e) => setNewNewsImage(e.target.value)}
-                    className="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs text-slate-600 focus:outline-none focus:border-emerald-500 font-mono"
-                  />
-                </div>
-              </div>
+              <NewsMediaAndLinksFields
+                imageUrl={newNewsImage}
+                onChangeImageUrl={setNewNewsImage}
+                imageGallery={newNewsImageGallery}
+                onChangeImageGallery={setNewNewsImageGallery}
+                links={newNewsLinks}
+                onChangeLinks={setNewNewsLinks}
+              />
 
               {/* Tệp văn bản đính kèm & Ghim tin */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2 border-t border-slate-100">
@@ -1974,7 +1253,7 @@ export default function CommunityEvents({
           MODAL 3: VIEW NEWS DETAILS (ĐỌC BÀI VIẾT BÁO ĐIỆN TỬ CHI TIẾT)
           ======================================================== */}
       {selectedNewsForModal && (() => {
-        const navList = filteredNews.length > 0 ? filteredNews : activeNewsList;
+        const navList = activeNewsList;
         const currentIdx = navList.findIndex(n => n.id === selectedNewsForModal.id);
         const totalNav = navList.length;
         const hasPrev = currentIdx > 0;
@@ -2103,12 +1382,36 @@ export default function CommunityEvents({
 
             {selectedNewsForModal.imageGallery && selectedNewsForModal.imageGallery.length > 0 && (
               <div className="space-y-2 pt-3">
-                <span className="text-xs font-bold text-slate-700 block">Thư viện hình ảnh hoạt động:</span>
+                <span className="text-xs font-bold text-slate-700 block">
+                  Thư viện hình ảnh hoạt động ({selectedNewsForModal.imageGallery.length}):
+                </span>
                 <div className="grid grid-cols-2 gap-3">
                   {selectedNewsForModal.imageGallery.map((imgUrl, idx) => (
-                    <div key={idx} className="aspect-video rounded-xl overflow-hidden border border-slate-200">
-                      <img src={imgUrl} alt="Hoạt động" className="w-full h-full object-cover" />
+                    <div key={idx} className="aspect-video rounded-xl overflow-hidden border border-slate-200 bg-slate-100">
+                      <img src={imgUrl} alt={`Hoạt động ${idx + 1}`} className="w-full h-full object-cover" />
                     </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {selectedNewsForModal.links && selectedNewsForModal.links.length > 0 && (
+              <div className="space-y-2 pt-3">
+                <span className="text-xs font-bold text-slate-700 block">
+                  Liên kết &amp; Tài liệu trực tuyến đính kèm:
+                </span>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  {selectedNewsForModal.links.map((lnk) => (
+                    <a
+                      key={lnk.id}
+                      href={lnk.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="px-3.5 py-2.5 rounded-xl bg-blue-50/80 hover:bg-blue-100 border border-blue-200 flex items-center justify-between gap-2 text-xs text-blue-900 font-semibold transition-colors"
+                    >
+                      <span className="truncate">{lnk.label}</span>
+                      <ExternalLink size={14} className="shrink-0 text-blue-700" />
+                    </a>
                   ))}
                 </div>
               </div>

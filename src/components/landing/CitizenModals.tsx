@@ -3,16 +3,17 @@ import {
   CheckCircle2,
   Download,
   Edit2,
+  ExternalLink,
+  FileText,
   Info,
-  RotateCcw,
   Save,
   Trash2,
 } from "lucide-react";
 import {
   AdministrativeForm,
   CommunityEvent,
-  LandingConfig,
   LocalNews,
+  NewsLinkAttachment,
 } from "../../types";
 import { formatShortRecordId } from "../../utils/kp3Utils";
 import { Modal } from "../ui/Modal";
@@ -20,7 +21,8 @@ import { Button } from "../ui/Button";
 import { Input } from "../ui/Input";
 import { ConfirmModal } from "../ui/ConfirmModal";
 import { DetailGrid, DetailRow } from "../common/DetailRow";
-import { DEFAULT_LANDING_CONFIG } from "./landingConstants";
+import { COVER_PRESETS, getNewsImage } from "../news/newsHelpers";
+import { NewsMediaAndLinksFields } from "../news/NewsMediaAndLinksFields";
 
 export interface CitizenModalsProps {
   previewForm: AdministrativeForm | null;
@@ -36,10 +38,6 @@ export interface CitizenModalsProps {
   handleDownloadForm: (form: AdministrativeForm) => void;
   // Admin editing props
   isAdmin?: boolean;
-  editingConfigOpen?: boolean;
-  onCloseConfigModal?: () => void;
-  landingConfig?: LandingConfig;
-  onSaveLandingConfig?: (next: LandingConfig) => void;
   newsEditorState?: { open: boolean; item: LocalNews | null };
   onCloseNewsEditor?: () => void;
   onSaveNews?: (news: LocalNews, isEdit: boolean) => void;
@@ -106,10 +104,6 @@ export default function CitizenModals({
   toast,
   handleDownloadForm,
   isAdmin = false,
-  editingConfigOpen = false,
-  onCloseConfigModal,
-  landingConfig = DEFAULT_LANDING_CONFIG,
-  onSaveLandingConfig,
   newsEditorState,
   onCloseNewsEditor,
   onSaveNews,
@@ -124,23 +118,18 @@ export default function CitizenModals({
   onCloseDeleteConfirm,
   onConfirmDelete,
 }: CitizenModalsProps) {
-  // 1. Landing Config Editor State
-  const [cfgForm, setCfgForm] = useState<LandingConfig>(landingConfig);
-  useEffect(() => {
-    if (editingConfigOpen) {
-      setCfgForm(landingConfig);
-    }
-  }, [editingConfigOpen, landingConfig]);
-
-  // 2. News Editor State
+  // News Editor State
   const [newsTitle, setNewsTitle] = useState("");
   const [newsCategory, setNewsCategory] =
     useState<LocalNews["category"]>("Hành chính");
   const [newsAuthor, setNewsAuthor] = useState("Ban Điều hành Khu phố 3");
   const [newsDate, setNewsDate] = useState("");
+  const [newsSummary, setNewsSummary] = useState("");
   const [newsPinned, setNewsPinned] = useState(false);
   const [newsContent, setNewsContent] = useState("");
-  const [newsImageUrl, setNewsImageUrl] = useState("");
+  const [newsImageUrl, setNewsImageUrl] = useState(COVER_PRESETS[1].url);
+  const [newsImageGallery, setNewsImageGallery] = useState<string[]>([]);
+  const [newsLinks, setNewsLinks] = useState<NewsLinkAttachment[]>([]);
   const [newsError, setNewsError] = useState("");
 
   useEffect(() => {
@@ -151,17 +140,23 @@ export default function CitizenModals({
       setNewsCategory(item.category);
       setNewsAuthor(item.author);
       setNewsDate(item.date);
+      setNewsSummary(item.summary || "");
       setNewsPinned(Boolean(item.isPinned));
       setNewsContent(item.content);
-      setNewsImageUrl(item.imageUrl || "");
+      setNewsImageUrl(getNewsImage(item));
+      setNewsImageGallery(item.imageGallery || []);
+      setNewsLinks(item.links || []);
     } else {
       setNewsTitle("");
       setNewsCategory("Hành chính");
       setNewsAuthor("Ban Điều hành Khu phố 3");
       setNewsDate(new Date().toLocaleDateString("vi-VN"));
+      setNewsSummary("");
       setNewsPinned(false);
       setNewsContent("");
-      setNewsImageUrl("");
+      setNewsImageUrl(COVER_PRESETS[1].url);
+      setNewsImageGallery([]);
+      setNewsLinks([]);
     }
     setNewsError("");
   }, [newsEditorState]);
@@ -213,9 +208,16 @@ export default function CitizenModals({
       category: newsCategory,
       author: newsAuthor.trim() || "Ban Điều hành Khu phố 3",
       date: newsDate.trim() || new Date().toLocaleDateString("vi-VN"),
+      summary: newsSummary.trim() || existing?.summary,
       isPinned: newsPinned,
       content: newsContent.trim(),
       imageUrl: newsImageUrl.trim() || existing?.imageUrl,
+      image: newsImageUrl.trim() || existing?.image,
+      imageGallery: newsImageGallery,
+      links: newsLinks,
+      attachedFile: existing?.attachedFile,
+      readTime: existing?.readTime || "3 phút đọc",
+      views: existing?.views,
     };
     onSaveNews?.(saved, Boolean(existing));
     onCloseNewsEditor?.();
@@ -423,15 +425,13 @@ export default function CitizenModals({
       >
         {newsDetail && (
           <div className="space-y-4">
-            {newsDetail.imageUrl && (
-              <div className="rounded-xl overflow-hidden border border-slate-200 max-h-56">
-                <img
-                  src={newsDetail.imageUrl}
-                  alt={newsDetail.title}
-                  className="w-full h-56 object-cover"
-                />
-              </div>
-            )}
+            <div className="rounded-xl overflow-hidden border border-slate-200 max-h-64 bg-slate-100">
+              <img
+                src={getNewsImage(newsDetail)}
+                alt={newsDetail.title}
+                className="w-full h-64 object-cover"
+              />
+            </div>
             <DetailGrid>
               <DetailRow label="Chuyên mục" value={newsDetail.category} />
               <DetailRow label="Ngày công bố" value={newsDetail.date} isMono />
@@ -441,152 +441,78 @@ export default function CitizenModals({
                 value={newsDetail.isPinned ? "Ưu tiên hiển thị đầu trang" : "Bản tin thường"}
               />
             </DetailGrid>
+            {newsDetail.summary && (
+              <div className="p-3.5 rounded-xl bg-emerald-50/70 border-l-4 border-emerald-700 text-sm font-semibold text-emerald-950 leading-relaxed">
+                {newsDetail.summary}
+              </div>
+            )}
             <div className="text-sm text-slate-800 leading-relaxed whitespace-pre-line p-4 rounded-xl bg-slate-50 border border-slate-200">
               {newsDetail.content}
             </div>
+            {newsDetail.imageGallery && newsDetail.imageGallery.length > 0 && (
+              <div className="space-y-2 pt-2">
+                <p className="text-xs font-bold uppercase tracking-wider text-slate-600">
+                  Hình ảnh đính kèm ({newsDetail.imageGallery.length})
+                </p>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  {newsDetail.imageGallery.map((imgUrl, idx) => (
+                    <div
+                      key={`${idx}-${imgUrl.slice(0, 20)}`}
+                      className="aspect-video rounded-xl overflow-hidden border border-slate-200 bg-slate-100"
+                    >
+                      <img
+                        src={imgUrl}
+                        alt={`Ảnh đính kèm ${idx + 1}`}
+                        className="w-full h-full object-cover"
+                      />
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+            {newsDetail.links && newsDetail.links.length > 0 && (
+              <div className="space-y-2 pt-2">
+                <p className="text-xs font-bold uppercase tracking-wider text-slate-600">
+                  Liên kết &amp; Tài liệu trực tuyến
+                </p>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  {newsDetail.links.map((lnk) => (
+                    <a
+                      key={lnk.id}
+                      href={lnk.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="px-3.5 py-2.5 rounded-xl bg-blue-50 hover:bg-blue-100 border border-blue-200 flex items-center justify-between gap-2 text-xs font-semibold text-blue-900 transition-colors"
+                    >
+                      <span className="truncate">{lnk.label}</span>
+                      <ExternalLink size={14} className="shrink-0 text-blue-700" />
+                    </a>
+                  ))}
+                </div>
+              </div>
+            )}
+            {newsDetail.attachedFile && (
+              <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200 flex items-center gap-3 text-xs">
+                <FileText size={18} className="text-rose-600 shrink-0" />
+                <div>
+                  <p className="font-bold text-slate-900">{newsDetail.attachedFile.name}</p>
+                  <p className="font-mono text-slate-500">
+                    Văn bản đính kèm • {newsDetail.attachedFile.size || "1.2 MB"}
+                  </p>
+                </div>
+              </div>
+            )}
           </div>
         )}
       </Modal>
 
-      {/* 4. Admin Modal: Sửa thông tin Trang Chủ (LandingConfig) */}
-      <Modal
-        isOpen={editingConfigOpen}
-        onClose={() => onCloseConfigModal?.()}
-        title="Chỉnh sửa thông tin Trang Chủ KP3"
-        description="Cập nhật tiêu đề cổng cư dân, khẩu hiệu Hero, thông báo nổi bật và thông tin liên hệ chân trang."
-        size="2xl"
-        closeOnOverlayClick={false}
-        footerClassName="justify-between"
-        footer={
-          <>
-            <Button
-              variant="outline"
-              leftIcon={<RotateCcw size={14} />}
-              onClick={() => setCfgForm(DEFAULT_LANDING_CONFIG)}
-            >
-              Khôi phục mặc định
-            </Button>
-            <div className="flex items-center gap-2">
-              <Button variant="secondary" onClick={() => onCloseConfigModal?.()}>
-                Hủy
-              </Button>
-              <Button
-                type="submit"
-                form="landing-config-form"
-                variant="emerald"
-                leftIcon={<Save size={15} />}
-              >
-                Lưu Trang Chủ
-              </Button>
-            </div>
-          </>
-        }
-      >
-        <form
-          id="landing-config-form"
-          onSubmit={(e) => {
-            e.preventDefault();
-            onSaveLandingConfig?.(cfgForm);
-            onCloseConfigModal?.();
-          }}
-          className="space-y-4"
-        >
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-            <Input
-              id="cfg-site-title"
-              label="Tên cổng (Header & Footer)"
-              required
-              value={cfgForm.siteTitle}
-              onChange={(e) => setCfgForm({ ...cfgForm, siteTitle: e.target.value })}
-            />
-            <Input
-              id="cfg-site-subtitle"
-              label="Mô tả ngắn dưới logo"
-              value={cfgForm.siteSubtitle}
-              onChange={(e) => setCfgForm({ ...cfgForm, siteSubtitle: e.target.value })}
-            />
-          </div>
-
-          <Input
-            id="cfg-hero-badge"
-            label="Nhãn hành chính trên Hero"
-            value={cfgForm.heroBadge}
-            onChange={(e) => setCfgForm({ ...cfgForm, heroBadge: e.target.value })}
-          />
-
-          <Input
-            id="cfg-hero-title"
-            label="Khẩu hiệu chính trang chủ (H1)"
-            required
-            value={cfgForm.heroTitle}
-            onChange={(e) => setCfgForm({ ...cfgForm, heroTitle: e.target.value })}
-          />
-
-          <Input
-            id="cfg-hero-address-note"
-            label="Ghi chú địa giới hiển thị trong khung thống kê"
-            value={cfgForm.heroAddressNote}
-            onChange={(e) => setCfgForm({ ...cfgForm, heroAddressNote: e.target.value })}
-          />
-
-          <div className="space-y-1.5">
-            <label htmlFor="cfg-banner-notice" className="block text-sm font-medium text-slate-700">
-              Thông báo khẩn / Banner nổi bật trên đầu trang (để trống nếu ẩn)
-            </label>
-            <textarea
-              id="cfg-banner-notice"
-              rows={2}
-              value={cfgForm.bannerNotice || ""}
-              onChange={(e) => setCfgForm({ ...cfgForm, bannerNotice: e.target.value })}
-              placeholder="VD: Thông báo họp Tổ dân phố định kỳ tối Thứ 7 tuần này..."
-              className="w-full px-3.5 py-2 bg-white text-slate-900 text-sm rounded-lg border border-slate-300 focus:outline-none focus:border-emerald-600"
-            />
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-            <Input
-              id="cfg-contact-address"
-              label="Địa chỉ văn phòng KP3"
-              value={cfgForm.contactAddress}
-              onChange={(e) => setCfgForm({ ...cfgForm, contactAddress: e.target.value })}
-            />
-            <Input
-              id="cfg-contact-hotline"
-              label="Số điện thoại / Trực ban"
-              value={cfgForm.hotline}
-              onChange={(e) => setCfgForm({ ...cfgForm, hotline: e.target.value })}
-            />
-            <Input
-              id="cfg-working-hours"
-              label="Giờ tiếp dân"
-              value={cfgForm.workingHours}
-              onChange={(e) => setCfgForm({ ...cfgForm, workingHours: e.target.value })}
-            />
-            <Input
-              id="cfg-contact-email"
-              label="Email tiếp nhận chính thức"
-              type="email"
-              value={cfgForm.contactEmail}
-              onChange={(e) => setCfgForm({ ...cfgForm, contactEmail: e.target.value })}
-            />
-          </div>
-
-          <Input
-            id="cfg-footer-operator"
-            label="Đơn vị phụ trách nội dung (Footer)"
-            value={cfgForm.footerOperator}
-            onChange={(e) => setCfgForm({ ...cfgForm, footerOperator: e.target.value })}
-          />
-        </form>
-      </Modal>
-
-      {/* 5. Admin Modal: Thêm / Sửa Tin tức */}
+      {/* 4. Admin Modal: Thêm / Sửa Tin tức */}
       <Modal
         isOpen={Boolean(newsEditorState?.open)}
         onClose={() => onCloseNewsEditor?.()}
         title={newsEditorState?.item ? "Cập nhật Tin tức / Thông báo" : "Đăng Tin tức / Thông báo Mới"}
-        description="Hiển thị trực tiếp trên Trang Chủ và đồng bộ với Kênh Tin Tức KP3."
-        size="xl"
+        description="Hiển thị trực tiếp trên Bản tin & Báo điện tử Khu phố và đồng bộ Kênh Quản trị KP3."
+        size="2xl"
         closeOnOverlayClick={false}
         footer={
           <>
@@ -656,13 +582,19 @@ export default function CitizenModals({
             />
           </div>
 
-          <Input
-            id="landing-news-image"
-            label="Đường dẫn ảnh minh họa (tùy chọn)"
-            value={newsImageUrl}
-            onChange={(e) => setNewsImageUrl(e.target.value)}
-            placeholder="https://..."
-          />
+          <div className="space-y-1.5">
+            <label htmlFor="landing-news-summary" className="block text-sm font-medium text-slate-700">
+              Sa-pô / Tóm tắt ngắn
+            </label>
+            <textarea
+              id="landing-news-summary"
+              rows={2}
+              value={newsSummary}
+              onChange={(e) => setNewsSummary(e.target.value)}
+              placeholder="Đoạn tóm tắt nổi bật từ 1-2 câu xuất hiện trên thẻ bản tin..."
+              className="w-full px-3.5 py-2 bg-white text-slate-900 text-sm rounded-lg border border-slate-300 focus:outline-none focus:border-emerald-600"
+            />
+          </div>
 
           <div className="space-y-1.5">
             <label htmlFor="landing-news-content" className="block text-sm font-medium text-slate-700">
@@ -683,14 +615,23 @@ export default function CitizenModals({
             />
           </div>
 
-          <label className="flex items-center gap-2 text-sm font-medium text-slate-800 cursor-pointer">
+          <NewsMediaAndLinksFields
+            imageUrl={newsImageUrl}
+            onChangeImageUrl={setNewsImageUrl}
+            imageGallery={newsImageGallery}
+            onChangeImageGallery={setNewsImageGallery}
+            links={newsLinks}
+            onChangeLinks={setNewsLinks}
+          />
+
+          <label className="flex items-center gap-2 text-sm font-medium text-slate-800 cursor-pointer pt-1">
             <input
               type="checkbox"
               checked={newsPinned}
               onChange={(e) => setNewsPinned(e.target.checked)}
               className="h-4 w-4 accent-emerald-600"
             />
-            <span>Ghim bài viết ưu tiên lên đầu Trang Chủ</span>
+            <span>Ghim bài viết ưu tiên lên đầu Trang Tin tức</span>
           </label>
         </form>
       </Modal>

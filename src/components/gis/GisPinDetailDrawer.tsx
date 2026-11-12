@@ -107,7 +107,7 @@ export default function GisPinDetailDrawer({
             </span>
             {(pin.toNumber || detectedZone) && (
               <span className="px-2.5 py-0.5 rounded-md bg-slate-100 border border-slate-200 text-slate-800 text-xs font-bold">
-                Tổ {pin.toNumber || detectedZone?.toNumber}
+                Phân khu GIS #{pin.toNumber || detectedZone?.toNumber}
               </span>
             )}
           </div>

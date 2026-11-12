@@ -353,7 +353,7 @@ export function AddContributionModal({
         <Input
           id="thu-note"
           label="Ghi chú biên nhận (tùy chọn)"
-          placeholder="VD: Thu đợt 1 năm 2026 tại Tổ dân phố 2"
+          placeholder="VD: Thu đợt 1 năm 2026 tại Tuyến Lương Định Của"
           value={note}
           onChange={(e) => setNote(e.target.value)}
         />

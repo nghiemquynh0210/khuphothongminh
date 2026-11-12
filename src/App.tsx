@@ -33,6 +33,7 @@ import {
 import {
   DEFAULT_LANDING_CONFIG,
   LANDING_CONFIG_STORAGE_KEY,
+  mergeLandingConfig,
 } from "./components/landing/landingConstants";
 import {
   REPORT_STORAGE_KEY,
@@ -676,7 +677,7 @@ export default function App() {
     try {
       const saved = localStorage.getItem(LANDING_CONFIG_STORAGE_KEY);
       if (saved) {
-        return { ...DEFAULT_LANDING_CONFIG, ...JSON.parse(saved) };
+        return mergeLandingConfig(JSON.parse(saved));
       }
     } catch {}
     return DEFAULT_LANDING_CONFIG;
@@ -2122,6 +2123,8 @@ export default function App() {
                 onUpdateNews={handleUpdateNews}
                 onDeleteNews={handleDeleteNews}
                 currentUser={currentUser}
+                landingConfig={landingConfig}
+                onUpdateLandingConfig={setLandingConfig}
               />
             ) : (
               <AdministrativeForms 
@@ -2195,7 +2198,7 @@ export default function App() {
 
           {activeTab === "settings" && (
             <SettingsAndPermissions
-              defaultSubTab="approvals"
+              defaultSubTab={pendingRegistrations.length > 0 ? "approvals" : "portal"}
               onNavigate={(tab) => {
                 setActiveTab(tab);
                 navigate(getDashboardExtensionPath(tab));
@@ -2219,6 +2222,8 @@ export default function App() {
               onUpdateNews={handleUpdateNews}
               onDeleteNews={handleDeleteNews}
               currentUser={currentUser}
+              landingConfig={landingConfig}
+              onUpdateLandingConfig={setLandingConfig}
             />
           )}
             </motion.div>
