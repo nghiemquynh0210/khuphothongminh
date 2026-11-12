@@ -2190,7 +2190,8 @@ export default function BusinessManagement({
           <Modal
             isOpen={showDetailModal}
             onClose={handleCloseDetailModal}
-            size="4xl"
+            size="3xl"
+            compact
             ariaLabel={`Hồ sơ chi tiết cơ sở ${selectedBusiness.name}`}
             headerNavigation={
               totalNav > 1 && currentIdx >= 0
@@ -2206,8 +2207,8 @@ export default function BusinessManagement({
                 : undefined
             }
             headerSlot={
-              <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3.5">
-                <div className="relative w-14 h-14 sm:w-16 sm:h-16 rounded-xl border border-slate-200 overflow-hidden shrink-0 group bg-slate-100">
+              <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
+                <div className="relative w-12 h-12 sm:w-14 sm:h-14 rounded-xl border border-slate-200 overflow-hidden shrink-0 group bg-slate-100">
                   <img 
                     src={selectedBusiness.image || "https://images.unsplash.com/photo-1578916171728-46686eac8d58?w=400"} 
                     alt={selectedBusiness.name}
@@ -2297,11 +2298,11 @@ export default function BusinessManagement({
               </div>
             }
             subHeader={
-              <div className="flex border-b border-slate-200 bg-white px-5 sm:px-6 gap-5 text-xs font-bold shrink-0 overflow-x-auto">
+              <div className="flex border-b border-slate-200 bg-white px-4 sm:px-5 gap-4 text-xs font-bold shrink-0 overflow-x-auto">
                 <button 
                   type="button"
                   onClick={() => setBusinessModalTab("general")}
-                  className={`py-2.5 transition-colors relative cursor-pointer flex items-center gap-1.5 shrink-0 ${
+                  className={`py-2 transition-colors relative cursor-pointer flex items-center gap-1.5 shrink-0 ${
                     businessModalTab === "general" ? "text-emerald-800" : "text-slate-600 hover:text-slate-900"
                   }`}
                 >
@@ -2312,7 +2313,7 @@ export default function BusinessManagement({
                 <button 
                   type="button"
                   onClick={() => setBusinessModalTab("premises")}
-                  className={`py-2.5 transition-colors relative cursor-pointer flex items-center gap-1.5 shrink-0 ${
+                  className={`py-2 transition-colors relative cursor-pointer flex items-center gap-1.5 shrink-0 ${
                     businessModalTab === "premises" ? "text-emerald-800" : "text-slate-600 hover:text-slate-900"
                   }`}
                 >
@@ -2323,7 +2324,7 @@ export default function BusinessManagement({
                 <button 
                   type="button"
                   onClick={() => setBusinessModalTab("personnel")}
-                  className={`py-2.5 transition-colors relative cursor-pointer flex items-center gap-1.5 shrink-0 ${
+                  className={`py-2 transition-colors relative cursor-pointer flex items-center gap-1.5 shrink-0 ${
                     businessModalTab === "personnel" ? "text-emerald-800" : "text-slate-600 hover:text-slate-900"
                   }`}
                 >
@@ -2334,7 +2335,7 @@ export default function BusinessManagement({
                 <button 
                   type="button"
                   onClick={() => setBusinessModalTab("history")}
-                  className={`py-2.5 transition-colors relative cursor-pointer flex items-center gap-1.5 shrink-0 ${
+                  className={`py-2 transition-colors relative cursor-pointer flex items-center gap-1.5 shrink-0 ${
                     businessModalTab === "history" ? "text-emerald-800" : "text-slate-600 hover:text-slate-900"
                   }`}
                 >
@@ -2344,7 +2345,7 @@ export default function BusinessManagement({
                 </button>
               </div>
             }
-            bodyClassName="p-5 sm:p-6 space-y-4 bg-slate-50/70 text-xs sm:text-sm"
+            bodyClassName="p-4 sm:p-5 space-y-3 bg-white text-xs sm:text-sm"
             footer={
               <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
                 <div className="flex flex-wrap items-center gap-2">
@@ -2401,38 +2402,35 @@ export default function BusinessManagement({
           >
 
               {businessModalTab === "general" && (
-                <div className="space-y-4">
-                  {/* HỘP HỒ SƠ TỔNG HỢP: Tinh gọn, logic, khoa học */}
-                  <div className="p-5 rounded-2xl bg-white border border-slate-200/90 shadow-xs space-y-4">
+                <div className="space-y-3">
+                  {/* HỘP HỒ SƠ TỔNG HỢP: Tinh gọn, phẳng hairline */}
+                  <div className="space-y-3">
                     {/* Header phân mục & Dải album ảnh mini tích hợp */}
-                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-3.5">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-200 pb-2.5">
                       <div className="flex items-center gap-2">
                         <span className="p-1.5 bg-indigo-50 text-indigo-700 rounded-lg">
-                          <Store size={16} />
+                          <Store size={15} />
                         </span>
-                        <div>
-                          <h4 className="font-bold text-slate-900 text-xs uppercase tracking-wider">
-                            Thông tin Đăng ký Hoạt động & Giấy phép Pháp lý
-                          </h4>
-                          <p className="text-[11px] text-slate-400">Hồ sơ hành chính quản lý địa bàn cơ sở kinh doanh KP3</p>
-                        </div>
+                        <h4 className="font-bold text-slate-900 text-xs uppercase tracking-wider">
+                          Đăng ký Hoạt động & Giấy phép Pháp lý
+                        </h4>
                       </div>
 
-                      {/* Dải ảnh cơ sở tích hợp gọn gàng, không tách hộp riêng */}
+                      {/* Dải ảnh cơ sở tích hợp gọn gàng */}
                       <div className="flex items-center gap-2 shrink-0 self-end sm:self-center">
                         <div className="flex items-center gap-1.5">
                           {(selectedBusiness.images || [selectedBusiness.image || "https://images.unsplash.com/photo-1578916171728-46686eac8d58?w=400"]).slice(0, 3).map((imgUrl, i) => (
                             <div 
                               key={i} 
                               onClick={() => setViewingImagePreview({ url: imgUrl, caption: `${selectedBusiness.name} - Ảnh ${i + 1}` })}
-                              className="w-10 h-10 rounded-lg overflow-hidden border border-slate-200 shrink-0 cursor-pointer hover:ring-2 hover:ring-indigo-500 transition-all shadow-2xs"
+                              className="w-9 h-9 rounded-lg overflow-hidden border border-slate-200 shrink-0 cursor-pointer hover:ring-2 hover:ring-indigo-500 transition-all"
                               title={`Xem ảnh ${i + 1}`}
                             >
                               <img src={imgUrl} alt="Thumbnail" className="w-full h-full object-cover" />
                             </div>
                           ))}
                         </div>
-                        <label className="text-[11px] text-indigo-700 hover:text-indigo-900 font-bold cursor-pointer flex items-center gap-1 bg-indigo-50 hover:bg-indigo-100 px-2.5 py-1.5 rounded-lg border border-indigo-200 transition-colors">
+                        <label className="min-h-8 text-xs text-indigo-700 hover:text-indigo-900 font-bold cursor-pointer inline-flex items-center gap-1 bg-indigo-50 hover:bg-indigo-100 px-2.5 py-1 rounded-lg border border-indigo-200 transition-colors">
                           <Plus size={12} /> Ảnh
                           <input 
                             type="file" 
@@ -2444,8 +2442,8 @@ export default function BusinessManagement({
                       </div>
                     </div>
 
-                    {/* Bảng chi tiết 2 cột khoa học, đã bỏ dòng lặp tên */}
-                    <DetailGrid>
+                    {/* Bảng chi tiết 2 cột tinh gọn, tự ẩn dòng trống */}
+                    <DetailGrid hideEmpty compact>
                       <DetailRow label="Số Giấy phép KD / Mã ĐK" value={selectedBusiness.licenseNumber || "Chưa cấp"} isMono />
                       <DetailRow label="Mã số thuế (MST)" value={selectedBusiness.taxCode || "Đang xác minh"} isMono />
                       <DetailRow
@@ -2528,24 +2526,24 @@ export default function BusinessManagement({
               )}
 
               {businessModalTab === "premises" && (
-                <div className="space-y-4">
+                <div className="space-y-3">
                   {/* CARD 2: ĐỊA ĐIỂM, MẶT BẰNG KINH DOANH & LIÊN KẾT ĐỊA BÀN KP3 */}
-                  <div className="p-4 sm:p-5 rounded-xl bg-white border border-slate-200/90 shadow-2xs space-y-3.5">
-                    <div className="flex items-center justify-between border-b border-slate-100 pb-2.5">
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between border-b border-slate-200 pb-2">
                       <div className="flex items-center gap-2">
-                        <span className="p-1.5 bg-emerald-50 text-emerald-700 rounded-lg">
-                          <MapPin size={15} />
+                        <span className="p-1 bg-emerald-50 text-emerald-700 rounded-lg">
+                          <MapPin size={14} />
                         </span>
                         <h4 className="font-bold text-slate-900 text-xs uppercase tracking-wider">
-                          2. Địa điểm, Mặt bằng Kinh doanh & Tuyến đường
+                          Địa điểm, Mặt bằng &amp; Tuyến đường
                         </h4>
                       </div>
-                      <span className="text-[11px] font-bold text-slate-600 bg-slate-100 px-2 py-0.5 rounded">
+                      <span className="text-xs font-bold text-slate-600 bg-slate-100 px-2 py-0.5 rounded">
                         {selectedBusiness.premisesType || "Nhà phố"}
                       </span>
                     </div>
 
-                    <DetailGrid>
+                    <DetailGrid hideEmpty compact>
                       <DetailRow
                         label="Địa chỉ & Tuyến đường"
                         value={
@@ -2767,19 +2765,19 @@ export default function BusinessManagement({
               )}
 
               {businessModalTab === "personnel" && (
-                <div className="space-y-4">
+                <div className="space-y-3.5">
                   {/* CARD 3: NGƯỜI ĐẠI DIỆN & ĐẦU MỐI PHỐI HỢP ĐỊA PHƯƠNG */}
-                  <div className="p-4 sm:p-5 rounded-xl bg-white border border-slate-200/90 shadow-2xs space-y-3.5">
-                    <div className="flex items-center gap-2 border-b border-slate-100 pb-2.5">
-                      <span className="p-1.5 bg-blue-50 text-blue-700 rounded-lg">
-                        <UserCheck size={15} />
+                  <div className="space-y-2.5">
+                    <div className="flex items-center gap-2 border-b border-slate-200 pb-2">
+                      <span className="p-1 bg-blue-50 text-blue-700 rounded-lg">
+                        <UserCheck size={14} />
                       </span>
                       <h4 className="font-bold text-slate-900 text-xs uppercase tracking-wider">
-                        3. Người đại diện & Đầu mối Liên hệ Địa phương
+                        Người đại diện &amp; Đầu mối Liên hệ
                       </h4>
                     </div>
 
-                    <DetailGrid>
+                    <DetailGrid hideEmpty compact>
                       <DetailRow
                         label="Đại diện pháp luật"
                         value={selectedBusiness.legalRepresentative || selectedBusiness.owner}
@@ -2816,17 +2814,17 @@ export default function BusinessManagement({
                   </div>
 
                   {/* CARD 4: LAO ĐỘNG & NGƯỜI NƯỚC NGOÀI */}
-                  <div className="p-4 sm:p-5 rounded-xl bg-white border border-slate-200/90 shadow-2xs space-y-3.5">
-                    <div className="flex items-center justify-between border-b border-slate-100 pb-2.5">
+                  <div className="pt-3 border-t border-slate-200 space-y-2.5">
+                    <div className="flex items-center justify-between pb-1">
                       <div className="flex items-center gap-2">
-                        <span className="p-1.5 bg-purple-50 text-purple-700 rounded-lg">
-                          <Users2 size={15} />
+                        <span className="p-1 bg-purple-50 text-purple-700 rounded-lg">
+                          <Users2 size={14} />
                         </span>
                         <h4 className="font-bold text-slate-900 text-xs uppercase tracking-wider">
-                          4. Cơ cấu Lao động & Quản lý Người nước ngoài
+                          Cơ cấu Lao động &amp; Nhân sự
                         </h4>
                       </div>
-                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-purple-100 text-purple-900">
+                      <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-purple-50 text-purple-900 border border-purple-200">
                         {selectedBusiness.employeeCount} lao động
                       </span>
                     </div>

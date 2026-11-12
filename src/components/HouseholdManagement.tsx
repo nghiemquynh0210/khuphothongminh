@@ -1308,8 +1308,9 @@ export default function HouseholdManagement({
                 isOpen={showDetailModal}
                 onClose={handleCloseDetailModal}
                 title={`Hộ gia đình: ${selectedHousehold.ownerName}`}
-                size="4xl"
-                bodyClassName="p-4 sm:p-6 space-y-4 bg-slate-50"
+                size="3xl"
+                compact
+                bodyClassName="p-4 sm:p-5 space-y-3.5 bg-white"
                 footerClassName="justify-between"
                 headerNavigation={{
                   hasPrev,
@@ -1320,12 +1321,12 @@ export default function HouseholdManagement({
                   onNext: () => hasNext && handleOpenDetailModal(filteredHouseholds[hhIdx + 1]),
                 }}
                 headerSlot={
-                  <div className="flex items-start sm:items-center gap-3.5">
-                    <div className="w-12 h-12 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-700 flex items-center justify-center shrink-0">
-                      <Home size={22} aria-hidden="true" />
+                  <div className="flex items-start sm:items-center gap-3">
+                    <div className="w-11 h-11 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-700 flex items-center justify-center shrink-0">
+                      <Home size={20} aria-hidden="true" />
                     </div>
-                    <div className="min-w-0 flex-1 space-y-1">
-                      <div className="flex flex-wrap items-center gap-2 text-xs">
+                    <div className="min-w-0 flex-1 space-y-0.5">
+                      <div className="flex flex-wrap items-center gap-1.5 text-xs">
                         <span className="font-mono font-bold px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-800 border border-emerald-200">
                           {selectedHousehold.code}
                         </span>
@@ -1340,12 +1341,12 @@ export default function HouseholdManagement({
                           {extractKp3Area(selectedHousehold.address)} · {selectedHousehold.members.length} nhân khẩu
                         </span>
                       </div>
-                      <h2 className="text-lg sm:text-xl font-extrabold text-slate-900 tracking-tight leading-snug break-words">
+                      <h2 className="text-base sm:text-lg font-extrabold text-slate-900 tracking-tight leading-snug break-words">
                         Hộ gia đình: {selectedHousehold.ownerName}
                       </h2>
                       <div className="flex flex-wrap items-center gap-2 text-xs text-slate-600">
                         <span className="inline-flex items-center gap-1 min-w-0">
-                          <MapPin size={13} className="text-emerald-700 shrink-0" aria-hidden="true" />
+                          <MapPin size={12} className="text-emerald-700 shrink-0" aria-hidden="true" />
                           <span className="truncate max-w-md">{selectedHousehold.address}</span>
                         </span>
                       </div>
@@ -1353,37 +1354,37 @@ export default function HouseholdManagement({
                   </div>
                 }
                 subHeader={
-                  <div className="flex px-5 sm:px-6 gap-6 text-xs font-bold overflow-x-auto">
+                  <div className="flex px-4 sm:px-5 gap-4 sm:gap-5 text-xs font-bold overflow-x-auto">
                     <button
                       type="button"
                       onClick={() => setDetailTab("members")}
-                      className={`py-3 transition-colors relative cursor-pointer flex items-center gap-1.5 whitespace-nowrap ${
+                      className={`py-2 transition-colors relative cursor-pointer flex items-center gap-1.5 whitespace-nowrap ${
                         detailTab === "members" ? "text-emerald-800 font-extrabold" : "text-slate-500 hover:text-slate-800"
                       }`}
                     >
-                      <Users size={15} aria-hidden="true" />
-                      <span>Thông tin & Thành viên ({selectedHousehold.members.length})</span>
+                      <Users size={14} aria-hidden="true" />
+                      <span>Thông tin &amp; Thành viên ({selectedHousehold.members.length})</span>
                       {detailTab === "members" && <div className="absolute bottom-0 left-0 w-full h-0.5 bg-emerald-700" />}
                     </button>
                     <button
                       type="button"
                       onClick={() => setDetailTab("businesses")}
-                      className={`py-3 transition-colors relative cursor-pointer flex items-center gap-1.5 whitespace-nowrap ${
+                      className={`py-2 transition-colors relative cursor-pointer flex items-center gap-1.5 whitespace-nowrap ${
                         detailTab === "businesses" ? "text-emerald-800 font-extrabold" : "text-slate-500 hover:text-slate-800"
                       }`}
                     >
-                      <Home size={15} aria-hidden="true" />
+                      <Home size={14} aria-hidden="true" />
                       <span>Hộ kinh doanh tại địa chỉ</span>
                       {detailTab === "businesses" && <div className="absolute bottom-0 left-0 w-full h-0.5 bg-emerald-700" />}
                     </button>
                     <button
                       type="button"
                       onClick={() => setDetailTab("history")}
-                      className={`py-3 transition-colors relative cursor-pointer flex items-center gap-1.5 whitespace-nowrap ${
+                      className={`py-2 transition-colors relative cursor-pointer flex items-center gap-1.5 whitespace-nowrap ${
                         detailTab === "history" ? "text-slate-900 font-extrabold" : "text-slate-500 hover:text-slate-800"
                       }`}
                     >
-                      <History size={15} aria-hidden="true" />
+                      <History size={14} aria-hidden="true" />
                       <span>Nhật ký biến động</span>
                       {detailTab === "history" && <div className="absolute bottom-0 left-0 w-full h-0.5 bg-slate-900" />}
                     </button>
@@ -1391,15 +1392,15 @@ export default function HouseholdManagement({
                 }
                 footer={
                   <>
-                    <div className="flex flex-wrap items-center gap-2">
+                    <div className="flex flex-wrap items-center gap-1.5">
                       <button
                         type="button"
                         id="btn-modal-tree"
                         onClick={() => setShowTreeModal(true)}
-                        className="min-h-9 flex items-center gap-1.5 bg-white hover:bg-slate-100 text-slate-800 border border-slate-300 font-bold px-3 py-1.5 rounded-xl text-xs transition-colors cursor-pointer"
+                        className="min-h-8 flex items-center gap-1 bg-white hover:bg-slate-100 text-slate-800 border border-slate-300 font-bold px-2.5 py-1 rounded-lg text-xs transition-colors cursor-pointer"
                       >
-                        <GitBranch size={14} className="text-emerald-700" aria-hidden="true" />
-                        <span>Sơ đồ Phả Hệ</span>
+                        <GitBranch size={13} className="text-emerald-700" aria-hidden="true" />
+                        <span>Phả hệ</span>
                       </button>
                       <button
                         type="button"
@@ -1407,14 +1408,14 @@ export default function HouseholdManagement({
                           handleDirections(selectedHousehold);
                           setShowDetailModal(false);
                         }}
-                        className="min-h-9 flex items-center gap-1.5 bg-white hover:bg-slate-100 text-slate-800 border border-slate-300 font-bold px-3 py-1.5 rounded-xl text-xs transition-colors cursor-pointer"
+                        className="min-h-8 flex items-center gap-1 bg-white hover:bg-slate-100 text-slate-800 border border-slate-300 font-bold px-2.5 py-1 rounded-lg text-xs transition-colors cursor-pointer"
                       >
                         <Navigation size={13} className="text-emerald-700" aria-hidden="true" />
                         <span>Chỉ đường GIS</span>
                       </button>
                     </div>
 
-                    <div className="flex flex-wrap items-center gap-2">
+                    <div className="flex flex-wrap items-center gap-1.5">
                       {showSoftDeleted ? (
                         <button
                           type="button"
@@ -1422,24 +1423,24 @@ export default function HouseholdManagement({
                             handleRestoreHousehold(selectedHousehold.id);
                             setShowDetailModal(false);
                           }}
-                          className="min-h-9 flex items-center gap-1.5 px-3.5 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 rounded-xl text-xs font-bold transition-colors cursor-pointer"
+                          className="min-h-8 flex items-center gap-1 px-2.5 py-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 rounded-lg text-xs font-bold transition-colors cursor-pointer"
                         >
-                          <Undo2 size={13} aria-hidden="true" /> Khôi phục sổ
+                          <Undo2 size={13} aria-hidden="true" /> Khôi phục
                         </button>
                       ) : (
                         <button
                           type="button"
                           onClick={() => handleSoftDeleteHousehold(selectedHousehold.id)}
-                          className="min-h-9 flex items-center gap-1.5 px-3.5 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-800 border border-rose-200 rounded-xl text-xs font-bold transition-colors cursor-pointer"
+                          className="min-h-8 flex items-center gap-1 px-2.5 py-1 bg-rose-50 hover:bg-rose-100 text-rose-800 border border-rose-200 rounded-lg text-xs font-bold transition-colors cursor-pointer"
                         >
-                          <span>Đóng sổ / Chuyển đi</span>
+                          <span>Đóng sổ</span>
                         </button>
                       )}
                       <button
                         type="button"
                         id="btn-close-household-footer"
                         onClick={handleCloseDetailModal}
-                        className="min-h-9 px-3.5 py-1.5 bg-white hover:bg-slate-100 text-slate-700 border border-slate-300 rounded-xl text-xs font-bold transition-colors cursor-pointer"
+                        className="min-h-8 px-3 py-1 bg-white hover:bg-slate-100 text-slate-700 border border-slate-300 rounded-lg text-xs font-bold transition-colors cursor-pointer"
                       >
                         Đóng
                       </button>
@@ -1447,25 +1448,25 @@ export default function HouseholdManagement({
                         type="button"
                         id="btn-modal-edit-household"
                         onClick={startEditHousehold}
-                        className="min-h-9 flex items-center gap-1.5 px-4 py-1.5 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl text-xs font-bold transition-colors cursor-pointer"
+                        className="min-h-8 flex items-center gap-1 px-3.5 py-1 bg-emerald-700 hover:bg-emerald-800 text-white rounded-lg text-xs font-bold transition-colors cursor-pointer"
                       >
                         <Edit3 size={13} aria-hidden="true" />
-                        <span>Chỉnh sửa sổ hộ</span>
+                        <span>Chỉnh sửa</span>
                       </button>
                     </div>
                   </>
                 }
               >
                 {detailTab === "members" && (
-                  <div className="space-y-4">
-                    <div className="bg-white rounded-2xl border border-slate-200 p-4 sm:p-5 space-y-3">
-                      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 pb-2.5">
+                  <div className="space-y-3.5">
+                    <div className="bg-slate-50/70 rounded-xl border border-slate-200/90 p-3.5 space-y-2">
+                      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-200/70 pb-2">
                         <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wider">Thông tin Sổ Hộ Khẩu</h3>
-                        <div className="flex flex-wrap items-center gap-2">
+                        <div className="flex flex-wrap items-center gap-1.5">
                           <button
                             type="button"
                             onClick={() => openPinModal(selectedHousehold)}
-                            className="min-h-8 px-2.5 py-1 bg-white hover:bg-slate-100 text-slate-700 border border-slate-300 rounded-lg font-semibold text-xs inline-flex items-center gap-1 cursor-pointer"
+                            className="min-h-7 px-2 py-0.5 bg-white hover:bg-slate-100 text-slate-700 border border-slate-300 rounded-lg font-semibold text-xs inline-flex items-center gap-1 cursor-pointer"
                           >
                             <MapPin size={12} className="text-indigo-600" aria-hidden="true" />
                             <span>{selectedHousehold.coordinates ? "Sửa tọa độ" : "Ghim tọa độ"}</span>
@@ -1479,7 +1480,7 @@ export default function HouseholdManagement({
                               )}
                               target="_blank"
                               rel="noopener noreferrer"
-                              className="min-h-8 px-2.5 py-1 bg-white hover:bg-slate-100 text-slate-700 border border-slate-300 rounded-lg font-semibold text-xs inline-flex items-center gap-1"
+                              className="min-h-7 px-2 py-0.5 bg-white hover:bg-slate-100 text-slate-700 border border-slate-300 rounded-lg font-semibold text-xs inline-flex items-center gap-1"
                             >
                               <ExternalLink size={12} aria-hidden="true" />
                               <span>Google Maps</span>
@@ -1487,7 +1488,7 @@ export default function HouseholdManagement({
                           )}
                         </div>
                       </div>
-                      <DetailGrid>
+                      <DetailGrid hideEmpty compact>
                         <DetailRow label="Mã sổ hộ khẩu" value={selectedHousehold.code} copyValue={selectedHousehold.code} isMono />
                         <DetailRow label="Chủ hộ" value={selectedHousehold.ownerName} />
                         <DetailRow label="Loại cư trú" value={selectedHousehold.type || "Thường trú"} />
@@ -1498,13 +1499,13 @@ export default function HouseholdManagement({
                       </DetailGrid>
                     </div>
 
-                    <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
-                      <span className="text-xs font-bold text-slate-600 uppercase tracking-wider">Danh sách nhân khẩu ({selectedHousehold.members.length})</span>
-                      <div className="flex flex-wrap items-center gap-2">
+                    <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 pt-1">
+                      <span className="text-xs font-bold text-slate-700 uppercase tracking-wider">Danh sách nhân khẩu ({selectedHousehold.members.length})</span>
+                      <div className="flex flex-wrap items-center gap-1.5">
                         <button
                           type="button"
                           onClick={() => setShowFullPii(prev => !prev)}
-                          className="min-h-8 flex items-center gap-1.5 bg-white hover:bg-slate-100 text-slate-700 px-3 py-1 rounded-xl text-xs font-bold cursor-pointer transition-colors border border-slate-300"
+                          className="min-h-8 flex items-center gap-1 bg-white hover:bg-slate-100 text-slate-700 px-2.5 py-1 rounded-lg text-xs font-bold cursor-pointer transition-colors border border-slate-300"
                           aria-pressed={showFullPii}
                         >
                           {showFullPii ? <EyeOff size={13} aria-hidden="true" /> : <Eye size={13} aria-hidden="true" />}
@@ -1516,31 +1517,31 @@ export default function HouseholdManagement({
                             setShowDetailModal(false);
                             setActiveTab("recognition");
                           }}
-                          className="min-h-8 flex items-center gap-1.5 bg-white hover:bg-slate-100 text-slate-700 px-3 py-1 rounded-xl text-xs font-bold cursor-pointer transition-colors border border-slate-300"
+                          className="min-h-8 flex items-center gap-1 bg-white hover:bg-slate-100 text-slate-700 px-2.5 py-1 rounded-lg text-xs font-bold cursor-pointer transition-colors border border-slate-300"
                         >
-                          <Sparkles size={13} className="text-emerald-700" aria-hidden="true" /> Nhận diện Dân cư
+                          <Sparkles size={13} className="text-emerald-700" aria-hidden="true" /> Nhận diện
                         </button>
                         <button
                           type="button"
                           onClick={() => setShowAddMemberModal(true)}
-                          className="min-h-8 flex items-center gap-1.5 bg-emerald-700 hover:bg-emerald-800 text-white px-3 py-1 rounded-xl text-xs font-bold cursor-pointer transition-colors"
+                          className="min-h-8 flex items-center gap-1 bg-emerald-700 hover:bg-emerald-800 text-white px-2.5 py-1 rounded-lg text-xs font-bold cursor-pointer transition-colors"
                         >
                           <UserPlus size={13} aria-hidden="true" /> Thêm nhân khẩu
                         </button>
                       </div>
                     </div>
 
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                       {selectedHousehold.members.map(m => (
-                        <div key={m.cccd} className="p-3.5 bg-white hover:border-slate-300 border border-slate-200 rounded-2xl space-y-2.5 transition-colors">
+                        <div key={m.cccd} className="p-2.5 bg-white hover:border-slate-300 border border-slate-200 rounded-xl space-y-1.5 transition-colors">
                           <div className="flex justify-between items-start gap-2">
                             <button
                               type="button"
                               onClick={() => setProfileViewMember({ name: m.name, relation: m.relation, cccd: m.cccd })}
                               className="text-left cursor-pointer hover:text-emerald-800 transition-colors flex-1 min-w-0"
                             >
-                              <h4 className="font-bold text-slate-900 text-sm hover:underline truncate">{m.name}</h4>
-                              <p className="text-xs text-slate-600 font-mono mt-0.5 truncate">
+                              <h4 className="font-bold text-slate-900 text-xs sm:text-sm hover:underline truncate">{m.name}</h4>
+                              <p className="text-xs text-slate-600 font-mono truncate">
                                 Sinh {m.birthYear} • CCCD: {maskCccd(m.cccd, showFullPii)}
                               </p>
                             </button>
@@ -1553,22 +1554,22 @@ export default function HouseholdManagement({
                             </span>
                           </div>
 
-                          <div className="pt-2 border-t border-slate-100 flex items-center justify-between text-xs gap-2">
+                          <div className="pt-1.5 border-t border-slate-100 flex items-center justify-between text-xs gap-2">
                             <span className="text-slate-600 font-mono truncate">
                               {m.phone && m.phone !== "N/A" ? maskPhone(m.phone, showFullPii) : "—"}
                             </span>
-                            <div className="flex items-center gap-1.5 shrink-0">
+                            <div className="flex items-center gap-1 shrink-0">
                               <button
                                 type="button"
                                 onClick={() => setProfileViewMember({ name: m.name, relation: m.relation, cccd: m.cccd })}
-                                className="min-h-7 text-xs bg-white hover:bg-slate-100 text-slate-700 border border-slate-300 px-2.5 py-1 rounded-lg font-semibold transition-colors cursor-pointer"
+                                className="min-h-7 text-xs bg-white hover:bg-slate-100 text-slate-700 border border-slate-300 px-2 py-0.5 rounded-lg font-semibold transition-colors cursor-pointer"
                               >
                                 Hồ sơ
                               </button>
                               <button
                                 type="button"
                                 onClick={() => startMoveMember(m.name, m.cccd)}
-                                className="min-h-7 text-xs bg-white hover:bg-slate-100 text-indigo-700 border border-slate-300 px-2.5 py-1 rounded-lg font-semibold transition-colors cursor-pointer"
+                                className="min-h-7 text-xs bg-white hover:bg-slate-100 text-indigo-700 border border-slate-300 px-2 py-0.5 rounded-lg font-semibold transition-colors cursor-pointer"
                               >
                                 Chuyển
                               </button>
@@ -1577,14 +1578,14 @@ export default function HouseholdManagement({
                                   <button
                                     type="button"
                                     onClick={startSplitHousehold}
-                                    className="min-h-7 text-xs bg-white hover:bg-slate-100 text-emerald-800 border border-slate-300 px-2.5 py-1 rounded-lg font-semibold transition-colors cursor-pointer"
+                                    className="min-h-7 text-xs bg-white hover:bg-slate-100 text-emerald-800 border border-slate-300 px-2 py-0.5 rounded-lg font-semibold transition-colors cursor-pointer"
                                   >
                                     Tách
                                   </button>
                                   <button
                                     type="button"
                                     onClick={() => handleRemoveMember(m.cccd)}
-                                    className="min-h-7 text-xs text-rose-700 hover:bg-rose-50 p-1.5 rounded-lg transition-colors cursor-pointer"
+                                    className="min-h-7 min-w-7 inline-flex items-center justify-center text-xs text-rose-700 hover:bg-rose-50 p-1 rounded-lg transition-colors cursor-pointer"
                                     aria-label={`Xóa ${m.name} khỏi sổ`}
                                   >
                                     <Trash2 size={14} aria-hidden="true" />
@@ -1600,7 +1601,7 @@ export default function HouseholdManagement({
                 )}
 
                 {detailTab === "businesses" && (
-                  <div className="bg-white p-5 rounded-2xl border border-slate-200">
+                  <div className="bg-white">
                     <HouseholdBusinesses
                       household={selectedHousehold}
                       residents={residents}
@@ -1609,8 +1610,8 @@ export default function HouseholdManagement({
                 )}
 
                 {detailTab === "history" && (
-                  <div className="bg-white p-5 rounded-2xl border border-slate-200 space-y-3">
-                    <span className="text-xs font-bold text-slate-600 uppercase tracking-wider block">Nhật ký biến động và sửa đổi sổ</span>
+                  <div className="space-y-2.5">
+                    <span className="text-xs font-bold text-slate-700 uppercase tracking-wider block border-b border-slate-200 pb-2">Nhật ký biến động và sửa đổi sổ</span>
                     {((selectedHousehold as any).auditHistory || []).length === 0 ? (
                       <p className="text-xs text-slate-500 py-4 text-center">Chưa ghi nhận biến động chính thức nào kể từ ngày lập sổ.</p>
                     ) : (

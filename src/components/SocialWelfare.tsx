@@ -2314,6 +2314,7 @@ export default function SocialWelfare({
             isOpen={Boolean(selectedRecipient)}
             onClose={() => setSelectedRecipient(null)}
             size="2xl"
+            compact
             ariaLabel={`Hồ sơ an sinh ${selectedRecipient.fullName}`}
             headerNavigation={
               totalNav > 1 && currentIdx >= 0
@@ -2329,17 +2330,17 @@ export default function SocialWelfare({
                 : undefined
             }
             headerSlot={
-              <div className="flex items-start gap-3.5">
-                <div className="w-12 h-12 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 flex items-center justify-center shrink-0">
-                  <Heart size={22} className="fill-rose-500/20 text-rose-600" />
+              <div className="flex items-start gap-3">
+                <div className="w-11 h-11 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 flex items-center justify-center shrink-0">
+                  <Heart size={20} className="fill-rose-500/20 text-rose-600" />
                 </div>
-                <div className="min-w-0 flex-1 space-y-1">
-                  <div className="flex flex-wrap items-center gap-2">
+                <div className="min-w-0 flex-1 space-y-0.5">
+                  <div className="flex flex-wrap items-center gap-1.5">
                     <span className="font-mono text-xs font-semibold px-2 py-0.5 rounded-md bg-slate-100 text-slate-700 border border-slate-200">
                       MÃ: {shortId}
                     </span>
                     {getSubCategoryBadge(selectedRecipient.category)}
-                    <span className={`text-xs font-semibold px-2.5 py-0.5 rounded-full border ${
+                    <span className={`text-xs font-semibold px-2 py-0.5 rounded-full border ${
                       selectedRecipient.status === "Đang nhận trợ cấp"
                         ? "bg-emerald-50 text-emerald-800 border-emerald-200"
                         : selectedRecipient.status === "Chờ duyệt hồ sơ"
@@ -2359,21 +2360,21 @@ export default function SocialWelfare({
                 </div>
               </div>
             }
-            bodyClassName="p-4 sm:p-5 space-y-4 bg-slate-50/60 text-xs"
+            bodyClassName="p-4 sm:p-5 space-y-3.5 bg-white text-xs"
             footer={
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <div className="flex flex-wrap items-center gap-1.5">
                   <button
                     type="button"
                     onClick={() => onUpdateStatus(selectedRecipient.id, "Đang nhận trợ cấp")}
-                    className="min-h-9 text-xs font-semibold py-1.5 px-3 rounded-lg border border-emerald-200 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 cursor-pointer"
+                    className="min-h-8 text-xs font-semibold py-1 px-2.5 rounded-lg border border-emerald-200 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 cursor-pointer"
                   >
                     Duyệt chi
                   </button>
                   <button
                     type="button"
                     onClick={() => onUpdateStatus(selectedRecipient.id, "Đã tạm ngưng")}
-                    className="min-h-9 text-xs font-semibold py-1.5 px-3 rounded-lg border border-slate-200 bg-white hover:bg-slate-100 text-slate-700 cursor-pointer"
+                    className="min-h-8 text-xs font-semibold py-1 px-2.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-100 text-slate-700 cursor-pointer"
                   >
                     Tạm ngưng
                   </button>
@@ -2383,53 +2384,53 @@ export default function SocialWelfare({
                       handleOpenEmergencyForRecipient(selectedRecipient);
                       setSelectedRecipient(null);
                     }}
-                    className="min-h-9 text-xs font-semibold py-1.5 px-3 rounded-lg bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-200 cursor-pointer inline-flex items-center gap-1"
+                    className="min-h-8 text-xs font-semibold py-1 px-2.5 rounded-lg bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-200 cursor-pointer inline-flex items-center gap-1"
                   >
-                    <Zap size={12} /> Hỗ trợ ngay
+                    <Zap size={12} /> Hỗ trợ
                   </button>
                   <button
                     type="button"
                     onClick={() => window.print()}
-                    className="min-h-9 px-3 py-1.5 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 rounded-lg text-xs font-semibold inline-flex items-center gap-1 cursor-pointer"
+                    className="min-h-8 px-2.5 py-1 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 rounded-lg text-xs font-semibold inline-flex items-center gap-1 cursor-pointer"
                   >
-                    <Printer size={13} /> In phiếu
+                    <Printer size={13} /> In
                   </button>
                 </div>
 
-                <div className="flex flex-wrap items-center gap-2">
+                <div className="flex flex-wrap items-center gap-1.5">
                   <button
                     type="button"
                     onClick={() => setRecipientToDelete(selectedRecipient)}
-                    className="min-h-9 px-3 py-1.5 border border-rose-200 text-rose-700 hover:bg-rose-50 rounded-lg text-xs font-semibold inline-flex items-center gap-1 cursor-pointer"
+                    className="min-h-8 px-2.5 py-1 border border-rose-200 text-rose-700 hover:bg-rose-50 rounded-lg text-xs font-semibold inline-flex items-center gap-1 cursor-pointer"
                   >
                     <Trash2 size={13} /> Xóa
                   </button>
                   <button
                     type="button"
                     onClick={() => setSelectedRecipient(null)}
-                    className="min-h-9 px-3.5 py-1.5 bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 rounded-lg text-xs font-semibold cursor-pointer"
+                    className="min-h-8 px-3 py-1 bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 rounded-lg text-xs font-semibold cursor-pointer"
                   >
                     Đóng
                   </button>
                   <button
                     type="button"
                     onClick={() => handleOpenEditRecipient(selectedRecipient)}
-                    className="min-h-9 px-4 py-1.5 bg-emerald-700 hover:bg-emerald-800 text-white rounded-lg text-xs font-semibold inline-flex items-center gap-1.5 cursor-pointer"
+                    className="min-h-8 px-3.5 py-1 bg-emerald-700 hover:bg-emerald-800 text-white rounded-lg text-xs font-semibold inline-flex items-center gap-1 cursor-pointer"
                   >
-                    <Edit2 size={13} /> Chỉnh sửa hồ sơ
+                    <Edit2 size={13} /> Chỉnh sửa
                   </button>
                 </div>
               </div>
             }
           >
-            {/* Thẻ 1: Thông tin định danh */}
-            <div className="bg-white rounded-xl p-4 border border-slate-200 space-y-3">
-              <div className="flex items-center gap-2 font-bold text-slate-900 pb-2 border-b border-slate-100">
-                <User size={15} className="text-rose-600" />
-                <span className="text-sm">1. Thông tin Định danh, Bảo trợ & Cư trú</span>
+            {/* Mục 1: Thông tin định danh */}
+            <div className="space-y-2">
+              <div className="flex items-center gap-1.5 font-bold text-slate-900 pb-1.5 border-b border-slate-200">
+                <User size={14} className="text-rose-600" />
+                <span className="text-xs uppercase tracking-wider">1. Định danh, Bảo trợ &amp; Cư trú</span>
               </div>
 
-              <DetailGrid>
+              <DetailGrid hideEmpty compact>
                 <DetailRow
                   label="Số CCCD / Định danh"
                   value={selectedRecipient.cccd}
@@ -2437,37 +2438,37 @@ export default function SocialWelfare({
                   copyValue={selectedRecipient.cccd}
                 />
                 <DetailRow
-                  label="Số điện thoại liên hệ"
+                  label="Số điện thoại"
                   value={selectedRecipient.phone}
                   isMono
                   copyValue={selectedRecipient.phone}
                   href={selectedRecipient.phone ? `tel:${selectedRecipient.phone}` : undefined}
                 />
                 <DetailRow
-                  label="Mức trợ cấp hàng tháng"
+                  label="Mức trợ cấp tháng"
                   value={<span className="font-bold text-rose-700">{selectedRecipient.supportLevel}</span>}
                   isNumeric
                 />
                 <DetailRow
-                  label="Bảo hiểm y tế (BHYT)"
+                  label="Bảo hiểm y tế"
                   value={bhyt.label}
                   isMono={Boolean(bhyt.code)}
                   copyValue={bhyt.code || undefined}
                 />
                 <DetailRow
-                  label="Nơi cư trú hiện tại"
+                  label="Nơi cư trú"
                   value={selectedRecipient.address}
                   colSpan={2}
                 />
               </DetailGrid>
             </div>
 
-            {/* Thẻ 2: Chế độ Chính sách & Quyền lợi được hưởng */}
-            <div className="bg-white rounded-xl p-4 border border-slate-200 space-y-3">
-              <div className="flex items-center justify-between pb-2 border-b border-slate-100">
-                <div className="flex items-center gap-2 font-bold text-slate-900">
-                  <Gift size={15} className="text-emerald-700" />
-                  <span className="text-sm">2. Chế độ Chính sách & Quyền lợi ({selectedRecipient.benefits?.length || 0})</span>
+            {/* Mục 2: Chế độ Chính sách & Quyền lợi được hưởng */}
+            <div className="pt-3 border-t border-slate-200 space-y-2.5">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-1.5 font-bold text-slate-900">
+                  <Gift size={14} className="text-emerald-700" />
+                  <span className="text-xs uppercase tracking-wider">2. Chính sách &amp; Quyền lợi ({selectedRecipient.benefits?.length || 0})</span>
                 </div>
               </div>
 

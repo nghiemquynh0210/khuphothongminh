@@ -37,7 +37,7 @@ import {
   reportToTargetGisItem,
 } from "../../data/reportConfig";
 import { uploadReportImages } from "../../utils/imageUpload";
-import { DetailRow } from "../common/DetailRow";
+import { DetailList, DetailRow } from "../common/DetailRow";
 import { Button, Modal, StatusBadge } from "../ui";
 import { ReportSelect } from "./ReportSelect";
 import { mapReportStatusToBadge } from "./ReportCard";
@@ -205,7 +205,9 @@ export function ReportDetailModal({
     <Modal
       isOpen={Boolean(report)}
       onClose={onClose}
-      size="5xl"
+      size="3xl"
+      compact
+      bodyClassName="p-4 sm:p-5 bg-white"
       title={`Hồ sơ phản ánh ${report.id}`}
       description={`${report.location} • Gửi lúc ${report.reportedAt}`}
       footer={
@@ -301,24 +303,24 @@ export function ReportDetailModal({
         </div>
       }
     >
-      <div className="space-y-4">
+      <div className="space-y-3">
         {/* Top Metadata & Badges */}
-        <div className="flex flex-wrap items-center justify-between gap-3 p-3.5 rounded-xl bg-slate-50 border border-slate-200">
+        <div className="flex flex-wrap items-center justify-between gap-2 p-2.5 sm:p-3 rounded-xl bg-slate-50 border border-slate-200">
           <div className="space-y-1 min-w-0 flex-1">
-            <div className="flex flex-wrap items-center gap-2">
+            <div className="flex flex-wrap items-center gap-1.5">
               <span
-                className={`px-2.5 py-0.5 rounded-full text-xs font-semibold border ${catMeta.badgeBg} ${catMeta.badgeText} ${catMeta.badgeBorder}`}
+                className={`px-2 py-0.5 rounded-full text-xs font-semibold border ${catMeta.badgeBg} ${catMeta.badgeText} ${catMeta.badgeBorder}`}
               >
                 {report.category}
               </span>
               <span
-                className={`px-2.5 py-0.5 rounded-full text-xs font-semibold border ${prioMeta.bg} ${prioMeta.text} ${prioMeta.border}`}
+                className={`px-2 py-0.5 rounded-full text-xs font-semibold border ${prioMeta.bg} ${prioMeta.text} ${prioMeta.border}`}
               >
                 {prioMeta.label} ({prioMeta.shortSla})
               </span>
               <StatusBadge status={statusInfo.type} label={statusInfo.label} size="sm" />
               <span
-                className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold border ${
+                className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold border ${
                   sla.state === "overdue"
                     ? "bg-rose-50 text-rose-800 border-rose-200"
                     : sla.state === "warning"
@@ -332,16 +334,16 @@ export function ReportDetailModal({
                 {sla.label}
               </span>
             </div>
-            <h3 className="text-base font-bold text-slate-900 leading-snug">
+            <h3 className="text-sm sm:text-base font-bold text-slate-900 leading-snug">
               {report.title}
             </h3>
           </div>
         </div>
 
         {/* Main 2-Column Workspace */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-3.5 items-start">
           {/* LEFT COLUMN: Evidence Gallery + Details + Timeline */}
-          <div className="lg:col-span-6 space-y-4">
+          <div className="lg:col-span-6 space-y-3">
             {/* Multi-Image Before/After Showcase */}
             <div className="rounded-xl border border-slate-200 bg-white overflow-hidden">
               <div className="px-3.5 py-2.5 bg-slate-50 border-b border-slate-200 flex flex-wrap items-center justify-between gap-2">
@@ -486,14 +488,14 @@ export function ReportDetailModal({
             </div>
 
             {/* Description & Metadata Details */}
-            <div className="rounded-xl border border-slate-200 bg-white p-4 space-y-2">
+            <div className="rounded-xl border border-slate-200 bg-white p-3 space-y-2">
               <div className="text-xs font-bold text-slate-800 uppercase tracking-wider">
                 Thông tin chi tiết
               </div>
-              <p className="text-sm text-slate-700 leading-relaxed bg-slate-50 p-3 rounded-lg border border-slate-100">
+              <p className="text-xs sm:text-sm text-slate-700 leading-relaxed bg-slate-50 p-2.5 rounded-lg border border-slate-100">
                 {report.description}
               </p>
-              <dl className="@container divide-y divide-slate-100">
+              <DetailList hideEmpty compact>
                 <DetailRow label="Người phản ánh" value={report.reporterName} />
                 <DetailRow
                   label="Điện thoại liên hệ"
@@ -509,7 +511,7 @@ export function ReportDetailModal({
                   label="Hạn xử lý (SLA)"
                   value={`${sla.deadlineLabel} (${sla.label})`}
                 />
-              </dl>
+              </DetailList>
 
               {/* Officer Assignment & Priority Switch */}
               {!readOnly && (

@@ -1898,7 +1898,8 @@ export default function EnterpriseManagement({
           <Modal
             isOpen={showDetailModal}
             onClose={() => setShowDetailModal(false)}
-            size="4xl"
+            size="3xl"
+            compact
             ariaLabel={`Hồ sơ chi tiết doanh nghiệp ${selectedEnterprise.name}`}
             headerNavigation={
               totalNav > 1 && currentIdx >= 0
@@ -1914,8 +1915,8 @@ export default function EnterpriseManagement({
                 : undefined
             }
             headerSlot={
-              <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3.5">
-                <div className="relative w-14 h-14 sm:w-16 sm:h-16 rounded-xl border border-slate-200 overflow-hidden shrink-0 group bg-slate-100">
+              <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
+                <div className="relative w-12 h-12 sm:w-14 sm:h-14 rounded-xl border border-slate-200 overflow-hidden shrink-0 group bg-slate-100">
                   <img
                     src={getEnterpriseImage(selectedEnterprise)}
                     alt={selectedEnterprise.name}
@@ -1988,11 +1989,11 @@ export default function EnterpriseManagement({
               </div>
             }
             subHeader={
-              <div className="flex border-b border-slate-200 bg-white px-5 sm:px-6 gap-5 text-xs font-bold shrink-0 overflow-x-auto">
+              <div className="flex border-b border-slate-200 bg-white px-4 sm:px-5 gap-4 text-xs font-bold shrink-0 overflow-x-auto">
                 <button
                   type="button"
                   onClick={() => setEnterpriseModalTab("legal")}
-                  className={`py-2.5 transition-colors relative cursor-pointer flex items-center gap-1.5 shrink-0 ${
+                  className={`py-2 transition-colors relative cursor-pointer flex items-center gap-1.5 shrink-0 ${
                     enterpriseModalTab === "legal" ? "text-emerald-800" : "text-slate-600 hover:text-slate-900"
                   }`}
                 >
@@ -2003,7 +2004,7 @@ export default function EnterpriseManagement({
                 <button
                   type="button"
                   onClick={() => setEnterpriseModalTab("premises")}
-                  className={`py-2.5 transition-colors relative cursor-pointer flex items-center gap-1.5 shrink-0 ${
+                  className={`py-2 transition-colors relative cursor-pointer flex items-center gap-1.5 shrink-0 ${
                     enterpriseModalTab === "premises" ? "text-emerald-800" : "text-slate-600 hover:text-slate-900"
                   }`}
                 >
@@ -2014,7 +2015,7 @@ export default function EnterpriseManagement({
                 <button
                   type="button"
                   onClick={() => setEnterpriseModalTab("personnel")}
-                  className={`py-2.5 transition-colors relative cursor-pointer flex items-center gap-1.5 shrink-0 ${
+                  className={`py-2 transition-colors relative cursor-pointer flex items-center gap-1.5 shrink-0 ${
                     enterpriseModalTab === "personnel" ? "text-emerald-800" : "text-slate-600 hover:text-slate-900"
                   }`}
                 >
@@ -2025,7 +2026,7 @@ export default function EnterpriseManagement({
                 <button
                   type="button"
                   onClick={() => setEnterpriseModalTab("history")}
-                  className={`py-2.5 transition-colors relative cursor-pointer flex items-center gap-1.5 shrink-0 ${
+                  className={`py-2 transition-colors relative cursor-pointer flex items-center gap-1.5 shrink-0 ${
                     enterpriseModalTab === "history" ? "text-emerald-800" : "text-slate-600 hover:text-slate-900"
                   }`}
                 >
@@ -2035,7 +2036,7 @@ export default function EnterpriseManagement({
                 </button>
               </div>
             }
-            bodyClassName="p-4 sm:p-6 bg-slate-50/70 text-xs sm:text-sm space-y-4"
+            bodyClassName="p-4 sm:p-5 bg-white text-xs sm:text-sm space-y-3"
             footer={
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div className="flex flex-wrap items-center gap-2">
@@ -2093,17 +2094,14 @@ export default function EnterpriseManagement({
 
               {/* TAB 1: THÔNG TIN PHÁP LÝ & TỔ CHỨC */}
               {enterpriseModalTab === "legal" && (
-                <div className="bg-white rounded-2xl border border-slate-200/90 shadow-2xs overflow-hidden animate-in fade-in duration-200 divide-y divide-slate-100">
-                  {/* Unified Section 1: Pháp lý & Album ảnh thu nhỏ */}
-                  <div className="p-4 sm:p-5 space-y-4">
-                    <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between pb-3 border-b border-slate-100 gap-3">
-                      <div>
-                        <h4 className="text-xs font-bold text-slate-900 uppercase tracking-wider flex items-center gap-2">
-                          <Briefcase size={15} className="text-indigo-600" />
-                          Hồ sơ Doanh nghiệp, Mã số thuế & Pháp lý
-                        </h4>
-                        <p className="text-[11px] text-slate-400 mt-0.5">Hồ sơ quản lý hành chính doanh nghiệp trên địa bàn KP3</p>
-                      </div>
+                <div className="animate-in fade-in duration-200 space-y-3.5">
+                  {/* Section 1: Pháp lý & Album ảnh thu nhỏ */}
+                  <div className="space-y-2.5">
+                    <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between pb-2 border-b border-slate-200 gap-2">
+                      <h4 className="text-xs font-bold text-slate-900 uppercase tracking-wider flex items-center gap-1.5">
+                        <Briefcase size={14} className="text-indigo-600" />
+                        Hồ sơ Doanh nghiệp, Mã số thuế &amp; Pháp lý
+                      </h4>
 
                       {/* Dải ảnh doanh nghiệp tương tự cơ sở kinh doanh */}
                       <div className="flex items-center gap-2 shrink-0 self-end sm:self-center">
@@ -2112,7 +2110,7 @@ export default function EnterpriseManagement({
                             <div
                               key={i}
                               onClick={() => setViewingImagePreview({ url: imgUrl, caption: `${selectedEnterprise.name} - Ảnh ${i + 1}` })}
-                              className="w-10 h-10 rounded-lg overflow-hidden border border-slate-200 shrink-0 cursor-pointer hover:ring-2 hover:ring-indigo-500 transition-all shadow-2xs group relative"
+                              className="w-9 h-9 rounded-lg overflow-hidden border border-slate-200 shrink-0 cursor-pointer hover:ring-2 hover:ring-indigo-500 transition-all group relative"
                               title={`Xem ảnh ${i + 1}`}
                             >
                               <img src={imgUrl} alt="Thumbnail" className="w-full h-full object-cover group-hover:scale-105 transition-transform" />
@@ -2122,7 +2120,7 @@ export default function EnterpriseManagement({
                             </div>
                           ))}
                         </div>
-                        <label className="text-[11px] text-indigo-700 hover:text-indigo-900 font-bold cursor-pointer flex items-center gap-1 bg-indigo-50 hover:bg-indigo-100 px-2.5 py-1.5 rounded-lg border border-indigo-200 transition-colors">
+                        <label className="min-h-8 text-xs text-indigo-700 hover:text-indigo-900 font-bold cursor-pointer inline-flex items-center gap-1 bg-indigo-50 hover:bg-indigo-100 px-2.5 py-1 rounded-lg border border-indigo-200 transition-colors">
                           <Plus size={12} /> Ảnh
                           <input
                             type="file"
@@ -2134,24 +2132,23 @@ export default function EnterpriseManagement({
                       </div>
                     </div>
 
-                    <DetailGrid>
+                    <DetailGrid hideEmpty compact>
                       <DetailRow label="Mã số thuế / MSDN" value={selectedEnterprise.taxCode} isMono />
                       <DetailRow label="Loại hình tổ chức" value={selectedEnterprise.businessType || "Công ty TNHH"} />
                       <DetailRow label="Ngành nghề kinh doanh" value={selectedEnterprise.type} />
                       <DetailRow label="Quy mô lao động" value={getEnterpriseScaleLabel(selectedEnterprise)} />
                       <DetailRow label="Số giấy phép / Mã hồ sơ" value={selectedEnterprise.licenseNumber || selectedEnterprise.code || "Đang hoạt động"} isMono />
-                      <DetailRow label="Ngày bắt đầu hoạt động" value={selectedEnterprise.startDate || "Chưa ghi nhận"} isMono />
+                      <DetailRow label="Ngày bắt đầu hoạt động" value={selectedEnterprise.startDate} isMono />
                     </DetailGrid>
                   </div>
 
-                  {/* Unified Section 2: Nhu cầu Hỗ trợ & Khó khăn do Doanh nghiệp Đề xuất */}
-                  <div className="p-4 sm:p-5 bg-slate-50/40 space-y-3">
+                  {/* Section 2: Nhu cầu Hỗ trợ & Khó khăn do Doanh nghiệp Đề xuất */}
+                  <div className="p-3 rounded-xl bg-slate-50/70 border border-slate-200/80 space-y-2">
                     <div className="flex items-center justify-between">
-                      <h5 className="text-xs font-bold text-slate-900 uppercase tracking-wider flex items-center gap-2">
-                        <HelpCircle size={15} className="text-amber-600" />
-                        Nhu cầu Hỗ trợ & Đóng góp ý kiến
+                      <h5 className="text-xs font-bold text-slate-900 uppercase tracking-wider flex items-center gap-1.5">
+                        <HelpCircle size={14} className="text-amber-600" />
+                        Nhu cầu Hỗ trợ &amp; Đóng góp ý kiến
                       </h5>
-                      <span className="text-[11px] text-slate-400 italic">Khu phố 3 đồng hành & hỗ trợ Doanh nghiệp</span>
                     </div>
 
                     {selectedEnterprise.supportNeeds && selectedEnterprise.supportNeeds.length > 0 ? (
@@ -2181,15 +2178,15 @@ export default function EnterpriseManagement({
 
               {/* TAB 2: MẶT BẰNG & KHU VỰC ĐỊA BÀN */}
               {enterpriseModalTab === "premises" && (
-                <div className="space-y-4 animate-in fade-in duration-200">
+                <div className="space-y-3.5 animate-in fade-in duration-200">
                   {/* Card 2: Trụ sở & Mặt bằng Kinh doanh */}
-                  <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-2xs space-y-4">
-                    <h4 className="text-xs font-bold text-slate-900 uppercase tracking-wider flex items-center gap-2 border-b border-slate-100 pb-2.5">
-                      <MapPin size={16} className="text-emerald-600" />
-                      Trụ sở, Mặt bằng Kinh doanh & Liên kết Địa bàn KP3
+                  <div className="space-y-3">
+                    <h4 className="text-xs font-bold text-slate-900 uppercase tracking-wider flex items-center gap-1.5 border-b border-slate-200 pb-2">
+                      <MapPin size={14} className="text-emerald-600" />
+                      Trụ sở, Mặt bằng Kinh doanh &amp; Liên kết Địa bàn KP3
                     </h4>
 
-                    <DetailGrid>
+                    <DetailGrid hideEmpty compact>
                       <DetailRow label="Địa chỉ trụ sở / VP" value={selectedEnterprise.address} colSpan={2} />
                       <DetailRow
                         label="Tuyến đường / Phân khu"
@@ -2198,10 +2195,14 @@ export default function EnterpriseManagement({
                       <DetailRow label="Loại mặt bằng" value={selectedEnterprise.premisesType || "Văn phòng"} />
                       <DetailRow
                         label="Chủ sở hữu mặt bằng"
-                        value={`${selectedEnterprise.premisesOwner || "Chưa cập nhật"}${selectedEnterprise.premisesOwnerPhone ? ` (${selectedEnterprise.premisesOwnerPhone})` : ""}`}
+                        value={
+                          selectedEnterprise.premisesOwner
+                            ? `${selectedEnterprise.premisesOwner}${selectedEnterprise.premisesOwnerPhone ? ` (${selectedEnterprise.premisesOwnerPhone})` : ""}`
+                            : undefined
+                        }
                       />
                       <DetailRow
-                        label="Liên kết mã hộ dân KP3"
+                        label="Liên kết mã hộ KP3"
                         value={<span className="font-mono text-blue-700 font-bold">{selectedEnterprise.linkedHouseholdCode || "Địa chỉ độc lập"}</span>}
                       />
                     </DetailGrid>
@@ -2211,7 +2212,7 @@ export default function EnterpriseManagement({
                       const hh = getLinkedHh(selectedEnterprise);
                       if (!hh) return null;
                       return (
-                        <div className="p-3.5 bg-emerald-50/70 rounded-xl border border-emerald-200 text-xs flex justify-between items-center">
+                        <div className="p-3 bg-emerald-50/70 rounded-xl border border-emerald-200 text-xs flex justify-between items-center">
                           <div>
                             <span className="text-emerald-900 font-bold block">
                               Liên kết Hộ dân: {hh.ownerName} (Mã hộ: {hh.code})
@@ -2228,24 +2229,24 @@ export default function EnterpriseManagement({
                     })()}
 
                     {/* GIS & Navigation Banner - Flat Hairline Light */}
-                    <div className="p-4 bg-slate-50 text-slate-900 rounded-xl border border-slate-200 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs">
-                      <div className="space-y-1">
-                        <span className="text-xs font-bold text-slate-600 flex items-center gap-1.5">
-                          <Compass size={14} className="text-emerald-600" /> Tọa độ số GIS & Dẫn đường
+                    <div className="p-3 bg-slate-50 text-slate-900 rounded-xl border border-slate-200 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2.5 text-xs">
+                      <div className="space-y-0.5">
+                        <span className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
+                          <Compass size={14} className="text-emerald-600" /> Tọa độ số GIS &amp; Dẫn đường
                         </span>
                         <div className="font-mono text-xs text-slate-700">
                           Tọa độ: <strong className="text-emerald-700 font-semibold">{selectedEnterprise.coordinates || "Chưa thiết lập"}</strong>
                         </div>
                       </div>
 
-                      <div className="flex flex-wrap items-center gap-2">
+                      <div className="flex flex-wrap items-center gap-1.5">
                         <button
                           type="button"
                           onClick={() => {
                             handleDirections(selectedEnterprise);
                             setShowDetailModal(false);
                           }}
-                          className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-bold text-xs flex items-center gap-1.5 transition-colors cursor-pointer"
+                          className="min-h-8 px-2.5 py-1 bg-emerald-700 hover:bg-emerald-800 text-white rounded-lg font-bold text-xs flex items-center gap-1 transition-colors cursor-pointer"
                           title="Dẫn đường trực tiếp trên bản đồ số GIS Khu phố 3"
                         >
                           <Navigation size={13} />
@@ -2255,9 +2256,9 @@ export default function EnterpriseManagement({
                         <button
                           type="button"
                           onClick={() => openPinModal(selectedEnterprise)}
-                          className="px-3 py-1.5 bg-white/10 hover:bg-white/20 text-slate-200 border border-white/15 rounded-lg font-bold text-xs flex items-center gap-1.5 transition-all cursor-pointer"
+                          className="min-h-8 px-2.5 py-1 bg-white hover:bg-slate-100 text-slate-700 border border-slate-300 rounded-lg font-bold text-xs flex items-center gap-1 transition-colors cursor-pointer"
                         >
-                          <MapPin size={13} />
+                          <MapPin size={13} className="text-indigo-600" />
                           <span>{selectedEnterprise.coordinates ? "Sửa tọa độ" : "Ghim tọa độ"}</span>
                         </button>
 
@@ -2270,7 +2271,7 @@ export default function EnterpriseManagement({
                             )}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="px-3 py-1.5 bg-white/10 hover:bg-white/20 text-blue-300 border border-white/15 rounded-lg font-bold text-xs flex items-center gap-1.5 transition-all cursor-pointer"
+                            className="min-h-8 px-2.5 py-1 bg-white hover:bg-slate-100 text-slate-700 border border-slate-300 rounded-lg font-bold text-xs flex items-center gap-1 transition-colors cursor-pointer"
                             title="Mở chỉ đường bằng Google Maps"
                           >
                             <ExternalLink size={12} />
@@ -2285,15 +2286,15 @@ export default function EnterpriseManagement({
 
               {/* TAB 3: ĐẠI DIỆN & LAO ĐỘNG */}
               {enterpriseModalTab === "personnel" && (
-                <div className="space-y-4 animate-in fade-in duration-200">
+                <div className="space-y-3.5 animate-in fade-in duration-200">
                   {/* Card 3: Người đại diện & Đầu mối Công vụ */}
-                  <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-2xs space-y-4">
-                    <h4 className="text-xs font-bold text-slate-900 uppercase tracking-wider flex items-center gap-2 border-b border-slate-100 pb-2.5">
-                      <UserCheck size={16} className="text-blue-600" />
-                      Người đại diện Pháp luật & Đầu mối Liên hệ Phối hợp Công vụ
+                  <div className="space-y-2.5">
+                    <h4 className="text-xs font-bold text-slate-900 uppercase tracking-wider flex items-center gap-1.5 border-b border-slate-200 pb-2">
+                      <UserCheck size={14} className="text-blue-600" />
+                      Người đại diện Pháp luật &amp; Đầu mối Công vụ
                     </h4>
 
-                    <DetailGrid>
+                    <DetailGrid hideEmpty compact>
                       <DetailRow
                         label="Đại diện pháp luật"
                         value={selectedEnterprise.legalRepresentative || selectedEnterprise.owner}

@@ -2511,8 +2511,9 @@ NGƯỜI NƯỚC NGOÀI KHAI BÁO       CHỦ CƠ SỞ LƯU TRÚ       XÁC NH�
             isOpen={showDetailModal}
             onClose={handleCloseDetailModal}
             title={selectedResident.fullName}
-            size="4xl"
-            bodyClassName="p-4 sm:p-6 space-y-4 bg-slate-50 text-xs sm:text-sm"
+            size="2xl"
+            compact
+            bodyClassName="p-4 sm:p-5 space-y-3.5 bg-white text-xs sm:text-sm"
             footerClassName="justify-between"
             headerNavigation={{
               hasPrev,
@@ -2523,14 +2524,14 @@ NGƯỜI NƯỚC NGOÀI KHAI BÁO       CHỦ CƠ SỞ LƯU TRÚ       XÁC NH�
               onNext: () => hasNext && handleOpenDetailModal(filteredResidents[resIdx + 1]),
             }}
             headerSlot={
-              <div className="space-y-2.5">
-                <div className="flex flex-wrap items-center gap-2 text-xs">
-                  <span className="font-mono font-bold tracking-wider uppercase px-2 py-0.5 rounded-md bg-slate-100 text-slate-700 border border-slate-200 inline-flex items-center gap-1">
+              <div className="space-y-1.5">
+                <div className="flex flex-wrap items-center gap-1.5 text-xs">
+                  <span className="font-mono font-bold tracking-wider uppercase px-2 py-0.5 rounded-md bg-slate-100 text-slate-700 border border-slate-200 inline-flex items-center gap-1 min-h-6">
                     <Shield size={11} className="text-emerald-700" aria-hidden="true" />
                     CSDL ĐỀ ÁN 06/CP
                   </span>
                   <span
-                    className="font-mono font-semibold text-slate-600 bg-slate-50 px-2 py-0.5 rounded-md border border-slate-200"
+                    className="font-mono font-semibold text-slate-600 bg-slate-50 px-2 py-0.5 rounded-md border border-slate-200 inline-flex items-center min-h-6"
                     title={`Mã hồ sơ gốc: ${selectedResident.id}`}
                   >
                     {shortId}
@@ -2539,7 +2540,7 @@ NGƯỜI NƯỚC NGOÀI KHAI BÁO       CHỦ CƠ SỞ LƯU TRÚ       XÁC NH�
                     <button
                       type="button"
                       onClick={() => handleQuickViewHousehold(selectedResident.householdId!)}
-                      className="font-mono font-bold px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-800 border border-emerald-200 hover:bg-emerald-100 transition-colors cursor-pointer"
+                      className="min-h-6 inline-flex items-center font-mono font-bold px-2.5 py-0.5 rounded-md bg-emerald-50 text-emerald-800 border border-emerald-200 hover:bg-emerald-100 transition-colors cursor-pointer"
                       title="Xem nhanh Sổ hộ khẩu liên kết"
                     >
                       HỘ: {selectedResident.householdId}
@@ -2547,18 +2548,18 @@ NGƯỜI NƯỚC NGOÀI KHAI BÁO       CHỦ CƠ SỞ LƯU TRÚ       XÁC NH�
                   )}
                 </div>
 
-                <div className="flex items-start sm:items-center gap-3.5">
+                <div className="flex items-start sm:items-center gap-3">
                   <div className="relative shrink-0">
                     <img
                       id="modal-resident-avatar"
                       src={selectedResident.avatar || "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150"}
                       alt={selectedResident.fullName}
-                      className="w-14 h-14 sm:w-16 sm:h-16 rounded-2xl border border-slate-200 object-cover bg-slate-100"
+                      className="w-12 h-12 sm:w-14 sm:h-14 rounded-xl border border-slate-200 object-cover bg-slate-100"
                       referrerPolicy="no-referrer"
                     />
                     {selectedResident.policyGroup?.includes("Đảng viên") && (
                       <span
-                        className="absolute -bottom-1 -right-1 w-5 h-5 rounded-full bg-rose-600 border-2 border-white flex items-center justify-center text-[10px] text-white font-bold"
+                        className="absolute -bottom-1 -right-1 w-4.5 h-4.5 rounded-full bg-rose-600 border-2 border-white flex items-center justify-center text-[10px] text-white font-bold"
                         title="Đảng viên ĐCSVN"
                       >
                         ★
@@ -2574,18 +2575,18 @@ NGƯỜI NƯỚC NGOÀI KHAI BÁO       CHỦ CƠ SỞ LƯU TRÚ       XÁC NH�
                     )}
                   </div>
 
-                  <div className="min-w-0 flex-1 space-y-1">
+                  <div className="min-w-0 flex-1 space-y-0.5">
                     <div className="flex flex-wrap items-center gap-2">
-                      <h2 id="modal-resident-name" className="text-lg sm:text-xl font-black text-slate-900 tracking-tight leading-snug">
+                      <h2 id="modal-resident-name" className="text-base sm:text-lg font-black text-slate-900 tracking-tight leading-snug">
                         {selectedResident.fullName}
                       </h2>
                       {isForeignResident(selectedResident) ? (
-                        <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-purple-50 text-purple-800 border border-purple-200 inline-flex items-center gap-1">
+                        <span className="px-2 py-0.5 rounded-full text-xs font-bold bg-purple-50 text-purple-800 border border-purple-200 inline-flex items-center gap-1">
                           <span>{getCountryFlag(selectedResident.nationality)}</span>
                           <span>{selectedResident.nationality}</span>
                         </span>
                       ) : (
-                        <span className={`px-2.5 py-0.5 rounded-full text-xs font-bold border ${
+                        <span className={`px-2 py-0.5 rounded-full text-xs font-bold border ${
                           selectedResident.status === "Thường trú"
                             ? "bg-emerald-50 text-emerald-800 border-emerald-200"
                             : selectedResident.status === "Tạm trú"
@@ -2597,16 +2598,16 @@ NGƯỜI NƯỚC NGOÀI KHAI BÁO       CHỦ CƠ SỞ LƯU TRÚ       XÁC NH�
                       )}
                     </div>
 
-                    <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-slate-600">
+                    <div className="flex flex-wrap items-center gap-x-2.5 gap-y-0.5 text-xs text-slate-600">
                       <span className="inline-flex items-center gap-1 text-slate-700 min-w-0">
-                        <MapPin size={13} className="text-emerald-700 shrink-0" aria-hidden="true" />
-                        <span className="truncate max-w-md">{selectedResident.currentAddress || selectedResident.address}</span>
+                        <MapPin size={12} className="text-emerald-700 shrink-0" aria-hidden="true" />
+                        <span className="truncate max-w-xs sm:max-w-sm">{selectedResident.currentAddress || selectedResident.address}</span>
                       </span>
                       {selectedResident.birthDate && (
-                        <span>Sinh: <strong className="text-slate-800 font-semibold font-mono">{selectedResident.birthDate}</strong></span>
+                        <span className="whitespace-nowrap">· <strong className="text-slate-800 font-semibold font-mono">{selectedResident.birthDate}</strong></span>
                       )}
                       {selectedResident.gender && (
-                        <span>Giới tính: <strong className="text-slate-800 font-semibold">{selectedResident.gender}</strong></span>
+                        <span className="whitespace-nowrap">· <strong className="text-slate-800 font-semibold">{selectedResident.gender}</strong></span>
                       )}
                     </div>
                   </div>
@@ -2614,37 +2615,37 @@ NGƯỜI NƯỚC NGOÀI KHAI BÁO       CHỦ CƠ SỞ LƯU TRÚ       XÁC NH�
               </div>
             }
             subHeader={
-              <div className="flex px-5 sm:px-6 gap-6 text-xs font-bold overflow-x-auto">
+              <div className="flex px-4 sm:px-5 gap-4 sm:gap-5 text-xs font-bold overflow-x-auto">
                 <button
                   type="button"
                   onClick={() => setResidentModalTab("identity")}
-                  className={`py-3 transition-colors relative cursor-pointer flex items-center gap-2 whitespace-nowrap ${
+                  className={`py-2 transition-colors relative cursor-pointer flex items-center gap-1.5 whitespace-nowrap ${
                     residentModalTab === "identity" ? "text-emerald-800 font-extrabold" : "text-slate-500 hover:text-slate-800"
                   }`}
                 >
-                  <CreditCard size={15} aria-hidden="true" />
+                  <CreditCard size={14} aria-hidden="true" />
                   <span>Định danh & Nhân thân</span>
                   {residentModalTab === "identity" && <div className="absolute bottom-0 left-0 w-full h-0.5 bg-emerald-700" />}
                 </button>
                 <button
                   type="button"
                   onClick={() => setResidentModalTab("residence")}
-                  className={`py-3 transition-colors relative cursor-pointer flex items-center gap-2 whitespace-nowrap ${
+                  className={`py-2 transition-colors relative cursor-pointer flex items-center gap-1.5 whitespace-nowrap ${
                     residentModalTab === "residence" ? "text-emerald-800 font-extrabold" : "text-slate-500 hover:text-slate-800"
                   }`}
                 >
-                  <Home size={15} aria-hidden="true" />
+                  <Home size={14} aria-hidden="true" />
                   <span>Hộ tịch & Nơi cư trú</span>
                   {residentModalTab === "residence" && <div className="absolute bottom-0 left-0 w-full h-0.5 bg-emerald-700" />}
                 </button>
                 <button
                   type="button"
                   onClick={() => setResidentModalTab("social")}
-                  className={`py-3 transition-colors relative cursor-pointer flex items-center gap-2 whitespace-nowrap ${
+                  className={`py-2 transition-colors relative cursor-pointer flex items-center gap-1.5 whitespace-nowrap ${
                     residentModalTab === "social" ? "text-emerald-800 font-extrabold" : "text-slate-500 hover:text-slate-800"
                   }`}
                 >
-                  <Award size={15} aria-hidden="true" />
+                  <Award size={14} aria-hidden="true" />
                   <span>Đoàn thể & Y tế - Xã hội</span>
                   {residentModalTab === "social" && <div className="absolute bottom-0 left-0 w-full h-0.5 bg-emerald-700" />}
                 </button>
@@ -2652,11 +2653,11 @@ NGƯỜI NƯỚC NGOÀI KHAI BÁO       CHỦ CƠ SỞ LƯU TRÚ       XÁC NH�
                   <button
                     type="button"
                     onClick={() => setResidentModalTab("foreign")}
-                    className={`py-3 transition-colors relative cursor-pointer flex items-center gap-2 whitespace-nowrap ${
+                    className={`py-2 transition-colors relative cursor-pointer flex items-center gap-1.5 whitespace-nowrap ${
                       residentModalTab === "foreign" ? "text-purple-800 font-extrabold" : "text-slate-500 hover:text-slate-800"
                     }`}
                   >
-                    <Globe size={15} aria-hidden="true" />
+                    <Globe size={14} aria-hidden="true" />
                     <span>Thị thực & Xuất nhập cảnh</span>
                     {residentModalTab === "foreign" && <div className="absolute bottom-0 left-0 w-full h-0.5 bg-purple-700" />}
                   </button>
@@ -2665,26 +2666,26 @@ NGƯỜI NƯỚC NGOÀI KHAI BÁO       CHỦ CƠ SỞ LƯU TRÚ       XÁC NH�
             }
             footer={
               <>
-                <div className="flex flex-wrap items-center gap-2">
+                <div className="flex flex-wrap items-center gap-1.5">
                   {isForeignResident(selectedResident) ? (
                     <button
                       type="button"
                       id="btn-modal-print-na17"
                       onClick={() => handleOpenNA17(selectedResident)}
-                      className="min-h-9 flex items-center gap-1.5 px-3 py-1.5 bg-white hover:bg-slate-100 text-slate-800 border border-slate-300 rounded-xl text-xs font-bold transition-colors cursor-pointer"
+                      className="min-h-8 flex items-center gap-1 px-2.5 py-1 bg-white hover:bg-slate-100 text-slate-800 border border-slate-300 rounded-lg text-xs font-bold transition-colors cursor-pointer"
                     >
-                      <FileText size={14} className="text-purple-700" aria-hidden="true" />
-                      <span>In Mẫu NA17</span>
+                      <FileText size={13} className="text-purple-700" aria-hidden="true" />
+                      <span>Mẫu NA17</span>
                     </button>
                   ) : (
                     <button
                       type="button"
                       id="btn-modal-print-ct07"
                       onClick={() => handleOpenCT07(selectedResident)}
-                      className="min-h-9 flex items-center gap-1.5 px-3 py-1.5 bg-white hover:bg-slate-100 text-slate-800 border border-slate-300 rounded-xl text-xs font-bold transition-colors cursor-pointer"
+                      className="min-h-8 flex items-center gap-1 px-2.5 py-1 bg-white hover:bg-slate-100 text-slate-800 border border-slate-300 rounded-lg text-xs font-bold transition-colors cursor-pointer"
                     >
-                      <Printer size={14} className="text-emerald-700" aria-hidden="true" />
-                      <span>In Mẫu CT07</span>
+                      <Printer size={13} className="text-emerald-700" aria-hidden="true" />
+                      <span>Mẫu CT07</span>
                     </button>
                   )}
                   <button
@@ -2694,14 +2695,14 @@ NGƯỜI NƯỚC NGOÀI KHAI BÁO       CHỦ CƠ SỞ LƯU TRÚ       XÁC NH�
                       handleDirections(selectedResident);
                       setShowDetailModal(false);
                     }}
-                    className="min-h-9 flex items-center gap-1.5 px-3 py-1.5 bg-white hover:bg-slate-100 text-slate-800 border border-slate-300 rounded-xl text-xs font-bold transition-colors cursor-pointer"
+                    className="min-h-8 flex items-center gap-1 px-2.5 py-1 bg-white hover:bg-slate-100 text-slate-800 border border-slate-300 rounded-lg text-xs font-bold transition-colors cursor-pointer"
                   >
                     <Navigation size={13} className="text-emerald-700" aria-hidden="true" />
                     <span>Chỉ đường GIS</span>
                   </button>
                 </div>
 
-                <div className="flex flex-wrap items-center gap-2">
+                <div className="flex flex-wrap items-center gap-1.5">
                   <button
                     type="button"
                     id="btn-modal-delete"
@@ -2721,15 +2722,15 @@ NGƯỜI NƯỚC NGOÀI KHAI BÁO       CHỦ CƠ SỞ LƯU TRÚ       XÁC NH�
                         },
                       });
                     }}
-                    className="min-h-9 px-3.5 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-800 border border-rose-200 rounded-xl text-xs font-bold transition-colors cursor-pointer"
+                    className="min-h-8 px-2.5 py-1 bg-rose-50 hover:bg-rose-100 text-rose-800 border border-rose-200 rounded-lg text-xs font-bold transition-colors cursor-pointer"
                   >
-                    Xóa hồ sơ
+                    Xóa
                   </button>
                   <button
                     type="button"
                     id="btn-modal-close-footer"
                     onClick={handleCloseDetailModal}
-                    className="min-h-9 px-3.5 py-1.5 bg-white hover:bg-slate-100 text-slate-700 border border-slate-300 rounded-xl text-xs font-bold transition-colors cursor-pointer"
+                    className="min-h-8 px-3 py-1 bg-white hover:bg-slate-100 text-slate-700 border border-slate-300 rounded-lg text-xs font-bold transition-colors cursor-pointer"
                   >
                     Đóng
                   </button>
@@ -2740,30 +2741,27 @@ NGƯỜI NƯỚC NGOÀI KHAI BÁO       CHỦ CƠ SỞ LƯU TRÚ       XÁC NH�
                       setShowDetailModal(false);
                       handleEditClick(selectedResident);
                     }}
-                    className="min-h-9 flex items-center gap-1.5 px-4 py-1.5 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl text-xs font-bold transition-colors cursor-pointer"
+                    className="min-h-8 flex items-center gap-1 px-3.5 py-1 bg-emerald-700 hover:bg-emerald-800 text-white rounded-lg text-xs font-bold transition-colors cursor-pointer"
                   >
                     <Edit2 size={13} aria-hidden="true" />
-                    <span>Chỉnh sửa hồ sơ</span>
+                    <span>Chỉnh sửa</span>
                   </button>
                 </div>
               </>
             }
           >
             {residentModalTab === "identity" && (
-              <div className="space-y-4">
-                <div className="bg-white rounded-2xl border border-slate-200 p-4 sm:p-5 space-y-3">
-                  <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 pb-2.5">
-                    <div>
-                      <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wider flex items-center gap-2">
-                        <CreditCard size={15} className="text-emerald-700" aria-hidden="true" />
-                        {isForeignResident(selectedResident) ? "Thông tin Hộ chiếu Quốc tế" : "Thẻ Căn cước công dân (Định danh điện tử)"}
-                      </h3>
-                      <p className="text-xs text-slate-500 mt-0.5">Xác thực CCCD gắn chip theo CSDL Quốc gia về dân cư</p>
-                    </div>
+              <div className="space-y-3.5">
+                <div className="bg-slate-50/70 rounded-xl border border-slate-200/90 p-3.5 space-y-2">
+                  <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-200/70 pb-2">
+                    <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wider flex items-center gap-1.5">
+                      <CreditCard size={14} className="text-emerald-700" aria-hidden="true" />
+                      {isForeignResident(selectedResident) ? "Hộ chiếu Quốc tế" : "Căn cước công dân (Định danh)"}
+                    </h3>
                     <button
                       type="button"
                       onClick={() => setShowFullCccd(!showFullCccd)}
-                      className="min-h-8 px-2.5 py-1 text-xs font-bold text-slate-700 hover:text-slate-900 bg-white hover:bg-slate-100 border border-slate-300 rounded-lg inline-flex items-center gap-1.5 transition-colors cursor-pointer"
+                      className="min-h-7 px-2.5 py-0.5 text-xs font-bold text-slate-700 hover:text-slate-900 bg-white hover:bg-slate-100 border border-slate-300 rounded-lg inline-flex items-center gap-1 transition-colors cursor-pointer"
                       aria-pressed={showFullCccd}
                     >
                       {showFullCccd ? <EyeOff size={13} aria-hidden="true" /> : <Eye size={13} aria-hidden="true" />}
@@ -2771,9 +2769,9 @@ NGƯỜI NƯỚC NGOÀI KHAI BÁO       CHỦ CƠ SỞ LƯU TRÚ       XÁC NH�
                     </button>
                   </div>
 
-                  <DetailGrid>
+                  <DetailGrid hideEmpty compact>
                     <DetailRow
-                      label={isForeignResident(selectedResident) ? "Số Hộ chiếu" : "Số định danh / CCCD"}
+                      label={isForeignResident(selectedResident) ? "Số Hộ chiếu" : "Số CCCD"}
                       value={maskedCccdDisplay}
                       copyValue={rawCccd || undefined}
                       isMono
@@ -2783,15 +2781,13 @@ NGƯỜI NƯỚC NGOÀI KHAI BÁO       CHỦ CƠ SỞ LƯU TRÚ       XÁC NH�
                   </DetailGrid>
                 </div>
 
-                <div className="bg-white rounded-2xl border border-slate-200 p-4 sm:p-5 space-y-3">
-                  <div className="flex items-center justify-between border-b border-slate-100 pb-2.5">
-                    <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wider flex items-center gap-2">
-                      <UserCheck size={15} className="text-emerald-700" aria-hidden="true" />
-                      Lai lịch & Thông tin Nhân thân Công dân
-                    </h3>
-                  </div>
+                <div className="space-y-1.5">
+                  <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wider flex items-center gap-1.5 border-b border-slate-200 pb-1.5">
+                    <UserCheck size={14} className="text-emerald-700" aria-hidden="true" />
+                    Lai lịch &amp; Nhân thân
+                  </h3>
 
-                  <DetailGrid>
+                  <DetailGrid hideEmpty compact>
                     <DetailRow label="Ngày sinh" value={selectedResident.birthDate} isMono />
                     <DetailRow label="Giới tính" value={selectedResident.gender} />
                     <DetailRow label="Dân tộc" value={selectedResident.ethnicity || "Kinh"} />
@@ -2817,22 +2813,22 @@ NGƯỜI NƯỚC NGOÀI KHAI BÁO       CHỦ CƠ SỞ LƯU TRÚ       XÁC NH�
             )}
 
             {residentModalTab === "residence" && (
-              <div className="bg-white rounded-2xl p-4 sm:p-5 border border-slate-200 space-y-4">
-                <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 pb-2.5">
-                  <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wider flex items-center gap-2">
-                    <Home size={15} className="text-emerald-700" aria-hidden="true" />
-                    Hồ sơ Hộ tịch & Nơi cư trú
+              <div className="space-y-3">
+                <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-200 pb-2">
+                  <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wider flex items-center gap-1.5">
+                    <Home size={14} className="text-emerald-700" aria-hidden="true" />
+                    Hồ sơ Hộ tịch &amp; Nơi cư trú
                   </h3>
                   {selectedResident.householdId && (
-                    <span className="text-xs font-mono font-bold px-2.5 py-0.5 rounded-md bg-emerald-50 text-emerald-800 border border-emerald-200">
+                    <span className="text-xs font-mono font-bold px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-800 border border-emerald-200">
                       MÃ HỘ: {selectedResident.householdId}
                     </span>
                   )}
                 </div>
 
-                <DetailGrid>
+                <DetailGrid hideEmpty compact>
                   <DetailRow label="Diện cư trú" value={selectedResident.status} />
-                  <DetailRow label="Quan hệ với chủ hộ" value={selectedResident.relationToOwner || "Thành viên"} />
+                  <DetailRow label="Quan hệ chủ hộ" value={selectedResident.relationToOwner || "Thành viên"} />
                   <DetailRow label="Tình trạng quản lý" value={selectedResident.managementStatus || "Đang quản lý thực tế"} colSpan={2} />
                   <DetailRow label="Nơi thường trú gốc" value={selectedResident.permanentAddress} colSpan={2} />
                   <DetailRow
@@ -2843,8 +2839,8 @@ NGƯỜI NƯỚC NGOÀI KHAI BÁO       CHỦ CƠ SỞ LƯU TRÚ       XÁC NH�
                 </DetailGrid>
 
                 {(selectedResident.status === "Tạm trú" || selectedResident.temporaryRegDate || selectedResident.temporaryExpDate) && (
-                  <div className="space-y-3 pt-2 border-t border-slate-100">
-                    <DetailGrid>
+                  <div className="space-y-2.5 pt-2 border-t border-slate-100">
+                    <DetailGrid hideEmpty compact>
                       <DetailRow label="Ngày ĐK tạm trú" value={selectedResident.temporaryRegDate} isMono />
                       <DetailRow label="Ngày hết hạn" value={selectedResident.temporaryExpDate} isMono />
                     </DetailGrid>
@@ -2853,7 +2849,7 @@ NGƯỜI NƯỚC NGOÀI KHAI BÁO       CHỦ CƠ SỞ LƯU TRÚ       XÁC NH�
                       const expiry = getTemporaryResidenceExpiryStatus(selectedResident.temporaryExpDate);
                       if (expiry.status === "unknown") return null;
                       return (
-                        <div className={`p-3.5 rounded-xl border flex items-start gap-3 ${
+                        <div className={`p-3 rounded-xl border flex items-start gap-2.5 ${
                           expiry.isWarning
                             ? "bg-amber-50 border-amber-300 text-amber-950"
                             : expiry.isExpired
@@ -2861,11 +2857,11 @@ NGƯỜI NƯỚC NGOÀI KHAI BÁO       CHỦ CƠ SỞ LƯU TRÚ       XÁC NH�
                               : "bg-emerald-50 border-emerald-200 text-emerald-900"
                         }`}>
                           {expiry.isWarning ? (
-                            <AlertTriangle size={18} className="text-amber-700 shrink-0 mt-0.5" aria-hidden="true" />
+                            <AlertTriangle size={16} className="text-amber-700 shrink-0 mt-0.5" aria-hidden="true" />
                           ) : expiry.isExpired ? (
-                            <AlertCircle size={18} className="text-rose-700 shrink-0 mt-0.5" aria-hidden="true" />
+                            <AlertCircle size={16} className="text-rose-700 shrink-0 mt-0.5" aria-hidden="true" />
                           ) : (
-                            <CheckCircle2 size={18} className="text-emerald-700 shrink-0 mt-0.5" aria-hidden="true" />
+                            <CheckCircle2 size={16} className="text-emerald-700 shrink-0 mt-0.5" aria-hidden="true" />
                           )}
                           <div className="flex-1 text-xs">
                             <div className="font-bold flex flex-wrap items-center gap-2">
@@ -2876,7 +2872,7 @@ NGƯỜI NƯỚC NGOÀI KHAI BÁO       CHỦ CƠ SỞ LƯU TRÚ       XÁC NH�
                                 </span>
                               )}
                             </div>
-                            <p className="mt-1 leading-relaxed">
+                            <p className="mt-0.5 leading-relaxed">
                               {expiry.isWarning
                                 ? "Cán bộ khu phố / CSKV cần liên hệ cơ sở lưu trú hướng dẫn gia hạn tạm trú trực tuyến."
                                 : expiry.isExpired
@@ -2894,21 +2890,21 @@ NGƯỜI NƯỚC NGOÀI KHAI BÁO       CHỦ CƠ SỞ LƯU TRÚ       XÁC NH�
                   const hostel = parseAccommodationInfo(selectedResident.currentAddress || selectedResident.temporaryAddress || selectedResident.address);
                   if (!hostel.isHostel) return null;
                   return (
-                    <div className="p-4 rounded-xl bg-amber-50/60 border border-amber-200 space-y-2">
+                    <div className="p-3 rounded-xl bg-amber-50/60 border border-amber-200 space-y-1.5">
                       <div className="flex items-center justify-between gap-2">
                         <span className="font-bold text-amber-950 text-xs flex items-center gap-1.5">
-                          <Building2 size={15} className="text-amber-700" aria-hidden="true" />
+                          <Building2 size={14} className="text-amber-700" aria-hidden="true" />
                           Cơ sở Lưu trú / Nhà trọ Quản lý
                         </span>
-                        <span className="text-xs font-bold bg-amber-100 text-amber-900 px-2.5 py-0.5 rounded-full border border-amber-300">
+                        <span className="text-xs font-bold bg-amber-100 text-amber-900 px-2 py-0.5 rounded-full border border-amber-300">
                           Đã đối soát CSKD
                         </span>
                       </div>
-                      <dl className="@container bg-white p-3 rounded-lg border border-amber-200 text-xs">
-                        <DetailRow label="Tên nhà trọ" value={hostel.hostelName} />
-                        {hostel.owner && <DetailRow label="Chủ nhà trọ" value={hostel.owner} />}
+                      <dl className="@container bg-white px-3 py-1 rounded-lg border border-amber-200 text-xs">
+                        <DetailRow label="Tên nhà trọ" value={hostel.hostelName} compact hideIfEmpty />
+                        {hostel.owner && <DetailRow label="Chủ nhà trọ" value={hostel.owner} compact hideIfEmpty />}
                         {hostel.phone && (
-                          <DetailRow label="SĐT chủ trọ" value={hostel.phone} href={`tel:${hostel.phone}`} copyValue={hostel.phone} isMono />
+                          <DetailRow label="SĐT chủ trọ" value={hostel.phone} href={`tel:${hostel.phone}`} copyValue={hostel.phone} isMono compact hideIfEmpty />
                         )}
                       </dl>
                     </div>
@@ -2918,13 +2914,13 @@ NGƯỜI NƯỚC NGOÀI KHAI BÁO       CHỦ CƠ SỞ LƯU TRÚ       XÁC NH�
             )}
 
             {residentModalTab === "social" && (
-              <div className="bg-white rounded-2xl p-4 sm:p-5 border border-slate-200 space-y-4">
-                <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wider flex items-center gap-2 border-b border-slate-100 pb-2.5">
-                  <Award size={15} className="text-rose-700" aria-hidden="true" />
-                  Chính sách, Đoàn thể & Chăm sóc Xã hội
+              <div className="space-y-3">
+                <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wider flex items-center gap-1.5 border-b border-slate-200 pb-2">
+                  <Award size={14} className="text-rose-700" aria-hidden="true" />
+                  Chính sách, Đoàn thể &amp; Y tế - Xã hội
                 </h3>
 
-                <DetailGrid>
+                <DetailGrid hideEmpty compact>
                   <DetailRow label="Diện chính sách" value={selectedResident.policyGroup || "Dân cư phổ thông"} />
                   <DetailRow label="Mã thẻ BHYT" value={selectedResident.healthInsuranceNumber} copyValue={selectedResident.healthInsuranceNumber} isMono />
                   <DetailRow label="Nghĩa vụ quân sự" value={selectedResident.militaryServiceStatus} />
@@ -2939,8 +2935,8 @@ NGƯỜI NƯỚC NGOÀI KHAI BÁO       CHỦ CƠ SỞ LƯU TRÚ       XÁC NH�
                 </DetailGrid>
 
                 {selectedResident.notes && (
-                  <div className="p-3.5 bg-amber-50/60 rounded-xl border border-amber-200 text-xs">
-                    <span className="font-bold text-amber-950 block mb-1">Ghi chú quản lý nghiệp vụ:</span>
+                  <div className="p-3 bg-amber-50/60 rounded-xl border border-amber-200 text-xs">
+                    <span className="font-bold text-amber-950 block mb-0.5">Ghi chú nghiệp vụ:</span>
                     <p className="text-slate-800 leading-relaxed">{selectedResident.notes}</p>
                   </div>
                 )}
@@ -2948,18 +2944,18 @@ NGƯỜI NƯỚC NGOÀI KHAI BÁO       CHỦ CƠ SỞ LƯU TRÚ       XÁC NH�
             )}
 
             {residentModalTab === "foreign" && isForeignResident(selectedResident) && (
-              <div className="bg-white rounded-2xl p-4 sm:p-5 border border-purple-200 space-y-4">
-                <div className="flex items-center justify-between border-b border-purple-100 pb-2.5">
-                  <h3 className="text-xs font-bold text-purple-950 uppercase tracking-wider flex items-center gap-2">
-                    <Globe size={15} className="text-purple-700" aria-hidden="true" />
-                    Hồ sơ Thị thực & Quản lý Người nước ngoài
+              <div className="space-y-3">
+                <div className="flex items-center justify-between border-b border-purple-200 pb-2">
+                  <h3 className="text-xs font-bold text-purple-950 uppercase tracking-wider flex items-center gap-1.5">
+                    <Globe size={14} className="text-purple-700" aria-hidden="true" />
+                    Thị thực &amp; Quản lý Người nước ngoài
                   </h3>
-                  <span className="text-xs px-2.5 py-0.5 bg-purple-50 text-purple-800 border border-purple-200 rounded-md font-bold">
+                  <span className="text-xs px-2 py-0.5 bg-purple-50 text-purple-800 border border-purple-200 rounded-md font-bold">
                     {getCountryFlag(selectedResident.nationality)} {selectedResident.nationality}
                   </span>
                 </div>
 
-                <DetailGrid>
+                <DetailGrid hideEmpty compact>
                   <DetailRow label="Số Hộ chiếu" value={selectedResident.passportNumber || selectedResident.cccd} copyValue={selectedResident.passportNumber || selectedResident.cccd} isMono />
                   <DetailRow label="Hạn Hộ chiếu" value={selectedResident.passportExpiryDate || "Không thời hạn"} isMono />
                   <DetailRow label="Loại thị thực" value={selectedResident.visaOrCardType || "Thẻ tạm trú (TRC)"} />

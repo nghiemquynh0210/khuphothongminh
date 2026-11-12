@@ -30,6 +30,8 @@ export interface ModalProps {
   footerClassName?: string;
   /** Default true for detail inspection; pass false for form modals to prevent accidental data loss. */
   closeOnOverlayClick?: boolean;
+  /** Tighter header/footer chrome padding for compact data-dense detail modals. */
+  compact?: boolean;
   zIndexClass?: string;
 }
 
@@ -48,6 +50,7 @@ export function Modal({
   bodyClassName = "p-5 sm:p-6 bg-white",
   footerClassName = "justify-end",
   closeOnOverlayClick = true,
+  compact = false,
   zIndexClass = "z-50",
 }: ModalProps) {
   const titleId = useId();
@@ -107,7 +110,9 @@ export function Modal({
 
   return (
     <div
-      className={`fixed inset-0 ${zIndexClass} flex items-start justify-center p-3 sm:p-6 pt-4 sm:pt-[6vh] overflow-y-auto`}
+      className={`fixed inset-0 ${zIndexClass} flex items-start justify-center ${
+        compact ? "p-2.5 sm:p-4 pt-3 sm:pt-[4vh]" : "p-3 sm:p-6 pt-4 sm:pt-[6vh]"
+      } overflow-y-auto`}
     >
       <div
         className="fixed inset-0 bg-slate-950/55 transition-opacity duration-150"
@@ -123,9 +128,15 @@ export function Modal({
         aria-labelledby={ariaLabel ? undefined : titleId}
         tabIndex={-1}
         onClick={(e) => e.stopPropagation()}
-        className={`relative w-full ${sizeClasses} max-h-[calc(100dvh-2rem)] sm:max-h-[calc(100dvh-10vh)] flex flex-col bg-white rounded-2xl border border-slate-200 shadow-xl overflow-hidden z-10 focus:outline-none`}
+        className={`relative w-full ${sizeClasses} ${
+          compact ? "max-h-[calc(100dvh-1.25rem)] sm:max-h-[calc(100dvh-8vh)]" : "max-h-[calc(100dvh-2rem)] sm:max-h-[calc(100dvh-10vh)]"
+        } flex flex-col bg-white rounded-2xl border border-slate-200 shadow-xl overflow-hidden z-10 focus:outline-none`}
       >
-        <div className="flex items-start justify-between gap-3 px-5 py-4 sm:px-6 bg-white border-b border-slate-200 shrink-0">
+        <div
+          className={`flex items-start justify-between gap-2.5 bg-white border-b border-slate-200 shrink-0 ${
+            compact ? "px-4 py-2.5 sm:px-5 sm:py-3" : "px-5 py-4 sm:px-6"
+          }`}
+        >
           {headerSlot ? (
             <div id={titleId} className="min-w-0 flex-1">
               {headerSlot}
@@ -196,7 +207,9 @@ export function Modal({
 
         {footer && (
           <div
-            className={`flex flex-wrap items-center gap-2.5 px-5 py-3.5 sm:px-6 bg-white border-t border-slate-200 shrink-0 ${footerClassName}`}
+            className={`flex flex-wrap items-center bg-white border-t border-slate-200 shrink-0 ${
+              compact ? "gap-2 px-4 py-2.5 sm:px-5" : "gap-2.5 px-5 py-3.5 sm:px-6"
+            } ${footerClassName}`}
           >
             {footer}
           </div>

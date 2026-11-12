@@ -5277,7 +5277,8 @@ export default function PartyBranch({
           <Modal
             isOpen={Boolean(selectedMemberForDetail)}
             onClose={() => setSelectedMemberForDetail(null)}
-            size="3xl"
+            size="2xl"
+            compact
             ariaLabel={`Hồ sơ chi tiết thành viên ${member.fullName}`}
             headerNavigation={
               totalNav > 1 && currentIdx >= 0
@@ -5293,12 +5294,12 @@ export default function PartyBranch({
                 : undefined
             }
             headerSlot={
-              <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3.5">
+              <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
                 <div className="relative group shrink-0">
                   <img
                     src={memberAvatar}
                     alt={member.fullName}
-                    className="w-16 h-16 rounded-xl border border-slate-200 object-cover bg-slate-100"
+                    className="w-12 h-12 sm:w-14 sm:h-14 rounded-xl border border-slate-200 object-cover bg-slate-100"
                     referrerPolicy="no-referrer"
                   />
                   {isPartyMem && (
@@ -5360,12 +5361,12 @@ export default function PartyBranch({
                 </div>
               </div>
             }
-            bodyClassName="p-3.5 sm:p-5 space-y-3.5 bg-slate-100/70 text-xs"
+            bodyClassName="p-4 sm:p-5 space-y-3 bg-white text-xs"
             footer={
               <div className="flex flex-wrap items-center justify-between gap-2">
-                <label className="min-h-9 inline-flex items-center gap-1.5 px-3 py-1.5 border border-slate-200 hover:bg-slate-50 text-slate-700 rounded-lg text-xs font-semibold cursor-pointer transition-colors">
-                  <Camera size={14} className="text-emerald-700" />
-                  <span>Đổi ảnh đại diện</span>
+                <label className="min-h-8 inline-flex items-center gap-1.5 px-2.5 py-1 border border-slate-200 hover:bg-slate-50 text-slate-700 rounded-lg text-xs font-semibold cursor-pointer transition-colors">
+                  <Camera size={13} className="text-emerald-700" />
+                  <span>Đổi ảnh</span>
                   <input
                     type="file"
                     accept="image/*"
@@ -5377,11 +5378,11 @@ export default function PartyBranch({
                   />
                 </label>
 
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-1.5">
                   <button
                     type="button"
                     onClick={() => setSelectedMemberForDetail(null)}
-                    className="min-h-9 px-3.5 py-1.5 bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 rounded-lg text-xs font-semibold transition-colors cursor-pointer"
+                    className="min-h-8 px-3 py-1 bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 rounded-lg text-xs font-semibold transition-colors cursor-pointer"
                   >
                     Đóng
                   </button>
@@ -5391,27 +5392,27 @@ export default function PartyBranch({
                       setSelectedMemberForDetail(null);
                       handleOpenEditMember(member);
                     }}
-                    className="min-h-9 inline-flex items-center gap-1.5 px-4 py-1.5 bg-emerald-700 hover:bg-emerald-800 text-white rounded-lg text-xs font-semibold transition-colors cursor-pointer"
+                    className="min-h-8 inline-flex items-center gap-1 px-3.5 py-1 bg-emerald-700 hover:bg-emerald-800 text-white rounded-lg text-xs font-semibold transition-colors cursor-pointer"
                   >
                     <Edit2 size={13} />
-                    <span>Chỉnh sửa hồ sơ</span>
+                    <span>Chỉnh sửa</span>
                   </button>
                 </div>
               </div>
             }
           >
 
-                {/* THẺ 1: Thông tin định danh & Tham gia Chi hội */}
-                <div className="bg-white rounded-xl p-4 border border-slate-200 space-y-2.5">
-                  <div className="flex items-center justify-between pb-2 border-b border-slate-100">
-                    <div className="flex items-center gap-2 text-slate-900 font-bold text-xs">
-                      <CreditCard size={15} className="text-emerald-700" />
-                      <span>1. Định danh & Nhiệm vụ Chi hội</span>
+                {/* MỤC 1: Thông tin định danh & Tham gia Chi hội */}
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between pb-1.5 border-b border-slate-200">
+                    <div className="flex items-center gap-1.5 text-slate-900 font-bold text-xs uppercase tracking-wider">
+                      <CreditCard size={14} className="text-emerald-700" />
+                      <span>1. Định danh &amp; Nhiệm vụ Chi hội</span>
                     </div>
                   </div>
 
-                  <DetailGrid>
-                    <DetailRow label="Số CCCD / Định danh" value={member.cccd} isMono copyValue={member.cccd} />
+                  <DetailGrid hideEmpty compact>
+                    <DetailRow label="Số CCCD" value={member.cccd} isMono copyValue={member.cccd} />
                     <DetailRow label="Chức danh / Vai trò" value={<span className="font-bold text-emerald-800">{member.role}</span>} />
                     <DetailRow label="Ngày tham gia" value={member.joinDate} isMono />
                     <DetailRow
@@ -5425,14 +5426,14 @@ export default function PartyBranch({
                   </DetailGrid>
                 </div>
 
-                {/* THẺ 2: Cư trú & Liên hệ */}
-                <div className="bg-white rounded-xl p-4 border border-slate-200 space-y-2.5">
-                  <div className="flex items-center gap-2 pb-2 border-b border-slate-100 text-slate-900 font-bold text-xs">
-                    <Home size={15} className="text-slate-700" />
-                    <span>2. Thông tin cư trú & Liên hệ</span>
+                {/* MỤC 2: Cư trú & Liên hệ */}
+                <div className="pt-3 border-t border-slate-200 space-y-2">
+                  <div className="flex items-center gap-1.5 pb-1 text-slate-900 font-bold text-xs uppercase tracking-wider">
+                    <Home size={14} className="text-slate-700" />
+                    <span>2. Cư trú &amp; Liên hệ</span>
                   </div>
 
-                  <DetailGrid>
+                  <DetailGrid hideEmpty compact>
                     <DetailRow
                       label="Số điện thoại"
                       value={member.phone || matchedRes?.phone}
@@ -5441,18 +5442,18 @@ export default function PartyBranch({
                       href={(member.phone || matchedRes?.phone) ? `tel:${member.phone || matchedRes?.phone}` : undefined}
                     />
                     <DetailRow label="Ngày / Năm sinh" value={member.birthDate || matchedRes?.birthDate} isMono />
-                    <DetailRow label="Địa chỉ nơi cư trú" value={matchedRes?.address || "Khu phố 3, Phường An Phú, TP. Hồ Chí Minh"} colSpan={2} />
+                    <DetailRow label="Địa chỉ cư trú" value={matchedRes?.address || "Khu phố 3, Phường An Phú, TP. Hồ Chí Minh"} colSpan={2} />
                     <DetailRow label="Mã Hộ gia đình" value={matchedRes?.householdId} isMono copyValue={matchedRes?.householdId} />
                     <DetailRow label="Tình trạng cư trú" value={<span className="font-semibold text-emerald-800">{matchedRes?.status || "Thường trú"}</span>} />
                   </DetailGrid>
                 </div>
 
-                {/* THẺ 3: Hồ sơ Quyết định công nhận */}
-                <div className="bg-white rounded-xl p-4 border border-slate-200 space-y-2.5">
-                  <div className="flex items-center justify-between pb-2 border-b border-slate-100">
-                    <div className="flex items-center gap-2 text-slate-900 font-bold text-xs">
-                      <FileCheck size={15} className="text-amber-600" />
-                      <span>3. Hồ sơ & Quyết định công nhận</span>
+                {/* MỤC 3: Hồ sơ Quyết định công nhận */}
+                <div className="pt-3 border-t border-slate-200 space-y-2">
+                  <div className="flex items-center justify-between pb-1">
+                    <div className="flex items-center gap-1.5 text-slate-900 font-bold text-xs uppercase tracking-wider">
+                      <FileCheck size={14} className="text-amber-600" />
+                      <span>3. Quyết định công nhận</span>
                     </div>
                     {member.decisionFile && (
                       <span className="text-xs font-mono font-semibold text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
@@ -5462,7 +5463,7 @@ export default function PartyBranch({
                   </div>
 
                   <div className="space-y-2">
-                    <DetailGrid>
+                    <DetailGrid hideEmpty compact>
                       <DetailRow label="Số Quyết định" value={member.decisionNumber} isMono copyValue={member.decisionNumber} />
                       <DetailRow label="Ngày ký quyết định" value={member.decisionDate} isMono />
                     </DetailGrid>
