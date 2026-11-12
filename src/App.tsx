@@ -250,6 +250,11 @@ export default function App() {
   );
   const [citizenSubView, setCitizenSubView] = useState<ActiveTab | null>(null);
   const [verifiedStaff, setVerifiedStaff] = useState<VerifiedStaffSession | null>(null);
+  const verifiedStaffRef = useRef<VerifiedStaffSession | null>(null);
+  const updateVerifiedStaff = (session: VerifiedStaffSession | null) => {
+    verifiedStaffRef.current = session;
+    setVerifiedStaff(session);
+  };
   const [authChecked, setAuthChecked] = useState<boolean>(!isSupabaseConfigured);
   const [residents, setResidents] = useState<Resident[]>(() =>
     isSupabaseConfigured ? [] : initialResidents
@@ -307,7 +312,7 @@ export default function App() {
     const syncAuthSession = async () => {
       const session = await getVerifiedStaffSession();
       if (!mounted) return;
-      setVerifiedStaff(session);
+      updateVerifiedStaff(session);
       setAuthChecked(true);
       if (!session) {
         try {
@@ -344,20 +349,33 @@ export default function App() {
       const pathname = window.location.pathname;
       setRoutePath(pathname);
       const tab = getTabFromDashboardPath(pathname);
+      const activeStaff = verifiedStaffRef.current;
 
       if (pathname === "/login") {
+        if (isSupabaseConfigured && activeStaff) {
+          setCurrentUser({
+            username: activeStaff.username,
+            fullName: activeStaff.fullName,
+            role: "canbo",
+            phone: activeStaff.phone,
+          });
+          setActiveTab("cultural");
+          setCitizenSubView(null);
+          navigate(ROUTES.DASHBOARD_CULTURAL);
+          return;
+        }
         setCurrentUser(null);
         return;
       }
 
       if (isSupabaseConfigured) {
         if (!authChecked) return;
-        if (verifiedStaff) {
+        if (activeStaff) {
           const staffUser = {
-            username: verifiedStaff.username,
-            fullName: verifiedStaff.fullName,
+            username: activeStaff.username,
+            fullName: activeStaff.fullName,
             role: "canbo" as const,
-            phone: verifiedStaff.phone,
+            phone: activeStaff.phone,
           };
           setCurrentUser(staffUser);
           if (tab) {
@@ -395,7 +413,7 @@ export default function App() {
       window.removeEventListener("popstate", handleLocationSync);
       window.removeEventListener("app:navigate", handleLocationSync);
     };
-  }, [authChecked, verifiedStaff]);
+  }, [authChecked, verifiedStaff?.userId]);
 
   // Nạp dữ liệu từ Supabase PostgreSQL (phân quyền Strict RLS cho Khách công khai vs Cán bộ đã xác thực)
   useEffect(() => {
@@ -403,7 +421,7 @@ export default function App() {
 
     async function fetchSupabaseData() {
       if (!isSupabaseConfigured || !supabase) return;
-      const isApprovedStaff = Boolean(verifiedStaff);
+      const isApprovedStaff = Boolean(verifiedStaffRef.current);
       try {
         setIsDataLoading(true);
 
@@ -761,7 +779,7 @@ export default function App() {
     }
 
     fetchSupabaseData();
-  }, [authChecked, verifiedStaff]);
+  }, [authChecked, verifiedStaff?.userId]);
   
   // New State variables for the 3 additional views
   const [welfareRecipients, setWelfareRecipients] = useState<WelfareRecipient[]>(() => {
@@ -1585,11 +1603,22 @@ export default function App() {
     return (
       <LoginAndRegister
         onLoginSuccess={(user) => {
-          setCurrentUser(user);
+          if (user.staffSession) {
+            updateVerifiedStaff(user.staffSession);
+          }
+          const cleanUser = {
+            username: user.username,
+            fullName: user.fullName,
+            role: user.role,
+            cccd: user.cccd,
+            householdCode: user.householdCode,
+            phone: user.phone,
+          };
+          setCurrentUser(cleanUser);
           try {
-            localStorage.setItem("kp3_auth_user", JSON.stringify(user));
+            localStorage.setItem("kp3_auth_user", JSON.stringify(cleanUser));
           } catch (e) {}
-          if (user.role === "canbo") {
+          if (cleanUser.role === "canbo") {
             setActiveTab("cultural");
             navigate(ROUTES.DASHBOARD_CULTURAL);
           } else {
@@ -1656,7 +1685,7 @@ export default function App() {
           if (supabase) {
             supabase.auth.signOut().catch(() => {});
           }
-          setVerifiedStaff(null);
+          updateVerifiedStaff(null);
           setCurrentUser(PUBLIC_CITIZEN_USER);
           navigate(ROUTES.HOME);
         }}
@@ -1999,7 +2028,7 @@ export default function App() {
                 <button
                   id="header-open-auth"
                   onClick={() => {
-                    setVerifiedStaff(null);
+                    updateVerifiedStaff(null);
                     setCurrentUser(null);
                     navigate(ROUTES.LOGIN);
                   }}
@@ -2038,7 +2067,7 @@ export default function App() {
                         supabase.auth.signOut().catch(() => {});
                       }
                     } catch (e) {}
-                    setVerifiedStaff(null);
+                    updateVerifiedStaff(null);
                     setCurrentUser(null);
                     navigate(ROUTES.LOGIN);
                   }}

@@ -28,6 +28,7 @@ import {
 import { PendingRegistration } from "./SettingsAndPermissions";
 import { ReportSelect } from "./reports/ReportSelect";
 import { supabase, isSupabaseConfigured } from "../lib/supabase";
+import { VerifiedStaffSession } from "../utils/supabaseSync";
 
 interface LoginAndRegisterProps {
   onLoginSuccess: (user: {
@@ -37,6 +38,7 @@ interface LoginAndRegisterProps {
     cccd?: string;
     householdCode?: string;
     phone?: string;
+    staffSession?: VerifiedStaffSession;
   }) => void;
   onRegisterSubmit: (registration: PendingRegistration) => void;
   householdCodes: string[];
@@ -178,11 +180,23 @@ export default function LoginAndRegister({
                       );
                     }
 
-                    const authenticatedUser = {
-                      username: profile.email.split("@")[0],
-                      fullName: profile.full_name,
-                      role: "canbo" as const,
+                    const staffEmail = profile.email || authData.user.email || targetEmail;
+                    const staffUsername = staffEmail.split("@")[0] || "canbo";
+                    const staffSession: VerifiedStaffSession = {
+                      userId: profile.id || authData.user.id,
+                      email: staffEmail,
+                      username: staffUsername,
+                      fullName: profile.full_name || "Cán bộ Khu phố 3",
+                      role: profile.role,
                       phone: profile.phone || "",
+                    };
+
+                    const authenticatedUser = {
+                      username: staffUsername,
+                      fullName: staffSession.fullName,
+                      role: "canbo" as const,
+                      phone: staffSession.phone,
+                      staffSession,
                     };
 
                     if (rememberMe) {
