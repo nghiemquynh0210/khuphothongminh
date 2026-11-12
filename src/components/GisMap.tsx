@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   AlertTriangle,
   Camera,
@@ -36,6 +36,13 @@ import {
   parseCoordinates,
 } from "../utils/gisUtils";
 import { formatTextNumbers, formatVNNumber } from "../utils/numberFormat";
+import { KP3_OFFICIAL_BASELINE } from "../utils/kp3Utils";
+import {
+  GIS_CONFIG_KEY,
+  GisPersistedConfig,
+  loadPortalSetting,
+  savePortalSetting,
+} from "../utils/supabaseSync";
 import { PageHeader } from "./common/PageHeader";
 import { StatCard } from "./common/StatCard";
 import { Button } from "./ui/Button";
@@ -224,6 +231,41 @@ export default function GisMap({
     }
   }, [customPins]);
 
+  const gisDbHydratedRef = useRef(false);
+  useEffect(() => {
+    let active = true;
+    loadPortalSetting<GisPersistedConfig>(GIS_CONFIG_KEY).then((cfg) => {
+      if (!active) return;
+      if (cfg) {
+        if (Array.isArray(cfg.boundaryCoords) && cfg.boundaryCoords.length >= 3) {
+          setBoundaryCoords(cfg.boundaryCoords);
+        }
+        if (cfg.boundaryStyle) {
+          setBoundaryStyle(cfg.boundaryStyle);
+        }
+        if (Array.isArray(cfg.customPins)) {
+          setCustomPins(cfg.customPins);
+        }
+      }
+      gisDbHydratedRef.current = true;
+    });
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (readOnly || !gisDbHydratedRef.current) return;
+    const timer = window.setTimeout(() => {
+      savePortalSetting<GisPersistedConfig>(
+        GIS_CONFIG_KEY,
+        { boundaryCoords, boundaryStyle, customPins },
+        true
+      );
+    }, 450);
+    return () => window.clearTimeout(timer);
+  }, [boundaryCoords, boundaryStyle, customPins, readOnly]);
+
   // Derived Missing Records
   const missingHouseholds = useMemo(
     () => households.filter((h) => !parseCoordinates(h.coordinates)),
@@ -309,7 +351,7 @@ export default function GisMap({
       counts[p.type] = (counts[p.type] || 0) + 1;
     }
     if (readOnly) {
-      counts.household = households.length;
+      counts.household = households.length > 0 ? households.length : KP3_OFFICIAL_BASELINE.households;
     }
     return counts;
   }, [allPins, readOnly, households.length]);
@@ -681,7 +723,7 @@ export default function GisMap({
       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3.5 sm:gap-4">
         <StatCard
           label="Hộ gia đình KP3"
-          value={households.length}
+          value={readOnly && households.length === 0 ? KP3_OFFICIAL_BASELINE.households : households.length}
           badge="hộ"
           icon={MapPin}
           color="indigo"

@@ -44,6 +44,7 @@ import { StatusBadge } from "./ui/StatusBadge";
 import { EmptyState } from "./ui/EmptyState";
 import { ConfirmModal } from "./ui/ConfirmModal";
 import { formatVNNumber } from "../utils/numberFormat";
+import { loadFundCategoriesFromDb, saveFundCategoriesToDb } from "../utils/supabaseSync";
 import VietQrModal from "./funds/VietQrModal";
 import HouseholdFundLookup from "./funds/HouseholdFundLookup";
 import FundCatalogManager from "./funds/FundCatalogManager";
@@ -141,6 +142,24 @@ export default function NeighborhoodFunds({
 
   const expenditures = controlledExpenditures ?? localExpenditures;
 
+  const categoriesDbHydratedRef = useRef(false);
+
+  useEffect(() => {
+    let active = true;
+    loadFundCategoriesFromDb().then((rows) => {
+      if (active && rows && rows.length > 0) {
+        setStoredCategories(rows);
+        try {
+          localStorage.setItem(FUND_CATEGORIES_STORAGE_KEY, JSON.stringify(rows));
+        } catch {}
+      }
+      categoriesDbHydratedRef.current = true;
+    });
+    return () => {
+      active = false;
+    };
+  }, []);
+
   useEffect(() => {
     try {
       localStorage.setItem(
@@ -150,7 +169,10 @@ export default function NeighborhoodFunds({
     } catch {
       // Ignore storage quota issues
     }
-  }, [storedCategories]);
+    if (!readOnly && categoriesDbHydratedRef.current) {
+      saveFundCategoriesToDb(storedCategories);
+    }
+  }, [storedCategories, readOnly]);
 
   useEffect(() => {
     if (controlledExpenditures !== undefined) return;

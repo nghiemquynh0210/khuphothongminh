@@ -49,6 +49,7 @@ import { InlineNotice } from "./ui/ConfirmModal";
 import { initialAdministrativeForms } from "../mockForms";
 import { initialNewsList } from "../mockData";
 import { supabase, isSupabaseConfigured } from "../lib/supabase";
+import { AREA_SCOPES_KEY, loadPortalSetting, savePortalSetting } from "../utils/supabaseSync";
 import { DEFAULT_LANDING_CONFIG } from "./landing/landingConstants";
 import { PortalConfigSettings } from "./settings/PortalConfigSettings";
 
@@ -239,6 +240,7 @@ export default function SettingsAndPermissions({
     try {
       localStorage.setItem(AREA_SCOPES_STORAGE_KEY, JSON.stringify(nextAll));
     } catch {}
+    savePortalSetting(AREA_SCOPES_KEY, nextAll, false);
     showNewsToast(
       `Đã ${(nextGroup[zoneId] ? "bật" : "khóa")} phạm vi ${zoneName} cho nhóm quyền đang chọn.`
     );
@@ -254,12 +256,28 @@ export default function SettingsAndPermissions({
     try {
       localStorage.setItem(AREA_SCOPES_STORAGE_KEY, JSON.stringify(nextAll));
     } catch {}
+    savePortalSetting(AREA_SCOPES_KEY, nextAll, false);
     showNewsToast(
       enabled
         ? "Đã mở toàn bộ cụm địa bàn & tuyến đường KP3."
         : "Đã giới hạn phạm vi điều hành cụm địa bàn."
     );
   };
+
+  useEffect(() => {
+    let active = true;
+    loadPortalSetting<Record<string, Record<string, boolean>>>(AREA_SCOPES_KEY).then((data) => {
+      if (active && data && typeof data === "object") {
+        setAreaScopesByGroup(data);
+        try {
+          localStorage.setItem(AREA_SCOPES_STORAGE_KEY, JSON.stringify(data));
+        } catch {}
+      }
+    });
+    return () => {
+      active = false;
+    };
+  }, []);
 
   // Mock data for Roadmap / Kế hoạch triển khai
   const planningSteps = [

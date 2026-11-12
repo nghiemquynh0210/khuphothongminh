@@ -142,3 +142,49 @@ export async function uploadReportImages(
   return { urls, errors };
 }
 
+/**
+ * Nén và tải 1 hình ảnh lên Supabase Storage (bucket "field-reports"),
+ * tự động fallback DataURL khi offline hoặc upload bị từ chối.
+ */
+export async function uploadSingleImage(
+  file: File,
+  folderPrefix: string = "cms",
+  options: { maxWidth?: number; maxHeight?: number; quality?: number } = {}
+): Promise<string> {
+  const err = validateImageFile(file);
+  if (err) {
+    throw new Error(err);
+  }
+
+  const compressedDataUrl = await compressImageToDataUrl(file, {
+    maxWidth: options.maxWidth ?? 1280,
+    maxHeight: options.maxHeight ?? 1280,
+    quality: options.quality ?? 0.85,
+  });
+
+  if (isSupabaseConfigured && supabase) {
+    try {
+      const blob = dataUrlToBlob(compressedDataUrl);
+      if (blob) {
+        const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, "_");
+        const path = `${folderPrefix}/${Date.now()}-${Math.random().toString(36).slice(2, 7)}-${safeName}.jpg`;
+        const { error: uploadError } = await supabase.storage
+          .from("field-reports")
+          .upload(path, blob, { contentType: "image/jpeg", upsert: false });
+
+        if (!uploadError) {
+          const { data: pub } = supabase.storage.from("field-reports").getPublicUrl(path);
+          if (pub?.publicUrl) {
+            return pub.publicUrl;
+          }
+        }
+      }
+    } catch {
+      // Fallback sang DataURL nén bên dưới
+    }
+  }
+
+  return compressedDataUrl;
+}
+
+

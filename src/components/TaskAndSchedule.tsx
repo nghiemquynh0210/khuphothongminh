@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
   Bell,
   Calendar as CalendarIcon,
@@ -20,6 +20,13 @@ import {
 import { RecurringReminder, ScheduleEvent, TaskAttachment, TaskItem } from "../types";
 import { getStoredAssociations } from "../data/associationsData";
 import { KP3_AREA_LIST, extractKp3Area } from "../utils/kp3Utils";
+import {
+  loadRemindersFromDb,
+  loadSchedulesFromDb,
+  syncRemindersToDb,
+  syncSchedulesToDb,
+  syncTasksDiffToDb,
+} from "../utils/supabaseSync";
 import { StatCard } from "./common/StatCard";
 import { PageHeader } from "./common/PageHeader";
 import { Button, ConfirmModal, EmptyState, InlineNotice, ReportSelect } from "./ui";
@@ -77,6 +84,7 @@ export default function TaskAndSchedule({
     if (onTasksChange) {
       onTasksChange(next);
     } else {
+      syncTasksDiffToDb(internalTasks, next);
       setInternalTasks(next);
       saveStoredTasks(next);
     }
@@ -91,6 +99,7 @@ export default function TaskAndSchedule({
   });
 
   const saveSchedules = (next: ScheduleEvent[]) => {
+    syncSchedulesToDb(schedules, next);
     setSchedules(next);
     try {
       localStorage.setItem(SCHEDULE_STORAGE_KEY, JSON.stringify(next));
@@ -106,11 +115,31 @@ export default function TaskAndSchedule({
   });
 
   const saveReminders = (next: RecurringReminder[]) => {
+    syncRemindersToDb(recurringReminders, next);
     setRecurringReminders(next);
     try {
       localStorage.setItem(REMINDER_STORAGE_KEY, JSON.stringify(next));
     } catch {}
   };
+
+  useEffect(() => {
+    let active = true;
+    loadSchedulesFromDb().then((rows) => {
+      if (active && rows && rows.length > 0) {
+        setSchedules(rows);
+        try { localStorage.setItem(SCHEDULE_STORAGE_KEY, JSON.stringify(rows)); } catch {}
+      }
+    });
+    loadRemindersFromDb().then((rows) => {
+      if (active && rows && rows.length > 0) {
+        setRecurringReminders(rows);
+        try { localStorage.setItem(REMINDER_STORAGE_KEY, JSON.stringify(rows)); } catch {}
+      }
+    });
+    return () => {
+      active = false;
+    };
+  }, []);
 
   const [associationsList] = useState(() => getStoredAssociations());
 

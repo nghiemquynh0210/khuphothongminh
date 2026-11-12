@@ -82,6 +82,25 @@ import {
   Link 
 } from "./routes";
 import { supabase, isSupabaseConfigured } from "./lib/supabase";
+import {
+  DEFAULT_LANDING_CONFIG_KEY,
+  VerifiedStaffSession,
+  deleteAdministrativeFormFromDb,
+  deleteCommunityEventFromDb,
+  getVerifiedStaffSession,
+  loadAdministrativeFormsFromDb,
+  loadCommunityEventsFromDb,
+  loadPortalSetting,
+  loadTasksFromDb,
+  loadWelfareRecord,
+  mapDbNewsToLocal,
+  saveLandingConfigToDb,
+  saveWelfareRecord,
+  serializeLocalNewsToDb,
+  syncTasksDiffToDb,
+  upsertAdministrativeFormToDb,
+  upsertCommunityEventToDb,
+} from "./utils/supabaseSync";
 import { 
   Bell, 
   Users,
@@ -230,8 +249,14 @@ export default function App() {
     typeof window !== "undefined" ? window.location.pathname : "/"
   );
   const [citizenSubView, setCitizenSubView] = useState<ActiveTab | null>(null);
-  const [residents, setResidents] = useState<Resident[]>(initialResidents);
-  const [households, setHouseholds] = useState<Household[]>(initialHouseholds);
+  const [verifiedStaff, setVerifiedStaff] = useState<VerifiedStaffSession | null>(null);
+  const [authChecked, setAuthChecked] = useState<boolean>(!isSupabaseConfigured);
+  const [residents, setResidents] = useState<Resident[]>(() =>
+    isSupabaseConfigured ? [] : initialResidents
+  );
+  const [households, setHouseholds] = useState<Household[]>(() =>
+    isSupabaseConfigured ? [] : initialHouseholds
+  );
   const [businesses, setBusinesses] = useState<Business[]>(initialBusinesses);
   const [reports, setReports] = useState<FieldReport[]>(() => {
     try {
@@ -250,6 +275,7 @@ export default function App() {
   const [isDataLoading, setIsDataLoading] = useState(false);
 
   const handleTasksChange = (nextTasks: TaskItem[]) => {
+    syncTasksDiffToDb(tasks, nextTasks);
     setTasks(nextTasks);
     saveStoredTasks(nextTasks);
   };
@@ -270,6 +296,37 @@ export default function App() {
     }
   }, [reports]);
 
+  // Kiểm tra phiên đăng nhập Supabase Auth thực tế
+  useEffect(() => {
+    if (!isSupabaseConfigured || !supabase) {
+      setAuthChecked(true);
+      return;
+    }
+
+    let mounted = true;
+    const syncAuthSession = async () => {
+      const session = await getVerifiedStaffSession();
+      if (!mounted) return;
+      setVerifiedStaff(session);
+      setAuthChecked(true);
+      if (!session) {
+        try {
+          localStorage.removeItem("kp3_auth_user");
+        } catch {}
+      }
+    };
+
+    syncAuthSession();
+    const { data: authListener } = supabase.auth.onAuthStateChange(() => {
+      syncAuthSession();
+    });
+
+    return () => {
+      mounted = false;
+      authListener?.subscription?.unsubscribe();
+    };
+  }, []);
+
   // Đồng bộ route từ URL pathname: /dashboard, /dashboard/("sidebar content"), /login
   useEffect(() => {
     const readSavedUser = () => {
@@ -287,21 +344,44 @@ export default function App() {
       const pathname = window.location.pathname;
       setRoutePath(pathname);
       const tab = getTabFromDashboardPath(pathname);
+
       if (pathname === "/login") {
         setCurrentUser(null);
-      } else if (tab) {
-        const activeUser = readSavedUser() || CANBO_USER;
-        if (activeUser.role === "canbo" && !readSavedUser()) {
-          try {
-            localStorage.setItem("kp3_auth_user", JSON.stringify(activeUser));
-          } catch (e) {}
+        return;
+      }
+
+      if (isSupabaseConfigured) {
+        if (!authChecked) return;
+        if (verifiedStaff) {
+          const staffUser = {
+            username: verifiedStaff.username,
+            fullName: verifiedStaff.fullName,
+            role: "canbo" as const,
+            phone: verifiedStaff.phone,
+          };
+          setCurrentUser(staffUser);
+          if (tab) {
+            setActiveTab(tab as ActiveTab);
+            setCitizenSubView(null);
+          }
+        } else if (tab) {
+          // Chưa đăng nhập cán bộ trên Supabase Auth -> yêu cầu đăng nhập tại /login
+          setCurrentUser(null);
+          navigate(ROUTES.LOGIN);
+        } else {
+          setCurrentUser(PUBLIC_CITIZEN_USER);
+          setCitizenSubView(null);
         }
+        return;
+      }
+
+      // Fallback khi chạy offline không cấu hình Supabase
+      if (tab) {
+        const activeUser = readSavedUser() || CANBO_USER;
         setCurrentUser(activeUser);
         setActiveTab(tab as ActiveTab);
         setCitizenSubView(null);
       } else {
-        // Landing Page routes: /, /about, /reflection, /forms, /notices, /news, /leadership, /schedule
-        // Giữ nguyên phiên Cán bộ Admin nếu đang đăng nhập để sửa trực tiếp trên Landing Page
         const savedUser = readSavedUser();
         setCurrentUser(savedUser?.role === "canbo" ? savedUser : PUBLIC_CITIZEN_USER);
         setCitizenSubView(null);
@@ -315,142 +395,164 @@ export default function App() {
       window.removeEventListener("popstate", handleLocationSync);
       window.removeEventListener("app:navigate", handleLocationSync);
     };
-  }, []);
+  }, [authChecked, verifiedStaff]);
 
-  // Nạp toàn bộ Dữ liệu thật từ Supabase PostgreSQL (11.632 Cư dân & 488 Hộ)
+  // Nạp dữ liệu từ Supabase PostgreSQL (phân quyền Strict RLS cho Khách công khai vs Cán bộ đã xác thực)
   useEffect(() => {
+    if (isSupabaseConfigured && !authChecked) return;
+
     async function fetchSupabaseData() {
       if (!isSupabaseConfigured || !supabase) return;
+      const isApprovedStaff = Boolean(verifiedStaff);
       try {
         setIsDataLoading(true);
 
-        // 1. Fetch Households thật
-        let loadedHouseholds: Household[] = [];
-        const { data: dbHouseholds, error: hErr } = await (supabase as any)
-          .from("households")
-          .select("*")
-          .order("code", { ascending: true });
+        // 0. Nạp cấu hình Cổng thông tin, Sự kiện & Biểu mẫu công khai từ Supabase
+        const [savedLandingCfg, dbEvents, dbForms] = await Promise.all([
+          loadPortalSetting<Partial<LandingConfig>>(DEFAULT_LANDING_CONFIG_KEY),
+          loadCommunityEventsFromDb(),
+          loadAdministrativeFormsFromDb(),
+        ]);
 
-        if (!hErr && dbHouseholds && dbHouseholds.length > 0) {
-          loadedHouseholds = dbHouseholds.map((h: any) => ({
-            id: h.id,
-            code: h.code,
-            ownerName: h.owner_name,
-            address: h.address,
-            memberCount: h.member_count || 1,
-            coordinates: h.coordinates || "10.7935, 106.7445",
-            type: "Thường trú",
-            members: []
-          }));
-          setHouseholds(loadedHouseholds);
+        if (savedLandingCfg && typeof savedLandingCfg === "object") {
+          setLandingConfig(mergeLandingConfig(savedLandingCfg));
+        }
+        if (dbEvents && dbEvents.length > 0) {
+          setCommunityEvents(dbEvents);
+        }
+        if (dbForms && dbForms.length > 0) {
+          setAdministrativeForms(dbForms);
         }
 
-        // 2. Fetch Residents thật (Tải toàn bộ 11.632 cư dân qua phân trang Supabase)
-        let allResidents: any[] = [];
-        let fromIdx = 0;
-        const batchSize = 1000;
-        let keepFetching = true;
+        // 1 & 2. Fetch Households & Residents CHỈ KHI cán bộ đã đăng nhập hợp lệ
+        let loadedHouseholds: Household[] = [];
+        let mappedResidents: Resident[] = [];
 
-        while (keepFetching && fromIdx < 20000) {
-          const { data: chunk, error: rErr } = await (supabase as any)
-            .from("residents")
+        if (isApprovedStaff) {
+          const { data: dbHouseholds, error: hErr } = await (supabase as any)
+            .from("households")
             .select("*")
-            .order("created_at", { ascending: false })
-            .range(fromIdx, fromIdx + batchSize - 1);
+            .order("code", { ascending: true });
 
-          if (rErr || !chunk || chunk.length === 0) {
-            keepFetching = false;
-          } else {
-            allResidents = allResidents.concat(chunk);
-            if (chunk.length < batchSize) {
+          if (!hErr && dbHouseholds && dbHouseholds.length > 0) {
+            loadedHouseholds = dbHouseholds.map((h: any) => ({
+              id: h.id,
+              code: h.code,
+              ownerName: h.owner_name,
+              address: h.address,
+              memberCount: h.member_count || 1,
+              coordinates: h.coordinates || "10.7935, 106.7445",
+              type: "Thường trú",
+              members: []
+            }));
+            setHouseholds(loadedHouseholds);
+          }
+
+          let allResidents: any[] = [];
+          let fromIdx = 0;
+          const batchSize = 1000;
+          let keepFetching = true;
+
+          while (keepFetching && fromIdx < 20000) {
+            const { data: chunk, error: rErr } = await (supabase as any)
+              .from("residents")
+              .select("*")
+              .order("created_at", { ascending: false })
+              .range(fromIdx, fromIdx + batchSize - 1);
+
+            if (rErr || !chunk || chunk.length === 0) {
               keepFetching = false;
             } else {
-              fromIdx += batchSize;
+              allResidents = allResidents.concat(chunk);
+              if (chunk.length < batchSize) {
+                keepFetching = false;
+              } else {
+                fromIdx += batchSize;
+              }
             }
           }
-        }
 
-        let mappedResidents: Resident[] = [];
-        if (allResidents.length > 0) {
-          mappedResidents = allResidents.map((r: any) => ({
-            id: r.id,
-            fullName: r.full_name,
-            gender: (r.gender as "Nam" | "Nữ") || "Nam",
-            birthDate: r.birth_date ? r.birth_date.split("-").reverse().join("/") : "Chưa cập nhật",
-            cccd: r.cccd,
-            phone: r.phone || "",
-            status: (r.status as "Thường trú" | "Tạm trú" | "Tạm vắng") || "Thường trú",
-            occupation: r.occupation || "",
-            address: r.address || r.current_address || r.permanent_address || "Khu phố 3, Phường An Phú, TP. Hồ Chí Minh",
-            permanentAddress: r.permanent_address || undefined,
-            temporaryAddress: r.current_address || r.address || undefined,
-            currentAddress: r.current_address || r.address || undefined,
-            fatherName: r.father_name || undefined,
-            motherName: r.mother_name || undefined,
-            temporaryRegDate: r.temporary_reg_date || undefined,
-            temporaryExpDate: r.temporary_exp_date || undefined,
-            managementStatus: r.management_status || undefined,
-            householdId: r.household_code || (r.status === "Tạm trú" ? "Tạm trú" : "Chưa cập nhật"),
-            relationToOwner: r.relation_to_owner || "Thành viên",
-            workplace: r.workplace || undefined,
-            avatar: r.gender === "Nữ" 
-              ? "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=150" 
-              : "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150"
-          }));
-          setResidents(mappedResidents);
+          if (allResidents.length > 0) {
+            mappedResidents = allResidents.map((r: any) => ({
+              id: r.id,
+              fullName: r.full_name,
+              gender: (r.gender as "Nam" | "Nữ") || "Nam",
+              birthDate: r.birth_date ? r.birth_date.split("-").reverse().join("/") : "Chưa cập nhật",
+              cccd: r.cccd,
+              phone: r.phone || "",
+              status: (r.status as "Thường trú" | "Tạm trú" | "Tạm vắng") || "Thường trú",
+              occupation: r.occupation || "",
+              address: r.address || r.current_address || r.permanent_address || "Khu phố 3, Phường An Phú, TP. Hồ Chí Minh",
+              permanentAddress: r.permanent_address || undefined,
+              temporaryAddress: r.current_address || r.address || undefined,
+              currentAddress: r.current_address || r.address || undefined,
+              fatherName: r.father_name || undefined,
+              motherName: r.mother_name || undefined,
+              temporaryRegDate: r.temporary_reg_date || undefined,
+              temporaryExpDate: r.temporary_exp_date || undefined,
+              managementStatus: r.management_status || undefined,
+              householdId: r.household_code || (r.status === "Tạm trú" ? "Tạm trú" : "Chưa cập nhật"),
+              relationToOwner: r.relation_to_owner || "Thành viên",
+              workplace: r.workplace || undefined,
+              avatar: r.gender === "Nữ"
+                ? "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=150"
+                : "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150"
+            }));
+            setResidents(mappedResidents);
 
-          // Tự động liên kết nhân khẩu & suy luận quan hệ gia phả vào từng Sổ Hộ Khẩu (Không cần bấm thủ công)
-          if (loadedHouseholds.length > 0) {
-            // Gom nhóm cư dân theo mã hộ khẩu
-            const resByHousehold: { [code: string]: Resident[] } = {};
-            mappedResidents.forEach(res => {
-              const code = res.householdId?.trim();
-              if (code && code !== "Chưa cập nhật" && code !== "Tạm trú" && code !== "N/A") {
-                if (!resByHousehold[code]) resByHousehold[code] = [];
-                resByHousehold[code].push(res);
-              }
-            });
+            if (loadedHouseholds.length > 0) {
+              const resByHousehold: { [code: string]: Resident[] } = {};
+              mappedResidents.forEach(res => {
+                const code = res.householdId?.trim();
+                if (code && code !== "Chưa cập nhật" && code !== "Tạm trú" && code !== "N/A") {
+                  if (!resByHousehold[code]) resByHousehold[code] = [];
+                  resByHousehold[code].push(res);
+                }
+              });
 
-            const enrichedHouseholds = loadedHouseholds.map(h => {
-              const matchedResidents = resByHousehold[h.code] || [];
-              if (matchedResidents.length === 0) return h;
+              const enrichedHouseholds = loadedHouseholds.map(h => {
+                const matchedResidents = resByHousehold[h.code] || [];
+                if (matchedResidents.length === 0) return h;
 
-              // Tìm chủ hộ trong nhóm
-              let owner = matchedResidents.find(r => {
-                const rel = (r.relationToOwner || "").trim().toLowerCase();
-                return rel === "chủ hộ" || r.fullName.trim().toUpperCase() === h.ownerName.trim().toUpperCase();
-              }) || matchedResidents[0];
+                let owner = matchedResidents.find(r => {
+                  const rel = (r.relationToOwner || "").trim().toLowerCase();
+                  return rel === "chủ hộ" || r.fullName.trim().toUpperCase() === h.ownerName.trim().toUpperCase();
+                }) || matchedResidents[0];
 
-              const membersList = matchedResidents.map(r => {
-                const isOwner = r.cccd === owner.cccd || r.fullName.trim().toUpperCase() === h.ownerName.trim().toUpperCase();
-                const inferredRel = isOwner ? "Chủ hộ" : inferRelationToOwner(r, owner, matchedResidents);
+                const membersList = matchedResidents.map(r => {
+                  const isOwner = r.cccd === owner.cccd || r.fullName.trim().toUpperCase() === h.ownerName.trim().toUpperCase();
+                  const inferredRel = isOwner ? "Chủ hộ" : inferRelationToOwner(r, owner, matchedResidents);
+                  return {
+                    name: r.fullName,
+                    relation: inferredRel,
+                    cccd: r.cccd,
+                    birthYear: extractBirthYear(r.birthDate),
+                    phone: r.phone && r.phone !== "N/A" ? r.phone : undefined
+                  };
+                });
+
                 return {
-                  name: r.fullName,
-                  relation: inferredRel,
-                  cccd: r.cccd,
-                  birthYear: extractBirthYear(r.birthDate),
-                  phone: r.phone && r.phone !== "N/A" ? r.phone : undefined
+                  ...h,
+                  ownerName: owner ? owner.fullName : h.ownerName,
+                  memberCount: membersList.length,
+                  members: membersList
                 };
               });
 
-              return {
-                ...h,
-                ownerName: owner ? owner.fullName : h.ownerName,
-                memberCount: membersList.length,
-                members: membersList
-              };
-            });
-
-            setHouseholds(enrichedHouseholds);
+              setHouseholds(enrichedHouseholds);
+            }
           }
+        } else {
+          setHouseholds([]);
+          setResidents([]);
+          setWelfareRecipients([]);
         }
 
-        // 3. Fetch Businesses (Bao gồm Doanh nghiệp, Hộ kinh doanh & Cơ sở lưu trú, Nhà trọ)
+        // 3. Fetch Businesses (Doanh nghiệp, Hộ kinh doanh & Cơ sở lưu trú công khai)
         const { data: dbBusinesses } = await (supabase as any).from("businesses").select("*");
         if (dbBusinesses && dbBusinesses.length > 0) {
           const loadedBusinesses: Business[] = dbBusinesses.map((b: any) => {
-            // Đối chiếu với initialBusinesses để kế thừa thông tin giàu chi tiết (hình ảnh, nhật ký kiểm tra, sổ đỏ...)
-            const matchedMock = initialBusinesses.find(ib => 
+            const matchedMock = initialBusinesses.find(ib =>
               (ib.internalCode && ib.internalCode === b.internal_code) ||
               ib.name.trim().toLowerCase() === b.name.trim().toLowerCase() ||
               ib.id === b.id
@@ -466,7 +568,7 @@ export default function App() {
               businessType: (b.business_type as any) || matchedMock?.businessType || "Hộ kinh doanh",
               industryGroup: b.industry_group || matchedMock?.industryGroup || "Khác",
               owner: b.owner_name || matchedMock?.owner || "",
-              phone: b.phone || matchedMock?.phone || "",
+              phone: isApprovedStaff ? (b.phone || matchedMock?.phone || "") : "",
               address: b.address,
               licenseNumber: b.license_number || matchedMock?.licenseNumber || "",
               status: (b.status as any) || matchedMock?.status || "Đang hoạt động",
@@ -480,7 +582,6 @@ export default function App() {
             };
           });
 
-          // Bổ sung các cơ sở trong initialBusinesses nếu chưa có trong DB
           const existingCodes = new Set(loadedBusinesses.map(b => b.internalCode || b.name));
           initialBusinesses.forEach(ib => {
             const key = ib.internalCode || ib.name;
@@ -489,8 +590,7 @@ export default function App() {
             }
           });
 
-          // Tự động nhận diện & liên kết các cơ sở nhà trọ từ dữ liệu 11.632 cư dân (tương tự Nhà trọ Phạm Văn Bình)
-          if (mappedResidents.length > 0) {
+          if (isApprovedStaff && mappedResidents.length > 0) {
             const autoHostels = autoExtractHostelBusinesses(mappedResidents, loadedBusinesses);
             if (autoHostels.length > 0) {
               loadedBusinesses.push(...autoHostels);
@@ -500,10 +600,13 @@ export default function App() {
           setBusinesses(loadedBusinesses);
         }
 
-        // 4. Fetch Field Reports (1022)
+        // 4. Fetch Field Reports (Không select reporter_phone khi chưa đăng nhập Cán bộ)
+        const reportColumns = isApprovedStaff
+          ? "*"
+          : "id, title, category, location, description, reporter_name, status, priority, image_urls, response_content, created_at, resolved_at";
         const { data: dbReports } = await (supabase as any)
           .from("field_reports")
-          .select("*")
+          .select(reportColumns)
           .order("created_at", { ascending: false });
         if (dbReports && dbReports.length > 0) {
           setReports(dbReports.map((rep: any) => {
@@ -540,7 +643,7 @@ export default function App() {
               location: rep.location || "Khu phố 3, Phường An Phú",
               description: rep.description || "",
               reporterName: rep.reporter_name || "Cư dân ẩn danh",
-              reporterPhone: rep.reporter_phone || "",
+              reporterPhone: isApprovedStaff ? (rep.reporter_phone || "") : "",
               status: (rep.status as any) || "Đã tiếp nhận",
               priority,
               slaHours: REPORT_PRIORITY_CONFIG[priority].slaHours,
@@ -565,22 +668,14 @@ export default function App() {
           }));
         }
 
-        // 5. Fetch Community News
+        // 5. Fetch Community News (giữ đầy đủ ảnh, liên kết, tệp đính kèm từ DB)
         const { data: dbNews } = await (supabase as any)
           .from("community_news")
           .select("*")
           .order("created_at", { ascending: false });
 
         if (dbNews && dbNews.length > 0) {
-          setNewsList(dbNews.map((n: any) => ({
-            id: n.id,
-            title: n.title,
-            category: n.category,
-            content: n.content,
-            author: n.author_name,
-            date: new Date(n.created_at).toLocaleDateString("vi-VN"),
-            isPinned: n.is_pinned ?? false
-          })));
+          setNewsList(dbNews.map(mapDbNewsToLocal));
         }
 
         // 6. Fetch Neighborhood Funds (tách rạch ròi Phiếu Thu & Phiếu Chi)
@@ -638,11 +733,24 @@ export default function App() {
                 setFundExpenditures(mappedChi);
               }
             } else {
-              // Không trộn 10.000.000đ chi mẫu ảo vào số liệu thu thật từ Supabase
               setFundExpenditures(mappedChi);
             }
           } catch {
             setFundExpenditures(mappedChi);
+          }
+        }
+
+        // 7. Fetch Tasks & Welfare Records cho Cán bộ đã đăng nhập
+        if (isApprovedStaff) {
+          const [dbTasks, dbRecipients] = await Promise.all([
+            loadTasksFromDb(),
+            loadWelfareRecord<WelfareRecipient[]>("recipients"),
+          ]);
+          if (dbTasks && dbTasks.length > 0) {
+            setTasks(dbTasks);
+          }
+          if (Array.isArray(dbRecipients) && dbRecipients.length > 0) {
+            setWelfareRecipients(dbRecipients);
           }
         }
       } catch (e) {
@@ -653,10 +761,11 @@ export default function App() {
     }
 
     fetchSupabaseData();
-  }, []);
+  }, [authChecked, verifiedStaff]);
   
   // New State variables for the 3 additional views
   const [welfareRecipients, setWelfareRecipients] = useState<WelfareRecipient[]>(() => {
+    if (isSupabaseConfigured) return [];
     try {
       const saved = localStorage.getItem("kp3_welfare_recipients");
       if (saved) return JSON.parse(saved);
@@ -692,6 +801,13 @@ export default function App() {
       localStorage.setItem(LANDING_CONFIG_STORAGE_KEY, JSON.stringify(landingConfig));
     } catch {}
   }, [landingConfig]);
+  const handleUpdateLandingConfig = (next: LandingConfig) => {
+    setLandingConfig(next);
+    try {
+      localStorage.setItem(LANDING_CONFIG_STORAGE_KEY, JSON.stringify(next));
+    } catch {}
+    saveLandingConfigToDb(next);
+  };
   const [fundContributions, setFundContributions] = useState<FundContribution[]>(initialFundContributions);
   const [fundExpenditures, setFundExpenditures] = useState<FundExpenditure[]>(() => {
     try {
@@ -737,14 +853,11 @@ export default function App() {
 
     if (isSupabaseConfigured && supabase) {
       try {
-        const { data, error } = await (supabase as any).from("community_news").insert({
-          title: newNews.title,
-          category: newNews.category,
-          content: newNews.content,
-          author_name: newNews.author,
-          is_pinned: newNews.isPinned ?? false,
-          is_urgent: newNews.category === "Thông báo khẩn"
-        }).select().single();
+        const { data, error } = await (supabase as any)
+          .from("community_news")
+          .insert(serializeLocalNewsToDb(newNews))
+          .select()
+          .single();
 
         if (data && !error) {
           setNewsList(prev => prev.map(n => n.id === newNews.id ? { ...n, id: data.id } : n));
@@ -764,13 +877,10 @@ export default function App() {
 
     if (isSupabaseConfigured && supabase) {
       try {
-        await (supabase as any).from("community_news").update({
-          title: updatedNews.title,
-          category: updatedNews.category,
-          content: updatedNews.content,
-          author_name: updatedNews.author,
-          is_pinned: updatedNews.isPinned ?? false
-        }).eq("id", updatedNews.id);
+        await (supabase as any)
+          .from("community_news")
+          .update(serializeLocalNewsToDb(updatedNews))
+          .eq("id", updatedNews.id);
       } catch (e) {
         console.warn("Supabase update news error:", e);
       }
@@ -826,6 +936,7 @@ export default function App() {
   // Form Management Handlers
   const handleAddForm = (newForm: AdministrativeForm) => {
     setAdministrativeForms(prev => [newForm, ...prev]);
+    upsertAdministrativeFormToDb(newForm);
     setNotifications(prev => [
       { id: Date.now(), text: `Cán bộ đã thêm biểu mẫu: ${newForm.code} - ${newForm.title}`, unread: true },
       ...prev
@@ -834,6 +945,7 @@ export default function App() {
 
   const handleUpdateForm = (updatedForm: AdministrativeForm) => {
     setAdministrativeForms(prev => prev.map(f => f.id === updatedForm.id ? updatedForm : f));
+    upsertAdministrativeFormToDb(updatedForm);
     setNotifications(prev => [
       { id: Date.now(), text: `Cán bộ đã cập nhật biểu mẫu: ${updatedForm.code}`, unread: true },
       ...prev
@@ -843,6 +955,7 @@ export default function App() {
   const handleDeleteForm = (formId: string) => {
     const f = administrativeForms.find(form => form.id === formId);
     setAdministrativeForms(prev => prev.filter(form => form.id !== formId));
+    deleteAdministrativeFormFromDb(formId);
     if (f) {
       setNotifications(prev => [
         { id: Date.now(), text: `Cán bộ đã xóa biểu mẫu: ${f.code}`, unread: true },
@@ -1155,40 +1268,52 @@ export default function App() {
     const updated = [newRec, ...welfareRecipients];
     setWelfareRecipients(updated);
     try { localStorage.setItem("kp3_welfare_recipients", JSON.stringify(updated)); } catch {}
+    saveWelfareRecord("recipients", updated);
   };
 
   const handleUpdateWelfareStatus = (id: string, status: WelfareRecipient["status"]) => {
     const updated = welfareRecipients.map(w => w.id === id ? { ...w, status } : w);
     setWelfareRecipients(updated);
     try { localStorage.setItem("kp3_welfare_recipients", JSON.stringify(updated)); } catch {}
+    saveWelfareRecord("recipients", updated);
   };
 
   const handleUpdateWelfareRecipient = (updatedRec: WelfareRecipient) => {
     const updated = welfareRecipients.map(w => w.id === updatedRec.id ? updatedRec : w);
     setWelfareRecipients(updated);
     try { localStorage.setItem("kp3_welfare_recipients", JSON.stringify(updated)); } catch {}
+    saveWelfareRecord("recipients", updated);
   };
 
   const handleDeleteWelfareRecipient = (id: string) => {
     const updated = welfareRecipients.filter(w => w.id !== id);
     setWelfareRecipients(updated);
     try { localStorage.setItem("kp3_welfare_recipients", JSON.stringify(updated)); } catch {}
+    saveWelfareRecord("recipients", updated);
   };
 
   const handleAddCommunityEvent = (newEvent: CommunityEvent) => {
     setCommunityEvents(prev => [newEvent, ...prev]);
+    upsertCommunityEventToDb(newEvent);
   };
 
   const handleUpdateEventStatus = (id: string, status: CommunityEvent["status"]) => {
-    setCommunityEvents(prev => prev.map(e => e.id === id ? { ...e, status } : e));
+    setCommunityEvents(prev => {
+      const next = prev.map(e => e.id === id ? { ...e, status } : e);
+      const changed = next.find(e => e.id === id);
+      if (changed) upsertCommunityEventToDb(changed);
+      return next;
+    });
   };
 
   const handleUpdateCommunityEvent = (updatedEvent: CommunityEvent) => {
     setCommunityEvents(prev => prev.map(e => e.id === updatedEvent.id ? updatedEvent : e));
+    upsertCommunityEventToDb(updatedEvent);
   };
 
   const handleDeleteCommunityEvent = (eventId: string) => {
     setCommunityEvents(prev => prev.filter(e => e.id !== eventId));
+    deleteCommunityEventFromDb(eventId);
   };
 
   const handleUpdateFundContribution = async (updatedCont: FundContribution) => {
@@ -1501,7 +1626,7 @@ export default function App() {
         isAdmin={isAdminUser}
         adminName={isAdminUser ? currentUser.fullName : undefined}
         landingConfig={landingConfig}
-        onUpdateLandingConfig={setLandingConfig}
+        onUpdateLandingConfig={handleUpdateLandingConfig}
         onAddNews={handleAddNews}
         onUpdateNews={handleUpdateNews}
         onDeleteNews={handleDeleteNews}
@@ -1528,16 +1653,30 @@ export default function App() {
           try {
             localStorage.removeItem("kp3_auth_user");
           } catch {}
+          if (supabase) {
+            supabase.auth.signOut().catch(() => {});
+          }
+          setVerifiedStaff(null);
           setCurrentUser(PUBLIC_CITIZEN_USER);
           navigate(ROUTES.HOME);
         }}
         onSwitchToCanBo={() => {
-          if (!isAdminUser) {
-            try {
-              localStorage.setItem("kp3_auth_user", JSON.stringify(CANBO_USER));
-            } catch {}
+          if (isAdminUser && (!isSupabaseConfigured || verifiedStaff)) {
+            setActiveTab("cultural");
+            setCitizenSubView(null);
+            navigate(ROUTES.DASHBOARD_CULTURAL);
+            return;
           }
-          setCurrentUser(isAdminUser ? currentUser : CANBO_USER);
+          if (isSupabaseConfigured) {
+            setCurrentUser(null);
+            setCitizenSubView(null);
+            navigate(ROUTES.LOGIN);
+            return;
+          }
+          try {
+            localStorage.setItem("kp3_auth_user", JSON.stringify(CANBO_USER));
+          } catch {}
+          setCurrentUser(CANBO_USER);
           setActiveTab("cultural");
           setCitizenSubView(null);
           navigate(ROUTES.DASHBOARD_CULTURAL);
@@ -1588,6 +1727,12 @@ export default function App() {
           <div className="flex items-center gap-2">
             <button
               onClick={() => {
+                if (isSupabaseConfigured && !verifiedStaff) {
+                  setCurrentUser(null);
+                  setCitizenSubView(null);
+                  navigate(ROUTES.LOGIN);
+                  return;
+                }
                 setCurrentUser(CANBO_USER);
                 setActiveTab("cultural");
                 setCitizenSubView(null);
@@ -1833,6 +1978,12 @@ export default function App() {
                 <button
                   id="header-login-canbo"
                   onClick={() => {
+                    if (isSupabaseConfigured && !verifiedStaff) {
+                      setCurrentUser(null);
+                      setCitizenSubView(null);
+                      navigate(ROUTES.LOGIN);
+                      return;
+                    }
                     try {
                       localStorage.setItem("kp3_auth_user", JSON.stringify(CANBO_USER));
                     } catch (e) {}
@@ -1848,6 +1999,7 @@ export default function App() {
                 <button
                   id="header-open-auth"
                   onClick={() => {
+                    setVerifiedStaff(null);
                     setCurrentUser(null);
                     navigate(ROUTES.LOGIN);
                   }}
@@ -1886,6 +2038,7 @@ export default function App() {
                         supabase.auth.signOut().catch(() => {});
                       }
                     } catch (e) {}
+                    setVerifiedStaff(null);
                     setCurrentUser(null);
                     navigate(ROUTES.LOGIN);
                   }}
@@ -2124,7 +2277,7 @@ export default function App() {
                 onDeleteNews={handleDeleteNews}
                 currentUser={currentUser}
                 landingConfig={landingConfig}
-                onUpdateLandingConfig={setLandingConfig}
+                onUpdateLandingConfig={handleUpdateLandingConfig}
               />
             ) : (
               <AdministrativeForms 
@@ -2223,7 +2376,7 @@ export default function App() {
               onDeleteNews={handleDeleteNews}
               currentUser={currentUser}
               landingConfig={landingConfig}
-              onUpdateLandingConfig={setLandingConfig}
+              onUpdateLandingConfig={handleUpdateLandingConfig}
             />
           )}
             </motion.div>

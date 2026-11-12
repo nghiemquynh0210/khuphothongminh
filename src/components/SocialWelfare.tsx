@@ -56,6 +56,7 @@ import { ReportSelect } from "./reports/ReportSelect";
 import { ConfirmModal, InlineNotice } from "./ui/ConfirmModal";
 import { Modal } from "./ui/Modal";
 import { KP3_AREA_LIST, extractKp3Area, formatShortRecordId } from "../utils/kp3Utils";
+import { loadWelfareRecord, saveWelfareRecord } from "../utils/supabaseSync";
 import { formatVNNumber } from "../utils/numberFormat";
 import {
   DEFAULT_WELFARE_SUBCATEGORIES,
@@ -97,21 +98,49 @@ export default function SocialWelfare({
   const [campaigns, setCampaigns] = useState<WelfareCampaign[]>(() => getStoredCampaigns());
   const [emergencyRecords, setEmergencyRecords] = useState<EmergencySupportRecord[]>(() => getStoredEmergencyRecords());
 
-  // Save changes to localStorage
+  // Save changes to localStorage & Supabase
   const updateSubCategories = (updated: WelfareSubCategory[]) => {
     setSubCategories(updated);
     saveStoredSubCategories(updated);
+    saveWelfareRecord("subcategories", updated);
   };
 
   const updateCampaigns = (updated: WelfareCampaign[]) => {
     setCampaigns(updated);
     saveStoredCampaigns(updated);
+    saveWelfareRecord("campaigns", updated);
   };
 
   const updateEmergencyRecords = (updated: EmergencySupportRecord[]) => {
     setEmergencyRecords(updated);
     saveStoredEmergencyRecords(updated);
+    saveWelfareRecord("emergency", updated);
   };
+
+  useEffect(() => {
+    let active = true;
+    loadWelfareRecord<WelfareSubCategory[]>("subcategories").then((rows) => {
+      if (active && Array.isArray(rows) && rows.length > 0) {
+        setSubCategories(rows);
+        saveStoredSubCategories(rows);
+      }
+    });
+    loadWelfareRecord<WelfareCampaign[]>("campaigns").then((rows) => {
+      if (active && Array.isArray(rows) && rows.length > 0) {
+        setCampaigns(rows);
+        saveStoredCampaigns(rows);
+      }
+    });
+    loadWelfareRecord<EmergencySupportRecord[]>("emergency").then((rows) => {
+      if (active && Array.isArray(rows) && rows.length > 0) {
+        setEmergencyRecords(rows);
+        saveStoredEmergencyRecords(rows);
+      }
+    });
+    return () => {
+      active = false;
+    };
+  }, []);
 
   // Filter & Search States
   const [searchTerm, setSearchTerm] = useState("");

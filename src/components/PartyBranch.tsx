@@ -66,6 +66,7 @@ import { ReportSelect } from "./reports/ReportSelect";
 import { ConfirmModal, InlineNotice } from "./ui/ConfirmModal";
 import { Modal } from "./ui/Modal";
 import { KP3_AREA_LIST, extractKp3Area } from "../utils/kp3Utils";
+import { loadAssociationRecord, saveAssociationRecord } from "../utils/supabaseSync";
 import { formatVNNumber } from "../utils/numberFormat";
 import {
   INITIAL_ASSOCIATIONS,
@@ -73,7 +74,7 @@ import {
   saveStoredAssociations
 } from "../data/associationsData";
 
-interface PartyResolution {
+export interface PartyResolution {
   id: string;
   sessionTitle: string;
   meetingDate: string;
@@ -581,11 +582,29 @@ export default function PartyBranch({
   onCreateTask,
   onNavigate
 }: PartyBranchProps) {
-  // Pre-populated default associations (Chi hội) loaded from shared data and synchronized with local storage
+  // Pre-populated default associations (Chi hội) loaded from shared data and synchronized with local storage & Supabase
   const [associations, setAssociations] = useState<Association[]>(() => getStoredAssociations());
+  const assocDbHydratedRef = useRef(false);
+
+  useEffect(() => {
+    let active = true;
+    loadAssociationRecord<Association[]>("associations").then((rows) => {
+      if (active && Array.isArray(rows) && rows.length > 0) {
+        setAssociations(rows);
+        saveStoredAssociations(rows);
+      }
+      assocDbHydratedRef.current = true;
+    });
+    return () => {
+      active = false;
+    };
+  }, []);
 
   useEffect(() => {
     saveStoredAssociations(associations);
+    if (assocDbHydratedRef.current) {
+      saveAssociationRecord("associations", associations);
+    }
   }, [associations]);
 
   const [selectedAssociationId, setSelectedAssociationId] = useState<string>("ASC_BDH");
@@ -626,7 +645,31 @@ export default function PartyBranch({
     try {
       localStorage.setItem(PARTY_RESOLUTIONS_KEY, JSON.stringify(next));
     } catch {}
+    saveAssociationRecord("party_resolutions", next);
   };
+
+  useEffect(() => {
+    let active = true;
+    loadAssociationRecord<PartyResolution[]>("party_resolutions").then((rows) => {
+      if (active && Array.isArray(rows) && rows.length > 0) {
+        setResolutions(rows);
+        try {
+          localStorage.setItem(PARTY_RESOLUTIONS_KEY, JSON.stringify(rows));
+        } catch {}
+      }
+    });
+    loadAssociationRecord<string[]>("association_roles").then((rows) => {
+      if (active && Array.isArray(rows) && rows.length > 0) {
+        setCustomRoles(rows);
+        try {
+          localStorage.setItem("kp3_association_roles", JSON.stringify(rows));
+        } catch {}
+      }
+    });
+    return () => {
+      active = false;
+    };
+  }, []);
 
   const handleDispatchResolutionTask = (res: PartyResolution) => {
     const newTask: TaskItem = {
@@ -939,6 +982,7 @@ export default function PartyBranch({
     try {
       localStorage.setItem("kp3_association_roles", JSON.stringify(updated));
     } catch (e) { }
+    saveAssociationRecord("association_roles", updated);
     showToast(`Đã thêm chức danh "${trimmed}" thành công!`, "success");
     setNewRoleInput("");
     return true;
@@ -955,6 +999,7 @@ export default function PartyBranch({
     try {
       localStorage.setItem("kp3_association_roles", JSON.stringify(updated));
     } catch (e) { }
+    saveAssociationRecord("association_roles", updated);
     // Update members across all associations
     setAssociations(prev => prev.map(a => ({
       ...a,
@@ -976,6 +1021,7 @@ export default function PartyBranch({
     try {
       localStorage.setItem("kp3_association_roles", JSON.stringify(updated));
     } catch (e) { }
+    saveAssociationRecord("association_roles", updated);
     if (editMemberRole === roleToDelete) setEditMemberRole(updated[0]);
     if (memberRole === roleToDelete) setMemberRole(updated[0]);
     showToast(`Đã xóa chức danh "${roleToDelete}" khỏi danh mục!`, "success");

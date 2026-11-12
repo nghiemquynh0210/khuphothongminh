@@ -28,7 +28,7 @@ import {
   mergeLandingConfig,
 } from "../landing/landingConstants";
 import {
-  compressImageToDataUrl,
+  uploadSingleImage,
   validateImageFile,
 } from "../../utils/imageUpload";
 import { Button } from "../ui/Button";
@@ -115,12 +115,12 @@ export const PortalConfigSettings: React.FC<PortalConfigSettingsProps> = ({
     setErrorMsg(null);
     setUploadingKey(key);
     try {
-      const dataUrl = await compressImageToDataUrl(file, {
+      const uploadedUrl = await uploadSingleImage(file, `cms/${key}`, {
         maxWidth: maxW,
         maxHeight: maxH,
         quality: 0.85,
       });
-      onDone(dataUrl);
+      onDone(uploadedUrl);
     } catch (ex) {
       setErrorMsg(
         ex instanceof Error ? ex.message : "Không thể xử lý tệp hình ảnh."

@@ -28,7 +28,6 @@ import {
 import { PendingRegistration } from "./SettingsAndPermissions";
 import { ReportSelect } from "./reports/ReportSelect";
 import { supabase, isSupabaseConfigured } from "../lib/supabase";
-import { initialResidents } from "../mockData";
 
 interface LoginAndRegisterProps {
   onLoginSuccess: (user: {
@@ -53,9 +52,6 @@ export default function LoginAndRegister({
   // Mode: "login" | "register_resident" | "register_cadre" | "forgot_password"
   const [authMode, setAuthMode] = useState<"login" | "register_resident" | "register_cadre" | "forgot_password">("login");
 
-  // Tab phân hệ đăng nhập: "canbo" (Cán bộ / Quản trị) | "nguoidan" (Cư dân Khu phố)
-  const [loginRoleTab, setLoginRoleTab] = useState<"canbo" | "nguoidan">("canbo");
-
   const [error, setError] = useState("");
   const [successMsg, setSuccessMsg] = useState("");
   const [loading, setLoading] = useState(false);
@@ -71,7 +67,11 @@ export default function LoginAndRegister({
   // Login form state
   const [username, setUsername] = useState(() => {
     try {
-      return localStorage.getItem("kp3_saved_login_user") || "";
+      const saved = localStorage.getItem("kp3_saved_login_user") || "";
+      if (isSupabaseConfigured && saved && !saved.includes("@")) {
+        return "";
+      }
+      return saved;
     } catch {
       return "";
     }
@@ -112,142 +112,106 @@ export default function LoginAndRegister({
     const inputPass = password.trim();
 
     if (!inputUser || !inputPass) {
-      setError("Vui lòng nhập đầy đủ Tên đăng nhập / Email và Mật khẩu!");
-      return;
-    }
-
-    setLoading(true);
-
-    try {
-      const lowerUser = inputUser.toLowerCase();
-
-      // TRƯỜNG HỢP 1: Tài khoản Quản trị / Cán bộ (xác thực trực tiếp qua Supabase Auth)
-      const isAdminAlias = lowerUser === "admin" || lowerUser === "canbo";
-      if (isAdminAlias || inputUser.includes("@")) {
-        const targetEmail = isAdminAlias ? "bdhkhupho3.ap@gmail.com" : inputUser;
-        if (isSupabaseConfigured && supabase) {
-          const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
-            email: targetEmail,
-            password: inputPass,
-          });
-
-          if (authError) {
-            throw new Error(
-              authError.message === "Invalid login credentials"
-                ? "Email hoặc mật khẩu không chính xác! Vui lòng kiểm tra lại."
-                : authError.message
-            );
-          }
-
-          if (authData?.user) {
-            // Kiểm tra trạng thái phê duyệt trong bảng user_profiles
-            const { data: profile } = await (supabase as any)
-              .from("user_profiles")
-              .select("*")
-              .eq("id", authData.user.id)
-              .maybeSingle();
-
-            if (profile) {
-              if (profile.approval_status === "pending") {
-                setPendingUser({
-                  email: profile.email,
-                  fullName: profile.full_name,
-                  position: profile.position
-                });
-                setLoading(false);
-                return;
-              }
-
-              if (profile.approval_status === "rejected") {
-                throw new Error("Tài khoản của bạn đã bị từ chối cấp quyền công tác. Vui lòng liên hệ Thường trực Ban điều hành.");
-              }
-
-              const authenticatedUser = {
-                username: profile.email.split("@")[0],
-                fullName: profile.full_name,
-                role: (profile.role === "admin" || profile.role === "cadre" ? "canbo" : "nguoidan") as "canbo" | "nguoidan",
-                phone: profile.phone || ""
-              };
-
-              if (rememberMe) {
-                try {
-                  localStorage.setItem("kp3_auth_user", JSON.stringify(authenticatedUser));
-                  localStorage.setItem("kp3_saved_login_user", inputUser);
-                } catch (e) { }
-              } else {
-                try {
-                  localStorage.removeItem("kp3_saved_login_user");
-                } catch (e) { }
-              }
-
-              onLoginSuccess(authenticatedUser);
-              return;
-            } else {
-              // Tài khoản đã có trong Auth nhưng chưa có profile
-              const defaultUser = {
-                username: authData.user.email?.split("@")[0] || "canbo",
-                fullName: authData.user.user_metadata?.full_name || "Cán bộ Khu phố 3",
-                role: "canbo" as const,
-                phone: authData.user.user_metadata?.phone || ""
-              };
-
-              if (rememberMe) {
-                try {
-                  localStorage.setItem("kp3_auth_user", JSON.stringify(defaultUser));
-                  localStorage.setItem("kp3_saved_login_user", inputUser);
-                } catch (e) { }
-              }
-
-              onLoginSuccess(defaultUser);
+              setError("Vui lòng nhập đầy đủ Email công vụ và Mật khẩu!");
               return;
             }
-          }
-        } else {
-          throw new Error("Dịch vụ xác thực đám mây tạm thời không khả dụng. Vui lòng thử lại sau.");
-        }
-      }
 
-      // TRƯỜNG HỢP 2: Tra cứu số CCCD (12 chữ số) hoặc Số điện thoại trong CSDL Cư dân KP3
-      const matchedResident = initialResidents.find(
-        r => r.cccd === inputUser || (r.phone && r.phone.replace(/\s/g, "") === inputUser.replace(/\s/g, ""))
-      );
+            setLoading(true);
 
-      if (matchedResident) {
-        const cccdLast6 = matchedResident.cccd.slice(-6);
-        const isValidResidentPass = Boolean(cccdLast6) && inputPass === cccdLast6;
-
-        if (isValidResidentPass) {
-          const citizenUser = {
-            username: matchedResident.cccd,
-            fullName: matchedResident.fullName,
-            role: "nguoidan" as const,
-            cccd: matchedResident.cccd,
-            householdCode: matchedResident.householdId,
-            phone: matchedResident.phone
-          };
-
-          if (rememberMe) {
             try {
-              localStorage.setItem("kp3_auth_user", JSON.stringify(citizenUser));
-              localStorage.setItem("kp3_saved_login_user", inputUser);
-            } catch (e) { }
-          }
+              const lowerUser = inputUser.toLowerCase();
 
-          onLoginSuccess(citizenUser);
-          return;
-        } else {
-          throw new Error("Mật khẩu cư dân không chính xác! Vui lòng nhập đúng 6 số cuối CCCD.");
-        }
-      }
+              // Tài khoản Quản trị / Cán bộ (xác thực trực tiếp qua Supabase Auth)
+              const isAdminAlias = lowerUser === "admin" || lowerUser === "canbo";
+              if (isAdminAlias || inputUser.includes("@")) {
+                const targetEmail = isAdminAlias ? "bdhkhupho3.ap@gmail.com" : inputUser;
+                if (isSupabaseConfigured && supabase) {
+                  const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
+                    email: targetEmail,
+                    password: inputPass,
+                  });
 
-      // Không khớp tài khoản nào
-      throw new Error("Tài khoản hoặc Mật khẩu không chính xác! Vui lòng kiểm tra lại thông tin.");
-    } catch (err: any) {
-      setError(err?.message || "Đã xảy ra lỗi khi đăng nhập hệ thống.");
-    } finally {
-      setLoading(false);
-    }
-  };
+                  if (authError) {
+                    throw new Error(
+                      authError.message === "Invalid login credentials"
+                        ? "Email hoặc mật khẩu không chính xác! Vui lòng kiểm tra lại."
+                        : authError.message
+                    );
+                  }
+
+                  if (authData?.user) {
+                    // Kiểm tra trạng thái phê duyệt trong bảng user_profiles
+                    const { data: profile } = await (supabase as any)
+                      .from("user_profiles")
+                      .select("*")
+                      .eq("id", authData.user.id)
+                      .maybeSingle();
+
+                    if (!profile || profile.approval_status === "pending") {
+                      await supabase.auth.signOut().catch(() => {});
+                      setPendingUser({
+                        email: profile?.email || authData.user.email || targetEmail,
+                        fullName:
+                          profile?.full_name ||
+                          authData.user.user_metadata?.full_name ||
+                          "Cán bộ Khu phố 3",
+                        position:
+                          profile?.position ||
+                          authData.user.user_metadata?.position ||
+                          "Cán bộ Khu phố",
+                      });
+                      setLoading(false);
+                      return;
+                    }
+
+                    if (profile.approval_status === "rejected") {
+                      await supabase.auth.signOut().catch(() => {});
+                      throw new Error(
+                        "Tài khoản của bạn đã bị từ chối cấp quyền công tác. Vui lòng liên hệ Thường trực Ban điều hành."
+                      );
+                    }
+
+                    if (profile.role !== "admin" && profile.role !== "cadre") {
+                      await supabase.auth.signOut().catch(() => {});
+                      throw new Error(
+                        "Tài khoản chưa được phân quyền Cán bộ quản lý. Vui lòng liên hệ Thường trực Ban điều hành."
+                      );
+                    }
+
+                    const authenticatedUser = {
+                      username: profile.email.split("@")[0],
+                      fullName: profile.full_name,
+                      role: "canbo" as const,
+                      phone: profile.phone || "",
+                    };
+
+                    if (rememberMe) {
+                      try {
+                        localStorage.setItem("kp3_auth_user", JSON.stringify(authenticatedUser));
+                        localStorage.setItem("kp3_saved_login_user", targetEmail);
+                      } catch (e) {}
+                    } else {
+                      try {
+                        localStorage.removeItem("kp3_saved_login_user");
+                      } catch (e) {}
+                    }
+
+                    onLoginSuccess(authenticatedUser);
+                    return;
+                  }
+                } else {
+                  throw new Error("Dịch vụ xác thực đám mây tạm thời không khả dụng. Vui lòng thử lại sau.");
+                }
+              }
+
+              // Không cho phép tra cứu dữ liệu dân cư phía client; yêu cầu email công vụ hợp lệ
+              throw new Error("Vui lòng đăng nhập bằng Email công vụ đã được cấp quyền trên hệ thống!");
+            } catch (err: any) {
+              setError(err?.message || "Đã xảy ra lỗi khi đăng nhập hệ thống.");
+            } finally {
+              setLoading(false);
+            }
+          };
 
   // 2. Đăng ký Cán bộ mới (yêu cầu phê duyệt từ Ban điều hành)
   const handleCadreRegisterSubmit = async (e: React.FormEvent) => {
@@ -507,41 +471,15 @@ export default function LoginAndRegister({
             /* 2. SCREEN: MAIN LOGIN */
             <div className="space-y-4">
 
-              {/* Role Segmented Selector */}
-              <div className="grid grid-cols-2 p-1 bg-slate-100 rounded-xl border border-slate-200 text-xs font-bold" role="tablist" aria-label="Chọn loại tài khoản đăng nhập">
-                <button
-                  type="button"
-                  role="tab"
-                  aria-selected={loginRoleTab === "canbo"}
-                  onClick={() => {
-                    setLoginRoleTab("canbo");
-                    setError("");
-                  }}
-                  className={`min-h-[44px] py-2 px-3 rounded-lg transition-colors cursor-pointer flex items-center justify-center gap-1.5 ${loginRoleTab === "canbo"
-                    ? "bg-white text-emerald-950 border border-slate-200 font-bold"
-                    : "text-slate-600 hover:text-slate-900 border border-transparent"
-                    }`}
-                >
-                  <ShieldCheck size={15} className={loginRoleTab === "canbo" ? "text-emerald-700" : "text-slate-500"} aria-hidden="true" />
-                  <span>Cán bộ / Quản trị</span>
-                </button>
-
-                <button
-                  type="button"
-                  role="tab"
-                  aria-selected={loginRoleTab === "nguoidan"}
-                  onClick={() => {
-                    setLoginRoleTab("nguoidan");
-                    setError("");
-                  }}
-                  className={`min-h-[44px] py-2 px-3 rounded-lg transition-colors cursor-pointer flex items-center justify-center gap-1.5 ${loginRoleTab === "nguoidan"
-                    ? "bg-white text-emerald-950 border border-slate-200 font-bold"
-                    : "text-slate-600 hover:text-slate-900 border border-transparent"
-                    }`}
-                >
-                  <User size={15} className={loginRoleTab === "nguoidan" ? "text-emerald-700" : "text-slate-500"} aria-hidden="true" />
-                  <span>Cư dân Khu phố</span>
-                </button>
+              {/* Cổng xác thực Cán bộ & thông báo truy cập công khai cho Cư dân */}
+              <div className="p-3 rounded-xl bg-emerald-50 border border-emerald-200 text-xs text-emerald-950 flex items-start gap-2.5">
+                <ShieldCheck size={16} className="text-emerald-700 shrink-0 mt-0.5" aria-hidden="true" />
+                <div className="space-y-1">
+                  <p className="font-bold">Xác thực Cán bộ Ban Điều hành Khu phố 3</p>
+                  <p className="text-emerald-800 leading-relaxed">
+                    Cư dân xem Tin tức, Bản đồ GIS và gửi phản ánh hiện trường trực tiếp tại Trang chủ mà không cần đăng nhập.
+                  </p>
+                </div>
               </div>
 
               {/* Login Form */}
@@ -549,11 +487,11 @@ export default function LoginAndRegister({
                 {/* Field: Username or Email */}
                 <div className="space-y-1">
                   <label htmlFor="auth-username-input" className="text-xs font-bold text-slate-700 block">
-                    {loginRoleTab === "canbo" ? "Email công vụ hoặc Tên đăng nhập *" : "Số CCCD (12 số) hoặc Số điện thoại *"}
+                    Email công vụ đã đăng ký *
                   </label>
                   <div className="relative">
                     <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-500" aria-hidden="true">
-                      {loginRoleTab === "canbo" ? <User size={15} /> : <CreditCard size={15} />}
+                      <Mail size={15} />
                     </div>
                     <input
                       id="auth-username-input"
@@ -569,11 +507,7 @@ export default function LoginAndRegister({
                       aria-describedby={error ? "auth-form-error" : undefined}
                       value={username}
                       onChange={(e) => setUsername(e.target.value)}
-                      placeholder={
-                        loginRoleTab === "canbo"
-                          ? "Nhập email công vụ đã đăng ký"
-                          : "Số CCCD (12 số) hoặc SĐT đã đăng ký"
-                      }
+                      placeholder="Nhập email công vụ đã đăng ký"
                       className="w-full min-h-[44px] pl-9 pr-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 text-sm focus:outline-none focus:border-emerald-600 focus:bg-white user-invalid:border-rose-500 user-invalid:bg-rose-50/40 transition-colors font-medium"
                     />
                   </div>
