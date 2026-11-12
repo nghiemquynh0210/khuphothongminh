@@ -21,9 +21,13 @@ export const ROUTES = {
 
   // Mở rộng link theo cú pháp: /dashboard/("sidebar content")
   DASHBOARD_RESIDENTS: "/dashboard/residents",
+  DASHBOARD_RESIDENTS_NEW: "/dashboard/residents/new",
   DASHBOARD_HOUSEHOLDS: "/dashboard/households",
+  DASHBOARD_HOUSEHOLDS_NEW: "/dashboard/households/new",
   DASHBOARD_ENTERPRISES: "/dashboard/enterprises",
+  DASHBOARD_ENTERPRISES_NEW: "/dashboard/enterprises/new",
   DASHBOARD_BUSINESSES: "/dashboard/businesses",
+  DASHBOARD_BUSINESSES_NEW: "/dashboard/businesses/new",
   DASHBOARD_GIS: "/dashboard/gis",
   DASHBOARD_TASKS: "/dashboard/tasks",
   DASHBOARD_AI: "/dashboard/ai",
@@ -113,6 +117,272 @@ export function getDashboardExtensionPath(sidebarContentId: string): string {
   return `/dashboard/${sidebarContentId}`;
 }
 
+export type ResidentsSubRoute =
+  | { mode: "create"; isForeigner: boolean }
+  | { mode: "edit"; residentId: string }
+  | { mode: "detail"; residentId: string }
+  | null;
+
+/**
+ * Tạo đường dẫn trang Thêm mới cư dân (hỗ trợ chế độ Người nước ngoài)
+ */
+export function getResidentCreatePath(isForeigner = false): string {
+  return isForeigner ? `${ROUTES.DASHBOARD_RESIDENTS_NEW}?type=foreigner` : ROUTES.DASHBOARD_RESIDENTS_NEW;
+}
+
+/**
+ * Tạo đường dẫn trang Chi tiết hồ sơ cư dân
+ */
+export function getResidentDetailPath(residentId: string): string {
+  return `${ROUTES.DASHBOARD_RESIDENTS}/${encodeURIComponent(residentId)}`;
+}
+
+/**
+ * Tạo đường dẫn trang Cập nhật hồ sơ cư dân
+ */
+export function getResidentEditPath(residentId: string): string {
+  return `${ROUTES.DASHBOARD_RESIDENTS}/${encodeURIComponent(residentId)}/edit`;
+}
+
+/**
+ * Phân tích sub-route trong phân hệ Dân cư (/dashboard/residents/new, /dashboard/residents/:id, /dashboard/residents/:id/edit)
+ */
+export function parseResidentsSubRoute(pathname: string, search = ""): ResidentsSubRoute {
+  if (!pathname) return null;
+  const clean = pathname.replace(/\/+$/, "");
+
+  if (clean === "/dashboard/residents/new" || clean === "/residents/new") {
+    const params = new URLSearchParams(search);
+    return {
+      mode: "create",
+      isForeigner: params.get("type") === "foreigner"
+    };
+  }
+
+  const editMatch = clean.match(/^\/(?:dashboard\/)?residents\/([^/]+)\/edit$/);
+  if (editMatch && editMatch[1]) {
+    try {
+      return {
+        mode: "edit",
+        residentId: decodeURIComponent(editMatch[1])
+      };
+    } catch {
+      return {
+        mode: "edit",
+        residentId: editMatch[1]
+      };
+    }
+  }
+
+  const detailMatch = clean.match(/^\/(?:dashboard\/)?residents\/([^/]+)$/);
+  if (detailMatch && detailMatch[1] && detailMatch[1] !== "new") {
+    try {
+      return {
+        mode: "detail",
+        residentId: decodeURIComponent(detailMatch[1])
+      };
+    } catch {
+      return {
+        mode: "detail",
+        residentId: detailMatch[1]
+      };
+    }
+  }
+
+  return null;
+}
+
+export type HouseholdsSubRoute =
+  | { mode: "create" }
+  | { mode: "detail"; householdId: string }
+  | { mode: "edit"; householdId: string }
+  | { mode: "add-member"; householdId: string }
+  | { mode: "tree"; householdId: string }
+  | null;
+
+/**
+ * Tạo đường dẫn trang Lập sổ hộ khẩu mới
+ */
+export function getHouseholdCreatePath(): string {
+  return ROUTES.DASHBOARD_HOUSEHOLDS_NEW;
+}
+
+/**
+ * Tạo đường dẫn trang Chi tiết sổ hộ khẩu
+ */
+export function getHouseholdDetailPath(householdId: string): string {
+  return `${ROUTES.DASHBOARD_HOUSEHOLDS}/${encodeURIComponent(householdId)}`;
+}
+
+/**
+ * Tạo đường dẫn trang Chỉnh sửa sổ hộ khẩu
+ */
+export function getHouseholdEditPath(householdId: string): string {
+  return `${ROUTES.DASHBOARD_HOUSEHOLDS}/${encodeURIComponent(householdId)}/edit`;
+}
+
+/**
+ * Tạo đường dẫn trang Thêm nhân khẩu vào sổ hộ khẩu
+ */
+export function getHouseholdAddMemberPath(householdId: string): string {
+  return `${ROUTES.DASHBOARD_HOUSEHOLDS}/${encodeURIComponent(householdId)}/members/new`;
+}
+
+/**
+ * Tạo đường dẫn trang Sơ đồ cây phả hệ hộ tịch
+ */
+export function getHouseholdTreePath(householdId: string): string {
+  return `${ROUTES.DASHBOARD_HOUSEHOLDS}/${encodeURIComponent(householdId)}/tree`;
+}
+
+function safeDecodeSegment(segment: string): string {
+  try {
+    return decodeURIComponent(segment);
+  } catch {
+    return segment;
+  }
+}
+
+/**
+ * Phân tích sub-route trong phân hệ Hộ khẩu:
+ * /dashboard/households/new, /dashboard/households/:id, /dashboard/households/:id/edit,
+ * /dashboard/households/:id/members/new, /dashboard/households/:id/tree
+ */
+export function parseHouseholdsSubRoute(pathname: string): HouseholdsSubRoute {
+  if (!pathname) return null;
+  const clean = pathname.replace(/\/+$/, "");
+
+  if (clean === "/dashboard/households/new" || clean === "/households/new") {
+    return { mode: "create" };
+  }
+
+  const editMatch = clean.match(/^\/(?:dashboard\/)?households\/([^/]+)\/edit$/);
+  if (editMatch && editMatch[1]) {
+    return { mode: "edit", householdId: safeDecodeSegment(editMatch[1]) };
+  }
+
+  const addMemberMatch = clean.match(/^\/(?:dashboard\/)?households\/([^/]+)\/members\/new$/);
+  if (addMemberMatch && addMemberMatch[1]) {
+    return { mode: "add-member", householdId: safeDecodeSegment(addMemberMatch[1]) };
+  }
+
+  const treeMatch = clean.match(/^\/(?:dashboard\/)?households\/([^/]+)\/tree$/);
+  if (treeMatch && treeMatch[1]) {
+    return { mode: "tree", householdId: safeDecodeSegment(treeMatch[1]) };
+  }
+
+  const detailMatch = clean.match(/^\/(?:dashboard\/)?households\/([^/]+)$/);
+  if (detailMatch && detailMatch[1] && detailMatch[1] !== "new") {
+    return { mode: "detail", householdId: safeDecodeSegment(detailMatch[1]) };
+  }
+
+  return null;
+}
+
+export type EnterprisesSubRoute =
+  | { mode: "create" }
+  | { mode: "detail"; enterpriseId: string }
+  | { mode: "edit"; enterpriseId: string }
+  | null;
+
+/**
+ * Tạo đường dẫn trang Đăng ký Doanh nghiệp mới
+ */
+export function getEnterpriseCreatePath(): string {
+  return ROUTES.DASHBOARD_ENTERPRISES_NEW;
+}
+
+/**
+ * Tạo đường dẫn trang Chi tiết Doanh nghiệp
+ */
+export function getEnterpriseDetailPath(enterpriseId: string): string {
+  return `${ROUTES.DASHBOARD_ENTERPRISES}/${encodeURIComponent(enterpriseId)}`;
+}
+
+/**
+ * Tạo đường dẫn trang Chỉnh sửa hồ sơ Doanh nghiệp
+ */
+export function getEnterpriseEditPath(enterpriseId: string): string {
+  return `${ROUTES.DASHBOARD_ENTERPRISES}/${encodeURIComponent(enterpriseId)}/edit`;
+}
+
+/**
+ * Phân tích sub-route trong phân hệ Doanh nghiệp:
+ * /dashboard/enterprises/new, /dashboard/enterprises/:id, /dashboard/enterprises/:id/edit
+ */
+export function parseEnterprisesSubRoute(pathname: string): EnterprisesSubRoute {
+  if (!pathname) return null;
+  const clean = pathname.replace(/\/+$/, "");
+
+  if (clean === "/dashboard/enterprises/new" || clean === "/enterprises/new") {
+    return { mode: "create" };
+  }
+
+  const editMatch = clean.match(/^\/(?:dashboard\/)?enterprises\/([^/]+)\/edit$/);
+  if (editMatch && editMatch[1]) {
+    return { mode: "edit", enterpriseId: safeDecodeSegment(editMatch[1]) };
+  }
+
+  const detailMatch = clean.match(/^\/(?:dashboard\/)?enterprises\/([^/]+)$/);
+  if (detailMatch && detailMatch[1] && detailMatch[1] !== "new") {
+    return { mode: "detail", enterpriseId: safeDecodeSegment(detailMatch[1]) };
+  }
+
+  return null;
+}
+
+export type BusinessesSubRoute =
+  | { mode: "create" }
+  | { mode: "detail"; businessId: string }
+  | { mode: "edit"; businessId: string }
+  | null;
+
+/**
+ * Tạo đường dẫn trang Đăng ký Cơ sở Kinh doanh mới
+ */
+export function getBusinessCreatePath(): string {
+  return ROUTES.DASHBOARD_BUSINESSES_NEW;
+}
+
+/**
+ * Tạo đường dẫn trang Chi tiết Cơ sở Kinh doanh
+ */
+export function getBusinessDetailPath(businessId: string): string {
+  return `${ROUTES.DASHBOARD_BUSINESSES}/${encodeURIComponent(businessId)}`;
+}
+
+/**
+ * Tạo đường dẫn trang Chỉnh sửa hồ sơ Cơ sở Kinh doanh
+ */
+export function getBusinessEditPath(businessId: string): string {
+  return `${ROUTES.DASHBOARD_BUSINESSES}/${encodeURIComponent(businessId)}/edit`;
+}
+
+/**
+ * Phân tích sub-route trong phân hệ Cơ sở Kinh doanh:
+ * /dashboard/businesses/new, /dashboard/businesses/:id, /dashboard/businesses/:id/edit
+ */
+export function parseBusinessesSubRoute(pathname: string): BusinessesSubRoute {
+  if (!pathname) return null;
+  const clean = pathname.replace(/\/+$/, "");
+
+  if (clean === "/dashboard/businesses/new" || clean === "/businesses/new") {
+    return { mode: "create" };
+  }
+
+  const editMatch = clean.match(/^\/(?:dashboard\/)?businesses\/([^/]+)\/edit$/);
+  if (editMatch && editMatch[1]) {
+    return { mode: "edit", businessId: safeDecodeSegment(editMatch[1]) };
+  }
+
+  const detailMatch = clean.match(/^\/(?:dashboard\/)?businesses\/([^/]+)$/);
+  if (detailMatch && detailMatch[1] && detailMatch[1] !== "new") {
+    return { mode: "detail", businessId: safeDecodeSegment(detailMatch[1]) };
+  }
+
+  return null;
+}
+
 /**
  * Phân tích URL pathname để trích xuất tab Cán bộ tương ứng từ /dashboard/(sidebar content)
  */
@@ -129,7 +399,7 @@ export function getTabFromDashboardPath(pathname: string): string | null {
     return sub || "dashboard";
   }
 
-  // Hỗ trợ tương thích ngược nếu người dùng gõ trực tiếp /residents hoặc /gis
+  // Hỗ trợ tương thích ngược nếu người dùng gõ trực tiếp /residents hoặc /residents/... hoặc /gis
   const validTabs = [
     "dashboard",
     "residents",
@@ -148,8 +418,21 @@ export function getTabFromDashboardPath(pathname: string): string | null {
     "settings"
   ];
 
+  const firstSeg = clean.split("/")[0];
   if (validTabs.includes(clean)) {
     return clean;
+  }
+  if (firstSeg === "residents" && parseResidentsSubRoute(`/${clean}`)) {
+    return "residents";
+  }
+  if (firstSeg === "households" && parseHouseholdsSubRoute(`/${clean}`)) {
+    return "households";
+  }
+  if (firstSeg === "enterprises" && parseEnterprisesSubRoute(`/${clean}`)) {
+    return "enterprises";
+  }
+  if (firstSeg === "businesses" && parseBusinessesSubRoute(`/${clean}`)) {
+    return "businesses";
   }
 
   return null;
@@ -191,9 +474,10 @@ export function navigate(
   if (typeof window === "undefined") return;
 
   const targetPath = to.startsWith("/") ? to : `/${to}`;
+  const currentFull = window.location.pathname + window.location.search;
 
-  // Tránh pushState trùng URL hiện tại
-  if (window.location.pathname !== targetPath) {
+  // Tránh pushState trùng URL + query hiện tại
+  if (currentFull !== targetPath) {
     if (options?.replace) {
       window.history.replaceState({}, "", targetPath);
     } else {
@@ -216,17 +500,23 @@ export function navigate(
 }
 
 /**
- * Hook trả về pathname hiện tại của trình duyệt và lắng nghe popstate + navigate
+ * Hook trả về { pathname, search } hiện tại của trình duyệt và lắng nghe popstate + navigate
  */
-export function useCurrentPath(): string {
-  const [pathname, setPathname] = useState<string>(() => {
-    if (typeof window === "undefined") return "/";
-    return window.location.pathname || "/";
+export function useCurrentLocation(): { pathname: string; search: string } {
+  const [loc, setLoc] = useState<{ pathname: string; search: string }>(() => {
+    if (typeof window === "undefined") return { pathname: "/", search: "" };
+    return {
+      pathname: window.location.pathname || "/",
+      search: window.location.search || ""
+    };
   });
 
   useEffect(() => {
     const handleUpdate = () => {
-      setPathname(window.location.pathname || "/");
+      setLoc({
+        pathname: window.location.pathname || "/",
+        search: window.location.search || ""
+      });
     };
 
     window.addEventListener("popstate", handleUpdate);
@@ -238,7 +528,14 @@ export function useCurrentPath(): string {
     };
   }, []);
 
-  return pathname;
+  return loc;
+}
+
+/**
+ * Hook trả về pathname hiện tại của trình duyệt và lắng nghe popstate + navigate
+ */
+export function useCurrentPath(): string {
+  return useCurrentLocation().pathname;
 }
 
 /**

@@ -7,9 +7,15 @@ interface HouseholdMemberProfileProps {
   resident: Resident | null;
   relation: string;
   onClose: () => void;
+  onOpenFullProfile?: (resident: Resident) => void;
 }
 
-export default function HouseholdMemberProfile({ resident, relation, onClose }: HouseholdMemberProfileProps) {
+export default function HouseholdMemberProfile({
+  resident,
+  relation,
+  onClose,
+  onOpenFullProfile
+}: HouseholdMemberProfileProps) {
   if (!resident) return null;
 
   // Render a mock beautiful pixelated digital QR code
@@ -118,14 +124,26 @@ export default function HouseholdMemberProfile({ resident, relation, onClose }: 
         </div>
 
         {/* Footer */}
-        <div className="bg-slate-50 px-6 py-4 flex justify-between items-center border-t border-slate-100 text-[10px] text-slate-400 font-mono">
+        <div className="bg-slate-50 px-6 py-4 flex flex-wrap justify-between items-center gap-2 border-t border-slate-100 text-[10px] text-slate-400 font-mono">
           <span>Khóa định danh UUID: {resident.id}</span>
-          <button 
-            onClick={onClose}
-            className="bg-slate-200 hover:bg-slate-300 text-slate-700 px-3.5 py-1.5 rounded-lg font-sans font-bold text-xs transition-colors cursor-pointer"
-          >
-            Đóng hồ sơ
-          </button>
+          <div className="flex items-center gap-2 font-sans">
+            {onOpenFullProfile && (
+              <button
+                type="button"
+                onClick={() => onOpenFullProfile(resident)}
+                className="bg-emerald-600 hover:bg-emerald-700 text-white px-3.5 py-1.5 rounded-lg font-bold text-xs transition-colors cursor-pointer"
+              >
+                Mở trang Hồ sơ Cư dân
+              </button>
+            )}
+            <button 
+              type="button"
+              onClick={onClose}
+              className="bg-slate-200 hover:bg-slate-300 text-slate-700 px-3.5 py-1.5 rounded-lg font-bold text-xs transition-colors cursor-pointer"
+            >
+              Đóng hồ sơ
+            </button>
+          </div>
         </div>
       </div>
     </div>

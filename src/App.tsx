@@ -28,10 +28,7 @@ import {
 import { initialAdministrativeForms } from "./mockForms";
 import Sidebar from "./components/Sidebar";
 import Dashboard from "./components/Dashboard";
-import CitizenManagement from "./components/CitizenManagement";
-import HouseholdManagement from "./components/HouseholdManagement";
-import BusinessManagement from "./components/BusinessManagement";
-import EnterpriseManagement from "./components/EnterpriseManagement";
+import { BusinessesPage, EnterprisesPage, HouseholdsPage, ResidentsPage } from "./page";
 import GisMap from "./components/GisMap";
 import TaskAndSchedule from "./components/TaskAndSchedule";
 import AiAssistant from "./components/AiAssistant";
@@ -45,12 +42,18 @@ import LoginAndRegister from "./components/LoginAndRegister";
 import SettingsAndPermissions, { PendingRegistration } from "./components/SettingsAndPermissions";
 import AdministrativeForms from "./components/AdministrativeForms";
 import { inferRelationToOwner, extractBirthYear, autoExtractHostelBusinesses } from "./utils/householdRecognitionUtils";
+import { residentToSupabasePayload, synchronizeHouseholdsOnResidentEdit } from "./utils/residentFormUtils";
 import CitizenLandingPage from "./components/CitizenLandingPage";
 import { 
   ROUTES, 
   navigate, 
   getDashboardExtensionPath, 
   getTabFromDashboardPath, 
+  parseBusinessesSubRoute,
+  parseEnterprisesSubRoute,
+  parseHouseholdsSubRoute,
+  parseResidentsSubRoute,
+  useCurrentLocation,
   Link 
 } from "./routes";
 import { supabase, isSupabaseConfigured } from "./lib/supabase";
@@ -198,6 +201,7 @@ export default function App() {
   });
 
   const [activeTab, setActiveTab] = useState<ActiveTab>("dashboard");
+  const { pathname: currentPathname, search: currentSearch } = useCurrentLocation();
   const [citizenSubView, setCitizenSubView] = useState<ActiveTab | null>(null);
   const [residents, setResidents] = useState<Resident[]>(initialResidents);
   const [households, setHouseholds] = useState<Household[]>(initialHouseholds);
@@ -598,6 +602,9 @@ export default function App() {
   const handleNavigateToGis = (item: TargetGisItem) => {
     setTargetGisItem(item);
     setActiveTab("gis");
+    if (currentUser?.role !== "nguoidan") {
+      navigate(ROUTES.DASHBOARD_GIS);
+    }
   };
 
   // Notifications State Mock
@@ -635,27 +642,75 @@ export default function App() {
   };
 
   // Handlers for State Management
-  const handleAddResident = (newResident: Resident) => {
-    setResidents([newResident, ...residents]);
-    
-    // Auto-update household members if matched
-    const hhId = newResident.householdId;
-    setHouseholds(households.map(hh => {
-      if (hh.code === hhId) {
-        return {
-          ...hh,
-          memberCount: hh.memberCount + 1,
-          members: [...hh.members, {
-            name: newResident.fullName,
-            relation: newResident.relationToOwner,
-            cccd: newResident.cccd,
-            phone: newResident.phone,
-            birthYear: parseInt(newResident.birthDate.split("/")[2]) || 1990
-          }]
-        };
+  const handleAddResident = async (newResident: Resident) => {
+    let savedResident = newResident;
+    if (isSupabaseConfigured && supabase) {
+      try {
+        const payload = residentToSupabasePayload(newResident);
+        const { data, error } = await (supabase as any)
+          .from("residents")
+          .upsert(payload, { onConflict: "cccd" })
+          .select("id")
+          .single();
+        if (!error && data?.id) {
+          savedResident = { ...newResident, id: data.id };
+        }
+      } catch (err) {
+        console.warn("Supabase insert resident error:", err);
       }
-      return hh;
-    }));
+    }
+
+    setResidents(prev => [savedResident, ...prev]);
+
+    // Auto-update household members if matched
+    const hhId = savedResident.householdId;
+    setHouseholds(prev =>
+      prev.map(hh => {
+        if (hh.code === hhId) {
+          return {
+            ...hh,
+            memberCount: hh.memberCount + 1,
+            members: [
+              ...hh.members,
+              {
+                name: savedResident.fullName,
+                relation: savedResident.relationToOwner,
+                cccd: savedResident.cccd,
+                phone: savedResident.phone,
+                birthYear: extractBirthYear(savedResident.birthDate) || 1990
+              }
+            ]
+          };
+        }
+        return hh;
+      })
+    );
+  };
+
+  const handleUpdateResident = async (updatedResident: Resident, oldResident: Resident) => {
+    setResidents(prev =>
+      prev.map(r => (r.id === oldResident.id ? updatedResident : r))
+    );
+    setHouseholds(prev =>
+      synchronizeHouseholdsOnResidentEdit(prev, oldResident, updatedResident)
+    );
+
+    if (isSupabaseConfigured && supabase) {
+      try {
+        const payload = residentToSupabasePayload(updatedResident);
+        const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+          updatedResident.id
+        );
+        const query = (supabase as any).from("residents").update(payload);
+        if (isUuid) {
+          await query.eq("id", updatedResident.id);
+        } else if (oldResident.cccd) {
+          await query.eq("cccd", oldResident.cccd);
+        }
+      } catch (err) {
+        console.warn("Supabase update resident error:", err);
+      }
+    }
   };
 
   const handleDeleteResident = (id: string) => {
@@ -679,25 +734,7 @@ export default function App() {
   };
 
   const handleAddHousehold = (newH: Household) => {
-    setHouseholds([newH, ...households]);
-    
-    // Add owner to residents roster
-    const ownerRes: Resident = {
-      id: "R" + (residents.length + 1).toString().padStart(3, "0"),
-      fullName: newH.ownerName,
-      gender: "Nam",
-      birthDate: "01/01/1975",
-      cccd: newH.members[0]?.cccd || "N/A",
-      phone: newH.members[0]?.phone || "N/A",
-      status: (newH.type === "Tạm trú" ? "Tạm trú" : "Thường trú") as "Thường trú" | "Tạm trú",
-      occupation: "Kinh doanh",
-      address: newH.address,
-      householdId: newH.code,
-      relationToOwner: "Chủ hộ",
-      avatar: "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150",
-      joinDate: new Date().toLocaleDateString("vi-VN")
-    };
-    setResidents([ownerRes, ...residents]);
+    setHouseholds(prev => [newH, ...prev]);
   };
 
   const handleToggleBusinessCertification = (id: string) => {
@@ -898,10 +935,42 @@ export default function App() {
   const getTabTitle = () => {
     switch (activeTab) {
       case "dashboard": return "Bảng Điều Hành Tổng Quan";
-      case "residents": return "Quản lý Nhân Khẩu & Dân cư";
-      case "households": return "Hệ thống Quản lý Sổ Hộ khẩu";
-      case "enterprises": return "Quản lý Doanh nghiệp Vừa & Nhỏ (DNNVV)";
-      case "businesses": return "Quản lý Cơ sở Kinh doanh KP3";
+      case "residents": {
+        const sub = parseResidentsSubRoute(currentPathname, currentSearch);
+        if (sub?.mode === "create") {
+          return sub.isForeigner ? "Thêm mới Hồ sơ Người nước ngoài" : "Thêm mới Hồ sơ Cư dân";
+        }
+        if (sub?.mode === "edit") {
+          return "Cập nhật Hồ sơ Cư dân";
+        }
+        if (sub?.mode === "detail") {
+          return "Chi tiết Hồ sơ Cư dân";
+        }
+        return "Quản lý Nhân Khẩu & Dân cư";
+      }
+      case "households": {
+        const sub = parseHouseholdsSubRoute(currentPathname);
+        if (sub?.mode === "create") return "Lập Sổ Hộ Khẩu Điện Tử Mới";
+        if (sub?.mode === "edit") return "Chỉnh sửa Sổ Hộ Khẩu";
+        if (sub?.mode === "add-member") return "Thêm Nhân Khẩu vào Hộ Tịch";
+        if (sub?.mode === "tree") return "Sơ đồ Cây Phả Hệ Hộ Tịch";
+        if (sub?.mode === "detail") return "Chi tiết Sổ Hộ Khẩu Điện Tử";
+        return "Hệ thống Quản lý Sổ Hộ khẩu";
+      }
+      case "enterprises": {
+        const sub = parseEnterprisesSubRoute(currentPathname);
+        if (sub?.mode === "create") return "Đăng ký Doanh nghiệp Vừa & Nhỏ Mới";
+        if (sub?.mode === "edit") return "Chỉnh sửa Hồ sơ Doanh nghiệp";
+        if (sub?.mode === "detail") return "Chi tiết Hồ sơ Doanh nghiệp (DNNVV)";
+        return "Quản lý Doanh nghiệp Vừa & Nhỏ (DNNVV)";
+      }
+      case "businesses": {
+        const sub = parseBusinessesSubRoute(currentPathname);
+        if (sub?.mode === "create") return "Đăng ký Cơ sở Kinh doanh Mới";
+        if (sub?.mode === "edit") return "Chỉnh sửa Hồ sơ Cơ sở Kinh doanh";
+        if (sub?.mode === "detail") return "Chi tiết Hồ sơ Cơ sở Kinh doanh";
+        return "Quản lý Cơ sở Kinh doanh KP3";
+      }
       case "gis": return "Bản đồ số không gian GIS";
       case "ai": return "Hỏi đáp tự động Trợ lý AI";
       case "reports": return "Tiếp nhận Phản ánh Hiện trường 1022";
@@ -1326,81 +1395,56 @@ export default function App() {
           )}
 
           {activeTab === "residents" && (
-            currentUser?.role === "nguoidan" && !residentPermissions.residents ? (
-              <div className="bg-white rounded-3xl p-8 border border-slate-200 text-center space-y-4 max-w-lg mx-auto my-12 shadow-sm">
-                <div className="w-16 h-16 rounded-2xl bg-amber-50 text-amber-600 flex items-center justify-center mx-auto">
-                  <ShieldAlert size={32} />
-                </div>
-                <h3 className="text-lg font-bold text-slate-900">Không có quyền truy cập Nhân khẩu</h3>
-                <p className="text-xs text-slate-500 leading-relaxed">
-                  Theo quy định bảo vệ dữ liệu cư dân, vai trò Cư dân không được phép tra cứu danh bạ nhân khẩu. Quyền này chỉ dành riêng cho Cán bộ Quản lý địa bàn.
-                </p>
-                <button
-                  onClick={() => setActiveTab("dashboard")}
-                  className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition-colors cursor-pointer"
-                >
-                  Quay về Cổng cư dân
-                </button>
-              </div>
-            ) : (
-              <CitizenManagement 
-                residents={residents} 
-                onAddResident={handleAddResident} 
-                onDeleteResident={handleDeleteResident} 
-                onUpdateResidents={setResidents}
-                onUpdateHouseholds={setHouseholds}
-                households={households}
-                onNavigateToGis={handleNavigateToGis}
-              />
-            )
+            <ResidentsPage
+              residents={residents}
+              households={households}
+              currentUser={currentUser}
+              residentPermissions={residentPermissions}
+              isDataLoading={isDataLoading}
+              onAddResident={handleAddResident}
+              onUpdateResident={handleUpdateResident}
+              onDeleteResident={handleDeleteResident}
+              onUpdateResidents={setResidents}
+              onUpdateHouseholds={setHouseholds}
+              onNavigateToGis={handleNavigateToGis}
+              setActiveTab={setActiveTab}
+            />
           )}
 
           {activeTab === "households" && (
-            currentUser?.role === "nguoidan" && !residentPermissions.households ? (
-              <div className="bg-white rounded-3xl p-8 border border-slate-200 text-center space-y-4 max-w-lg mx-auto my-12 shadow-sm">
-                <div className="w-16 h-16 rounded-2xl bg-amber-50 text-amber-600 flex items-center justify-center mx-auto">
-                  <ShieldAlert size={32} />
-                </div>
-                <h3 className="text-lg font-bold text-slate-900">Không có quyền tra cứu Sổ Hộ Khẩu</h3>
-                <p className="text-xs text-slate-500 leading-relaxed">
-                  Theo quy định bảo vệ thông tin cá nhân và an ninh dữ liệu, vai trò Cư dân không được phép tra cứu Sổ hộ khẩu điện tử & thông tin nhân khẩu của các hộ gia đình. Chức năng này chỉ dành riêng cho Cán bộ Quản lý.
-                </p>
-                <button
-                  onClick={() => setActiveTab("dashboard")}
-                  className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition-colors cursor-pointer"
-                >
-                  Quay về Cổng cư dân
-                </button>
-              </div>
-            ) : (
-              <HouseholdManagement 
-                households={households} 
-                onAddHousehold={handleAddHousehold} 
-                residents={residents}
-                onUpdateHouseholds={setHouseholds}
-                onUpdateResidents={setResidents}
-                onNavigateToGis={handleNavigateToGis}
-              />
-            )
+            <HouseholdsPage
+              households={households}
+              residents={residents}
+              currentUser={currentUser}
+              residentPermissions={residentPermissions}
+              isDataLoading={isDataLoading}
+              onAddHousehold={handleAddHousehold}
+              onUpdateHouseholds={setHouseholds}
+              onUpdateResidents={setResidents}
+              onNavigateToGis={handleNavigateToGis}
+              setActiveTab={setActiveTab}
+            />
           )}
 
           {activeTab === "enterprises" && (
-            <EnterpriseManagement 
-              businesses={businesses} 
+            <EnterprisesPage
+              businesses={businesses}
               residents={residents}
               households={households}
-              onToggleCertification={handleToggleBusinessCertification} 
-              onUpdateStatus={handleUpdateBusinessStatus} 
+              isDataLoading={isDataLoading}
+              onToggleCertification={handleToggleBusinessCertification}
+              onUpdateStatus={handleUpdateBusinessStatus}
               onUpdateBusinesses={setBusinesses}
               onNavigateToGis={handleNavigateToGis}
             />
           )}
 
           {activeTab === "businesses" && (
-            <BusinessManagement 
+            <BusinessesPage 
               businesses={businesses} 
               residents={residents}
               households={households}
+              isDataLoading={isDataLoading}
               onToggleCertification={handleToggleBusinessCertification} 
               onUpdateStatus={handleUpdateBusinessStatus} 
               onUpdateBusinesses={setBusinesses}
