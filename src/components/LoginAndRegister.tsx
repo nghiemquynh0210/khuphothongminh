@@ -143,11 +143,18 @@ export default function LoginAndRegister({
 
                   if (authData?.user) {
                     // Kiểm tra trạng thái phê duyệt trong bảng user_profiles
-                    const { data: profile } = await (supabase as any)
+                    const { data: profile, error: profileError } = await (supabase as any)
                       .from("user_profiles")
                       .select("*")
                       .eq("id", authData.user.id)
                       .maybeSingle();
+
+                    if (profileError) {
+                      await supabase.auth.signOut().catch(() => {});
+                      throw new Error(
+                        `Không thể xác minh hồ sơ cán bộ: ${profileError.message}`
+                      );
+                    }
 
                     if (!profile || profile.approval_status === "pending") {
                       await supabase.auth.signOut().catch(() => {});
@@ -214,7 +221,11 @@ export default function LoginAndRegister({
                     return;
                   }
                 } else {
-                  throw new Error("Dịch vụ xác thực đám mây tạm thời không khả dụng. Vui lòng thử lại sau.");
+                  throw new Error(
+                    import.meta.env.DEV
+                      ? "Chưa cấu hình VITE_SUPABASE_URL hoặc VITE_SUPABASE_ANON_KEY trong file .env (local dev). Vui lòng kiểm tra file .env và khởi động lại dev server."
+                      : "Dịch vụ xác thực đám mây tạm thời không khả dụng. Vui lòng thử lại sau."
+                  );
                 }
               }
 

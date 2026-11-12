@@ -38,16 +38,12 @@ import {
   Trash2,
   RotateCcw
 } from "lucide-react";
-import { CommunityEvent, LocalNews, NewsLinkAttachment } from "../types";
+import { CommunityEvent, LocalNews } from "../types";
 import Pagination from "./Pagination";
 import { StatCard } from "./common/StatCard";
 import { PageHeader } from "./common/PageHeader";
-import { ReportSelect } from "./reports/ReportSelect";
 import { ConfirmModal, InlineNotice } from "./ui/ConfirmModal";
-import { Modal } from "./ui/Modal";
-import { DetailRow, DetailGrid } from "./common/DetailRow";
 import { formatVNNumber } from "../utils/numberFormat";
-import { formatShortRecordId } from "../utils/kp3Utils";
 import { initialNewsList } from "../mockData";
 import {
   COVER_PRESETS,
@@ -57,18 +53,27 @@ import {
   getNewsSummary,
   getNewsViews,
 } from "./news/newsHelpers";
-import { NewsMediaAndLinksFields } from "./news/NewsMediaAndLinksFields";
 import { NewsNewspaperFeed } from "./news/NewsNewspaperFeed";
+import {
+  ROUTES,
+  getEventCreatePath,
+  getEventDetailPath,
+  getEventEditPath,
+  getNewsCreatePath,
+  getNewsDetailPath,
+  getNewsEditPath,
+  navigate,
+} from "../routes";
 
 const EVENT_RSVP_KEY = "kp3_event_rsvp_v1";
-const CULTURAL_VENUES = [
+export const CULTURAL_VENUES = [
   "Nhà Văn hóa Khu phố 3 (Hội trường 80 chỗ)",
   "Phòng Sinh hoạt Chi bộ KP3 (30 chỗ)",
   "Sân Nhà Văn hóa Khu phố 3 (120 chỗ)",
   "Điểm sinh hoạt cụm dân cư KP3"
 ];
 
-interface CommunityEventsProps {
+export interface CommunityEventsProps {
   events: CommunityEvent[];
   onAddEvent: (newEvent: CommunityEvent) => void;
   onUpdateEventStatus: (id: string, status: CommunityEvent["status"]) => void;
@@ -78,6 +83,13 @@ interface CommunityEventsProps {
   onAddNews?: (newNews: LocalNews) => void;
   onUpdateNews?: (updatedNews: LocalNews) => void;
   onDeleteNews?: (newsId: string) => void;
+  basePath?: string;
+  onOpenCreateNews?: () => void;
+  onOpenEditNews?: (news: LocalNews) => void;
+  onOpenDetailNews?: (news: LocalNews) => void;
+  onOpenCreateEvent?: () => void;
+  onOpenEditEvent?: (event: CommunityEvent) => void;
+  onOpenDetailEvent?: (event: CommunityEvent) => void;
 }
 
 export default function CommunityEvents({ 
@@ -89,35 +101,26 @@ export default function CommunityEvents({
   newsList: propNewsList,
   onAddNews,
   onUpdateNews,
-  onDeleteNews
+  onDeleteNews,
+  basePath = ROUTES.DASHBOARD_CULTURAL,
+  onOpenCreateNews,
+  onOpenEditNews,
+  onOpenDetailNews,
+  onOpenCreateEvent,
+  onOpenEditEvent,
+  onOpenDetailEvent,
 }: CommunityEventsProps) {
   const [activeSubTab, setActiveSubTab] = useState<"news" | "events">("news");
   const [currentEventsPage, setCurrentEventsPage] = useState(1);
   const eventsPerPage = 6;
 
-  // States for News Board
-  const [showNewsModal, setShowNewsModal] = useState(false);
-  const [editingNews, setEditingNews] = useState<LocalNews | null>(null);
-  const [selectedNewsForModal, setSelectedNewsForModal] = useState<LocalNews | null>(null);
-  const [copiedLink, setCopiedLink] = useState(false);
+  // States for News Board & Events
   const [newsList, setNewsList] = useState<LocalNews[]>(propNewsList || initialNewsList);
-
-  // States for new News Item
-  const [newNewsTitle, setNewNewsTitle] = useState("");
-  const [newNewsCategory, setNewNewsCategory] = useState<LocalNews["category"]>("Hành chính");
-  const [newNewsSummary, setNewNewsSummary] = useState("");
-  const [newNewsContent, setNewNewsContent] = useState("");
-  const [newNewsAuthor, setNewNewsAuthor] = useState("Ban Điều hành Khu phố 3");
-  const [newNewsImage, setNewNewsImage] = useState(COVER_PRESETS[1].url);
-  const [newNewsImageGallery, setNewNewsImageGallery] = useState<string[]>([]);
-  const [newNewsLinks, setNewNewsLinks] = useState<NewsLinkAttachment[]>([]);
-  const [newNewsFileName, setNewNewsFileName] = useState("");
-  const [newNewsIsPinned, setNewNewsIsPinned] = useState(false);
-
-  // Notice & Confirm states
   const [notice, setNotice] = useState<{ message: string; type: "success" | "error" | "info" | "warning" } | null>(null);
   const [confirmResetNews, setConfirmResetNews] = useState(false);
   const [deleteNewsTarget, setDeleteNewsTarget] = useState<{ id: string; title: string } | null>(null);
+  const [deleteEventTarget, setDeleteEventTarget] = useState<{ id: string; title: string } | null>(null);
+  const [eventFilter, setEventFilter] = useState<"Tất cả" | "Sắp diễn ra" | "Đang diễn ra" | "Đã kết thúc">("Tất cả");
 
   // RSVP counter persisted locally per event id
   const [eventRsvpMap, setEventRsvpMap] = useState<Record<string, { registered: boolean; extraCount: number }>>(() => {
@@ -150,20 +153,6 @@ export default function CommunityEvents({
     });
   };
 
-  // States for Events Calendar
-  const [showEventModal, setShowEventModal] = useState(false);
-  const [editingEvent, setEditingEvent] = useState<CommunityEvent | null>(null);
-  const [selectedEventForModal, setSelectedEventForModal] = useState<CommunityEvent | null>(null);
-  const [deleteEventTarget, setDeleteEventTarget] = useState<{ id: string; title: string } | null>(null);
-  const [title, setTitle] = useState("");
-  const [organizer, setOrganizer] = useState("Ban Điều hành Khu phố 3");
-  const [dateTime, setDateTime] = useState("");
-  const [location, setLocation] = useState(CULTURAL_VENUES[0]);
-  const [expectedAttendees, setExpectedAttendees] = useState(50);
-  const [description, setDescription] = useState("");
-  const [eventImage, setEventImage] = useState(COVER_PRESETS[6].url);
-  const [eventFilter, setEventFilter] = useState<"Tất cả" | "Sắp diễn ra" | "Đang diễn ra" | "Đã kết thúc">("Tất cả");
-
   // Sync internal state when propNewsList changes
   React.useEffect(() => {
     if (propNewsList && propNewsList.length > 0) {
@@ -176,98 +165,52 @@ export default function CommunityEvents({
     setCurrentEventsPage(1);
   };
 
-  // Create or Update News
-  const handleSaveNews = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!newNewsTitle.trim() || !newNewsContent.trim()) {
-      setNotice({ message: "Vui lòng điền đầy đủ tiêu đề và nội dung bài viết!", type: "error" });
-      return;
-    }
-
-    const todayStr = new Date().toLocaleDateString("vi-VN");
-    const activeList = propNewsList || newsList;
-
-    if (editingNews) {
-      // Update existing
-      const updated: LocalNews = {
-        ...editingNews,
-        title: newNewsTitle,
-        category: newNewsCategory,
-        summary: newNewsSummary,
-        content: newNewsContent,
-        author: newNewsAuthor,
-        imageUrl: newNewsImage,
-        image: newNewsImage,
-        imageGallery: newNewsImageGallery,
-        links: newNewsLinks,
-        isPinned: newNewsIsPinned,
-        attachedFile: newNewsFileName ? { name: newNewsFileName, size: "1.2 MB" } : editingNews.attachedFile
-      };
-
-      if (onUpdateNews) {
-        onUpdateNews(updated);
-      }
-      setNewsList(prev => prev.map(n => n.id === updated.id ? updated : n));
-      setEditingNews(null);
-      setNotice({ message: `Đã cập nhật bài viết "${updated.title}".`, type: "success" });
+  const handleSelectNews = (news: LocalNews) => {
+    if (onOpenDetailNews) {
+      onOpenDetailNews(news);
     } else {
-      // Create new
-      const newNews: LocalNews = {
-        id: "NEWS" + (activeList.length + 1).toString().padStart(3, "0"),
-        title: newNewsTitle,
-        category: newNewsCategory,
-        date: todayStr,
-        author: newNewsAuthor,
-        summary: newNewsSummary,
-        content: newNewsContent,
-        isPinned: newNewsIsPinned,
-        imageUrl: newNewsImage,
-        image: newNewsImage,
-        imageGallery: newNewsImageGallery,
-        links: newNewsLinks,
-        readTime: "3 phút đọc",
-        views: 1,
-        attachedFile: newNewsFileName ? { name: newNewsFileName, size: "1.2 MB" } : undefined
-      };
-
-      if (onAddNews) {
-        onAddNews(newNews);
-      }
-      setNewsList([newNews, ...newsList]);
-      setNotice({ message: `Đã phát hành bản tin "${newNews.title}".`, type: "success" });
+      navigate(getNewsDetailPath(news.id, basePath));
     }
-
-    setShowNewsModal(false);
-    resetNewsForm();
   };
 
-  const resetNewsForm = () => {
-    setNewNewsTitle("");
-    setNewNewsCategory("Hành chính");
-    setNewNewsSummary("");
-    setNewNewsContent("");
-    setNewNewsAuthor("Ban Điều hành Khu phố 3");
-    setNewNewsImage(COVER_PRESETS[1].url);
-    setNewNewsImageGallery([]);
-    setNewNewsLinks([]);
-    setNewNewsFileName("");
-    setNewNewsIsPinned(false);
-    setEditingNews(null);
+  const handleEditNews = (news: LocalNews) => {
+    if (onOpenEditNews) {
+      onOpenEditNews(news);
+    } else {
+      navigate(getNewsEditPath(news.id, basePath));
+    }
   };
 
-  const handleOpenEditNews = (news: LocalNews) => {
-    setEditingNews(news);
-    setNewNewsTitle(news.title);
-    setNewNewsCategory(news.category);
-    setNewNewsSummary(news.summary || "");
-    setNewNewsContent(news.content);
-    setNewNewsAuthor(news.author);
-    setNewNewsImage(getNewsImage(news));
-    setNewNewsImageGallery(news.imageGallery || []);
-    setNewNewsLinks(news.links || []);
-    setNewNewsFileName(news.attachedFile?.name || "");
-    setNewNewsIsPinned(Boolean(news.isPinned));
-    setShowNewsModal(true);
+  const handleCreateNews = () => {
+    if (onOpenCreateNews) {
+      onOpenCreateNews();
+    } else {
+      navigate(getNewsCreatePath(basePath));
+    }
+  };
+
+  const handleSelectEvent = (ev: CommunityEvent) => {
+    if (onOpenDetailEvent) {
+      onOpenDetailEvent(ev);
+    } else {
+      navigate(getEventDetailPath(ev.id, basePath));
+    }
+  };
+
+  const handleEditEvent = (ev: CommunityEvent) => {
+    if (onOpenEditEvent) {
+      onOpenEditEvent(ev);
+    } else {
+      navigate(getEventEditPath(ev.id, basePath));
+    }
+  };
+
+  const handleCreateEvent = (venue?: string) => {
+    if (onOpenCreateEvent) {
+      onOpenCreateEvent();
+    } else {
+      navigate(getEventCreatePath(basePath));
+    }
   };
 
   const handleDeleteNewsItem = (id: string, title: string) => {
@@ -280,11 +223,17 @@ export default function CommunityEvents({
       onDeleteNews(deleteNewsTarget.id);
     }
     setNewsList(prev => prev.filter(n => n.id !== deleteNewsTarget.id));
-    if (selectedNewsForModal?.id === deleteNewsTarget.id) {
-      setSelectedNewsForModal(null);
-    }
     setNotice({ message: `Đã xóa bản tin "${deleteNewsTarget.title}".`, type: "info" });
     setDeleteNewsTarget(null);
+  };
+
+  const executeDeleteEventItem = () => {
+    if (!deleteEventTarget) return;
+    if (onDeleteEvent) {
+      onDeleteEvent(deleteEventTarget.id);
+    }
+    setNotice({ message: `Đã xóa sự kiện "${deleteEventTarget.title}".`, type: "info" });
+    setDeleteEventTarget(null);
   };
 
   const handleResetToSampleNews = () => {
@@ -298,96 +247,6 @@ export default function CommunityEvents({
     } catch {}
     setConfirmResetNews(false);
     setNotice({ message: "Đã đồng bộ lại danh sách bản tin mẫu đầy đủ hình ảnh minh họa.", type: "success" });
-  };
-
-  const handleCopyShareLink = (news: LocalNews) => {
-    const shareUrl = `${window.location.origin}/dashboard/events?news=${news.id}`;
-    navigator.clipboard?.writeText(shareUrl);
-    setCopiedLink(true);
-    setTimeout(() => setCopiedLink(false), 2500);
-  };
-
-  const resetEventForm = () => {
-    setEditingEvent(null);
-    setTitle("");
-    setOrganizer("Ban Điều hành Khu phố 3");
-    setDateTime("");
-    setLocation(CULTURAL_VENUES[0]);
-    setExpectedAttendees(50);
-    setDescription("");
-    setEventImage(COVER_PRESETS[6].url);
-  };
-
-  const handleOpenEditEvent = (ev: CommunityEvent) => {
-    setEditingEvent(ev);
-    setTitle(ev.title);
-    setOrganizer(ev.organizer);
-    setDateTime(ev.dateTime);
-    setLocation(ev.location);
-    setExpectedAttendees(ev.expectedAttendees || 50);
-    setDescription(ev.description);
-    setEventImage(ev.imageUrl || COVER_PRESETS[6].url);
-    setShowEventModal(true);
-  };
-
-  const executeDeleteEventItem = () => {
-    if (!deleteEventTarget) return;
-    if (onDeleteEvent) {
-      onDeleteEvent(deleteEventTarget.id);
-    }
-    if (selectedEventForModal?.id === deleteEventTarget.id) {
-      setSelectedEventForModal(null);
-    }
-    setNotice({ message: `Đã xóa sự kiện "${deleteEventTarget.title}".`, type: "info" });
-    setDeleteEventTarget(null);
-  };
-
-  const handleAddEventSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!title.trim() || !dateTime.trim() || !description.trim()) {
-      setNotice({ message: "Vui lòng điền đầy đủ tên sự kiện, thời gian và nội dung chương trình!", type: "error" });
-      return;
-    }
-
-    if (editingEvent) {
-      const updatedEvent: CommunityEvent = {
-        ...editingEvent,
-        title: title.trim(),
-        organizer: organizer.trim() || "Ban Điều hành Khu phố 3",
-        dateTime: dateTime.trim(),
-        location,
-        expectedAttendees: Number(expectedAttendees) || 50,
-        description: description.trim(),
-        imageUrl: eventImage
-      };
-      if (onUpdateEvent) {
-        onUpdateEvent(updatedEvent);
-      }
-      if (selectedEventForModal?.id === updatedEvent.id) {
-        setSelectedEventForModal(updatedEvent);
-      }
-      setShowEventModal(false);
-      resetEventForm();
-      setNotice({ message: `Đã cập nhật sự kiện "${updatedEvent.title}".`, type: "success" });
-      return;
-    }
-
-    const newEvent: CommunityEvent = {
-      id: "EV" + (events.length + 1).toString().padStart(3, "0"),
-      title: title.trim(),
-      organizer: organizer.trim() || "Ban Điều hành Khu phố 3",
-      dateTime: dateTime.trim(),
-      location,
-      status: "Sắp diễn ra",
-      expectedAttendees: Number(expectedAttendees) || 50,
-      description: description.trim(),
-      imageUrl: eventImage
-    };
-
-    onAddEvent(newEvent);
-    setShowEventModal(false);
-    resetEventForm();
-    setNotice({ message: `Đã lên lịch hoạt động "${newEvent.title}" tại ${newEvent.location}.`, type: "success" });
   };
 
   // Filter Logic
@@ -428,10 +287,7 @@ export default function CommunityEvents({
                 </button>
                 <button
                   type="button"
-                  onClick={() => {
-                    resetNewsForm();
-                    setShowNewsModal(true);
-                  }}
+                  onClick={handleCreateNews}
                   className="w-full sm:w-auto flex items-center justify-center gap-2 bg-emerald-700 hover:bg-emerald-800 text-white px-4 py-2 rounded-xl font-bold text-xs sm:text-sm transition-colors cursor-pointer"
                 >
                   <Plus size={15} /> Đăng Bản Tin Mới
@@ -440,7 +296,7 @@ export default function CommunityEvents({
             ) : (
               <button
                 type="button"
-                onClick={() => setShowEventModal(true)}
+                onClick={() => handleCreateEvent()}
                 className="w-full sm:w-auto flex items-center justify-center gap-2 bg-emerald-700 hover:bg-emerald-800 text-white px-4 py-2 rounded-xl font-bold text-xs sm:text-sm transition-colors cursor-pointer"
               >
                 <Plus size={15} /> Đặt Lịch &amp; Mượn Hội Trường
@@ -533,8 +389,8 @@ export default function CommunityEvents({
       {activeSubTab === "news" && (
         <NewsNewspaperFeed
           newsList={activeNewsList}
-          onSelectNews={setSelectedNewsForModal}
-          onEditNews={handleOpenEditNews}
+          onSelectNews={handleSelectNews}
+          onEditNews={handleEditNews}
           onDeleteNews={(item) => handleDeleteNewsItem(item.id, item.title)}
           showMasthead={false}
           itemsPerPage={6}
@@ -622,10 +478,7 @@ export default function CommunityEvents({
                     </div>
                     <button
                       type="button"
-                      onClick={() => {
-                        setLocation(venue);
-                        setShowEventModal(true);
-                      }}
+                      onClick={() => handleCreateEvent(venue)}
                       className="w-full py-1.5 px-2.5 bg-white hover:bg-emerald-50 border border-slate-200 hover:border-emerald-300 text-emerald-800 rounded-lg text-xs font-semibold transition-colors cursor-pointer text-center"
                     >
                       + Đặt phòng này
@@ -688,7 +541,7 @@ export default function CommunityEvents({
                       {/* Event Cover Image */}
                       <div
                         className="relative aspect-video w-full overflow-hidden bg-slate-100 cursor-pointer"
-                        onClick={() => setSelectedEventForModal(ev)}
+                        onClick={() => handleSelectEvent(ev)}
                       >
                         <img
                           src={eventImg}
@@ -708,7 +561,7 @@ export default function CommunityEvents({
                       <div className="p-4 sm:p-5 space-y-3">
                         <button
                           type="button"
-                          onClick={() => setSelectedEventForModal(ev)}
+                          onClick={() => handleSelectEvent(ev)}
                           className="text-left font-bold text-slate-900 text-sm leading-snug line-clamp-2 group-hover:text-emerald-700 transition-colors cursor-pointer"
                         >
                           {ev.title}
@@ -793,7 +646,7 @@ export default function CommunityEvents({
                       <div className="flex items-center justify-between gap-1.5 pt-2 border-t border-slate-200/80">
                         <button
                           type="button"
-                          onClick={() => setSelectedEventForModal(ev)}
+                          onClick={() => handleSelectEvent(ev)}
                           className="px-2.5 py-1.5 bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 rounded-lg text-xs font-semibold inline-flex items-center gap-1 cursor-pointer"
                         >
                           <Eye size={13} /> Chi tiết
@@ -802,7 +655,7 @@ export default function CommunityEvents({
                           {onUpdateEvent && (
                             <button
                               type="button"
-                              onClick={() => handleOpenEditEvent(ev)}
+                              onClick={() => handleEditEvent(ev)}
                               className="p-1.5 bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 rounded-lg cursor-pointer"
                               title="Chỉnh sửa sự kiện"
                               aria-label={`Chỉnh sửa sự kiện ${ev.title}`}
@@ -840,622 +693,7 @@ export default function CommunityEvents({
         </div>
       )}
 
-      {/* ========================================================
-          MODAL 1: CREATE OR EDIT NEWS (ĐĂNG / SỬA BẢN TIN ĐIỆN TỬ)
-          ======================================================== */}
-      {showNewsModal && (
-        <div className="fixed inset-0 bg-slate-900/60 flex items-center justify-center z-50 p-4 backdrop-blur-sm animate-in fade-in duration-150">
-          <div className="bg-white rounded-3xl shadow-2xl border border-slate-200 w-full max-w-2xl max-h-[90vh] overflow-hidden flex flex-col animate-in zoom-in-95 duration-150">
-            
-            {/* Modal Header */}
-            <div className="bg-gradient-to-r from-slate-50 via-white to-emerald-50/50 p-5 border-b border-slate-200 flex justify-between items-center shrink-0">
-              <div className="flex items-center gap-3">
-                <div className="p-2.5 rounded-2xl bg-emerald-100 text-emerald-700">
-                  <Megaphone size={20} />
-                </div>
-                <div>
-                  <h3 className="font-black text-base text-slate-800">
-                    {editingNews ? "Chỉnh sửa bài viết bản tin" : "Đăng bản tin & Thông báo khu phố mới"}
-                  </h3>
-                  <p className="text-xs text-slate-500 font-normal">
-                    Kênh truyền thông chính thống phát sóng tới toàn thể nhân dân
-                  </p>
-                </div>
-              </div>
-              <button 
-                onClick={() => {
-                  setShowNewsModal(false);
-                  resetNewsForm();
-                }}
-                className="p-1.5 rounded-full text-slate-600 hover:text-slate-600 hover:bg-slate-100 transition-colors cursor-pointer"
-              >
-                <X size={18} />
-              </button>
-            </div>
-            
-            {/* Modal Form Scrollable Body */}
-            <form onSubmit={handleSaveNews} className="p-5 sm:p-6 space-y-4 overflow-y-auto flex-1 text-xs">
-              
-              {/* News Title */}
-              <div className="space-y-1">
-                <label className="text-xs font-bold text-slate-700 block">Tiêu đề Bản tin / Thông báo *</label>
-                <input 
-                  type="text" 
-                  required
-                  placeholder="Ví dụ: Kế hoạch triển khai chiến dịch sốt xuất huyết diện rộng..."
-                  value={newNewsTitle}
-                  onChange={(e) => setNewNewsTitle(e.target.value)}
-                  className="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-emerald-500 font-medium"
-                />
-              </div>
-
-              {/* Category and Author */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div className="space-y-1">
-                  <label className="text-xs font-bold text-slate-700 block">Chuyên mục Bản tin</label>
-                  <ReportSelect
-                    aria-label="Chuyên mục Bản tin"
-                    value={newNewsCategory}
-                    onChange={(val) => setNewNewsCategory(val as LocalNews["category"])}
-                    options={[
-                      { value: "Hành chính", label: "Hành chính" },
-                      { value: "Thông báo khẩn", label: "Thông báo khẩn" },
-                      { value: "Y tế & Đời sống", label: "Y tế & Đời sống" },
-                      { value: "Phong trào", label: "Phong trào" },
-                      { value: "An sinh xã hội", label: "An sinh xã hội" }
-                    ]}
-                  />
-                </div>
-
-                <div className="space-y-1">
-                  <label className="text-xs font-bold text-slate-700 block">Nguồn phát hành / Tác giả *</label>
-                  <input 
-                    type="text"
-                    required
-                    placeholder="Ví dụ: Ban Điều hành KP3, Trạm Y tế, Công an Phường..."
-                    value={newNewsAuthor}
-                    onChange={(e) => setNewNewsAuthor(e.target.value)}
-                    className="w-full px-3 py-2.5 border border-slate-200 rounded-xl text-xs focus:outline-none focus:border-emerald-500 font-medium"
-                  />
-                </div>
-              </div>
-
-              {/* Summary Snippet */}
-              <div className="space-y-1">
-                <label className="text-xs font-bold text-slate-700 block">
-                  Đoạn Sa-pô / Tóm tắt ngắn (Lead snippet)
-                </label>
-                <textarea 
-                  rows={2}
-                  placeholder="Đoạn tóm tắt nổi bật từ 1-2 câu xuất hiện trên thẻ tin tức..."
-                  value={newNewsSummary}
-                  onChange={(e) => setNewNewsSummary(e.target.value)}
-                  className="w-full px-3.5 py-2 border border-slate-200 rounded-xl text-xs focus:outline-none focus:border-emerald-500"
-                />
-              </div>
-
-              {/* Full Content */}
-              <div className="space-y-1">
-                <label className="text-xs font-bold text-slate-700 block">Nội dung chi tiết toàn văn *</label>
-                <textarea 
-                  rows={5}
-                  required
-                  placeholder="Nhập nội dung thông báo đầy đủ gửi tới cư dân hẻm..."
-                  value={newNewsContent}
-                  onChange={(e) => setNewNewsContent(e.target.value)}
-                  className="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl text-xs focus:outline-none focus:border-emerald-500 leading-relaxed"
-                />
-              </div>
-
-              <NewsMediaAndLinksFields
-                imageUrl={newNewsImage}
-                onChangeImageUrl={setNewNewsImage}
-                imageGallery={newNewsImageGallery}
-                onChangeImageGallery={setNewNewsImageGallery}
-                links={newNewsLinks}
-                onChangeLinks={setNewNewsLinks}
-              />
-
-              {/* Tệp văn bản đính kèm & Ghim tin */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2 border-t border-slate-100">
-                <div className="space-y-1">
-                  <label className="text-xs font-bold text-slate-700 block">Tệp công văn đính kèm (PDF/Scan)</label>
-                  <input 
-                    type="text" 
-                    placeholder="Ví dụ: Ke_hoach_so_42_PCD_KP3_signed.pdf"
-                    value={newNewsFileName}
-                    onChange={(e) => setNewNewsFileName(e.target.value)}
-                    className="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs focus:outline-none focus:border-emerald-500"
-                  />
-                </div>
-
-                <div className="flex items-center gap-2 pt-5">
-                  <input 
-                    id="news-pinned-check"
-                    type="checkbox" 
-                    checked={newNewsIsPinned}
-                    onChange={(e) => setNewNewsIsPinned(e.target.checked)}
-                    className="w-4 h-4 text-emerald-600 rounded border-slate-300 focus:ring-emerald-500 cursor-pointer"
-                  />
-                  <label htmlFor="news-pinned-check" className="text-xs font-bold text-slate-700 cursor-pointer flex items-center gap-1.5">
-                    <Pin size={13} className="text-rose-600" /> Ghim bản tin lên vị trí Tiêu điểm
-                  </label>
-                </div>
-              </div>
-
-              {/* Submit Buttons */}
-              <div className="pt-4 border-t border-slate-200 flex justify-end gap-2 text-xs">
-                <button 
-                  type="button" 
-                  onClick={() => {
-                    setShowNewsModal(false);
-                    resetNewsForm();
-                  }}
-                  className="px-4 py-2 border border-slate-200 rounded-xl text-slate-600 hover:bg-slate-50 transition-colors cursor-pointer font-semibold"
-                >
-                  Hủy bỏ
-                </button>
-                <button
-                  type="submit"
-                  className="px-5 py-2.5 bg-emerald-700 hover:bg-emerald-800 text-white font-bold rounded-xl transition-colors cursor-pointer"
-                >
-                  {editingNews ? "Cập nhật bài viết" : "Phát hành bản tin ngay"}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* ========================================================
-          MODAL 2: ADD / EDIT EVENT / BOOKING (LÊN LỊCH / SỬA SỰ KIỆN)
-          ======================================================== */}
-      {showEventModal && (
-        <Modal
-          isOpen={showEventModal}
-          onClose={() => {
-            setShowEventModal(false);
-            resetEventForm();
-          }}
-          title={editingEvent ? "Chỉnh sửa sự kiện cộng đồng" : "Lên lịch hoạt động & Đặt chỗ Nhà văn hóa"}
-          description="Quản lý không gian sinh hoạt cộng đồng, hội họp dân cư"
-          size="xl"
-          footer={
-            <div className="flex justify-end gap-2">
-              <button 
-                type="button" 
-                onClick={() => {
-                  setShowEventModal(false);
-                  resetEventForm();
-                }}
-                className="min-h-9 px-4 py-1.5 border border-slate-200 bg-white hover:bg-slate-100 rounded-lg text-xs font-semibold text-slate-700 transition-colors cursor-pointer"
-              >
-                Hủy bỏ
-              </button>
-              <button 
-                type="submit" 
-                form="kp3-event-editor-form"
-                className="min-h-9 px-4 py-1.5 bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-semibold rounded-lg transition-colors cursor-pointer"
-              >
-                {editingEvent ? "Lưu cập nhật sự kiện" : "Đăng ký Đặt chỗ"}
-              </button>
-            </div>
-          }
-        >
-          <form id="kp3-event-editor-form" onSubmit={handleAddEventSubmit} className="space-y-4 text-xs">
-              <div className="space-y-1">
-                <label className="text-xs font-semibold text-slate-700 block">Tên sự kiện / Hoạt động phong trào *</label>
-                <input 
-                  type="text" 
-                  required
-                  placeholder="Ví dụ: Họp chi bộ định kỳ tháng 8, Lớp sinh hoạt kỹ năng hè thiếu nhi..."
-                  value={title}
-                  onChange={(e) => setTitle(e.target.value)}
-                  className="w-full px-3 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-teal-500"
-                />
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div className="space-y-1">
-                  <label className="text-xs font-semibold text-slate-700 block">Đơn vị chủ trì *</label>
-                  <input 
-                    type="text" 
-                    required
-                    value={organizer}
-                    onChange={(e) => setOrganizer(e.target.value)}
-                    className="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs focus:outline-none focus:border-teal-500"
-                  />
-                </div>
-                <div className="space-y-1">
-                  <label className="text-xs font-semibold text-slate-700 block">Dự kiến số người tham dự *</label>
-                  <input 
-                    type="number" 
-                    required
-                    value={expectedAttendees}
-                    onChange={(e) => setExpectedAttendees(Number(e.target.value))}
-                    className="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs focus:outline-none focus:border-teal-500"
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div className="space-y-1">
-                  <label className="text-xs font-semibold text-slate-700 block">Thời gian tổ chức *</label>
-                  <input 
-                    type="text" 
-                    required
-                    placeholder="Ví dụ: 25/07/2026 - 19:00"
-                    value={dateTime}
-                    onChange={(e) => setDateTime(e.target.value)}
-                    className="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs focus:outline-none focus:border-teal-500"
-                  />
-                </div>
-                <div className="space-y-1">
-                  <label className="text-xs font-semibold text-slate-700 block">Địa điểm / Phòng Nhà Văn hóa *</label>
-                  <ReportSelect
-                    aria-label="Chọn phòng Nhà Văn hóa"
-                    value={CULTURAL_VENUES.includes(location) ? location : CULTURAL_VENUES[0]}
-                    onChange={(val) => setLocation(val)}
-                    options={CULTURAL_VENUES.map((v) => ({ value: v, label: v }))}
-                  />
-                </div>
-              </div>
-
-              <div className="space-y-1">
-                <label className="text-xs font-semibold text-slate-700 block">Nội dung chi tiết chương trình *</label>
-                <textarea 
-                  rows={4}
-                  required
-                  placeholder="Ghi rõ chương trình nghị sự, mục đích, cơ sở vật chất cần mượn (loa kéo, bàn ghế, tivi trình chiếu...)"
-                  value={description}
-                  onChange={(e) => setDescription(e.target.value)}
-                  className="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs focus:outline-none focus:border-teal-500"
-                />
-              </div>
-
-              <div className="p-3 bg-amber-50 rounded-xl border border-amber-200 text-xs text-amber-800 flex gap-2">
-                <AlertTriangle size={15} className="shrink-0 text-amber-600" />
-                <p><strong>Quy định sử dụng:</strong> Các tổ chức có trách nhiệm giữ gìn vệ sinh, tắt toàn bộ điều hòa, thiết bị điện trước khi bàn giao chìa khóa cho Tổ quản lý Nhà văn hóa.</p>
-              </div>
-            </form>
-        </Modal>
-      )}
-
-      {/* ========================================================
-          MODAL 2B: VIEW EVENT DETAILS (XEM CHI TIẾT SỰ KIỆN KP3)
-          ======================================================== */}
-      {selectedEventForModal && (() => {
-        const navList = filteredEvents.length > 0 ? filteredEvents : events;
-        const currentIdx = navList.findIndex(e => e.id === selectedEventForModal.id);
-        const totalNav = navList.length;
-        const hasPrev = currentIdx > 0;
-        const hasNext = currentIdx >= 0 && currentIdx < totalNav - 1;
-        const shortEvId = formatShortRecordId(selectedEventForModal.id, "EV");
-        const rsvpInfo = eventRsvpMap[selectedEventForModal.id] || { registered: false, extraCount: 0 };
-        const totalAttendees = (selectedEventForModal.expectedAttendees || 0) + (rsvpInfo.extraCount || 0);
-        const eventImg = (selectedEventForModal.imageUrl && !selectedEventForModal.imageUrl.includes("1555696958"))
-          ? selectedEventForModal.imageUrl
-          : COVER_PRESETS[6].url;
-
-        return (
-          <Modal
-            isOpen={Boolean(selectedEventForModal)}
-            onClose={() => setSelectedEventForModal(null)}
-            size="2xl"
-            ariaLabel={`Chi tiết sự kiện ${selectedEventForModal.title}`}
-            headerNavigation={
-              totalNav > 1 && currentIdx >= 0
-                ? {
-                    positionText: `Sự kiện ${currentIdx + 1}/${totalNav}`,
-                    hasPrev,
-                    hasNext,
-                    onPrev: () => hasPrev && setSelectedEventForModal(navList[currentIdx - 1]),
-                    onNext: () => hasNext && setSelectedEventForModal(navList[currentIdx + 1]),
-                    prevLabel: "Sự kiện trước",
-                    nextLabel: "Sự kiện tiếp theo",
-                  }
-                : undefined
-            }
-            headerSlot={
-              <div className="space-y-1.5">
-                <div className="flex flex-wrap items-center gap-2">
-                  <span className="font-mono text-xs font-semibold px-2 py-0.5 rounded-md bg-slate-100 text-slate-700 border border-slate-200">
-                    MÃ: {shortEvId}
-                  </span>
-                  <span className="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200">
-                    {selectedEventForModal.status}
-                  </span>
-                </div>
-                <h2 className="text-base sm:text-lg font-bold text-slate-900 leading-snug">
-                  {selectedEventForModal.title}
-                </h2>
-              </div>
-            }
-            bodyClassName="p-4 sm:p-5 bg-slate-50/70 space-y-4 text-xs sm:text-sm"
-            footer={
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <div className="flex flex-wrap items-center gap-2">
-                  {selectedEventForModal.status !== "Đã kết thúc" && selectedEventForModal.status !== "Đã hủy" && (
-                    <button
-                      type="button"
-                      onClick={() => handleToggleRsvp(selectedEventForModal.id, selectedEventForModal.title)}
-                      className={`min-h-9 px-3 py-1.5 rounded-lg border text-xs font-semibold inline-flex items-center gap-1.5 cursor-pointer ${
-                        rsvpInfo.registered
-                          ? "bg-emerald-50 border-emerald-200 text-emerald-800"
-                          : "bg-white hover:bg-slate-50 border-slate-200 text-slate-700"
-                      }`}
-                    >
-                      <CheckCircle2 size={14} />
-                      <span>{rsvpInfo.registered ? "Đã đăng ký tham dự" : "Đăng ký tham dự"}</span>
-                    </button>
-                  )}
-                </div>
-
-                <div className="flex flex-wrap items-center gap-2">
-                  {onDeleteEvent && (
-                    <button
-                      type="button"
-                      onClick={() => setDeleteEventTarget({ id: selectedEventForModal.id, title: selectedEventForModal.title })}
-                      className="min-h-9 px-3 py-1.5 border border-rose-200 text-rose-700 hover:bg-rose-50 rounded-lg text-xs font-semibold inline-flex items-center gap-1.5 cursor-pointer"
-                    >
-                      <Trash2 size={13} /> Xóa sự kiện
-                    </button>
-                  )}
-                  <button
-                    type="button"
-                    onClick={() => setSelectedEventForModal(null)}
-                    className="min-h-9 px-3.5 py-1.5 border border-slate-200 bg-white hover:bg-slate-100 text-slate-700 rounded-lg text-xs font-semibold cursor-pointer"
-                  >
-                    Đóng
-                  </button>
-                  {onUpdateEvent && (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        const target = selectedEventForModal;
-                        setSelectedEventForModal(null);
-                        handleOpenEditEvent(target);
-                      }}
-                      className="min-h-9 px-4 py-1.5 bg-emerald-700 hover:bg-emerald-800 text-white rounded-lg text-xs font-semibold inline-flex items-center gap-1.5 cursor-pointer"
-                    >
-                      <Edit3 size={13} /> Chỉnh sửa sự kiện
-                    </button>
-                  )}
-                </div>
-              </div>
-            }
-          >
-            <div className="rounded-xl overflow-hidden border border-slate-200 aspect-video bg-slate-100">
-              <img src={eventImg} alt={selectedEventForModal.title} className="w-full h-full object-cover" />
-            </div>
-
-            <div className="bg-white rounded-xl border border-slate-200 p-4 space-y-3">
-              <DetailGrid>
-                <DetailRow label="Thời gian tổ chức" value={selectedEventForModal.dateTime} isMono />
-                <DetailRow label="Đơn vị chủ trì" value={selectedEventForModal.organizer} />
-                <DetailRow label="Địa điểm tổ chức" value={selectedEventForModal.location} colSpan={2} />
-                <DetailRow label="Số lượng dự kiến" value={`${totalAttendees} người tham dự`} isNumeric />
-                <DetailRow label="Trạng thái" value={selectedEventForModal.status} />
-              </DetailGrid>
-            </div>
-
-            <div className="bg-white rounded-xl border border-slate-200 p-4 space-y-1.5">
-              <span className="text-xs font-bold text-slate-700 uppercase tracking-wider block">Nội dung chương trình</span>
-              <p className="text-xs sm:text-sm text-slate-800 leading-relaxed whitespace-pre-line">
-                {selectedEventForModal.description}
-              </p>
-            </div>
-          </Modal>
-        );
-      })()}
-
-      {/* ========================================================
-          MODAL 3: VIEW NEWS DETAILS (ĐỌC BÀI VIẾT BÁO ĐIỆN TỬ CHI TIẾT)
-          ======================================================== */}
-      {selectedNewsForModal && (() => {
-        const navList = activeNewsList;
-        const currentIdx = navList.findIndex(n => n.id === selectedNewsForModal.id);
-        const totalNav = navList.length;
-        const hasPrev = currentIdx > 0;
-        const hasNext = currentIdx >= 0 && currentIdx < totalNav - 1;
-        const shortNewsId = formatShortRecordId(selectedNewsForModal.id, "TIN");
-
-        return (
-          <Modal
-            isOpen={Boolean(selectedNewsForModal)}
-            onClose={() => setSelectedNewsForModal(null)}
-            size="3xl"
-            ariaLabel={`Chi tiết bản tin ${selectedNewsForModal.title}`}
-            headerNavigation={
-              totalNav > 1 && currentIdx >= 0
-                ? {
-                    positionText: `Bản tin ${currentIdx + 1}/${totalNav}`,
-                    hasPrev,
-                    hasNext,
-                    onPrev: () => hasPrev && setSelectedNewsForModal(navList[currentIdx - 1]),
-                    onNext: () => hasNext && setSelectedNewsForModal(navList[currentIdx + 1]),
-                    prevLabel: "Bản tin trước",
-                    nextLabel: "Bản tin tiếp theo",
-                  }
-                : undefined
-            }
-            headerSlot={
-              <div className="space-y-1.5">
-                <div className="flex flex-wrap items-center gap-2 text-xs">
-                  <span className="font-mono text-xs font-semibold px-2 py-0.5 rounded-md bg-slate-100 text-slate-700 border border-slate-200">
-                    MÃ: {shortNewsId}
-                  </span>
-                  <span className={`font-semibold px-2.5 py-0.5 rounded-full border ${getCategoryTheme(selectedNewsForModal.category).pill}`}>
-                    {selectedNewsForModal.category}
-                  </span>
-                </div>
-                <h1 className="text-base sm:text-xl font-bold text-slate-900 leading-snug">
-                  {selectedNewsForModal.title}
-                </h1>
-              </div>
-            }
-            bodyClassName="px-5 sm:px-7 py-5 space-y-5 text-xs sm:text-sm"
-            footer={
-              <div className="flex flex-wrap justify-between items-center gap-2">
-                <div className="flex flex-wrap items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={() => handleCopyShareLink(selectedNewsForModal)}
-                    className="min-h-9 px-3 py-1.5 rounded-lg border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 transition-colors cursor-pointer inline-flex items-center gap-1.5 text-xs font-semibold"
-                  >
-                    {copiedLink ? <Check size={14} className="text-emerald-700" /> : <Share2 size={14} />}
-                    <span>{copiedLink ? "Đã sao chép!" : "Chia sẻ"}</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => window.print()}
-                    className="min-h-9 px-3 py-1.5 rounded-lg border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 transition-colors cursor-pointer inline-flex items-center gap-1.5 text-xs font-semibold"
-                  >
-                    <Printer size={14} />
-                    <span>In tin</span>
-                  </button>
-                </div>
-
-                <div className="flex flex-wrap items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={() => handleDeleteNewsItem(selectedNewsForModal.id, selectedNewsForModal.title)}
-                    className="min-h-9 px-3 py-1.5 rounded-lg border border-rose-200 text-rose-700 hover:bg-rose-50 transition-colors inline-flex items-center gap-1.5 text-xs font-semibold cursor-pointer"
-                  >
-                    <Trash2 size={14} /> Xóa bài
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setSelectedNewsForModal(null)}
-                    className="min-h-9 px-3.5 py-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-100 text-slate-700 text-xs font-semibold transition-colors cursor-pointer"
-                  >
-                    Đóng
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      const target = selectedNewsForModal;
-                      setSelectedNewsForModal(null);
-                      handleOpenEditNews(target);
-                    }}
-                    className="min-h-9 px-4 py-1.5 rounded-lg text-xs font-semibold bg-emerald-700 hover:bg-emerald-800 text-white transition-colors inline-flex items-center gap-1.5 cursor-pointer"
-                  >
-                    <Edit3 size={14} /> Chỉnh sửa bài viết
-                  </button>
-                </div>
-              </div>
-            }
-          >
-            {/* Structured Metadata Grid */}
-            <div className="bg-slate-50 rounded-xl border border-slate-200 p-3.5">
-              <DetailGrid>
-                <DetailRow label="Cơ quan / Tác giả" value={selectedNewsForModal.author} />
-                <DetailRow label="Ngày phát hành" value={selectedNewsForModal.date} isMono />
-                <DetailRow label="Thời gian đọc" value={getNewsReadTime(selectedNewsForModal)} />
-                <DetailRow label="Lượt tiếp cận" value={`${getNewsViews(selectedNewsForModal)} lượt đọc`} isNumeric />
-              </DetailGrid>
-            </div>
-
-            {/* Featured Cover Photo */}
-            <div className="rounded-xl overflow-hidden border border-slate-200">
-              <div className="aspect-video w-full bg-slate-100">
-                <img 
-                  src={getNewsImage(selectedNewsForModal)} 
-                  alt={selectedNewsForModal.title}
-                  className="w-full h-full object-cover" 
-                />
-              </div>
-              <div className="px-4 py-2 bg-slate-50 text-xs text-slate-600 italic text-center border-t border-slate-100">
-                Hình ảnh tư liệu hoạt động thực tế trên địa bàn Khu phố 3, Phường An Phú
-              </div>
-            </div>
-
-            {/* Lead Summary */}
-            <div className="p-4 rounded-xl bg-emerald-50/70 border-l-4 border-emerald-700 text-xs sm:text-sm font-semibold text-emerald-950 leading-relaxed">
-              {getNewsSummary(selectedNewsForModal)}
-            </div>
-
-            {/* Full Article Text Content */}
-            <div className="text-slate-800 text-xs sm:text-sm leading-relaxed whitespace-pre-line space-y-3 font-normal">
-              {selectedNewsForModal.content}
-            </div>
-
-            {selectedNewsForModal.imageGallery && selectedNewsForModal.imageGallery.length > 0 && (
-              <div className="space-y-2 pt-3">
-                <span className="text-xs font-bold text-slate-700 block">
-                  Thư viện hình ảnh hoạt động ({selectedNewsForModal.imageGallery.length}):
-                </span>
-                <div className="grid grid-cols-2 gap-3">
-                  {selectedNewsForModal.imageGallery.map((imgUrl, idx) => (
-                    <div key={idx} className="aspect-video rounded-xl overflow-hidden border border-slate-200 bg-slate-100">
-                      <img src={imgUrl} alt={`Hoạt động ${idx + 1}`} className="w-full h-full object-cover" />
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {selectedNewsForModal.links && selectedNewsForModal.links.length > 0 && (
-              <div className="space-y-2 pt-3">
-                <span className="text-xs font-bold text-slate-700 block">
-                  Liên kết &amp; Tài liệu trực tuyến đính kèm:
-                </span>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                  {selectedNewsForModal.links.map((lnk) => (
-                    <a
-                      key={lnk.id}
-                      href={lnk.url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="px-3.5 py-2.5 rounded-xl bg-blue-50/80 hover:bg-blue-100 border border-blue-200 flex items-center justify-between gap-2 text-xs text-blue-900 font-semibold transition-colors"
-                    >
-                      <span className="truncate">{lnk.label}</span>
-                      <ExternalLink size={14} className="shrink-0 text-blue-700" />
-                    </a>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {selectedNewsForModal.attachedFile && (
-              <div className="p-4 rounded-xl bg-slate-50 border border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                <div className="flex items-center gap-3">
-                  <div className="p-2.5 bg-rose-50 text-rose-700 border border-rose-200 rounded-xl">
-                    <FileText size={20} />
-                  </div>
-                  <div>
-                    <span className="text-xs font-bold text-slate-900 block">
-                      {selectedNewsForModal.attachedFile.name}
-                    </span>
-                    <span className="text-xs text-slate-600 font-mono">
-                      Văn bản đính kèm • {selectedNewsForModal.attachedFile.size || "1.2 MB"}
-                    </span>
-                  </div>
-                </div>
-                <button
-                  type="button"
-                  onClick={() =>
-                    setNotice({
-                      message: `Đang tải xuống công văn đính kèm: ${selectedNewsForModal.attachedFile?.name}`,
-                      type: "info"
-                    })
-                  }
-                  className="px-3.5 py-2 bg-emerald-700 hover:bg-emerald-800 text-white rounded-lg text-xs font-semibold transition-colors cursor-pointer inline-flex items-center justify-center gap-1.5 self-start sm:self-auto"
-                >
-                  <Download size={14} /> Tải văn bản
-                </button>
-              </div>
-            )}
-
-            <div className="pt-4 border-t border-slate-100 flex justify-end text-right">
-              <div>
-                <span className="text-xs text-slate-600 italic block">Ban Biên tập Cổng thông tin Khu phố 3</span>
-                <span className="text-xs font-bold text-slate-800">Trân trọng thông báo tới toàn thể bà con cư dân</span>
-              </div>
-            </div>
-          </Modal>
-        );
-      })()}
+      {/* Chi tiết và biểu mẫu Bản tin / Sự kiện đã được chuyển sang các trang chuyên dụng: NewsDetailPage, NewsFormPage, EventDetailPage, EventFormPage */}
 
       <ConfirmModal
         isOpen={Boolean(deleteEventTarget)}

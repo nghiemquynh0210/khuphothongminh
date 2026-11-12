@@ -54,16 +54,20 @@ import {
 import { initialAdministrativeForms } from "./mockForms";
 import Sidebar from "./components/Sidebar";
 import Dashboard from "./components/Dashboard";
-import CitizenManagement from "./components/CitizenManagement";
-import HouseholdManagement from "./components/HouseholdManagement";
-import BusinessManagement from "./components/BusinessManagement";
-import EnterpriseManagement from "./components/EnterpriseManagement";
+import {
+  BusinessesPage,
+  CulturalPage,
+  EnterprisesPage,
+  HouseholdsPage,
+  ReportsPage,
+  ResidentsPage,
+} from "./page";
+import { LoadingFade } from "./components/common/LoadingFade";
 import GisMap from "./components/GisMap";
 import TaskAndSchedule from "./components/TaskAndSchedule";
 import { loadStoredTasks, saveStoredTasks } from "./components/tasks/tasksData";
 import { KP3_OFFICIAL_BASELINE, createTaskFromReport } from "./utils/kp3Utils";
 import AiAssistant from "./components/AiAssistant";
-import FieldReflections from "./components/FieldReflections";
 import PartyBranch from "./components/PartyBranch";
 import SocialWelfare from "./components/SocialWelfare";
 import CommunityEvents from "./components/CommunityEvents";
@@ -388,7 +392,12 @@ export default function App() {
           navigate(ROUTES.LOGIN);
         } else {
           setCurrentUser(PUBLIC_CITIZEN_USER);
-          setCitizenSubView(null);
+          if (pathname.startsWith(`${ROUTES.REFLECTION}/`)) {
+            setCitizenSubView("reports");
+            setActiveTab("reports");
+          } else {
+            setCitizenSubView(null);
+          }
         }
         return;
       }
@@ -402,7 +411,12 @@ export default function App() {
       } else {
         const savedUser = readSavedUser();
         setCurrentUser(savedUser?.role === "canbo" ? savedUser : PUBLIC_CITIZEN_USER);
-        setCitizenSubView(null);
+        if (pathname.startsWith(`${ROUTES.REFLECTION}/`)) {
+          setCitizenSubView("reports");
+          setActiveTab("reports");
+        } else {
+          setCitizenSubView(null);
+        }
       }
     };
 
@@ -1599,6 +1613,16 @@ export default function App() {
     }
   };
 
+  if (isSupabaseConfigured && !authChecked && Boolean(getTabFromDashboardPath(routePath))) {
+    return (
+      <LoadingFade
+        variant="screen"
+        title="Đang xác thực phiên làm việc..."
+        subtitle="Hệ thống Quản lý Thông minh Khu phố 3 An Phú"
+      />
+    );
+  }
+
   if (!currentUser) {
     return (
       <LoginAndRegister
@@ -1830,8 +1854,10 @@ export default function App() {
               />
             )}
             {citizenSubView === "reports" && (
-              <FieldReflections 
+              <ReportsPage 
                 reports={reports} 
+                isDataLoading={isDataLoading}
+                basePath={ROUTES.REFLECTION}
                 onAddReport={handleAddReport} 
                 onUpdateReportStatus={handleUpdateReportStatus} 
                 onUpdateReports={setReports}
@@ -1863,7 +1889,7 @@ export default function App() {
               />
             )}
             {citizenSubView === "cultural" && (
-              <CommunityEvents 
+              <CulturalPage 
                 events={communityEvents}
                 onAddEvent={handleAddCommunityEvent}
                 onUpdateEventStatus={handleUpdateEventStatus}
@@ -2112,6 +2138,14 @@ export default function App() {
 
         {/* Dynamic view routing based on tab state */}
         <main className="flex-1 p-3.5 sm:p-5 lg:p-6 overflow-y-auto max-w-7xl w-full mx-auto min-w-0">
+          {isDataLoading && (
+            <LoadingFade
+              variant="inline"
+              title="Đang đồng bộ dữ liệu cư dân & địa bàn từ CSDL..."
+              subtitle="KP3 Cloud Sync"
+              className="mb-4"
+            />
+          )}
           <AppErrorBoundary fallbackTab={activeTab} onReset={() => setActiveTab(activeTab)}>
             <motion.div
               key={activeTab}
@@ -2137,81 +2171,55 @@ export default function App() {
           )}
 
           {activeTab === "residents" && (
-            currentUser?.role === "nguoidan" && !residentPermissions.residents ? (
-              <div className="bg-white rounded-3xl p-8 border border-slate-200 text-center space-y-4 max-w-lg mx-auto my-12 shadow-sm">
-                <div className="w-16 h-16 rounded-2xl bg-amber-50 text-amber-600 flex items-center justify-center mx-auto">
-                  <ShieldAlert size={32} />
-                </div>
-                <h3 className="text-lg font-bold text-slate-900">Không có quyền truy cập Nhân khẩu</h3>
-                <p className="text-xs text-slate-500 leading-relaxed">
-                  Theo quy định bảo vệ dữ liệu cư dân, vai trò Cư dân không được phép tra cứu danh bạ nhân khẩu. Quyền này chỉ dành riêng cho Cán bộ Quản lý địa bàn.
-                </p>
-                <button
-                  onClick={() => setActiveTab("dashboard")}
-                  className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition-colors cursor-pointer"
-                >
-                  Quay về Cổng cư dân
-                </button>
-              </div>
-            ) : (
-              <CitizenManagement 
-                residents={residents} 
-                onAddResident={handleAddResident} 
-                onDeleteResident={handleDeleteResident} 
-                onUpdateResidents={setResidents}
-                onUpdateHouseholds={setHouseholds}
-                households={households}
-                onNavigateToGis={handleNavigateToGis}
-              />
-            )
+            <ResidentsPage
+              residents={residents}
+              households={households}
+              currentUser={currentUser}
+              residentPermissions={residentPermissions}
+              isDataLoading={isDataLoading}
+              onAddResident={handleAddResident}
+              onDeleteResident={handleDeleteResident}
+              onUpdateResidents={setResidents}
+              onUpdateHouseholds={setHouseholds}
+              onNavigateToGis={handleNavigateToGis}
+              setActiveTab={setActiveTab}
+            />
           )}
 
           {activeTab === "households" && (
-            currentUser?.role === "nguoidan" && !residentPermissions.households ? (
-              <div className="bg-white rounded-3xl p-8 border border-slate-200 text-center space-y-4 max-w-lg mx-auto my-12 shadow-sm">
-                <div className="w-16 h-16 rounded-2xl bg-amber-50 text-amber-600 flex items-center justify-center mx-auto">
-                  <ShieldAlert size={32} />
-                </div>
-                <h3 className="text-lg font-bold text-slate-900">Không có quyền tra cứu Sổ Hộ Khẩu</h3>
-                <p className="text-xs text-slate-500 leading-relaxed">
-                  Theo quy định bảo vệ thông tin cá nhân và an ninh dữ liệu, vai trò Cư dân không được phép tra cứu Sổ hộ khẩu điện tử & thông tin nhân khẩu của các hộ gia đình. Chức năng này chỉ dành riêng cho Cán bộ Quản lý.
-                </p>
-                <button
-                  onClick={() => setActiveTab("dashboard")}
-                  className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition-colors cursor-pointer"
-                >
-                  Quay về Cổng cư dân
-                </button>
-              </div>
-            ) : (
-              <HouseholdManagement 
-                households={households} 
-                onAddHousehold={handleAddHousehold} 
-                residents={residents}
-                onUpdateHouseholds={setHouseholds}
-                onUpdateResidents={setResidents}
-                onNavigateToGis={handleNavigateToGis}
-              />
-            )
+            <HouseholdsPage
+              households={households}
+              residents={residents}
+              currentUser={currentUser}
+              residentPermissions={residentPermissions}
+              isDataLoading={isDataLoading}
+              onAddHousehold={handleAddHousehold}
+              onUpdateHouseholds={setHouseholds}
+              onUpdateResidents={setResidents}
+              onNavigateToGis={handleNavigateToGis}
+              setActiveTab={setActiveTab}
+            />
           )}
 
           {activeTab === "enterprises" && (
-            <EnterpriseManagement 
-              businesses={businesses} 
+            <EnterprisesPage
+              businesses={businesses}
               residents={residents}
               households={households}
-              onToggleCertification={handleToggleBusinessCertification} 
-              onUpdateStatus={handleUpdateBusinessStatus} 
+              isDataLoading={isDataLoading}
+              onToggleCertification={handleToggleBusinessCertification}
+              onUpdateStatus={handleUpdateBusinessStatus}
               onUpdateBusinesses={setBusinesses}
               onNavigateToGis={handleNavigateToGis}
             />
           )}
 
           {activeTab === "businesses" && (
-            <BusinessManagement 
+            <BusinessesPage 
               businesses={businesses} 
               residents={residents}
               households={households}
+              isDataLoading={isDataLoading}
               onToggleCertification={handleToggleBusinessCertification} 
               onUpdateStatus={handleUpdateBusinessStatus} 
               onUpdateBusinesses={setBusinesses}
@@ -2264,8 +2272,9 @@ export default function App() {
           )}
 
           {activeTab === "reports" && (
-            <FieldReflections 
+            <ReportsPage 
               reports={reports} 
+              isDataLoading={isDataLoading}
               onAddReport={handleAddReport} 
               onUpdateReportStatus={handleUpdateReportStatus} 
               onUpdateReports={setReports}
@@ -2344,7 +2353,7 @@ export default function App() {
           )}
 
           {activeTab === "cultural" && (
-            <CommunityEvents 
+            <CulturalPage 
               events={communityEvents}
               onAddEvent={handleAddCommunityEvent}
               onUpdateEventStatus={handleUpdateEventStatus}

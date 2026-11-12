@@ -19,8 +19,6 @@ import {
 } from "../types";
 import {
   REPORT_CATEGORIES,
-  REPORT_PRIORITY_CONFIG,
-  formatNowVNString,
   getBeforeImages,
   getAfterImages,
   getSlaStatus,
@@ -32,14 +30,17 @@ import { Button, EmptyState } from "./ui";
 import { ReportSelect } from "./reports/ReportSelect";
 import { ReportCard } from "./reports/ReportCard";
 import { ReportTable } from "./reports/ReportTable";
-import { ReportDetailModal } from "./reports/ReportDetailModal";
-import { ReportFormModal } from "./reports/ReportFormModal";
-import { ResolveReportModal } from "./reports/ResolveReportModal";
-import { DeleteReportModal } from "./reports/DeleteReportModal";
-import { ImageLightboxModal, LightboxImageItem } from "./reports/ImageLightboxModal";
+import {
+  ROUTES,
+  getReportCreatePath,
+  getReportDetailPath,
+  getReportResolvePath,
+  navigate,
+} from "../routes";
 
 export interface FieldReflectionsProps {
   reports: FieldReport[];
+  basePath?: string;
   onAddReport: (newReport: FieldReport) => void;
   onUpdateReportStatus: (
     id: string,
@@ -60,6 +61,10 @@ export interface FieldReflectionsProps {
   onReopenReport?: (reportId: string, reason: string, actorName: string) => void;
   onNavigateToGis?: (item: TargetGisItem) => void;
   onCreateTaskFromReport?: (report: FieldReport) => void;
+  onOpenDetail?: (report: FieldReport) => void;
+  onOpenCreate?: () => void;
+  onOpenEdit?: (report: FieldReport) => void;
+  onOpenResolve?: (report: FieldReport) => void;
   currentUser?: {
     username?: string;
     fullName?: string;
@@ -71,17 +76,11 @@ export interface FieldReflectionsProps {
 
 export default function FieldReflections({
   reports,
-  onAddReport,
+  basePath = ROUTES.DASHBOARD_REPORTS,
   onUpdateReportStatus,
-  onUpdateReports,
-  onEditReport,
-  onDeleteReport,
-  onAddMessage,
-  onAssignOrPriority,
-  onSubmitFeedback,
-  onReopenReport,
-  onNavigateToGis,
-  onCreateTaskFromReport,
+  onOpenDetail,
+  onOpenCreate,
+  onOpenResolve,
   currentUser,
   readOnly: readOnlyProp,
 }: FieldReflectionsProps) {
@@ -109,25 +108,7 @@ export default function FieldReflections({
   const [onlySlaRisk, setOnlySlaRisk] = useState(false);
   const [viewMode, setViewMode] = useState<"grid" | "table">("grid");
 
-  // Active modals state
-  const [selectedReportId, setSelectedReportId] = useState<string | null>(null);
-  const [formModalState, setFormModalState] = useState<{
-    open: boolean;
-    mode: "create" | "edit";
-    target: FieldReport | null;
-  }>({ open: false, mode: "create", target: null });
-  const [resolveTarget, setResolveTarget] = useState<FieldReport | null>(null);
-  const [deleteTarget, setDeleteTarget] = useState<FieldReport | null>(null);
-  const [lightboxState, setLightboxState] = useState<{
-    items: LightboxImageItem[];
-    index: number;
-  }>({ items: [], index: 0 });
   const [toastMsg, setToastMsg] = useState<string | null>(null);
-
-  const selectedReport = useMemo(
-    () => normalizedReports.find((r) => r.id === selectedReportId) || null,
-    [normalizedReports, selectedReportId]
-  );
 
   useEffect(() => {
     if (!toastMsg) return;
@@ -211,13 +192,6 @@ export default function FieldReflections({
     setOnlySlaRisk(false);
   };
 
-  // Fallback helper if App didn't pass granular mutators
-  const mutateReportsList = (updater: (prev: FieldReport[]) => FieldReport[]) => {
-    if (onUpdateReports) {
-      onUpdateReports(updater(normalizedReports));
-    }
-  };
-
   const handleStartProcess = (report: FieldReport) => {
     onUpdateReportStatus(
       report.id,
@@ -226,170 +200,6 @@ export default function FieldReflections({
       `Tổ công tác (${report.assignedUnit || "Ban Điều hành KP3"}) đã tiếp nhận và xuống kiểm tra hiện trường.`
     );
     setToastMsg(`Đã chuyển hồ sơ ${report.id} sang trạng thái Đang xử lý.`);
-  };
-
-  const handleConfirmResolve = (
-    report: FieldReport,
-    payload: { afterImages: string[]; note: string; actorName: string }
-  ) => {
-    onUpdateReportStatus(
-      report.id,
-      "Đã giải quyết",
-      payload.actorName,
-      payload.note,
-      payload.afterImages
-    );
-    setToastMsg(`Đã hoàn tất xử lý và lưu minh chứng ảnh cho hồ sơ ${report.id}.`);
-  };
-
-  const handleSaveCreate = (newReport: FieldReport) => {
-    onAddReport(newReport);
-    setToastMsg(`Đã tiếp nhận phản ánh mới [${newReport.id}] vào hệ thống.`);
-  };
-
-  const handleSaveEdit = (updated: FieldReport) => {
-    if (onEditReport) {
-      onEditReport(updated);
-    } else {
-      mutateReportsList((prev) => prev.map((r) => (r.id === updated.id ? updated : r)));
-    }
-    setToastMsg(`Đã cập nhật thông tin hồ sơ ${updated.id}.`);
-  };
-
-  const handleConfirmDelete = (id: string) => {
-    if (selectedReportId === id) setSelectedReportId(null);
-    if (onDeleteReport) {
-      onDeleteReport(id);
-    } else {
-      mutateReportsList((prev) => prev.filter((r) => r.id !== id));
-    }
-    setToastMsg(`Đã xóa hồ sơ phản ánh ${id}.`);
-  };
-
-  const handleSendMessage = (reportId: string, msg: ReportMessage) => {
-    if (onAddMessage) {
-      onAddMessage(reportId, msg);
-    } else {
-      mutateReportsList((prev) =>
-        prev.map((r) =>
-          r.id === reportId
-            ? { ...r, messages: [...(r.messages || []), msg] }
-            : r
-        )
-      );
-    }
-    setToastMsg(msg.isInternal ? "Đã lưu ghi chú nội bộ tổ công tác." : "Đã gửi tin nhắn trao đổi.");
-  };
-
-  const handleAppendEvidencePhotos = (
-    reportId: string,
-    stage: "before" | "after",
-    urls: string[]
-  ) => {
-    const target = normalizedReports.find((r) => r.id === reportId);
-    if (!target) return;
-    const updated: FieldReport =
-      stage === "before"
-        ? {
-            ...target,
-            beforeImages: Array.from(new Set([...getBeforeImages(target), ...urls])).slice(0, 6),
-            beforeImage: getBeforeImages(target)[0] || urls[0],
-          }
-        : {
-            ...target,
-            afterImages: Array.from(new Set([...getAfterImages(target), ...urls])).slice(0, 6),
-            afterImage: getAfterImages(target)[0] || urls[0],
-          };
-    handleSaveEdit(updated);
-  };
-
-  const handleAssignOrChangePriority = (
-    reportId: string,
-    updates: { assignedUnit?: string; priority?: ReportPriority }
-  ) => {
-    if (onAssignOrPriority) {
-      onAssignOrPriority(reportId, updates);
-    } else {
-      mutateReportsList((prev) =>
-        prev.map((r) => {
-          if (r.id !== reportId) return r;
-          const nextPriority = updates.priority || r.priority || "Bình thường";
-          return {
-            ...r,
-            assignedUnit: updates.assignedUnit ?? r.assignedUnit,
-            priority: nextPriority,
-            slaHours: REPORT_PRIORITY_CONFIG[nextPriority].slaHours,
-          };
-        })
-      );
-    }
-    setToastMsg(`Đã cập nhật điều phối cho hồ sơ ${reportId}.`);
-  };
-
-  const handleSubmitCitizenFeedback = (
-    reportId: string,
-    rating: number,
-    comment: string
-  ) => {
-    if (onSubmitFeedback) {
-      onSubmitFeedback(reportId, rating, comment);
-    } else {
-      mutateReportsList((prev) =>
-        prev.map((r) =>
-          r.id === reportId
-            ? {
-                ...r,
-                citizenFeedback: {
-                  rating,
-                  comment: comment.trim(),
-                  satisfied: rating >= 3,
-                  submittedAt: formatNowVNString(),
-                },
-              }
-            : r
-        )
-      );
-    }
-    setToastMsg("Cảm ơn cư dân đã xác nhận và đánh giá kết quả xử lý.");
-  };
-
-  const handleReopenCase = (reportId: string, reason: string) => {
-    if (onReopenReport) {
-      onReopenReport(reportId, reason, actorName);
-    } else {
-      mutateReportsList((prev) =>
-        prev.map((r) =>
-          r.id === reportId
-            ? {
-                ...r,
-                status: "Đang xử lý",
-                timeline: [
-                  ...r.timeline,
-                  {
-                    time: formatNowVNString(),
-                    title: "Cư dân yêu cầu kiểm tra lại",
-                    description: reason,
-                    actor: actorName,
-                  },
-                ],
-                messages: [
-                  ...(r.messages || []),
-                  {
-                    id: `MSG-REOPEN-${Date.now()}`,
-                    senderRole: "citizen",
-                    senderName: actorName,
-                    senderTitle: "Cư dân",
-                    content: `[Mở lại hồ sơ] ${reason}`,
-                    createdAt: formatNowVNString(),
-                    isInternal: false,
-                  },
-                ],
-              }
-            : r
-        )
-      );
-    }
-    setToastMsg(`Đã chuyển hồ sơ ${reportId} về trạng thái Đang xử lý để kiểm tra lại.`);
   };
 
   return (
@@ -424,7 +234,9 @@ export default function FieldReflections({
               size="md"
               leftIcon={<Plus size={15} />}
               onClick={() =>
-                setFormModalState({ open: true, mode: "create", target: null })
+                onOpenCreate
+                  ? onOpenCreate()
+                  : navigate(getReportCreatePath(basePath))
               }
             >
               Gửi Phản Ánh Mới
@@ -646,16 +458,27 @@ export default function FieldReflections({
           onAction={
             hasActiveFilters
               ? resetFilters
-              : () => setFormModalState({ open: true, mode: "create", target: null })
+              : () =>
+                  onOpenCreate
+                    ? onOpenCreate()
+                    : navigate(getReportCreatePath(basePath))
           }
         />
       ) : viewMode === "table" ? (
         <ReportTable
           reports={filteredReports}
           readOnly={readOnly}
-          onOpenDetail={(r) => setSelectedReportId(r.id)}
+          onOpenDetail={(r) =>
+            onOpenDetail
+              ? onOpenDetail(r)
+              : navigate(getReportDetailPath(r.id, basePath))
+          }
           onStartProcess={handleStartProcess}
-          onOpenResolve={(r) => setResolveTarget(r)}
+          onOpenResolve={(r) =>
+            onOpenResolve
+              ? onOpenResolve(r)
+              : navigate(getReportResolvePath(r.id, basePath))
+          }
         />
       ) : (
         <div className="space-y-3">
@@ -665,9 +488,17 @@ export default function FieldReflections({
                 <ReportCard
                   report={report}
                   readOnly={readOnly}
-                  onOpenDetail={(r) => setSelectedReportId(r.id)}
+                  onOpenDetail={(r) =>
+                    onOpenDetail
+                      ? onOpenDetail(r)
+                      : navigate(getReportDetailPath(r.id, basePath))
+                  }
                   onStartProcess={handleStartProcess}
-                  onOpenResolve={(r) => setResolveTarget(r)}
+                  onOpenResolve={(r) =>
+                    onOpenResolve
+                      ? onOpenResolve(r)
+                      : navigate(getReportResolvePath(r.id, basePath))
+                  }
                 />
               </React.Fragment>
             ))}
@@ -677,73 +508,6 @@ export default function FieldReflections({
           </p>
         </div>
       )}
-
-      {/* Detail + 2-Way Communication Drawer/Modal */}
-      <ReportDetailModal
-        report={selectedReport}
-        readOnly={readOnly}
-        currentActorName={actorName}
-        currentActorTitle={actorTitle}
-        onClose={() => setSelectedReportId(null)}
-        onOpenLightbox={(items, index) => setLightboxState({ items, index })}
-        onAddMessage={handleSendMessage}
-        onAppendEvidencePhotos={handleAppendEvidencePhotos}
-        onAssignOrChangePriority={handleAssignOrChangePriority}
-        onStartProcess={handleStartProcess}
-        onOpenResolve={(r) => setResolveTarget(r)}
-        onOpenEdit={(r) =>
-          setFormModalState({ open: true, mode: "edit", target: r })
-        }
-        onOpenDelete={(r) => setDeleteTarget(r)}
-        onReopenReport={handleReopenCase}
-        onSubmitFeedback={handleSubmitCitizenFeedback}
-        onNavigateToGis={onNavigateToGis}
-        onCreateTask={
-          onCreateTaskFromReport
-            ? (r) => {
-                onCreateTaskFromReport(r);
-                setToastMsg(`Đã chuyển phản ánh "${r.title}" sang bảng Nhiệm vụ & Lịch công tác.`);
-              }
-            : undefined
-        }
-      />
-
-      {/* Create / Edit Report Modal */}
-      <ReportFormModal
-        isOpen={formModalState.open}
-        mode={formModalState.mode}
-        initialReport={formModalState.target}
-        readOnly={readOnly}
-        defaultReporterName={currentUser?.fullName || ""}
-        onClose={() =>
-          setFormModalState((s) => ({ ...s, open: false, target: null }))
-        }
-        onSaveCreate={handleSaveCreate}
-        onSaveEdit={handleSaveEdit}
-      />
-
-      {/* Resolve & Mandatory Proof Photo Modal */}
-      <ResolveReportModal
-        report={resolveTarget}
-        defaultActorName={actorName}
-        onClose={() => setResolveTarget(null)}
-        onConfirmResolve={handleConfirmResolve}
-      />
-
-      {/* Safe Delete Confirmation AlertDialog */}
-      <DeleteReportModal
-        report={deleteTarget}
-        onClose={() => setDeleteTarget(null)}
-        onConfirmDelete={handleConfirmDelete}
-      />
-
-      {/* Fullscreen Lightbox Viewer */}
-      <ImageLightboxModal
-        images={lightboxState.items}
-        currentIndex={lightboxState.index}
-        onChangeIndex={(index) => setLightboxState((s) => ({ ...s, index }))}
-        onClose={() => setLightboxState({ items: [], index: 0 })}
-      />
     </div>
   );
 }
