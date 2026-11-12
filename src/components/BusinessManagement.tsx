@@ -91,6 +91,10 @@ import {
   ParsedAccommodationInfo 
 } from "../utils/householdRecognitionUtils";
 import { supabase } from "../lib/supabase";
+import { ReportSelect } from "./reports/ReportSelect";
+import { ConfirmModal, InlineNotice } from "./ui/ConfirmModal";
+import { Modal } from "./ui/Modal";
+import { KP3_TO_LIST, extractToDanPho, isSmallBusinessOrHostel, formatShortRecordId } from "../utils/kp3Utils";
 
 export interface IndustrySectorDef {
   id: string;
@@ -281,7 +285,6 @@ export default function BusinessManagement({
   // GIS Coordinate Pinning & Navigation Modal States
   const [gisPinModalBusiness, setGisPinModalBusiness] = useState<Business | null>(null);
   const [gisPinInput, setGisPinInput] = useState("");
-  const [gisPinToast, setGisPinToast] = useState<string | null>(null);
 
   const handleDirections = (b: Business) => {
     let coords = b.coordinates;
@@ -318,7 +321,7 @@ export default function BusinessManagement({
     if (!gisPinModalBusiness) return;
     const finalCoord = gisPinInput.trim();
     if (!finalCoord) {
-      alert("Vui lòng nhập hoặc lấy tọa độ GIS!");
+      showToast("Vui lòng nhập hoặc lấy tọa độ GIS!", "warning");
       return;
     }
 
@@ -341,13 +344,14 @@ export default function BusinessManagement({
         navigateRoute: true
       });
     } else {
-      setGisPinToast(`Đã đồng bộ tọa độ ${updated.name} lên bản đồ GIS!`);
-      setTimeout(() => setGisPinToast(null), 3500);
+      showToast(`Đã đồng bộ tọa độ ${updated.name} lên bản đồ GIS!`, "success");
     }
   };
+  const [scopeFilter, setScopeFilter] = useState<"small" | "all">("small");
   const [establishmentFilter, setEstablishmentFilter] = useState<"all" | "household" | "accommodation" | "pccc-pass" | "pccc-fail" | "has-sodo">("all");
   const [pcccFilter, setPcccFilter] = useState<string>("Tất cả");
   const [streetFilter, setStreetFilter] = useState<string>("Tất cả");
+  const [toFilter, setToFilter] = useState<string>("Tất cả");
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("Tất cả");
   const [categoryFilter, setCategoryFilter] = useState<string>("Tất cả");
@@ -523,7 +527,7 @@ export default function BusinessManagement({
   // Xuất file Excel danh sách cư dân đang lưu trú tại cơ sở nhà trọ
   const handleExportHostelResidents = (bus: Business, hostelResidents: Resident[]) => {
     if (!hostelResidents || hostelResidents.length === 0) {
-      alert("Không có dữ liệu người lưu trú để xuất file!");
+      showToast("Không có dữ liệu người lưu trú để xuất file!", "warning");
       return;
     }
 
@@ -1325,8 +1329,14 @@ export default function BusinessManagement({
     setNewPcccFile(null);
   };
 
-  // Filtered Businesses Logic with Standardized Industry Sector Classifier & SME Filter
+  // Filtered Businesses Logic with Standardized Industry Sector Classifier & Scope Filter
+  const smallBusinessCount = React.useMemo(() => businesses.filter(isSmallBusinessOrHostel).length, [businesses]);
+
   const filteredBusinesses = businesses.filter(b => {
+    if (scopeFilter === "small" && !isSmallBusinessOrHostel(b)) {
+      return false;
+    }
+
     const searchLower = searchTerm.toLowerCase();
     const matchesSearch = b.name.toLowerCase().includes(searchLower) || 
                           b.owner.toLowerCase().includes(searchLower) ||
@@ -1387,7 +1397,9 @@ export default function BusinessManagement({
       }
     }
 
-    return matchesSearch && matchesStatus && matchesCategory && matchesEstablishmentFilter && matchesPccc && matchesStreet;
+    const matchesTo = toFilter === "Tất cả" || extractToDanPho(b.address) === toFilter;
+
+    return matchesSearch && matchesStatus && matchesCategory && matchesEstablishmentFilter && matchesPccc && matchesStreet && matchesTo;
   });
 
   // Industry Sector Statistics Calculation (Bảng Thống kê Cơ cấu Ngành nghề)
@@ -1490,15 +1502,12 @@ export default function BusinessManagement({
     <div id="business-management-view" className="space-y-6 relative">
       {/* Toast thông báo Nhận diện / Đồng bộ Cơ sở trọ */}
       {hostelToast && (
-        <div className={`fixed top-5 right-5 z-50 px-4 py-3 rounded-2xl shadow-xl flex items-center gap-2.5 text-xs font-bold border transition-all animate-bounce ${
-          hostelToast.type === "success" 
-            ? "bg-emerald-600 text-white border-emerald-500 shadow-emerald-600/30"
-            : hostelToast.type === "info"
-            ? "bg-indigo-600 text-white border-indigo-500 shadow-indigo-600/30"
-            : "bg-rose-600 text-white border-rose-500 shadow-rose-600/30"
-        }`}>
-          <Sparkles size={16} />
-          <span>{hostelToast.message}</span>
+        <div className="fixed top-5 right-5 z-50 max-w-sm animate-in fade-in slide-in-from-top-3 duration-200">
+          <InlineNotice
+            message={hostelToast.message}
+            type={hostelToast.type}
+            onDismiss={() => setHostelToast(null)}
+          />
         </div>
       )}
 
@@ -1531,7 +1540,7 @@ export default function BusinessManagement({
             <button 
               type="button"
               onClick={() => setShowAddModal(true)}
-              className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2.5 rounded-xl font-bold text-xs transition-all shadow-xs cursor-pointer hover:shadow-md"
+              className="flex items-center gap-2 min-h-[40px] bg-emerald-700 hover:bg-emerald-800 text-white px-4 py-2 rounded-xl font-bold text-xs transition-colors cursor-pointer whitespace-nowrap"
             >
               <Plus size={16} /> Đăng ký Cơ sở Mới
             </button>
@@ -1580,93 +1589,50 @@ export default function BusinessManagement({
         />
       </div>
 
-      {/* Filters bar */}
-      <div className="bg-white p-4 rounded-xl border border-slate-100 shadow-sm flex flex-col md:flex-row gap-3 items-stretch md:items-center justify-between">
-        <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
-          <input 
-            id="business-search-input"
-            name="businessSearchTerm"
-            type="text" 
-            placeholder="Tìm theo tên cơ sở, chủ hộ, số GPKD, địa chỉ, ngành nghề, Tờ BĐ, số Thửa..."
-            value={searchTerm}
-            onChange={(e) => handleSearchChange(e.target.value)}
-            className="w-full pl-10 pr-4 py-2 border border-slate-200 rounded-xl text-xs sm:text-sm focus:outline-none focus:border-indigo-500 bg-white"
-          />
-        </div>
-
-        <div className="flex flex-wrap items-center gap-2">
-          {/* Category Filter */}
-          <div className="flex items-center gap-1.5 shrink-0">
-            <span className="text-xs font-semibold text-slate-500 flex items-center gap-1">
-              <Filter size={13} /> Ngành:
-            </span>
-            <select 
-              id="business-category-filter"
-              name="businessCategoryFilter"
-              value={categoryFilter}
-              onChange={(e) => handleCategoryFilterChange(e.target.value)}
-              className="px-2.5 py-1.5 border border-slate-200 rounded-xl text-xs bg-white focus:outline-none focus:border-indigo-500 font-medium max-w-[150px] truncate"
+      {/* Scope & Filters bar - Flat Hairline */}
+      <div className="bg-white p-4 rounded-2xl border border-slate-200 space-y-3">
+        <div className="flex flex-wrap items-center justify-between gap-2 pb-3 border-b border-slate-100">
+          <div className="flex flex-wrap items-center gap-1.5 bg-slate-100 p-1 rounded-xl border border-slate-200">
+            <button
+              type="button"
+              onClick={() => {
+                setScopeFilter("small");
+                setCurrentPage(1);
+              }}
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer ${
+                scopeFilter === "small"
+                  ? "bg-white text-indigo-800 border border-slate-200"
+                  : "text-slate-600 hover:text-slate-900"
+              }`}
             >
-              <option value="Tất cả">Tất cả ngành nghề ({formatVNNumber(businesses.length)})</option>
-              {INDUSTRY_SECTORS.map((sec) => {
-                const count = sectorStats.find(s => s.id === sec.id)?.count || 0;
-                return (
-                  <option key={sec.id} value={sec.id}>
-                    {sec.icon} {sec.name} ({formatVNNumber(count)})
-                  </option>
-                );
-              })}
-            </select>
-          </div>
-
-          {/* PCCC Filter */}
-          <div className="flex items-center gap-1.5 shrink-0">
-            <span className="text-xs font-semibold text-slate-500">PCCC:</span>
-            <select 
-              id="business-pccc-filter"
-              name="businessPcccFilter"
-              value={pcccFilter}
-              onChange={(e) => { setPcccFilter(e.target.value); setCurrentPage(1); }}
-              className="px-2.5 py-1.5 border border-slate-200 rounded-xl text-xs bg-white focus:outline-none focus:border-indigo-500 font-medium"
+              <Store size={14} className={scopeFilter === "small" ? "text-indigo-600" : "text-slate-500"} />
+              <span>Hộ KD & Nhà trọ (Mặc định)</span>
+              <span className={`text-xs px-2 py-0.5 rounded-full font-bold ${
+                scopeFilter === "small" ? "bg-indigo-50 text-indigo-700" : "bg-slate-200 text-slate-700"
+              }`}>
+                {formatVNNumber(smallBusinessCount)}
+              </span>
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setScopeFilter("all");
+                setCurrentPage(1);
+              }}
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer ${
+                scopeFilter === "all"
+                  ? "bg-white text-indigo-800 border border-slate-200"
+                  : "text-slate-600 hover:text-slate-900"
+              }`}
             >
-              <option value="Tất cả">Tất cả điều kiện PCCC</option>
-              <option value="Đạt chuẩn">Đạt chuẩn an toàn PCCC</option>
-              <option value="Chưa đạt">Chưa đạt / Cần nhắc nhở</option>
-            </select>
-          </div>
-
-          {/* Street Filter */}
-          <div className="flex items-center gap-1.5 shrink-0">
-            <span className="text-xs font-semibold text-slate-500">Tuyến đường:</span>
-            <select 
-              id="business-street-filter"
-              name="businessStreetFilter"
-              value={streetFilter}
-              onChange={(e) => { setStreetFilter(e.target.value); setCurrentPage(1); }}
-              className="px-2.5 py-1.5 border border-slate-200 rounded-xl text-xs bg-white focus:outline-none focus:border-indigo-500 font-medium"
-            >
-              <option value="Tất cả">Tất cả tuyến đường</option>
-              <option value="Mặt tiền Lương Định Của">Mặt tiền Lương Định Của</option>
-              <option value="Hẻm 42 Lương Định Của">Hẻm 42 Lương Định Của</option>
-              <option value="Hẻm 18 Lương Định Của">Hẻm 18 Lương Định Của</option>
-            </select>
-          </div>
-
-          {/* Status Filter */}
-          <div className="flex items-center gap-1.5 shrink-0">
-            <select 
-              id="business-status-filter"
-              name="businessStatusFilter"
-              value={statusFilter}
-              onChange={(e) => handleStatusFilterChange(e.target.value)}
-              className="px-2.5 py-1.5 border border-slate-200 rounded-xl text-xs bg-white focus:outline-none focus:border-indigo-500 font-medium"
-            >
-              <option value="Tất cả">Tất cả trạng thái</option>
-              <option value="Đang hoạt động">Đang hoạt động</option>
-              <option value="Tạm ngưng">Tạm ngưng</option>
-              <option value="Chờ duyệt">Chờ duyệt</option>
-            </select>
+              <Briefcase size={14} className={scopeFilter === "all" ? "text-indigo-600" : "text-slate-500"} />
+              <span>Tất cả cơ sở địa bàn</span>
+              <span className={`text-xs px-2 py-0.5 rounded-full font-bold ${
+                scopeFilter === "all" ? "bg-indigo-50 text-indigo-700" : "bg-slate-200 text-slate-700"
+              }`}>
+                {formatVNNumber(businesses.length)}
+              </span>
+            </button>
           </div>
 
           {/* View Mode Toggle */}
@@ -1674,27 +1640,115 @@ export default function BusinessManagement({
             <button
               type="button"
               onClick={() => setViewMode("card")}
-              className={`p-1.5 rounded-md text-xs font-semibold flex items-center gap-1 transition-all cursor-pointer ${
+              className={`p-1.5 rounded-md text-xs font-semibold flex items-center gap-1 transition-colors cursor-pointer ${
                 viewMode === "card" 
-                  ? "bg-white text-indigo-700 shadow-xs" 
-                  : "text-slate-500 hover:text-slate-800"
+                  ? "bg-white text-indigo-700 border border-slate-200" 
+                  : "text-slate-600 hover:text-slate-900"
               }`}
               title="Xem dạng Lưới Thẻ"
+              aria-label="Xem dạng Lưới Thẻ"
             >
               <LayoutGrid size={15} />
             </button>
             <button
               type="button"
               onClick={() => setViewMode("table")}
-              className={`p-1.5 rounded-md text-xs font-semibold flex items-center gap-1 transition-all cursor-pointer ${
+              className={`p-1.5 rounded-md text-xs font-semibold flex items-center gap-1 transition-colors cursor-pointer ${
                 viewMode === "table" 
-                  ? "bg-white text-indigo-700 shadow-xs" 
-                  : "text-slate-500 hover:text-slate-800"
+                  ? "bg-white text-indigo-700 border border-slate-200" 
+                  : "text-slate-600 hover:text-slate-900"
               }`}
               title="Xem dạng Bảng Danh Sách"
+              aria-label="Xem dạng Bảng Danh Sách"
             >
               <List size={15} />
             </button>
+          </div>
+        </div>
+
+        <div className="flex flex-col lg:flex-row gap-3 items-stretch lg:items-center justify-between">
+          <div className="relative flex-1 min-w-0">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+            <input 
+              id="business-search-input"
+              name="businessSearchTerm"
+              aria-label="Tìm kiếm cơ sở kinh doanh"
+              type="text" 
+              placeholder="Tìm theo tên cơ sở, chủ hộ, số GPKD, địa chỉ, ngành nghề, Tờ BĐ, số Thửa..."
+              value={searchTerm}
+              onChange={(e) => handleSearchChange(e.target.value)}
+              className="w-full pl-10 pr-4 py-2 border border-slate-200 rounded-xl text-xs sm:text-sm focus:outline-none focus:border-indigo-500 bg-white"
+            />
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-2">
+            {/* Category Filter */}
+            <ReportSelect
+              aria-label="Nhóm ngành nghề"
+              value={categoryFilter}
+              onChange={(nextVal) => handleCategoryFilterChange(nextVal)}
+              options={[
+                { value: "Tất cả", label: `Tất cả ngành (${formatVNNumber(businesses.length)})` },
+                ...INDUSTRY_SECTORS.map((sec) => {
+                  const count = sectorStats.find(s => s.id === sec.id)?.count || 0;
+                  return { value: sec.id, label: `${sec.icon} ${sec.shortName} (${formatVNNumber(count)})` };
+                }),
+              ]}
+              className="w-full lg:min-w-[155px]"
+            />
+
+            {/* PCCC Filter */}
+            <ReportSelect
+              aria-label="Điều kiện PCCC"
+              value={pcccFilter}
+              onChange={(nextVal) => { setPcccFilter(nextVal); setCurrentPage(1); }}
+              options={[
+                { value: "Tất cả", label: "Tất cả PCCC" },
+                { value: "Đạt chuẩn", label: "Đạt chuẩn an toàn PCCC" },
+                { value: "Chưa đạt", label: "Chưa đạt / Cần nhắc nhở" },
+              ]}
+              className="w-full"
+            />
+
+            {/* Street Filter */}
+            <ReportSelect
+              aria-label="Tuyến đường"
+              value={streetFilter}
+              onChange={(nextVal) => { setStreetFilter(nextVal); setCurrentPage(1); }}
+              options={[
+                { value: "Tất cả", label: "Tất cả tuyến đường" },
+                { value: "Mặt tiền Lương Định Của", label: "Mặt tiền Lương Định Của" },
+                { value: "Hẻm 42 Lương Định Của", label: "Hẻm 42 Lương Định Của" },
+                { value: "Hẻm 18 Lương Định Của", label: "Hẻm 18 Lương Định Của" },
+              ]}
+              className="w-full"
+            />
+
+            {/* To Dan Pho Filter */}
+            <ReportSelect
+              aria-label="Tổ dân phố KP3"
+              value={toFilter}
+              onChange={(nextVal) => { setToFilter(nextVal); setCurrentPage(1); }}
+              options={[
+                { value: "Tất cả", label: "Tất cả 14 Tổ KP3" },
+                ...KP3_TO_LIST.map((to) => ({ value: to, label: to })),
+              ]}
+              className="w-full"
+            />
+
+            {/* Status Filter */}
+            <ReportSelect
+              aria-label="Trạng thái hoạt động"
+              value={statusFilter}
+              onChange={(nextVal) => handleStatusFilterChange(nextVal)}
+              options={[
+                { value: "Tất cả", label: "Tất cả trạng thái" },
+                { value: "Đang hoạt động", label: "Đang hoạt động" },
+                { value: "Tạm ngưng", label: "Tạm ngưng" },
+                { value: "Chờ duyệt", label: "Chờ duyệt" },
+              ]}
+              className="w-full"
+            />
           </div>
         </div>
       </div>
@@ -1703,29 +1757,29 @@ export default function BusinessManagement({
       <div className="w-full space-y-4">
         {/* Banner Tự động liên kết Nhà trọ từ dữ liệu Dân cư */}
         {establishmentFilter === "accommodation" && (
-          <div className="bg-gradient-to-r from-amber-50 via-amber-50/70 to-orange-50/60 border border-amber-200/90 p-4 rounded-2xl flex flex-col md:flex-row items-start md:items-center justify-between gap-3 text-xs text-amber-950 shadow-2xs">
+          <div className="bg-amber-50 border border-amber-200 p-4 rounded-2xl flex flex-col md:flex-row items-start md:items-center justify-between gap-3 text-xs text-amber-950">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-amber-500/20 text-amber-800 flex items-center justify-center shrink-0 border border-amber-300/60 shadow-xs">
+              <div className="w-10 h-10 rounded-xl bg-amber-100 text-amber-800 flex items-center justify-center shrink-0 border border-amber-300">
                 <Sparkles size={20} className="text-amber-700" />
               </div>
               <div>
-                <div className="font-bold text-amber-900 text-sm flex items-center gap-2">
+                <div className="font-bold text-amber-950 text-sm flex flex-wrap items-center gap-2">
                   <span>Hệ thống đã tự động nhận diện {totalAccomCount} cơ sở nhà trọ & lưu trú từ 11.632 cư dân</span>
-                  <span className="text-[10px] bg-amber-200/80 text-amber-900 font-extrabold px-2 py-0.5 rounded-full border border-amber-300">
+                  <span className="text-xs bg-amber-200 text-amber-950 font-bold px-2.5 py-0.5 rounded-full border border-amber-300">
                     Đối soát CSDL thực tế
                   </span>
                 </div>
-                <div className="text-amber-800/80 text-[11px] mt-0.5">
+                <div className="text-amber-900 text-xs mt-0.5">
                   Tất cả các cơ sở trọ được trích xuất tự động từ địa chỉ tạm trú, nhận diện tên chủ trọ, số điện thoại, quy mô phòng và số người lưu trú thực tế.
                 </div>
               </div>
             </div>
-            <div className="flex items-center gap-2 shrink-0">
+            <div className="flex flex-wrap items-center gap-2 shrink-0">
               <button
                 type="button"
                 onClick={handleAutoDetectHostels}
                 disabled={isDetectingHostels}
-                className="px-3.5 py-2 rounded-xl bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs flex items-center gap-1.5 shadow-xs transition-all cursor-pointer disabled:opacity-50"
+                className="px-3.5 py-2 rounded-xl bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs flex items-center gap-1.5 transition-colors cursor-pointer disabled:opacity-50"
                 title="Quét lại toàn bộ 11.632 cư dân để bổ sung thêm cơ sở trọ mới"
               >
                 <RefreshCw size={13} className={isDetectingHostels ? "animate-spin" : ""} />
@@ -1735,7 +1789,7 @@ export default function BusinessManagement({
                 type="button"
                 onClick={handleSyncHostelsToSupabase}
                 disabled={isSyncingHostels}
-                className="px-3.5 py-2 rounded-xl bg-white hover:bg-amber-100/70 text-amber-900 border border-amber-300 font-bold text-xs flex items-center gap-1.5 shadow-xs transition-all cursor-pointer disabled:opacity-50"
+                className="px-3.5 py-2 rounded-xl bg-white hover:bg-amber-100 text-amber-900 border border-amber-300 font-bold text-xs flex items-center gap-1.5 transition-colors cursor-pointer disabled:opacity-50"
                 title="Lưu toàn bộ các cơ sở lưu trú vào bảng businesses trong cơ sở dữ liệu Supabase"
               >
                 <Upload size={13} className={isSyncingHostels ? "animate-spin" : ""} />
@@ -1756,9 +1810,9 @@ export default function BusinessManagement({
             ) : (
               paginatedBusinesses.map((b) => {
                 const statusColors = {
-                  "Đang hoạt động": "bg-emerald-500/10 text-emerald-600 border-emerald-500/20",
-                  "Tạm ngưng": "bg-rose-500/10 text-rose-600 border-rose-500/20",
-                  "Chờ duyệt": "bg-amber-500/10 text-amber-600 border-amber-500/20"
+                  "Đang hoạt động": "bg-emerald-50 text-emerald-800 border-emerald-200",
+                  "Tạm ngưng": "bg-rose-50 text-rose-800 border-rose-200",
+                  "Chờ duyệt": "bg-amber-50 text-amber-800 border-amber-200"
                 };
                 const isSelected = selectedBusiness?.id === b.id && showDetailModal;
                 const isAccom = isAccommodationBusiness(b);
@@ -1770,38 +1824,37 @@ export default function BusinessManagement({
                     key={b.id}
                     id={`business-card-${b.id}`}
                     onClick={() => handleOpenDetailModal(b)}
-                    className={`group bg-white rounded-2xl border p-4 hover:shadow-lg hover:border-indigo-200 transition-all duration-200 cursor-pointer flex flex-col justify-between relative
-                      ${isSelected ? "border-indigo-500 ring-2 ring-indigo-500/20 shadow-md" : "border-slate-200/80 shadow-xs"}
+                    className={`group bg-white rounded-2xl border p-4 hover:border-indigo-300 transition-colors cursor-pointer flex flex-col justify-between relative
+                      ${isSelected ? "border-indigo-500 ring-2 ring-indigo-500/20" : "border-slate-200"}
                     `}
                   >
                     <div className="space-y-3">
-                      {/* 1. Header Badges: Category & Status (Đã bỏ nhãn loại hình trùng lặp để tinh gọn UI) */}
-                      <div className="flex justify-between items-center gap-2">
-                        <span className={`text-[11px] font-bold px-2.5 py-0.5 rounded-full border flex items-center gap-1.5 shadow-2xs shrink-0 ${sectorMeta.badgeClass}`}>
+                      {/* 1. Header Badges: Category & Status */}
+                      <div className="flex flex-wrap justify-between items-center gap-1.5 min-w-0">
+                        <span className={`text-xs font-bold px-2.5 py-0.5 rounded-full border flex items-center gap-1.5 min-w-0 max-w-full ${sectorMeta.badgeClass}`}>
                           <span>{sectorMeta.icon}</span>
                           <span className="truncate">{sectorMeta.shortName}</span>
                         </span>
-                        <span className={`text-[10.5px] font-bold px-2.5 py-0.5 rounded-full border flex items-center gap-1.5 shrink-0 whitespace-nowrap ${statusColors[b.status]}`}>
-                          <span className={`w-1.5 h-1.5 rounded-full ${b.status === "Đang hoạt động" ? "bg-emerald-500 animate-pulse" : b.status === "Tạm ngưng" ? "bg-rose-500" : "bg-amber-500"}`} />
+                        <span className={`text-xs font-bold px-2.5 py-0.5 rounded-full border flex items-center gap-1.5 shrink-0 ${statusColors[b.status]}`}>
+                          <span className={`w-1.5 h-1.5 rounded-full ${b.status === "Đang hoạt động" ? "bg-emerald-600" : b.status === "Tạm ngưng" ? "bg-rose-600" : "bg-amber-600"}`} />
                           <span>{b.status}</span>
                         </span>
                       </div>
 
-                      {/* 2. Image Thumbnail (Gọn gàng, sang trọng, không chèn chữ dài ngoằng đè lên ảnh) */}
-                      <div className="relative h-32 rounded-xl overflow-hidden bg-slate-100 border border-slate-200/60 shadow-inner">
+                      {/* 2. Image Thumbnail */}
+                      <div className="relative h-32 rounded-xl overflow-hidden bg-slate-100 border border-slate-200">
                         <img 
                           src={b.image || "https://images.unsplash.com/photo-1578916171728-46686eac8d58?w=500"} 
                           alt={b.name}
-                          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                          className="w-full h-full object-cover"
                           onError={(e) => {
                             (e.target as HTMLImageElement).src = "https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?w=500";
                           }}
                         />
-                        <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-black/10 pointer-events-none" />
                         
                         {/* Giấy phép kinh doanh đặt góc trên phải ảnh */}
                         <div className="absolute top-2 right-2">
-                          <span className="text-[10px] font-mono font-semibold px-2 py-0.5 rounded-md bg-black/60 text-white backdrop-blur-xs shadow-xs border border-white/20">
+                          <span className="text-xs font-mono font-semibold px-2 py-0.5 rounded-md bg-white/95 text-slate-800 border border-slate-200">
                             {b.licenseNumber || b.internalCode || "KP3-KD"}
                           </span>
                         </div>
@@ -1809,56 +1862,56 @@ export default function BusinessManagement({
                         {/* Huy hiệu cơ sở lưu trú ở góc dưới trái ảnh */}
                         {isAccom && (
                           <div className="absolute bottom-2 left-2">
-                            <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-amber-500/90 text-white backdrop-blur-xs flex items-center gap-1 shadow-xs">
-                              <Building size={11} /> Cơ sở lưu trú
+                            <span className="text-xs font-bold px-2 py-0.5 rounded-md bg-amber-50/95 text-amber-900 border border-amber-300 flex items-center gap-1">
+                              <Building size={11} className="text-amber-700" /> Cơ sở lưu trú
                             </span>
                           </div>
                         )}
                       </div>
 
-                      {/* 3. Tên cơ sở kinh doanh đặt ra ngoài ảnh - Rõ ràng, không bị che khuất */}
+                      {/* 3. Tên cơ sở kinh doanh đặt ra ngoài ảnh */}
                       <div>
-                        <h3 className="font-bold text-slate-900 text-[14px] leading-snug group-hover:text-indigo-600 transition-colors line-clamp-1" title={b.name}>
+                        <h3 className="font-bold text-slate-900 text-sm leading-snug group-hover:text-indigo-600 transition-colors line-clamp-1" title={b.name}>
                           {b.name}
                         </h3>
-                        <div className="text-[11px] text-slate-500 flex items-center gap-1 mt-1">
-                          <MapPin size={12} className="shrink-0 text-slate-400" />
+                        <div className="text-xs text-slate-600 flex items-center gap-1 mt-1">
+                          <MapPin size={12} className="shrink-0 text-slate-500" />
                           <span className="line-clamp-1 text-slate-600 font-medium" title={b.address}>
                             {b.address}
                           </span>
                         </div>
                       </div>
 
-                      {/* 4. Khối thông tin lưu trú / phòng trọ (Đồng bộ chuẩn 100% như 2 hộ kế bên, không vỡ layout) */}
+                      {/* 4. Khối thông tin lưu trú / phòng trọ */}
                       {isAccom && (() => {
                         const staying = residents.filter(r => isResidentInAccommodation(r, b));
                         const actualCount = staying.length > 0 ? staying.length : (b.soNguoiLuuTru || 0);
                         return (
-                          <div className="py-2 px-3 rounded-xl bg-amber-50/90 border border-amber-200/80 text-amber-950 flex items-center justify-between shadow-2xs">
-                            <div className="flex items-center gap-1.5 text-xs font-bold whitespace-nowrap">
-                              <Bed size={14} className="text-amber-700 shrink-0" />
+                          <div className="py-2 px-3 rounded-xl bg-amber-50 border border-amber-200 text-amber-950 flex flex-wrap items-center justify-between gap-2">
+                            <div className="flex items-center gap-1.5 text-xs font-bold">
+                              <Bed size={14} className="text-amber-800 shrink-0" />
                               <span>{b.soPhong || 0} phòng</span>
-                              <span className="text-amber-400">•</span>
+                              <span className="text-amber-800">•</span>
                               <span>{b.soTang || 0} tầng</span>
                             </div>
-                            <span className="text-[11px] font-bold text-amber-900 bg-amber-100/90 px-2.5 py-0.5 rounded-full border border-amber-300/80 whitespace-nowrap shrink-0">
-                              👥 {actualCount} người
+                            <span className="text-xs font-bold text-amber-900 bg-amber-100 px-2.5 py-0.5 rounded-full border border-amber-300 shrink-0">
+                              {actualCount} người
                             </span>
                           </div>
                         );
                       })()}
 
-                      {/* 5. Địa chính & Thửa đất (Gọn gàng 1 hàng không bị rớt dòng) */}
-                      <div className="bg-slate-50/90 py-2 px-2.5 rounded-xl border border-slate-200/60 flex items-center justify-between text-[11px]">
-                        <div className="flex items-center gap-1.5 font-mono text-slate-700 font-bold whitespace-nowrap">
-                          <span className="text-slate-400 font-sans font-normal text-[10px]">ĐC:</span>
-                          <span className="bg-white px-1.5 py-0.5 rounded border border-slate-200 shadow-2xs text-[10.5px]">
+                      {/* 5. Địa chính & Thửa đất */}
+                      <div className="bg-slate-50 py-2 px-2.5 rounded-xl border border-slate-200 flex flex-wrap items-center justify-between gap-1.5 text-xs">
+                        <div className="flex items-center gap-1.5 font-mono text-slate-700 font-bold">
+                          <span className="text-slate-600 font-sans font-normal text-xs">ĐC:</span>
+                          <span className="bg-white px-1.5 py-0.5 rounded border border-slate-200 text-xs">
                             Tờ {b.toBanDo || "—"}, Thửa {b.soThua || "—"}
                           </span>
                         </div>
-                        <div className="flex items-center gap-1 font-semibold text-slate-700 whitespace-nowrap text-[11px]">
+                        <div className="flex items-center gap-1 font-semibold text-slate-700 text-xs">
                           <span>{b.dienTich ? `${b.dienTich} m²` : "—"}</span>
-                          <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded bg-indigo-50 text-indigo-700 border border-indigo-200">
+                          <span className="text-xs font-mono font-bold px-2 py-0.5 rounded bg-indigo-50 text-indigo-700 border border-indigo-200">
                             {b.loaiDat || "ODT"}
                           </span>
                         </div>
@@ -1866,17 +1919,17 @@ export default function BusinessManagement({
                     </div>
 
                     {/* 6. Footer: Chủ hộ + Nút Sổ đỏ + PCCC */}
-                    <div className="pt-2.5 mt-2 border-t border-slate-100 flex justify-between items-center text-xs">
-                      <div className="flex items-center gap-1.5 min-w-0 pr-1 flex-1">
-                        <div className="w-5 h-5 rounded-full bg-slate-100 border border-slate-200 text-slate-700 flex items-center justify-center shrink-0 text-[10px] font-bold">
+                    <div className="pt-2.5 mt-2 border-t border-slate-100 flex flex-col gap-2 text-xs">
+                      <div className="flex items-center gap-1.5 min-w-0">
+                        <div className="w-6 h-6 rounded-full bg-slate-100 border border-slate-200 text-slate-700 flex items-center justify-center shrink-0 text-xs font-bold">
                           {b.owner ? b.owner.charAt(0) : "U"}
                         </div>
-                        <span className="font-semibold text-slate-800 truncate text-[11.5px]" title={b.owner}>
+                        <span className="font-semibold text-slate-800 text-xs leading-snug" title={b.owner}>
                           {b.owner}
                         </span>
                       </div>
 
-                      <div className="flex items-center gap-1 shrink-0">
+                      <div className="flex items-center justify-between gap-2">
                         {b.soDoFile ? (
                           <button
                             type="button"
@@ -1889,25 +1942,25 @@ export default function BusinessManagement({
                                 business: b
                               });
                             }}
-                            className={`text-[9.5px] font-bold px-2 py-0.5 rounded-md flex items-center gap-1 transition-colors cursor-pointer shadow-2xs ${
+                            className={`min-h-[32px] text-xs font-bold px-2.5 py-1 rounded-md flex items-center gap-1 transition-colors cursor-pointer whitespace-nowrap ${
                               b.soDoFile.type === "pdf" 
-                                ? "bg-rose-50 text-rose-700 border border-rose-200 hover:bg-rose-100" 
-                                : "bg-blue-50 text-blue-700 border border-blue-200 hover:bg-blue-100"
+                                ? "bg-rose-50 text-rose-800 border border-rose-200 hover:bg-rose-100" 
+                                : "bg-blue-50 text-blue-800 border border-blue-200 hover:bg-blue-100"
                             }`}
                             title="Nhấp để xem tệp Sổ đỏ"
                           >
-                            <FileText size={10} />
+                            <FileText size={11} />
                             <span>Sổ đỏ</span>
                           </button>
                         ) : (
-                          <span className="text-[9.5px] text-slate-400 bg-slate-50 px-1.5 py-0.5 rounded border border-slate-200/60 italic">
+                          <span className="text-xs text-slate-600 bg-slate-50 px-2 py-1 rounded border border-slate-200 italic">
                             Chưa sổ
                           </span>
                         )}
 
                         {b.safetyCertified && (
-                          <span className="inline-flex items-center gap-0.5 text-emerald-700 bg-emerald-50 border border-emerald-200 px-1.5 py-0.5 rounded-md font-bold text-[9.5px]">
-                            <ShieldCheck size={11} className="text-emerald-600" /> PCCC
+                          <span className="inline-flex items-center gap-0.5 text-emerald-800 bg-emerald-50 border border-emerald-200 px-2 py-1 rounded-md font-bold text-xs whitespace-nowrap">
+                            <ShieldCheck size={11} className="text-emerald-700" /> PCCC
                           </span>
                         )}
                       </div>
@@ -1923,7 +1976,7 @@ export default function BusinessManagement({
               <div className="overflow-x-auto">
                 <table className="w-full text-left border-collapse text-xs">
                   <thead>
-                    <tr className="bg-slate-50 border-b border-slate-200 text-slate-500 font-bold uppercase text-[10px] tracking-wider">
+                    <tr className="bg-slate-50 border-b border-slate-200 text-slate-700 font-bold uppercase text-xs tracking-wider">
                       <th className="p-3.5">Cơ sở / Ngành nghề</th>
                       <th className="p-3.5">Chủ sở hữu & Liên hệ</th>
                       <th className="p-3.5">Đặc điểm Lưu trú</th>
@@ -1963,12 +2016,12 @@ export default function BusinessManagement({
                               <div className="min-w-0">
                                 <div className="font-bold text-slate-900 text-xs hover:text-indigo-600 transition-colors line-clamp-1">{b.name}</div>
                                 <div className="flex flex-wrap items-center gap-1.5 mt-1">
-                                  <span className={`text-[9.5px] font-bold px-1.5 py-0.2 rounded-full border flex items-center gap-1 ${sectorMeta.badgeClass}`}>
+                                  <span className={`text-xs font-bold px-2 py-0.5 rounded-full border flex items-center gap-1 ${sectorMeta.badgeClass}`}>
                                     <span>{sectorMeta.icon}</span>
                                     <span>{sectorMeta.shortName}</span>
                                   </span>
-                                  <span className="font-mono text-slate-500 font-semibold text-[10px] bg-slate-100 px-1 py-0.2 rounded border border-slate-200">{b.licenseNumber}</span>
-                                  <span className="text-[10px] text-slate-500">• {b.type}</span>
+                                  <span className="font-mono text-slate-600 font-semibold text-xs bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200">{b.licenseNumber}</span>
+                                  <span className="text-xs text-slate-600">• {b.type}</span>
                                 </div>
                               </div>
                             </div>
@@ -1977,11 +2030,11 @@ export default function BusinessManagement({
                           {/* Cột 2: Chủ sở hữu & Liên hệ */}
                           <td className="p-3.5 whitespace-nowrap">
                             <div className="font-semibold text-slate-900 text-xs flex items-center gap-1.5">
-                              <User size={13} className="text-slate-400" />
+                              <User size={13} className="text-slate-500" />
                               <span>{b.owner}</span>
                             </div>
-                            <div className="text-[11px] text-slate-500 font-mono flex items-center gap-1.5 mt-0.5">
-                              <Phone size={11} className="text-slate-400" />
+                            <div className="text-xs text-slate-600 font-mono flex items-center gap-1.5 mt-0.5">
+                              <Phone size={12} className="text-slate-500" />
                               <span>{b.phone || "—"}</span>
                             </div>
                           </td>
@@ -1993,34 +2046,34 @@ export default function BusinessManagement({
                               const actualCount = staying.length > 0 ? staying.length : (b.soNguoiLuuTru || 0);
                               return (
                                 <div className="space-y-1">
-                                  <span className="inline-flex items-center gap-1 font-bold text-amber-900 bg-amber-100/80 px-2 py-0.5 rounded-full text-[10px] border border-amber-200">
+                                  <span className="inline-flex items-center gap-1 font-bold text-amber-900 bg-amber-100 px-2 py-0.5 rounded-full text-xs border border-amber-200">
                                     <Building size={11} className="text-amber-700" /> {b.soPhong || 0} phòng / {b.soTang || 0} tầng
                                   </span>
-                                  <div className="text-[11px] font-bold text-amber-950 flex items-center gap-1.5">
-                                    <span>👥 {actualCount} người</span>
+                                  <div className="text-xs font-bold text-amber-950 flex items-center gap-1.5">
+                                    <span>{actualCount} người</span>
                                     {staying.length > 0 ? (
-                                      <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-emerald-100 text-emerald-800 border border-emerald-300">
-                                        ✓ CSDL
+                                      <span className="text-xs font-bold px-2 py-0.5 rounded bg-emerald-100 text-emerald-800 border border-emerald-300">
+                                        CSDL
                                       </span>
                                     ) : (
-                                      <span className="text-[10px] text-slate-400 font-normal">lưu trú</span>
+                                      <span className="text-xs text-slate-500 font-normal">lưu trú</span>
                                     )}
                                   </div>
                                 </div>
                               );
                             })() : (
-                              <span className="text-slate-400 text-[11px] italic bg-slate-50 px-2 py-0.5 rounded">Không lưu trú</span>
+                              <span className="text-slate-600 text-xs italic bg-slate-50 px-2 py-0.5 rounded">Không lưu trú</span>
                             )}
                           </td>
 
                           {/* Cột 4: Địa chính / Thửa đất */}
                           <td className="p-3.5 whitespace-nowrap">
-                            <div className="text-[11px] font-mono text-slate-800 font-bold">
+                            <div className="text-xs font-mono text-slate-800 font-bold">
                               Tờ {b.toBanDo || "—"} • Thửa {b.soThua || "—"}
                             </div>
-                            <div className="text-[10.5px] text-slate-500 flex items-center gap-1 mt-0.5">
+                            <div className="text-xs text-slate-600 flex items-center gap-1 mt-0.5">
                               <span>{b.dienTich ? `${b.dienTich} m²` : "—"}</span>
-                              <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-slate-100 text-slate-600">
+                              <span className="text-xs font-semibold px-1.5 py-0.5 rounded bg-slate-100 text-slate-700">
                                 {b.loaiDat || "ODT"}
                               </span>
                             </div>
@@ -2041,7 +2094,7 @@ export default function BusinessManagement({
                                       business: b
                                     });
                                   }}
-                                  className={`text-[9.5px] font-bold px-2 py-0.5 rounded-md flex items-center gap-1 transition-colors cursor-pointer shadow-2xs ${
+                                  className={`text-xs font-bold px-2 py-0.5 rounded-md flex items-center gap-1 transition-colors cursor-pointer ${
                                     b.soDoFile.type === "pdf"
                                       ? "bg-rose-50 text-rose-700 border border-rose-200 hover:bg-rose-100"
                                       : "bg-blue-50 text-blue-700 border border-blue-200 hover:bg-blue-100"
@@ -2050,27 +2103,27 @@ export default function BusinessManagement({
                                   <FileText size={11} /> Sổ đỏ ({b.soDoFile.type.toUpperCase()})
                                 </button>
                               ) : (
-                                <span className="text-[10px] text-slate-400 bg-slate-50 px-1.5 py-0.2 rounded border border-slate-200/60 italic">
+                                <span className="text-xs text-slate-600 bg-slate-50 px-2 py-0.5 rounded border border-slate-200 italic">
                                   Chưa nộp sổ
                                 </span>
                               )}
 
                               {b.safetyCertified && (
-                                <span className="text-[9.5px] font-bold text-emerald-800 bg-emerald-50 border border-emerald-200 px-1.5 py-0.5 rounded-md flex items-center gap-1">
+                                <span className="text-xs font-bold text-emerald-800 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-md flex items-center gap-1">
                                   <ShieldCheck size={11} className="text-emerald-600" /> PCCC đạt
                                 </span>
                               )}
                             </div>
                           </td>
 
-                          {/* Cột 6: Trạng thái (Luôn 1 hàng, không bị ngắt chữ) */}
+                          {/* Cột 6: Trạng thái */}
                           <td className="p-3.5 text-center whitespace-nowrap">
-                            <span className={`inline-flex items-center gap-1.5 text-[11px] font-bold px-2.5 py-1 rounded-full border shadow-2xs ${
+                            <span className={`inline-flex items-center gap-1.5 text-xs font-bold px-2.5 py-1 rounded-full border ${
                               b.status === "Đang hoạt động" ? "bg-emerald-50 text-emerald-700 border-emerald-200" :
                               b.status === "Tạm ngưng" ? "bg-rose-50 text-rose-700 border-rose-200" :
                               "bg-amber-50 text-amber-700 border-amber-200"
                             }`}>
-                              <span className={`w-1.5 h-1.5 rounded-full ${b.status === "Đang hoạt động" ? "bg-emerald-500 animate-pulse" : b.status === "Tạm ngưng" ? "bg-rose-500" : "bg-amber-500"}`} />
+                              <span className={`w-1.5 h-1.5 rounded-full ${b.status === "Đang hoạt động" ? "bg-emerald-500" : b.status === "Tạm ngưng" ? "bg-rose-500" : "bg-amber-500"}`} />
                               <span>{b.status}</span>
                             </span>
                           </td>
@@ -2124,40 +2177,46 @@ export default function BusinessManagement({
           />
         </div>
 
-      {/* MODAL CHI TIẾT HỒ SƠ CƠ SỞ KINH DOANH CHÍNH GIỮA VIEWPORT (Chuẩn Reference KP3) */}
-      {showDetailModal && selectedBusiness && (
-        <div 
-          className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/65 backdrop-blur-[2px] animate-in fade-in duration-200"
-          onClick={handleCloseDetailModal}
-        >
-          <div 
-            id="business-detail-modal"
-            onClick={(e) => e.stopPropagation()}
-            className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-4xl max-h-[92dvh] flex flex-col overflow-hidden animate-in zoom-in-95 duration-200 text-slate-800"
-          >
-            {/* Header: Clean, Executive Government Portal Design */}
-            <div className="bg-gradient-to-r from-slate-50 via-white to-indigo-50/25 px-5 sm:px-6 py-5 border-b border-slate-200 relative shrink-0">
-              <button 
-                id="btn-close-business-modal"
-                onClick={handleCloseDetailModal}
-                className="absolute top-4 right-4 p-2 rounded-xl text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors cursor-pointer"
-                title="Đóng (Esc)"
-              >
-                <X size={18} />
-              </button>
+      {/* MODAL CHI TIẾT HỒ SƠ CƠ SỞ KINH DOANH */}
+      {showDetailModal && selectedBusiness && (() => {
+        const navList = filteredBusinesses.length > 0 ? filteredBusinesses : businesses;
+        const currentIdx = navList.findIndex(item => item.id === selectedBusiness.id);
+        const totalNav = navList.length;
+        const hasPrev = currentIdx > 0;
+        const hasNext = currentIdx >= 0 && currentIdx < totalNav - 1;
+        const shortBizId = formatShortRecordId(selectedBusiness.internalCode || selectedBusiness.id, "HKD");
 
-              <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 pr-10">
-                {/* Business Avatar / Photo with upload trigger */}
-                <div className="relative w-14 h-14 sm:w-16 sm:h-16 rounded-2xl border border-slate-200 shadow-2xs overflow-hidden shrink-0 group bg-slate-100">
+        return (
+          <Modal
+            isOpen={showDetailModal}
+            onClose={handleCloseDetailModal}
+            size="4xl"
+            ariaLabel={`Hồ sơ chi tiết cơ sở ${selectedBusiness.name}`}
+            headerNavigation={
+              totalNav > 1 && currentIdx >= 0
+                ? {
+                    positionText: `Cơ sở ${currentIdx + 1}/${totalNav}`,
+                    hasPrev,
+                    hasNext,
+                    onPrev: () => hasPrev && setSelectedBusiness(navList[currentIdx - 1]),
+                    onNext: () => hasNext && setSelectedBusiness(navList[currentIdx + 1]),
+                    prevLabel: "Cơ sở trước",
+                    nextLabel: "Cơ sở tiếp theo",
+                  }
+                : undefined
+            }
+            headerSlot={
+              <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3.5">
+                <div className="relative w-14 h-14 sm:w-16 sm:h-16 rounded-xl border border-slate-200 overflow-hidden shrink-0 group bg-slate-100">
                   <img 
                     src={selectedBusiness.image || "https://images.unsplash.com/photo-1578916171728-46686eac8d58?w=400"} 
                     alt={selectedBusiness.name}
-                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                    className="w-full h-full object-cover"
                     referrerPolicy="no-referrer"
                   />
                   <label className="absolute inset-0 bg-slate-950/65 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center text-white cursor-pointer">
-                    <Camera size={16} className="text-white mb-0.5" />
-                    <span className="text-[10px] font-bold">Đổi ảnh</span>
+                    <Camera size={15} className="text-white mb-0.5" />
+                    <span className="text-[11px] font-semibold">Đổi ảnh</span>
                     <input 
                       type="file" 
                       accept="image/*" 
@@ -2181,36 +2240,34 @@ export default function BusinessManagement({
                   </label>
                 </div>
 
-                {/* Metadata & Title */}
-                <div className="space-y-1.5 flex-1 min-w-0">
+                <div className="space-y-1 flex-1 min-w-0">
                   <div className="flex flex-wrap items-center gap-2">
-                    <span className="font-mono text-xs font-bold px-2.5 py-0.5 rounded-md bg-emerald-50 text-emerald-800 border border-emerald-200 shadow-2xs">
-                      {selectedBusiness.internalCode || `CSKD-${selectedBusiness.id}`}
+                    <span className="font-mono text-xs font-semibold px-2 py-0.5 rounded-md bg-slate-100 text-slate-700 border border-slate-200">
+                      MÃ: {shortBizId}
                     </span>
-                    <span className="text-xs font-bold px-2.5 py-0.5 rounded-md bg-indigo-50 text-indigo-700 border border-indigo-200 flex items-center gap-1.5 shadow-2xs">
+                    <span className="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-slate-100 text-slate-700 border border-slate-200 inline-flex items-center gap-1">
                       <span>{getSectorMeta(getBusinessIndustryGroup(selectedBusiness)).icon}</span>
                       <span>{getSectorMeta(getBusinessIndustryGroup(selectedBusiness)).shortName}</span>
                     </span>
-                    <span className={`text-xs font-bold px-2.5 py-0.5 rounded-md border flex items-center gap-1.5 shadow-2xs ${
+                    <span className={`text-xs font-semibold px-2.5 py-0.5 rounded-full border inline-flex items-center gap-1.5 ${
                       selectedBusiness.status === "Đang hoạt động" 
                         ? "bg-emerald-50 text-emerald-800 border-emerald-200" 
                         : selectedBusiness.status === "Tạm ngưng" 
                         ? "bg-amber-50 text-amber-800 border-amber-200" 
                         : "bg-rose-50 text-rose-800 border-rose-200"
                     }`}>
-                      <span className={`w-1.5 h-1.5 rounded-full ${selectedBusiness.status === "Đang hoạt động" ? "bg-emerald-500 animate-pulse" : selectedBusiness.status === "Tạm ngưng" ? "bg-amber-500" : "bg-rose-500"}`} />
+                      <span className={`w-1.5 h-1.5 rounded-full ${selectedBusiness.status === "Đang hoạt động" ? "bg-emerald-600" : selectedBusiness.status === "Tạm ngưng" ? "bg-amber-600" : "bg-rose-600"}`} />
                       <span>{selectedBusiness.status}</span>
                     </span>
                   </div>
 
-                  <h3 className="text-lg sm:text-xl font-extrabold text-slate-900 tracking-tight leading-snug break-words">
+                  <h3 className="text-base sm:text-lg font-bold text-slate-900 tracking-tight leading-snug break-words">
                     {selectedBusiness.name}
                   </h3>
 
-                  {/* Address subtext & GIS links */}
-                  <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-slate-600 pt-0.5">
+                  <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-slate-600">
                     <span className="flex items-center gap-1 font-medium text-slate-700">
-                      <MapPin size={13} className="text-emerald-600 shrink-0" />
+                      <MapPin size={13} className="text-emerald-700 shrink-0" />
                       <span className="truncate max-w-md">{selectedBusiness.address}</span>
                     </span>
 
@@ -2220,7 +2277,7 @@ export default function BusinessManagement({
                         url: selectedBusiness.image || "https://images.unsplash.com/photo-1578916171728-46686eac8d58?w=400",
                         caption: selectedBusiness.name
                       })}
-                      className="inline-flex items-center gap-1 text-[11px] text-indigo-600 hover:text-indigo-800 font-semibold cursor-pointer"
+                      className="inline-flex items-center gap-1 text-xs text-slate-700 hover:text-slate-900 font-semibold cursor-pointer"
                     >
                       <Maximize2 size={11} /> Xem ảnh lớn
                     </button>
@@ -2230,62 +2287,118 @@ export default function BusinessManagement({
                         href={`https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(selectedBusiness.coordinates)}`}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="inline-flex items-center gap-1 text-[11px] text-slate-600 hover:text-slate-900 font-medium"
+                        className="inline-flex items-center gap-1 text-xs text-emerald-700 hover:text-emerald-900 font-semibold"
                       >
-                        <ExternalLink size={10} /> Google Maps
+                        <ExternalLink size={11} /> Google Maps
                       </a>
                     )}
                   </div>
                 </div>
               </div>
-            </div>
+            }
+            subHeader={
+              <div className="flex border-b border-slate-200 bg-white px-5 sm:px-6 gap-5 text-xs font-bold shrink-0 overflow-x-auto">
+                <button 
+                  type="button"
+                  onClick={() => setBusinessModalTab("general")}
+                  className={`py-2.5 transition-colors relative cursor-pointer flex items-center gap-1.5 shrink-0 ${
+                    businessModalTab === "general" ? "text-emerald-800" : "text-slate-600 hover:text-slate-900"
+                  }`}
+                >
+                  <Store size={14} />
+                  <span>Thông tin chung & Pháp lý</span>
+                  {businessModalTab === "general" && <div className="absolute bottom-0 left-0 w-full h-0.5 bg-emerald-700" />}
+                </button>
+                <button 
+                  type="button"
+                  onClick={() => setBusinessModalTab("premises")}
+                  className={`py-2.5 transition-colors relative cursor-pointer flex items-center gap-1.5 shrink-0 ${
+                    businessModalTab === "premises" ? "text-emerald-800" : "text-slate-600 hover:text-slate-900"
+                  }`}
+                >
+                  <MapPin size={14} />
+                  <span>Mặt bằng & Cư dân Lưu trú</span>
+                  {businessModalTab === "premises" && <div className="absolute bottom-0 left-0 w-full h-0.5 bg-emerald-700" />}
+                </button>
+                <button 
+                  type="button"
+                  onClick={() => setBusinessModalTab("personnel")}
+                  className={`py-2.5 transition-colors relative cursor-pointer flex items-center gap-1.5 shrink-0 ${
+                    businessModalTab === "personnel" ? "text-emerald-800" : "text-slate-600 hover:text-slate-900"
+                  }`}
+                >
+                  <Users2 size={14} />
+                  <span>Người đại diện & Lao động</span>
+                  {businessModalTab === "personnel" && <div className="absolute bottom-0 left-0 w-full h-0.5 bg-emerald-700" />}
+                </button>
+                <button 
+                  type="button"
+                  onClick={() => setBusinessModalTab("history")}
+                  className={`py-2.5 transition-colors relative cursor-pointer flex items-center gap-1.5 shrink-0 ${
+                    businessModalTab === "history" ? "text-emerald-800" : "text-slate-600 hover:text-slate-900"
+                  }`}
+                >
+                  <History size={14} />
+                  <span>Biến động & Kiểm tra</span>
+                  {businessModalTab === "history" && <div className="absolute bottom-0 left-0 w-full h-0.5 bg-emerald-700" />}
+                </button>
+              </div>
+            }
+            bodyClassName="p-5 sm:p-6 space-y-4 bg-slate-50/70 text-xs sm:text-sm"
+            footer={
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="text-xs font-semibold text-slate-600">Trạng thái:</span>
+                  <div className="min-w-[175px]">
+                    <ReportSelect
+                      aria-label="Trạng thái cơ sở kinh doanh"
+                      value={selectedBusiness.status}
+                      onChange={(nextVal) => onUpdateStatus(selectedBusiness.id, nextVal as any)}
+                      options={[
+                        { value: "Đang hoạt động", label: "Đang hoạt động" },
+                        { value: "Tạm ngưng", label: "Tạm ngưng" },
+                        { value: "Chuyển địa điểm", label: "Chuyển địa điểm" },
+                        { value: "Chưa xác minh", label: "Chưa xác minh" },
+                      ]}
+                    />
+                  </div>
+                  <button 
+                    type="button"
+                    onClick={() => window.print()}
+                    className="min-h-9 text-xs font-semibold py-1.5 px-3 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 rounded-lg transition-colors cursor-pointer inline-flex items-center justify-center gap-1.5"
+                    title="In phiếu thông tin cơ sở kinh doanh"
+                  >
+                    <Printer size={13} /> In phiếu
+                  </button>
+                </div>
 
-            {/* Sub-tabs header */}
-            <div className="flex border-b border-slate-200 bg-white px-5 sm:px-6 gap-6 text-xs font-bold shrink-0 overflow-x-auto">
-              <button 
-                onClick={() => setBusinessModalTab("general")}
-                className={`py-3 transition-all relative cursor-pointer flex items-center gap-1.5 shrink-0 ${
-                  businessModalTab === "general" ? "text-indigo-700 font-extrabold" : "text-slate-500 hover:text-slate-800"
-                }`}
-              >
-                <Store size={15} />
-                <span>Thông tin chung & Pháp lý</span>
-                {businessModalTab === "general" && <div className="absolute bottom-0 left-0 w-full h-0.5 bg-indigo-600"></div>}
-              </button>
-              <button 
-                onClick={() => setBusinessModalTab("premises")}
-                className={`py-3 transition-all relative cursor-pointer flex items-center gap-1.5 shrink-0 ${
-                  businessModalTab === "premises" ? "text-emerald-700 font-extrabold" : "text-slate-500 hover:text-slate-800"
-                }`}
-              >
-                <MapPin size={15} />
-                <span>Mặt bằng & Cư dân Lưu trú</span>
-                {businessModalTab === "premises" && <div className="absolute bottom-0 left-0 w-full h-0.5 bg-emerald-600"></div>}
-              </button>
-              <button 
-                onClick={() => setBusinessModalTab("personnel")}
-                className={`py-3 transition-all relative cursor-pointer flex items-center gap-1.5 shrink-0 ${
-                  businessModalTab === "personnel" ? "text-purple-700 font-extrabold" : "text-slate-500 hover:text-slate-800"
-                }`}
-              >
-                <Users2 size={15} />
-                <span>Người đại diện & Lao động</span>
-                {businessModalTab === "personnel" && <div className="absolute bottom-0 left-0 w-full h-0.5 bg-purple-600"></div>}
-              </button>
-              <button 
-                onClick={() => setBusinessModalTab("history")}
-                className={`py-3 transition-all relative cursor-pointer flex items-center gap-1.5 shrink-0 ${
-                  businessModalTab === "history" ? "text-slate-900 font-extrabold" : "text-slate-500 hover:text-slate-800"
-                }`}
-              >
-                <History size={15} />
-                <span>Biến động & Kiểm tra</span>
-                {businessModalTab === "history" && <div className="absolute bottom-0 left-0 w-full h-0.5 bg-slate-900"></div>}
-              </button>
-            </div>
-
-            {/* Scrollable Modal Body */}
-            <div className="flex-1 overflow-y-auto overscroll-contain p-5 sm:p-6 space-y-4 bg-slate-50/70 text-xs sm:text-sm">
+                <div className="flex flex-wrap items-center justify-end gap-2">
+                  <button 
+                    type="button"
+                    onClick={() => setBusinessToDelete(selectedBusiness)}
+                    className="min-h-9 text-xs font-semibold py-1.5 px-3 border border-rose-200 text-rose-700 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer inline-flex items-center justify-center gap-1.5"
+                  >
+                    <Trash2 size={13} /> Xóa
+                  </button>
+                  <button 
+                    type="button"
+                    id="btn-close-business-modal"
+                    onClick={handleCloseDetailModal}
+                    className="min-h-9 text-xs font-semibold py-1.5 px-3.5 border border-slate-200 bg-white hover:bg-slate-100 text-slate-700 rounded-lg transition-colors cursor-pointer"
+                  >
+                    Đóng
+                  </button>
+                  <button 
+                    type="button"
+                    onClick={() => handleOpenEditModal(selectedBusiness)}
+                    className="min-h-9 text-xs font-semibold py-1.5 px-4 bg-emerald-700 hover:bg-emerald-800 text-white rounded-lg transition-colors cursor-pointer inline-flex items-center justify-center gap-1.5"
+                  >
+                    <Pencil size={13} /> Sửa hồ sơ
+                  </button>
+                </div>
+              </div>
+            }
+          >
 
               {businessModalTab === "general" && (
                 <div className="space-y-4">
@@ -2863,70 +2976,9 @@ export default function BusinessManagement({
                   </div>
                 </div>
               )}
-
-            </div>
-
-            {/* Footer Modal: Quick Status & Action Buttons (1 Hàng phẳng gọn gàng) */}
-            <div className="bg-white border-t border-slate-200 p-4 sm:px-6 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 shrink-0">
-              <div className="flex items-center gap-2">
-                <span className="text-xs font-semibold text-slate-500">Trạng thái:</span>
-                <select
-                  id="select-business-modal-status"
-                  value={selectedBusiness.status}
-                  onChange={(e) => onUpdateStatus(selectedBusiness.id, e.target.value as any)}
-                  className={`text-xs font-bold rounded-xl px-3 py-1.5 border transition-all cursor-pointer shadow-2xs focus:ring-2 focus:ring-indigo-500/20 ${
-                    selectedBusiness.status === "Đang hoạt động"
-                      ? "bg-emerald-50 text-emerald-800 border-emerald-300"
-                      : selectedBusiness.status === "Tạm ngưng"
-                      ? "bg-amber-50 text-amber-800 border-amber-300"
-                      : selectedBusiness.status === "Chuyển địa điểm"
-                      ? "bg-blue-50 text-blue-800 border-blue-300"
-                      : "bg-slate-100 text-slate-700 border-slate-300"
-                  }`}
-                >
-                  <option value="Đang hoạt động">🟢 Đang hoạt động</option>
-                  <option value="Tạm ngưng">🟡 Tạm ngưng</option>
-                  <option value="Chuyển địa điểm">🔵 Chuyển địa điểm</option>
-                  <option value="Chưa xác minh">⚪ Chưa xác minh</option>
-                </select>
-              </div>
-
-              <div className="flex items-center gap-2">
-                <button 
-                  type="button"
-                  onClick={() => window.print()}
-                  className="text-xs font-bold py-2 px-3 bg-white hover:bg-slate-50 text-slate-700 border border-slate-300 rounded-xl transition-all cursor-pointer flex items-center justify-center gap-1 shadow-2xs"
-                  title="In phiếu thông tin cơ sở kinh doanh"
-                >
-                  <Printer size={13} /> In phiếu
-                </button>
-
-                <button 
-                  onClick={() => handleOpenEditModal(selectedBusiness)}
-                  className="text-xs font-bold py-2 px-3.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl transition-all cursor-pointer flex items-center justify-center gap-1.5 shadow-2xs"
-                >
-                  <Pencil size={13} /> Sửa hồ sơ
-                </button>
-
-                <button 
-                  onClick={() => setBusinessToDelete(selectedBusiness)}
-                  className="text-xs font-bold py-2 px-3 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-xl transition-colors cursor-pointer flex items-center justify-center gap-1"
-                >
-                  <Trash2 size={13} /> Xóa
-                </button>
-
-                <button 
-                  onClick={handleCloseDetailModal}
-                  className="text-xs font-bold py-2 px-3.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl transition-colors cursor-pointer"
-                >
-                  Đóng
-                </button>
-              </div>
-            </div>
-
-          </div>
-        </div>
-      )}
+          </Modal>
+        );
+      })()}
 
       {/* DOCUMENT PREVIEW MODAL (SỔ ĐỎ PDF / ẢNH) */}
       {viewingDoc && (
@@ -3147,14 +3199,16 @@ export default function BusinessManagement({
       {showAddModal && (
         <div className="fixed inset-0 bg-slate-900/60 flex items-center justify-center z-50 p-4 backdrop-blur-sm animate-in fade-in duration-150">
           <div className="bg-white rounded-2xl shadow-xl w-full max-w-2xl max-h-[92vh] flex flex-col overflow-hidden animate-in zoom-in-95 duration-150">
-            <div className="bg-slate-900 text-white p-4 px-6 flex justify-between items-center shrink-0">
+            <div className="bg-slate-50 text-slate-900 border-b border-slate-200 p-4 px-6 flex justify-between items-center shrink-0">
               <h3 className="font-bold flex items-center gap-2 text-sm sm:text-base">
-                <Plus size={18} className="text-emerald-400" />
+                <Plus size={18} className="text-emerald-600" />
                 Đăng ký Cơ sở / Hộ Kinh doanh Mới
               </h3>
               <button 
+                type="button"
+                aria-label="Đóng"
                 onClick={() => setShowAddModal(false)}
-                className="text-slate-400 hover:text-white transition-colors cursor-pointer"
+                className="p-1.5 rounded-lg text-slate-500 hover:text-slate-800 hover:bg-slate-200/70 transition-colors cursor-pointer"
               >
                 <X size={20} />
               </button>
@@ -3202,15 +3256,17 @@ export default function BusinessManagement({
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                   <div className="space-y-1">
                     <label className="text-xs font-semibold text-slate-700 block">Loại hình cơ sở *</label>
-                    <select
+                    <ReportSelect
+                      aria-label="Loại hình cơ sở"
                       value={newBusinessType}
-                      onChange={(e) => setNewBusinessType(e.target.value as any)}
-                      className="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs sm:text-sm focus:outline-none focus:border-indigo-500 bg-white font-medium"
-                    >
-                      <option value="Hộ kinh doanh">Hộ kinh doanh cá thể</option>
-                      <option value="Cơ sở kinh doanh khác">Cơ sở kinh doanh tại chỗ</option>
-                      <option value="Doanh nghiệp tư nhân">Cơ sở tư nhân dịch vụ</option>
-                    </select>
+                      onChange={(nextVal) => setNewBusinessType(nextVal as any)}
+                      options={[
+                        { value: "Hộ kinh doanh", label: "Hộ kinh doanh cá thể" },
+                        { value: "Cơ sở kinh doanh khác", label: "Cơ sở kinh doanh tại chỗ" },
+                        { value: "Doanh nghiệp tư nhân", label: "Cơ sở tư nhân dịch vụ" },
+                      ]}
+                      className="w-full"
+                    />
                   </div>
 
                   <div className="space-y-1">
@@ -3239,22 +3295,21 @@ export default function BusinessManagement({
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div className="space-y-1">
                     <label className="text-xs font-semibold text-slate-700 block">Nhóm ngành nghề phân loại *</label>
-                    <select
+                    <ReportSelect
+                      aria-label="Nhóm ngành nghề phân loại"
                       value={newIndustryGroup}
-                      onChange={(e) => {
-                        setNewIndustryGroup(e.target.value);
-                        if (e.target.value === "Lưu trú & Cho thuê") {
+                      onChange={(nextVal) => {
+                        setNewIndustryGroup(nextVal);
+                        if (nextVal === "Lưu trú & Cho thuê") {
                           setNewIsAccommodation(true);
                         }
                       }}
-                      className="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs sm:text-sm focus:outline-none focus:border-indigo-500 bg-white font-medium"
-                    >
-                      {INDUSTRY_SECTORS.map((sec) => (
-                        <option key={sec.id} value={sec.id}>
-                          {sec.icon} {sec.name}
-                        </option>
-                      ))}
-                    </select>
+                      options={INDUSTRY_SECTORS.map((sec) => ({
+                        value: sec.id,
+                        label: `${sec.icon} ${sec.name}`,
+                      }))}
+                      className="w-full"
+                    />
                   </div>
                   <div className="space-y-1">
                     <label className="text-xs font-semibold text-slate-700 block">Lĩnh vực / Loại hình cụ thể *</label>
@@ -3290,35 +3345,39 @@ export default function BusinessManagement({
                   </div>
                   <div className="space-y-1">
                     <label className="text-xs font-semibold text-slate-700 block">Tuyến đường / Phân khu *</label>
-                    <select
+                    <ReportSelect
+                      aria-label="Tuyến đường / Phân khu"
                       value={newStreetArea}
-                      onChange={(e) => setNewStreetArea(e.target.value)}
-                      className="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs sm:text-sm focus:outline-none focus:border-indigo-500 bg-white font-medium"
-                    >
-                      <option value="Mặt tiền Lương Định Của">Mặt tiền Lương Định Của</option>
-                      <option value="Hẻm 42 Lương Định Của">Hẻm 42 Lương Định Của</option>
-                      <option value="Hẻm 18 Lương Định Của">Hẻm 18 Lương Định Của</option>
-                      <option value="Khu dân cư nội bộ KP3">Khu dân cư nội bộ KP3</option>
-                    </select>
+                      onChange={(nextVal) => setNewStreetArea(nextVal)}
+                      options={[
+                        { value: "Mặt tiền Lương Định Của", label: "Mặt tiền Lương Định Của" },
+                        { value: "Hẻm 42 Lương Định Của", label: "Hẻm 42 Lương Định Của" },
+                        { value: "Hẻm 18 Lương Định Của", label: "Hẻm 18 Lương Định Của" },
+                        { value: "Khu dân cư nội bộ KP3", label: "Khu dân cư nội bộ KP3" },
+                      ]}
+                      className="w-full"
+                    />
                   </div>
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                   <div className="space-y-1">
                     <label className="text-xs font-semibold text-slate-700 block">Loại mặt bằng *</label>
-                    <select
+                    <ReportSelect
+                      aria-label="Loại mặt bằng"
                       value={newPremisesType}
-                      onChange={(e) => setNewPremisesType(e.target.value as any)}
-                      className="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs sm:text-sm focus:outline-none focus:border-indigo-500 bg-white font-medium"
-                    >
-                      <option value="Nhà phố">Nhà phố</option>
-                      <option value="Cửa hàng">Cửa hàng</option>
-                      <option value="Văn phòng">Văn phòng</option>
-                      <option value="Nhà xưởng">Nhà xưởng</option>
-                      <option value="Ki-ốt">Ki-ốt</option>
-                      <option value="Địa điểm thuê">Địa điểm thuê</option>
-                      <option value="Chung cư / Căn hộ">Chung cư / Căn hộ</option>
-                    </select>
+                      onChange={(nextVal) => setNewPremisesType(nextVal as any)}
+                      options={[
+                        { value: "Nhà phố", label: "Nhà phố" },
+                        { value: "Cửa hàng", label: "Cửa hàng" },
+                        { value: "Văn phòng", label: "Văn phòng" },
+                        { value: "Nhà xưởng", label: "Nhà xưởng" },
+                        { value: "Ki-ốt", label: "Ki-ốt" },
+                        { value: "Địa điểm thuê", label: "Địa điểm thuê" },
+                        { value: "Chung cư / Căn hộ", label: "Chung cư / Căn hộ" },
+                      ]}
+                      className="w-full"
+                    />
                   </div>
                   <div className="space-y-1">
                     <label className="text-xs font-semibold text-slate-700 block">Chủ sở hữu / Quản lý mặt bằng</label>
@@ -3822,7 +3881,7 @@ export default function BusinessManagement({
                 </button>
                 <button 
                   type="submit" 
-                  className="px-5 py-2 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white font-bold rounded-xl transition-all shadow-sm cursor-pointer text-xs sm:text-sm"
+                  className="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl transition-colors cursor-pointer text-xs sm:text-sm"
                 >
                   Đăng ký Cơ sở
                 </button>
@@ -3835,15 +3894,17 @@ export default function BusinessManagement({
       {/* Edit Business Modal */}
       {showEditModal && (
         <div className="fixed inset-0 bg-slate-900/60 flex items-center justify-center z-50 p-4 backdrop-blur-sm animate-in fade-in duration-150">
-          <div className="bg-white rounded-2xl shadow-xl w-full max-w-2xl max-h-[92vh] flex flex-col overflow-hidden animate-in zoom-in-95 duration-150">
-            <div className="bg-indigo-950 text-white p-4 px-6 flex justify-between items-center shrink-0">
+          <div className="bg-white rounded-2xl shadow-xl border border-slate-200 w-full max-w-2xl max-h-[92vh] flex flex-col overflow-hidden animate-in zoom-in-95 duration-150">
+            <div className="bg-slate-50 text-slate-900 border-b border-slate-200 p-4 px-6 flex justify-between items-center shrink-0">
               <h3 className="font-bold flex items-center gap-2 text-sm sm:text-base">
-                <Pencil size={18} className="text-indigo-400" />
+                <Pencil size={18} className="text-indigo-600" />
                 Chỉnh sửa Thông tin Cơ sở Kinh doanh
               </h3>
               <button 
+                type="button"
+                aria-label="Đóng"
                 onClick={() => setShowEditModal(false)}
-                className="text-slate-400 hover:text-white transition-colors cursor-pointer"
+                className="p-1.5 rounded-lg text-slate-500 hover:text-slate-800 hover:bg-slate-200/70 transition-colors cursor-pointer"
               >
                 <X size={20} />
               </button>
@@ -3891,15 +3952,17 @@ export default function BusinessManagement({
                   </div>
                   <div className="space-y-1">
                     <label className="text-xs font-semibold text-slate-700 block">Loại hình cơ sở *</label>
-                    <select
+                    <ReportSelect
+                      aria-label="Loại hình cơ sở"
                       value={editBusinessType}
-                      onChange={(e) => setEditBusinessType(e.target.value as any)}
-                      className="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs sm:text-sm focus:outline-none focus:border-indigo-500 bg-white font-medium"
-                    >
-                      <option value="Hộ kinh doanh">Hộ kinh doanh cá thể</option>
-                      <option value="Cơ sở kinh doanh khác">Cơ sở kinh doanh tại chỗ</option>
-                      <option value="Doanh nghiệp tư nhân">Cơ sở tư nhân dịch vụ</option>
-                    </select>
+                      onChange={(nextVal) => setEditBusinessType(nextVal as any)}
+                      options={[
+                        { value: "Hộ kinh doanh", label: "Hộ kinh doanh cá thể" },
+                        { value: "Cơ sở kinh doanh khác", label: "Cơ sở kinh doanh tại chỗ" },
+                        { value: "Doanh nghiệp tư nhân", label: "Cơ sở tư nhân dịch vụ" },
+                      ]}
+                      className="w-full"
+                    />
                   </div>
                   <div className="space-y-1">
                     <label className="text-xs font-semibold text-slate-700 block">Số lượng lao động tại cơ sở</label>
@@ -3916,22 +3979,21 @@ export default function BusinessManagement({
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                   <div className="space-y-1">
                     <label className="text-xs font-semibold text-slate-700 block">Nhóm ngành nghề *</label>
-                    <select
+                    <ReportSelect
+                      aria-label="Nhóm ngành nghề"
                       value={editIndustryGroup}
-                      onChange={(e) => {
-                        setEditIndustryGroup(e.target.value);
-                        if (e.target.value === "Lưu trú & Cho thuê") {
+                      onChange={(nextVal) => {
+                        setEditIndustryGroup(nextVal);
+                        if (nextVal === "Lưu trú & Cho thuê") {
                           setEditIsAccommodation(true);
                         }
                       }}
-                      className="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs sm:text-sm focus:outline-none focus:border-indigo-500 bg-white font-medium"
-                    >
-                      {INDUSTRY_SECTORS.map((sec) => (
-                        <option key={sec.id} value={sec.id}>
-                          {sec.icon} {sec.name}
-                        </option>
-                      ))}
-                    </select>
+                      options={INDUSTRY_SECTORS.map((sec) => ({
+                        value: sec.id,
+                        label: `${sec.icon} ${sec.name}`,
+                      }))}
+                      className="w-full"
+                    />
                   </div>
                   <div className="space-y-1">
                     <label className="text-xs font-semibold text-slate-700 block">Lĩnh vực cụ thể *</label>
@@ -3975,35 +4037,39 @@ export default function BusinessManagement({
                   </div>
                   <div className="space-y-1">
                     <label className="text-xs font-semibold text-slate-700 block">Tuyến đường / Phân khu *</label>
-                    <select
+                    <ReportSelect
+                      aria-label="Tuyến đường / Phân khu"
                       value={editStreetArea}
-                      onChange={(e) => setEditStreetArea(e.target.value)}
-                      className="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs sm:text-sm focus:outline-none focus:border-indigo-500 bg-white font-medium"
-                    >
-                      <option value="Mặt tiền Lương Định Của">Mặt tiền Lương Định Của</option>
-                      <option value="Hẻm 42 Lương Định Của">Hẻm 42 Lương Định Của</option>
-                      <option value="Hẻm 18 Lương Định Của">Hẻm 18 Lương Định Của</option>
-                      <option value="Khu dân cư nội bộ KP3">Khu dân cư nội bộ KP3</option>
-                    </select>
+                      onChange={(nextVal) => setEditStreetArea(nextVal)}
+                      options={[
+                        { value: "Mặt tiền Lương Định Của", label: "Mặt tiền Lương Định Của" },
+                        { value: "Hẻm 42 Lương Định Của", label: "Hẻm 42 Lương Định Của" },
+                        { value: "Hẻm 18 Lương Định Của", label: "Hẻm 18 Lương Định Của" },
+                        { value: "Khu dân cư nội bộ KP3", label: "Khu dân cư nội bộ KP3" },
+                      ]}
+                      className="w-full"
+                    />
                   </div>
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                   <div className="space-y-1">
                     <label className="text-xs font-semibold text-slate-700 block">Loại mặt bằng *</label>
-                    <select
+                    <ReportSelect
+                      aria-label="Loại mặt bằng"
                       value={editPremisesType}
-                      onChange={(e) => setEditPremisesType(e.target.value as any)}
-                      className="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs sm:text-sm focus:outline-none focus:border-indigo-500 bg-white font-medium"
-                    >
-                      <option value="Nhà phố">Nhà phố</option>
-                      <option value="Cửa hàng">Cửa hàng</option>
-                      <option value="Văn phòng">Văn phòng</option>
-                      <option value="Nhà xưởng">Nhà xưởng</option>
-                      <option value="Ki-ốt">Ki-ốt</option>
-                      <option value="Địa điểm thuê">Địa điểm thuê</option>
-                      <option value="Chung cư / Căn hộ">Chung cư / Căn hộ</option>
-                    </select>
+                      onChange={(nextVal) => setEditPremisesType(nextVal as any)}
+                      options={[
+                        { value: "Nhà phố", label: "Nhà phố" },
+                        { value: "Cửa hàng", label: "Cửa hàng" },
+                        { value: "Văn phòng", label: "Văn phòng" },
+                        { value: "Nhà xưởng", label: "Nhà xưởng" },
+                        { value: "Ki-ốt", label: "Ki-ốt" },
+                        { value: "Địa điểm thuê", label: "Địa điểm thuê" },
+                        { value: "Chung cư / Căn hộ", label: "Chung cư / Căn hộ" },
+                      ]}
+                      className="w-full"
+                    />
                   </div>
                   <div className="space-y-1">
                     <label className="text-xs font-semibold text-slate-700 block">Chủ sở hữu / Quản lý mặt bằng</label>
@@ -4508,25 +4574,26 @@ export default function BusinessManagement({
         >
           <div 
             onClick={(e) => e.stopPropagation()}
-            className="bg-white rounded-2xl shadow-2xl border border-slate-700/40 w-full max-w-lg max-h-[92dvh] flex flex-col overflow-hidden animate-in zoom-in-95 duration-150 text-slate-800"
+            className="bg-white rounded-2xl shadow-xl border border-slate-200 w-full max-w-lg max-h-[92dvh] flex flex-col overflow-hidden animate-in zoom-in-95 duration-150 text-slate-800"
           >
-            {/* Modal Header */}
-            <div className="bg-gradient-to-r from-emerald-900 via-slate-900 to-slate-950 p-4 sm:px-6 flex items-center justify-between text-white shrink-0 border-b border-slate-800">
-              <div className="flex items-center gap-2.5">
-                <div className="p-2 bg-emerald-500/20 text-emerald-400 rounded-xl border border-emerald-500/30">
+            {/* Modal Header - Flat Hairline Light */}
+            <div className="bg-slate-50 p-4 sm:px-6 flex items-center justify-between text-slate-900 shrink-0 border-b border-slate-200">
+              <div className="flex items-center gap-2.5 min-w-0">
+                <div className="p-2 bg-emerald-50 text-emerald-700 rounded-xl border border-emerald-200 shrink-0">
                   <FileCheck size={18} />
                 </div>
-                <div>
-                  <h3 className="font-bold text-sm sm:text-base text-white">Thêm Biên bản Kiểm tra định kỳ</h3>
-                  <p className="text-[11px] text-emerald-200/80 truncate max-w-[280px] sm:max-w-xs">
+                <div className="min-w-0">
+                  <h3 className="font-bold text-sm sm:text-base text-slate-900">Thêm Biên bản Kiểm tra định kỳ</h3>
+                  <p className="text-xs text-slate-600 truncate max-w-[280px] sm:max-w-xs">
                     Cơ sở: {selectedBusiness.name}
                   </p>
                 </div>
               </div>
               <button 
                 type="button"
+                aria-label="Đóng"
                 onClick={() => setShowAddInspectionModal(false)}
-                className="p-1.5 text-slate-400 hover:text-white hover:bg-white/10 rounded-lg transition-colors cursor-pointer"
+                className="p-1.5 text-slate-500 hover:text-slate-800 hover:bg-slate-200/70 rounded-lg transition-colors cursor-pointer shrink-0"
               >
                 <X size={18} />
               </button>
@@ -4552,16 +4619,18 @@ export default function BusinessManagement({
                   <label className="font-bold text-slate-700 block">
                     Kết quả đánh giá <span className="text-rose-500">*</span>
                   </label>
-                  <select
+                  <ReportSelect
+                    aria-label="Kết quả đánh giá"
                     value={formInspResult}
-                    onChange={(e) => setFormInspResult(e.target.value as any)}
-                    className="w-full px-3 py-2 border border-slate-200 rounded-xl focus:outline-none focus:border-emerald-500 bg-white font-semibold"
-                  >
-                    <option value="Đạt chuẩn">✅ Đạt chuẩn</option>
-                    <option value="Cảnh cáo">⚠️ Cảnh cáo</option>
-                    <option value="Yêu cầu khắc phục">🛠️ Yêu cầu khắc phục</option>
-                    <option value="Không đạt">❌ Không đạt</option>
-                  </select>
+                    onChange={(nextVal) => setFormInspResult(nextVal as any)}
+                    options={[
+                      { value: "Đạt chuẩn", label: "Đạt chuẩn" },
+                      { value: "Cảnh cáo", label: "Cảnh cáo" },
+                      { value: "Yêu cầu khắc phục", label: "Yêu cầu khắc phục" },
+                      { value: "Không đạt", label: "Không đạt" },
+                    ]}
+                    className="w-full"
+                  />
                 </div>
               </div>
 
@@ -4675,25 +4744,26 @@ export default function BusinessManagement({
         >
           <div 
             onClick={(e) => e.stopPropagation()}
-            className="bg-white rounded-2xl shadow-2xl border border-slate-700/40 w-full max-w-lg max-h-[92dvh] flex flex-col overflow-hidden animate-in zoom-in-95 duration-150 text-slate-800"
+            className="bg-white rounded-2xl shadow-xl border border-slate-200 w-full max-w-lg max-h-[92dvh] flex flex-col overflow-hidden animate-in zoom-in-95 duration-150 text-slate-800"
           >
-            {/* Modal Header */}
-            <div className="bg-gradient-to-r from-indigo-900 via-slate-900 to-slate-950 p-4 sm:px-6 flex items-center justify-between text-white shrink-0 border-b border-slate-800">
-              <div className="flex items-center gap-2.5">
-                <div className="p-2 bg-indigo-500/20 text-indigo-400 rounded-xl border border-indigo-500/30">
+            {/* Modal Header - Flat Hairline Light */}
+            <div className="bg-slate-50 p-4 sm:px-6 flex items-center justify-between text-slate-900 shrink-0 border-b border-slate-200">
+              <div className="flex items-center gap-2.5 min-w-0">
+                <div className="p-2 bg-indigo-50 text-indigo-700 rounded-xl border border-indigo-200 shrink-0">
                   <Pencil size={18} />
                 </div>
-                <div>
-                  <h3 className="font-bold text-sm sm:text-base text-white">Chỉnh sửa Biên bản Kiểm tra</h3>
-                  <p className="text-[11px] text-indigo-200/80 truncate max-w-[280px] sm:max-w-xs">
+                <div className="min-w-0">
+                  <h3 className="font-bold text-sm sm:text-base text-slate-900">Chỉnh sửa Biên bản Kiểm tra</h3>
+                  <p className="text-xs text-slate-600 truncate max-w-[280px] sm:max-w-xs">
                     Mã đợt: {editingInspection.id} • {selectedBusiness.name}
                   </p>
                 </div>
               </div>
               <button 
                 type="button"
+                aria-label="Đóng"
                 onClick={() => { setShowEditInspectionModal(false); setEditingInspection(null); }}
-                className="p-1.5 text-slate-400 hover:text-white hover:bg-white/10 rounded-lg transition-colors cursor-pointer"
+                className="p-1.5 text-slate-500 hover:text-slate-800 hover:bg-slate-200/70 rounded-lg transition-colors cursor-pointer shrink-0"
               >
                 <X size={18} />
               </button>
@@ -4719,16 +4789,18 @@ export default function BusinessManagement({
                   <label className="font-bold text-slate-700 block">
                     Kết quả đánh giá <span className="text-rose-500">*</span>
                   </label>
-                  <select
+                  <ReportSelect
+                    aria-label="Kết quả đánh giá"
                     value={formInspResult}
-                    onChange={(e) => setFormInspResult(e.target.value as any)}
-                    className="w-full px-3 py-2 border border-slate-200 rounded-xl focus:outline-none focus:border-indigo-500 bg-white font-semibold"
-                  >
-                    <option value="Đạt chuẩn">✅ Đạt chuẩn</option>
-                    <option value="Cảnh cáo">⚠️ Cảnh cáo</option>
-                    <option value="Yêu cầu khắc phục">🛠️ Yêu cầu khắc phục</option>
-                    <option value="Không đạt">❌ Không đạt</option>
-                  </select>
+                    onChange={(nextVal) => setFormInspResult(nextVal as any)}
+                    options={[
+                      { value: "Đạt chuẩn", label: "Đạt chuẩn" },
+                      { value: "Cảnh cáo", label: "Cảnh cáo" },
+                      { value: "Yêu cầu khắc phục", label: "Yêu cầu khắc phục" },
+                      { value: "Không đạt", label: "Không đạt" },
+                    ]}
+                    className="w-full"
+                  />
                 </div>
               </div>
 
@@ -4858,48 +4930,24 @@ export default function BusinessManagement({
       )}
 
       {/* Delete Confirmation Dialog */}
-      {businessToDelete && (
-        <div className="fixed inset-0 bg-slate-900/60 flex items-center justify-center z-[9999] p-4 backdrop-blur-sm animate-in fade-in duration-150">
-          <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm overflow-hidden animate-in zoom-in-95 duration-150 p-5 space-y-4">
-            <h3 className="font-bold text-slate-800 text-sm">Xác nhận xóa hộ kinh doanh</h3>
-            <p className="text-xs text-slate-500 leading-relaxed">
-              Bạn có chắc chắn muốn xóa hộ kinh doanh <strong className="text-slate-800">{businessToDelete.name}</strong> (<span className="text-rose-700 font-semibold">{businessToDelete.licenseNumber}</span>) thuộc đại diện <strong className="text-slate-800">{businessToDelete.owner}</strong> ra khỏi danh sách quản lý địa phương không?
-            </p>
-            <div className="flex justify-end gap-2 pt-2 border-t border-slate-100">
-              <button
-                type="button"
-                onClick={() => setBusinessToDelete(null)}
-                className="px-3.5 py-2 border border-slate-200 rounded-xl text-xs text-slate-600 hover:bg-slate-50 transition-colors cursor-pointer font-semibold"
-              >
-                Hủy bỏ
-              </button>
-              <button
-                type="button"
-                onClick={() => executeDeleteBusiness(businessToDelete.id)}
-                className="px-3.5 py-2 bg-rose-600 hover:bg-rose-700 text-white font-bold rounded-xl text-xs transition-colors cursor-pointer"
-              >
-                Xác nhận xóa
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <ConfirmModal
+        isOpen={Boolean(businessToDelete)}
+        onClose={() => setBusinessToDelete(null)}
+        onConfirm={() => businessToDelete && executeDeleteBusiness(businessToDelete.id)}
+        title="Xác nhận xóa hộ kinh doanh"
+        description={businessToDelete ? `Bạn có chắc chắn muốn xóa hộ kinh doanh "${businessToDelete.name}" (${businessToDelete.licenseNumber}) thuộc đại diện ${businessToDelete.owner} ra khỏi danh sách quản lý địa phương không?` : ""}
+        confirmLabel="Xác nhận xóa"
+        variant="danger"
+      />
 
       {/* Toast Notification */}
       {toast && (
-        <div className="fixed top-4 right-4 z-[9999] animate-in fade-in slide-in-from-top-4 duration-300">
-          <div className={`px-4 py-3 rounded-xl shadow-lg border text-xs font-semibold flex items-center gap-2 ${
-            toast.type === "success" 
-              ? "bg-emerald-50 border-emerald-200 text-emerald-800" 
-              : toast.type === "warning"
-              ? "bg-amber-50 border-amber-200 text-amber-850"
-              : "bg-rose-50 border-rose-200 text-rose-800"
-          }`}>
-            <span className={`w-2 h-2 rounded-full ${
-              toast.type === "success" ? "bg-emerald-600" : toast.type === "warning" ? "bg-amber-600" : "bg-rose-600"
-            }`}></span>
-            {toast.message}
-          </div>
+        <div className="fixed top-4 right-4 z-[9999] max-w-sm animate-in fade-in slide-in-from-top-4 duration-300">
+          <InlineNotice
+            message={toast.message}
+            type={toast.type}
+            onDismiss={() => setToast(null)}
+          />
         </div>
       )}
     </div>

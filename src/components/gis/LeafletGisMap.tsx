@@ -1,613 +1,849 @@
 import React, { useEffect, useRef, useState } from "react";
 import L from "leaflet";
-import "leaflet/dist/leaflet.css";
-import { 
-  Maximize2, 
-  Layers, 
-  MapPin, 
-  Navigation, 
-  Tv, 
-  Home, 
-  Briefcase, 
-  Camera, 
-  Flame, 
-  Lightbulb, 
-  RotateCcw,
-  CheckCircle2,
-  Info,
-  Compass
-} from "lucide-react";
+import { Compass, Layers, Crosshair, X, Radar } from "lucide-react";
 import { KP3_CENTER } from "../../utils/gisUtils";
-import { GisPin } from "../GisMap";
 import { BoundaryStyle } from "./GisBoundaryManagerModal";
+import { GisLayersState, GisPickedLocation, GisPin, GisPinType } from "./gisTypes";
+import {
+  KP3_14_ZONES,
+  PIN_CATEGORY_META,
+  detectToDanPhoFromCoord,
+  formatLatLngVN,
+} from "../../data/gisConfig";
 
-// 5 Sub-zones for Tổ Dân Phố within KP3
-export const TO_DAN_PHO_ZONES = [
-  {
-    id: "TDP_11",
-    name: "Tổ dân phố 11",
-    leader: "Ông Nguyễn Văn Hùng",
-    color: "#6366f1", // Indigo
-    coords: [
-      { lat: 10.9385, lng: 106.7432 },
-      { lat: 10.9392, lng: 106.7450 },
-      { lat: 10.9378, lng: 106.7455 },
-      { lat: 10.9372, lng: 106.7436 }
-    ]
-  },
-  {
-    id: "TDP_12",
-    name: "Tổ dân phố 12 (Khu trung tâm)",
-    leader: "Bà Lê Thị Mai",
-    color: "#10b981", // Emerald
-    coords: [
-      { lat: 10.9372, lng: 106.7436 },
-      { lat: 10.9378, lng: 106.7455 },
-      { lat: 10.9362, lng: 106.7460 },
-      { lat: 10.9356, lng: 106.7440 }
-    ]
-  },
-  {
-    id: "TDP_13",
-    name: "Tổ dân phố 13",
-    leader: "Ông Trần Văn Minh",
-    color: "#f59e0b", // Amber
-    coords: [
-      { lat: 10.9392, lng: 106.7450 },
-      { lat: 10.9388, lng: 106.7472 },
-      { lat: 10.9374, lng: 106.7475 },
-      { lat: 10.9378, lng: 106.7455 }
-    ]
-  },
-  {
-    id: "TDP_14",
-    name: "Tổ dân phố 14",
-    leader: "Bà Phạm Thị Lan",
-    color: "#ec4899", // Pink
-    coords: [
-      { lat: 10.9378, lng: 106.7455 },
-      { lat: 10.9374, lng: 106.7475 },
-      { lat: 10.9358, lng: 106.7468 },
-      { lat: 10.9362, lng: 106.7460 }
-    ]
-  },
-  {
-    id: "TDP_15",
-    name: "Tổ dân phố 15 (Giáp Dĩ An)",
-    leader: "Ông Hoàng Văn Thái",
-    color: "#06b6d4", // Cyan
-    coords: [
-      { lat: 10.9356, lng: 106.7440 },
-      { lat: 10.9362, lng: 106.7460 },
-      { lat: 10.9350, lng: 106.7452 },
-      { lat: 10.9345, lng: 106.7435 }
-    ]
-  }
-];
-
-interface LeafletGisMapProps {
+export interface LeafletGisMapProps {
+  pins: GisPin[];
+  selectedPin: GisPin | null;
+  onSelectPin: (pin: GisPin) => void;
+  layers: GisLayersState;
   boundaryCoords: { lat: number; lng: number }[];
   boundaryStyle: BoundaryStyle;
   isBoundaryEditMode: boolean;
   selectedMilestoneIndex: number | null;
   onSelectMilestone: (index: number | null) => void;
-  onAddVertexFromMap?: (coord: { lat: number; lng: number }) => void;
-  onUpdateMilestoneCoord?: (index: number, newCoord: { lat: number; lng: number }) => void;
-  layers: {
-    boundary: boolean;
-    household: boolean;
-    business: boolean;
-    camera: boolean;
-    fire: boolean;
-    light: boolean;
-  };
-  pins: GisPin[];
-  selectedPin: GisPin | null;
-  onSelectPin: (pin: GisPin) => void;
-  onLiveCameraClick?: () => void;
+  onUpdateMilestoneCoord: (index: number, coord: { lat: number; lng: number }) => void;
+  onAddVertexFromMap: (coord: { lat: number; lng: number }) => void;
+  isPickLocationMode?: boolean;
+  pickedCoord?: { lat: number; lng: number } | null;
+  onPickLocation?: (location: GisPickedLocation) => void;
+  onCancelPickLocation?: () => void;
+  showCoverageRadius?: boolean;
+  onToggleCoverageRadius?: () => void;
+  routeTarget?: GisPin | null;
+  activeToFilter?: number | null;
+  onSelectToFilter?: (toNum: number | null) => void;
+  onTriggerLiveStream?: (pin: GisPin) => void;
+  focusZoomCoord?: { lat: number; lng: number; zoom?: number; ts?: number } | null;
+  readOnly?: boolean;
+}
+
+type MapTileStyle = "streets" | "satellite" | "light";
+
+const TILE_PROVIDERS: Record<
+  MapTileStyle,
+  { url: string; attribution: string; maxZoom: number }
+> = {
+  streets: {
+    url: "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
+    attribution: "© OpenStreetMap contributors",
+    maxZoom: 19,
+  },
+  satellite: {
+    url: "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
+    attribution: "© Esri, Maxar, Earthstar Geographics",
+    maxZoom: 19,
+  },
+  light: {
+    url: "https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png",
+    attribution: "© OpenStreetMap & CARTO",
+    maxZoom: 19,
+  },
+};
+
+function getPinSvgPath(type: GisPinType): string {
+  switch (type) {
+    case "civic":
+      return '<path d="M3 21h18"/><path d="M6 21V9l6-4 6 4v12"/><path d="M10 21v-4h4v4"/>';
+    case "report":
+      return '<path d="M12 9v4"/><path d="M12 17h.01"/><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z"/>';
+    case "camera":
+      return '<path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"/><circle cx="12" cy="13" r="3"/>';
+    case "fire":
+      return '<path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z"/>';
+    case "light":
+      return '<path d="M15 14c.2-1 .7-1.7 1.5-2.5 1-.9 1.5-2.2 1.5-3.5A6 6 0 0 0 6 8c0 1 .2 2.2 1.5 3.5.7.7 1.3 1.5 1.5 2.5"/><path d="M9 18h6"/><path d="M10 22h4"/>';
+    case "business":
+      return '<path d="M6 22V4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v18Z"/><path d="M6 12H4a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h2"/><path d="M18 9h2a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-2"/>';
+    case "household":
+      return '<path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/>';
+    default:
+      return '<path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/>';
+  }
+}
+
+function escapeHtml(text: string): string {
+  return text
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
 }
 
 export default function LeafletGisMap({
+  pins,
+  selectedPin,
+  onSelectPin,
+  layers,
   boundaryCoords,
   boundaryStyle,
   isBoundaryEditMode,
   selectedMilestoneIndex,
   onSelectMilestone,
-  onAddVertexFromMap,
   onUpdateMilestoneCoord,
-  layers,
-  pins,
-  selectedPin,
-  onSelectPin,
-  onLiveCameraClick
+  onAddVertexFromMap,
+  isPickLocationMode = false,
+  pickedCoord = null,
+  onPickLocation,
+  onCancelPickLocation,
+  showCoverageRadius = false,
+  onToggleCoverageRadius,
+  routeTarget = null,
+  activeToFilter = null,
+  onSelectToFilter,
+  onTriggerLiveStream,
+  focusZoomCoord = null,
+  readOnly = false,
 }: LeafletGisMapProps) {
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<L.Map | null>(null);
-  
-  const isBoundaryEditModeRef = useRef(isBoundaryEditMode);
+  const tileLayerRef = useRef<L.TileLayer | null>(null);
+  const boundaryLayerRef = useRef<L.Polygon | null>(null);
+  const milestonesGroupRef = useRef<L.LayerGroup | null>(null);
+  const tdpGroupRef = useRef<L.LayerGroup | null>(null);
+  const coverageGroupRef = useRef<L.LayerGroup | null>(null);
+  const routeGroupRef = useRef<L.LayerGroup | null>(null);
+  const pinsGroupRef = useRef<L.LayerGroup | null>(null);
+  const pickerLayerRef = useRef<L.LayerGroup | null>(null);
+
+  const [mapStyle, setMapStyle] = useState<MapTileStyle>("streets");
+  const [showTdpZones, setShowTdpZones] = useState<boolean>(false);
+  const [currentZoom, setCurrentZoom] = useState<number>(16);
+  const [mapMoveSeq, setMapMoveSeq] = useState<number>(0);
+
+  // Refs synced so map click/drag handlers avoid stale closures
+  const isBoundaryEditRef = useRef(isBoundaryEditMode);
+  const isPickLocationRef = useRef(isPickLocationMode);
+  const addVertexRef = useRef(onAddVertexFromMap);
+  const pickLocationRef = useRef(onPickLocation);
+  const selectPinRef = useRef(onSelectPin);
+  const selectMilestoneRef = useRef(onSelectMilestone);
+  const updateMilestoneRef = useRef(onUpdateMilestoneCoord);
+  const selectToFilterRef = useRef(onSelectToFilter);
+  const liveStreamRef = useRef(onTriggerLiveStream);
+
   useEffect(() => {
-    isBoundaryEditModeRef.current = isBoundaryEditMode;
+    isBoundaryEditRef.current = isBoundaryEditMode;
   }, [isBoundaryEditMode]);
 
-  const onAddVertexFromMapRef = useRef(onAddVertexFromMap);
   useEffect(() => {
-    onAddVertexFromMapRef.current = onAddVertexFromMap;
-  }, [onAddVertexFromMap]);
-  
-  // Layer groups
-  const tileLayerRef = useRef<L.TileLayer | null>(null);
-  const boundaryPolygonRef = useRef<L.Polygon | null>(null);
-  const milestoneMarkersGroupRef = useRef<L.LayerGroup | null>(null);
-  const pinsGroupRef = useRef<L.LayerGroup | null>(null);
-  const tdpPolygonsGroupRef = useRef<L.LayerGroup | null>(null);
+    isPickLocationRef.current = isPickLocationMode;
+  }, [isPickLocationMode]);
 
-  // Map state
-  const [mapStyle, setMapStyle] = useState<"streets" | "satellite" | "light">("streets");
-  const [showTdpZones, setShowTdpZones] = useState<boolean>(true);
-  const [zoomLevel, setZoomLevel] = useState<number>(16);
-
-  // Available Tile Providers
-  const TILE_PROVIDERS = {
-    streets: {
-      url: "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
-      attribution: "&copy; OpenStreetMap contributors",
-      maxZoom: 19
-    },
-    satellite: {
-      url: "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
-      attribution: "Tiles &copy; Esri &mdash; Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-EGP, and the GIS User Community",
-      maxZoom: 18
-    },
-    light: {
-      url: "https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png",
-      attribution: "&copy; OpenStreetMap contributors &copy; CARTO",
-      maxZoom: 19
-    }
-  };
-
-  // 1. Initialize Leaflet Map
   useEffect(() => {
-    if (!mapContainerRef.current) return;
-    if (mapInstanceRef.current) return; // Prevent double initialization
+    addVertexRef.current = onAddVertexFromMap;
+    pickLocationRef.current = onPickLocation;
+    selectPinRef.current = onSelectPin;
+    selectMilestoneRef.current = onSelectMilestone;
+    updateMilestoneRef.current = onUpdateMilestoneCoord;
+    selectToFilterRef.current = onSelectToFilter;
+    liveStreamRef.current = onTriggerLiveStream;
+  });
 
-    // Bounds restriction: keep user within An Phú & TP. Hồ Chí Minh / Dĩ An region
-    const southWest = L.latLng(10.7500, 106.6500);
-    const northEast = L.latLng(11.0500, 106.8500);
-    const bounds = L.latLngBounds(southWest, northEast);
+  // 1. Initialize Leaflet map once
+  useEffect(() => {
+    if (!mapContainerRef.current || mapInstanceRef.current) return;
 
     const map = L.map(mapContainerRef.current, {
       center: [KP3_CENTER.lat, KP3_CENTER.lng],
       zoom: 16,
-      minZoom: 13,
-      maxZoom: 19,
-      maxBounds: bounds,
-      maxBoundsViscosity: 0.8, // Bounce back if dragged out
-      zoomControl: false // Custom controls
+      zoomSnap: 0.25,
+      preferCanvas: true,
+      renderer: L.canvas({ padding: 0 }),
+      zoomControl: false,
+      attributionControl: true,
     });
 
-    // Default tile layer
-    const tileLayer = L.tileLayer(TILE_PROVIDERS.streets.url, {
-      attribution: TILE_PROVIDERS.streets.attribution,
-      maxZoom: TILE_PROVIDERS.streets.maxZoom
+    const provider = TILE_PROVIDERS.streets;
+    tileLayerRef.current = L.tileLayer(provider.url, {
+      attribution: provider.attribution,
+      maxZoom: provider.maxZoom,
     }).addTo(map);
 
-    tileLayerRef.current = tileLayer;
-    milestoneMarkersGroupRef.current = L.layerGroup().addTo(map);
+    tdpGroupRef.current = L.layerGroup().addTo(map);
+    coverageGroupRef.current = L.layerGroup().addTo(map);
+    routeGroupRef.current = L.layerGroup().addTo(map);
+    milestonesGroupRef.current = L.layerGroup().addTo(map);
     pinsGroupRef.current = L.layerGroup().addTo(map);
-    tdpPolygonsGroupRef.current = L.layerGroup().addTo(map);
+    pickerLayerRef.current = L.layerGroup().addTo(map);
+
+    if (boundaryCoords.length >= 3) {
+      const initBounds = L.latLngBounds(
+        boundaryCoords.map((c) => [c.lat, c.lng] as L.LatLngTuple)
+      );
+      map.fitBounds(initBounds, { padding: [54, 48], maxZoom: 16, animate: false });
+      setCurrentZoom(map.getZoom());
+    }
 
     map.on("zoomend", () => {
-      setZoomLevel(map.getZoom());
+      setCurrentZoom(map.getZoom());
+      setMapMoveSeq((s) => s + 1);
+    });
+    map.on("moveend", () => {
+      setMapMoveSeq((s) => s + 1);
     });
 
-    // Map click handler for adding vertices in edit mode only
     map.on("click", (e: L.LeafletMouseEvent) => {
-      if (isBoundaryEditModeRef.current && onAddVertexFromMapRef.current) {
-        onAddVertexFromMapRef.current({
-          lat: Number(e.latlng.lat.toFixed(6)),
-          lng: Number(e.latlng.lng.toFixed(6))
+      const lat = Number(e.latlng.lat.toFixed(6));
+      const lng = Number(e.latlng.lng.toFixed(6));
+
+      if (isPickLocationRef.current && pickLocationRef.current) {
+        const zone = detectToDanPhoFromCoord(lat, lng);
+        pickLocationRef.current({
+          lat,
+          lng,
+          detectedTo: zone ? zone.toNumber : null,
         });
+        return;
+      }
+
+      if (isBoundaryEditRef.current && addVertexRef.current) {
+        addVertexRef.current({ lat, lng });
       }
     });
 
     mapInstanceRef.current = map;
 
-    // Fix map sizing when container becomes ready
-    const resizeTimer = setTimeout(() => {
-      if (mapInstanceRef.current && mapContainerRef.current) {
-        try {
-          mapInstanceRef.current.invalidateSize({ animate: false });
-        } catch {
-          // ignore if already unmounted
-        }
+    const resizeObserver = new ResizeObserver(() => {
+      if (mapInstanceRef.current) {
+        mapInstanceRef.current.invalidateSize();
       }
-    }, 250);
+    });
+    resizeObserver.observe(mapContainerRef.current);
 
     return () => {
-      clearTimeout(resizeTimer);
-      if (mapInstanceRef.current) {
-        try {
-          mapInstanceRef.current.stop();
-          mapInstanceRef.current.off();
-          mapInstanceRef.current.remove();
-        } catch {
-          // ignore cleanup errors on fast tab switches
-        }
-        mapInstanceRef.current = null;
-      }
+      resizeObserver.disconnect();
+      map.remove();
+      mapInstanceRef.current = null;
     };
   }, []);
 
-  // 2. Switch Tile Provider (Streets vs Satellite vs Light)
+  // 2. Switch tile layers when mapStyle changes
   useEffect(() => {
-    if (!mapInstanceRef.current || !tileLayerRef.current) return;
-    const config = TILE_PROVIDERS[mapStyle];
-    tileLayerRef.current.setUrl(config.url);
+    const map = mapInstanceRef.current;
+    if (!map) return;
+    if (tileLayerRef.current) {
+      map.removeLayer(tileLayerRef.current);
+    }
+    const p = TILE_PROVIDERS[mapStyle];
+    tileLayerRef.current = L.tileLayer(p.url, {
+      attribution: p.attribution,
+      maxZoom: p.maxZoom,
+    }).addTo(map);
+    tileLayerRef.current.bringToBack();
   }, [mapStyle]);
 
-  // 3. Render / Update Administrative Boundary Polygon (Geo-pinned)
+  // 3. Draw 14 Tổ Dân Phố zone overlay when enabled or when filtered to a Tổ
   useEffect(() => {
-    if (!mapInstanceRef.current || !mapContainerRef.current) return;
-    const map = mapInstanceRef.current;
+    const group = tdpGroupRef.current;
+    if (!group) return;
+    group.clearLayers();
 
-    if (boundaryPolygonRef.current) {
-      try {
-        if (map.hasLayer(boundaryPolygonRef.current)) {
-          map.removeLayer(boundaryPolygonRef.current);
-        }
-      } catch {
-        // ignore
+    const shouldRender = showTdpZones || activeToFilter !== null;
+    if (!shouldRender) return;
+
+    KP3_14_ZONES.forEach((zone) => {
+      const isActive = activeToFilter === zone.toNumber;
+      const isDimmed = activeToFilter !== null && !isActive;
+
+      const latLngs = zone.polygon.map((c) => [c.lat, c.lng] as L.LatLngExpression);
+      const poly = L.polygon(latLngs, {
+        color: isActive ? "#073B72" : zone.strokeColor,
+        weight: isActive ? 3 : 1.5,
+        opacity: isDimmed ? 0.25 : 0.85,
+        dashArray: isActive ? undefined : "5, 5",
+        fillColor: zone.fillColor,
+        fillOpacity: isActive ? 0.22 : isDimmed ? 0.03 : 0.11,
+        interactive: true,
+      });
+
+      poly.on("click", (ev) => {
+        if (isPickLocationRef.current || isBoundaryEditRef.current) return;
+        L.DomEvent.stopPropagation(ev);
+        selectToFilterRef.current?.(isActive ? null : zone.toNumber);
+      });
+
+      poly.bindTooltip(
+        `<div class="text-xs font-sans">
+          <div class="font-bold text-slate-900">${escapeHtml(zone.name)} · Cụm ${escapeHtml(zone.cluster)}</div>
+          <div class="text-slate-600 mt-0.5">${escapeHtml(zone.streets)}</div>
+        </div>`,
+        { sticky: true }
+      );
+
+      poly.addTo(group);
+
+      // Center pill badge for Tổ number when zones are shown
+      if (showTdpZones || isActive) {
+        const badgeIcon = L.divIcon({
+          className: "kp3-zone-label",
+          html: `<div style="background:${
+            isActive ? "#073B72" : "#0f172a"
+          };color:#ffffff;font-size:12px;font-weight:700;padding:2px 8px;border-radius:9999px;border:1.5px solid #ffffff;white-space:nowrap;box-shadow:0 2px 4px rgba(0,0,0,0.22);">${escapeHtml(
+            zone.shortLabel
+          )}</div>`,
+          iconSize: [52, 22],
+          iconAnchor: [26, 11],
+        });
+        L.marker([zone.center.lat, zone.center.lng], {
+          icon: badgeIcon,
+          interactive: false,
+        }).addTo(group);
       }
-      boundaryPolygonRef.current = null;
+    });
+  }, [showTdpZones, activeToFilter]);
+
+  // 4. Draw KP3 boundary polygon
+  useEffect(() => {
+    const map = mapInstanceRef.current;
+    if (!map) return;
+
+    if (boundaryLayerRef.current) {
+      map.removeLayer(boundaryLayerRef.current);
+      boundaryLayerRef.current = null;
     }
 
     if (!layers.boundary || boundaryCoords.length < 3) return;
 
-    const latLngs = boundaryCoords.map(p => [p.lat, p.lng] as [number, number]);
+    const latLngs = boundaryCoords.map((c) => [c.lat, c.lng] as L.LatLngExpression);
+    const poly = L.polygon(latLngs, {
+      color: boundaryStyle.strokeColor,
+      weight: Math.max(2, boundaryStyle.strokeWeight),
+      opacity: 0.9,
+      dashArray: isBoundaryEditMode ? undefined : "10, 6",
+      fillColor: boundaryStyle.fillColor,
+      fillOpacity: Math.min(0.25, boundaryStyle.fillOpacity),
+      interactive: false,
+    }).addTo(map);
 
-    try {
-      const polygon = L.polygon(latLngs, {
-        color: boundaryStyle.strokeColor || "#8b5cf6",
-        weight: (boundaryStyle.strokeWeight || 3) * 1.2,
-        opacity: 0.95,
-        fillColor: boundaryStyle.fillColor || "#8b5cf6",
-        fillOpacity: boundaryStyle.fillOpacity || 0.12,
-        dashArray: "12, 6, 3, 6", // Luôn vẽ theo đường đứt đoạn tự động (Hình 1)
-        lineCap: "round",
-        lineJoin: "round"
-      });
-
-      polygon.bindTooltip("<b>ĐỊA GIỚI HÀNH CHÍNH KHU PHỐ 3</b><br/>Phường An Phú, TP. Hồ Chí Minh", {
-        sticky: true,
-        className: "bg-slate-900 text-white text-xs px-2.5 py-1.5 rounded-lg shadow-xl border border-purple-500/30"
-      });
-
-      polygon.addTo(map);
-      boundaryPolygonRef.current = polygon;
-    } catch {
-      // ignore
-    }
+    boundaryLayerRef.current = poly;
   }, [boundaryCoords, boundaryStyle, layers.boundary, isBoundaryEditMode]);
 
-  // 4. Render TDP Sub-zones
+  // 5. Render boundary milestones (shown ONLY in edit mode or explicitly toggled by boundary layer + edit)
   useEffect(() => {
-    if (!tdpPolygonsGroupRef.current || !mapInstanceRef.current || !mapContainerRef.current) return;
-    try {
-      tdpPolygonsGroupRef.current.clearLayers();
-    } catch {
-      // ignore
-    }
+    const group = milestonesGroupRef.current;
+    if (!group) return;
+    group.clearLayers();
 
-    if (!showTdpZones || !layers.boundary) return;
-
-    TO_DAN_PHO_ZONES.forEach(zone => {
-      const latLngs = zone.coords.map(p => [p.lat, p.lng] as [number, number]);
-      const poly = L.polygon(latLngs, {
-        color: zone.color,
-        weight: 1.5,
-        opacity: 0.8,
-        dashArray: "4, 4",
-        fillColor: zone.color,
-        fillOpacity: 0.08
-      });
-
-      poly.bindTooltip(
-        `<div class="font-sans text-xs"><b>${zone.name}</b><br/><span class="text-slate-500 text-[10px]">Tổ trưởng: ${zone.leader}</span></div>`,
-        { sticky: true }
-      );
-
-      poly.addTo(tdpPolygonsGroupRef.current!);
-    });
-  }, [showTdpZones, layers.boundary]);
-
-  // 5. Render Boundary Milestones (Numbered markers 1..N)
-  useEffect(() => {
-    if (!milestoneMarkersGroupRef.current || !mapInstanceRef.current || !mapContainerRef.current) return;
-    try {
-      milestoneMarkersGroupRef.current.clearLayers();
-    } catch {
-      // ignore
-    }
-
-    // Luôn hiển thị các mốc khi bật lớp ranh giới
-    if (!layers.boundary) return;
+    if (!layers.boundary || !isBoundaryEditMode) return;
 
     boundaryCoords.forEach((coord, idx) => {
       const isSelected = selectedMilestoneIndex === idx;
-      const html = `
-        <div class="flex flex-col items-center ${
-          isBoundaryEditMode ? "cursor-grab active:cursor-grabbing hover:scale-125" : "cursor-pointer hover:scale-110"
-        } select-none transition-all ${isSelected ? "scale-125 z-50" : ""}">
-          <div class="w-6 h-6 rounded-full text-white font-black text-xs flex items-center justify-center shadow-lg border-2 border-white ring-2 ${
-            isBoundaryEditMode
-              ? (isSelected ? "bg-amber-500 ring-amber-300 animate-pulse scale-110" : "bg-amber-600 ring-amber-400 animate-pulse")
-              : (isSelected ? "bg-emerald-500 ring-emerald-300" : "bg-emerald-700 ring-emerald-500")
-          }">
+      const iconHtml = `
+        <div class="flex flex-col items-center">
+          <div style="width:28px;height:28px;border-radius:9999px;border:2px solid #ffffff;background:${
+            isSelected ? "#4f46e5" : "#047857"
+          };color:#ffffff;font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 6px rgba(0,0,0,0.3);cursor:grab;">
             ${idx + 1}
           </div>
-          <span class="bg-slate-950/90 text-white text-[10px] font-bold px-2 py-0.5 rounded shadow mt-0.5 whitespace-nowrap flex items-center gap-0.5">
-            ${isBoundaryEditMode ? `🖐️ Kéo mốc ${idx + 1}` : `Mốc ${idx + 1}`}
-          </span>
         </div>
       `;
 
-      const icon = L.divIcon({
-        className: "custom-milestone-marker",
-        html: html,
-        iconSize: [36, 44],
-        iconAnchor: [18, 22]
+      const milestoneIcon = L.divIcon({
+        className: "kp3-milestone-pin",
+        html: iconHtml,
+        iconSize: [28, 28],
+        iconAnchor: [14, 14],
       });
 
-      const marker = L.marker([coord.lat, coord.lng], { 
-        icon,
-        draggable: isBoundaryEditMode, // Có thể kéo di chuyển khi bấm nút sửa, còn lại cố định!
-        autoPan: isBoundaryEditMode
+      const marker = L.marker([coord.lat, coord.lng], {
+        icon: milestoneIcon,
+        draggable: !readOnly && isBoundaryEditMode,
+        autoPan: true,
+        zIndexOffset: isSelected ? 1000 : 500,
       });
-
-      marker.bindTooltip(
-        `<b>Mốc ranh giới số ${idx + 1}</b><br/>Tọa độ: ${coord.lat.toFixed(6)}, ${coord.lng.toFixed(6)}<br/>${
-          isBoundaryEditMode 
-            ? "👉 <b>Kéo thả chuột</b> để di chuyển mốc này" 
-            : "🔒 <i>Vị trí cố định (bấm Sửa mốc để di chuyển)</i>"
-        }`,
-        { sticky: true }
-      );
 
       marker.on("click", (e) => {
         L.DomEvent.stopPropagation(e);
-        onSelectMilestone(isSelected ? null : idx);
+        selectMilestoneRef.current(isSelected ? null : idx);
       });
 
-      if (isBoundaryEditMode) {
-        marker.on("drag", (e: any) => {
-          const newPos = e.target.getLatLng();
-          if (boundaryPolygonRef.current) {
-            try {
-              const currentLatLngs = boundaryPolygonRef.current.getLatLngs()[0] as L.LatLng[];
-              if (currentLatLngs && currentLatLngs[idx]) {
-                currentLatLngs[idx] = newPos;
-                boundaryPolygonRef.current.setLatLngs([currentLatLngs]);
-              }
-            } catch {
-              // ignore
-            }
-          }
+      marker.on("dragend", (e) => {
+        const ll = (e.target as L.Marker).getLatLng();
+        updateMilestoneRef.current(idx, {
+          lat: Number(ll.lat.toFixed(6)),
+          lng: Number(ll.lng.toFixed(6)),
         });
+      });
 
-        marker.on("dragend", (e: any) => {
-          const newPos = e.target.getLatLng();
-          const roundedCoord = {
-            lat: Number(newPos.lat.toFixed(6)),
-            lng: Number(newPos.lng.toFixed(6))
-          };
-          if (onUpdateMilestoneCoord) {
-            onUpdateMilestoneCoord(idx, roundedCoord);
-          }
-        });
-      }
+      marker.bindTooltip(
+        `<div class="text-xs font-sans font-semibold text-slate-900">Mốc ${idx + 1} · Kéo để chỉnh tọa độ</div>`,
+        { direction: "top", offset: [0, -10] }
+      );
 
-      try {
-        marker.addTo(milestoneMarkersGroupRef.current!);
-      } catch {
-        // ignore
+      marker.addTo(group);
+    });
+  }, [boundaryCoords, isBoundaryEditMode, selectedMilestoneIndex, layers.boundary, readOnly]);
+
+  // 6. Render radar coverage circles around Cameras / Fire hydrants when requested or selected
+  useEffect(() => {
+    const group = coverageGroupRef.current;
+    if (!group) return;
+    group.clearLayers();
+
+    pins.forEach((pin) => {
+      const isSelected = selectedPin?.id === pin.id;
+      const shouldDraw =
+        (showCoverageRadius && (pin.type === "camera" || pin.type === "fire" || pin.type === "light")) ||
+        (isSelected && (pin.type === "camera" || pin.type === "fire" || pin.type === "light"));
+
+      if (!shouldDraw) return;
+
+      const radius =
+        pin.coverageMeters || PIN_CATEGORY_META[pin.type]?.defaultCoverageMeters || 60;
+      const color =
+        pin.type === "fire" ? "#be123c" : pin.type === "light" ? "#b45309" : "#047857";
+
+      L.circle([pin.lat, pin.lng], {
+        radius,
+        color,
+        weight: isSelected ? 2 : 1,
+        dashArray: "4, 4",
+        fillColor: color,
+        fillOpacity: isSelected ? 0.16 : 0.08,
+        interactive: false,
+      }).addTo(group);
+    });
+  }, [pins, selectedPin, showCoverageRadius]);
+
+  // 7. Render route polyline when active
+  useEffect(() => {
+    const group = routeGroupRef.current;
+    const map = mapInstanceRef.current;
+    if (!group || !map) return;
+    group.clearLayers();
+
+    if (!routeTarget) return;
+
+    const midLat = (KP3_CENTER.lat + routeTarget.lat) / 2 + 0.00025;
+    const midLng = (KP3_CENTER.lng + routeTarget.lng) / 2 - 0.00015;
+    const pts: L.LatLngExpression[] = [
+      [KP3_CENTER.lat, KP3_CENTER.lng],
+      [midLat, midLng],
+      [routeTarget.lat, routeTarget.lng],
+    ];
+
+    L.polyline(pts, {
+      color: "#059669",
+      weight: 4,
+      opacity: 0.9,
+      dashArray: "8, 6",
+    }).addTo(group);
+
+    L.circleMarker([KP3_CENTER.lat, KP3_CENTER.lng], {
+      radius: 7,
+      color: "#ffffff",
+      weight: 2,
+      fillColor: "#073B72",
+      fillOpacity: 1,
+    })
+      .bindTooltip("Trụ sở Ban Điều Hành KP3", { direction: "top" })
+      .addTo(group);
+  }, [routeTarget]);
+
+  // 8. Render pins + spatial clustering for dense layers (households & businesses)
+  useEffect(() => {
+    const group = pinsGroupRef.current;
+    const map = mapInstanceRef.current;
+    if (!group || !map) return;
+    group.clearLayers();
+
+    const alwaysIndividual: GisPin[] = [];
+    const clusterCandidates: GisPin[] = [];
+
+    const useClustering =
+      currentZoom < 18 && activeToFilter === null && pins.length > 40;
+
+    pins.forEach((pin) => {
+      const isDenseLayer = pin.type === "household" || pin.type === "business";
+      const isSelected = selectedPin?.id === pin.id;
+      if (isSelected || !isDenseLayer || !useClustering) {
+        alwaysIndividual.push(pin);
+      } else {
+        clusterCandidates.push(pin);
       }
     });
-  }, [boundaryCoords, isBoundaryEditMode, selectedMilestoneIndex, layers.boundary]);
 
-  // 6. Render Map Pins (Households, Businesses, Cameras, PCCC, Lights)
-  useEffect(() => {
-    if (!pinsGroupRef.current || !mapInstanceRef.current || !mapContainerRef.current) return;
-    try {
-      pinsGroupRef.current.clearLayers();
-    } catch {
-      // ignore
-    }
-
-    const getPinColor = (type: string) => {
-      switch (type) {
-        case "household": return { bg: "#4f46e5", border: "#fff", text: "🏠" }; // Indigo
-        case "business": return { bg: "#06b6d4", border: "#fff", text: "💼" };  // Cyan
-        case "camera": return { bg: "#10b981", border: "#fff", text: "🎥" };    // Emerald
-        case "fire": return { bg: "#f43f5e", border: "#fff", text: "🔥" };      // Rose
-        case "light": return { bg: "#f59e0b", border: "#fff", text: "💡" };     // Amber
-        default: return { bg: "#6b7280", border: "#fff", text: "📍" };
-      }
+    const mapSize = map.getSize();
+    const isInsideViewportBox = (lat: number, lng: number, halfW: number, halfH: number) => {
+      if (!mapSize || mapSize.x === 0 || mapSize.y === 0) return true;
+      const pt = map.latLngToContainerPoint([lat, lng]);
+      return (
+        pt.x >= halfW &&
+        pt.x <= mapSize.x - halfW &&
+        pt.y >= halfH &&
+        pt.y <= mapSize.y - halfH
+      );
     };
 
-    pins.forEach(pin => {
-      // Filter out if layer is unchecked
-      if (pin.type === "household" && !layers.household) return;
-      if (pin.type === "business" && !layers.business) return;
-      if (pin.type === "camera" && !layers.camera) return;
-      if (pin.type === "fire" && !layers.fire) return;
-      if (pin.type === "light" && !layers.light) return;
+    // Cluster dense markers in spatial grid cells proportional to zoom level
+    if (clusterCandidates.length > 0) {
+      const cellSize = currentZoom <= 15 ? 0.0014 : currentZoom <= 16 ? 0.00095 : 0.00055;
+      const buckets = new Map<string, GisPin[]>();
 
+      clusterCandidates.forEach((pin) => {
+        const keyLat = Math.floor(pin.lat / cellSize);
+        const keyLng = Math.floor(pin.lng / cellSize);
+        const key = `${pin.type}:${keyLat}:${keyLng}`;
+        const list = buckets.get(key) || [];
+        list.push(pin);
+        buckets.set(key, list);
+      });
+
+      buckets.forEach((bucketPins) => {
+        if (bucketPins.length === 1) {
+          alwaysIndividual.push(bucketPins[0]);
+          return;
+        }
+
+        const avgLat =
+          bucketPins.reduce((s, p) => s + p.lat, 0) / bucketPins.length;
+        const avgLng =
+          bucketPins.reduce((s, p) => s + p.lng, 0) / bucketPins.length;
+        const sampleType = bucketPins[0].type;
+        const meta = PIN_CATEGORY_META[sampleType];
+
+        const countVal = bucketPins.length;
+        const badgeWidth = countVal >= 100 ? 86 : countVal >= 10 ? 70 : 58;
+        if (!isInsideViewportBox(avgLat, avgLng, badgeWidth / 2 + 2, 19)) {
+          return;
+        }
+
+        const clusterIcon = L.divIcon({
+          className: "kp3-cluster-badge",
+          html: `<div style="width:${badgeWidth}px;height:34px;padding:0 8px;box-sizing:border-box;white-space:nowrap;border-radius:9999px;background:${
+            meta.markerBg
+          };color:#ffffff;border:2px solid #ffffff;font-size:12px;font-weight:700;display:inline-flex;align-items:center;justify-content:center;gap:4px;box-shadow:0 2px 6px rgba(15,23,42,0.28);cursor:pointer;">
+            <span>${countVal}</span>
+            <span style="font-weight:500;">${sampleType === "household" ? "hộ" : "KD"}</span>
+          </div>`,
+          iconSize: [badgeWidth, 34],
+          iconAnchor: [badgeWidth / 2, 17],
+        });
+
+        const marker = L.marker([avgLat, avgLng], {
+          icon: clusterIcon,
+          zIndexOffset: 250,
+          title: `Cụm ${bucketPins.length} ${meta.shortLabel} — Nhấp để phóng to`,
+        });
+
+        marker.on("click", () => {
+          map.setView([avgLat, avgLng], Math.min(18, map.getZoom() + 2), {
+            animate: true,
+          });
+        });
+
+        marker.bindTooltip(
+          `<div class="text-xs font-sans font-semibold text-slate-900">Cụm ${bucketPins.length} ${escapeHtml(
+            meta.shortLabel
+          )} — Nhấp để phóng to</div>`,
+          { direction: "auto" }
+        );
+
+        marker.addTo(group);
+      });
+    }
+
+    // Individual high-contrast pins
+    alwaysIndividual.forEach((pin) => {
       const isSelected = selectedPin?.id === pin.id;
-      const conf = getPinColor(pin.type);
+      const badgeSize = isSelected ? 40 : 34;
+      if (!isSelected && !isInsideViewportBox(pin.lat, pin.lng, badgeSize / 2 + 2, badgeSize / 2 + 2)) {
+        return;
+      }
 
-      const html = `
-        <div class="relative flex items-center justify-center transition-all ${
-          isSelected ? "scale-130 -translate-y-1 z-50 animate-bounce" : "hover:scale-115 cursor-pointer"
-        }">
-          ${isSelected ? `<span class="absolute -inset-1.5 rounded-full bg-emerald-400/40 animate-ping"></span>` : ""}
-          <div style="background-color: ${conf.bg};" class="w-8 h-8 rounded-2xl flex items-center justify-center text-white text-xs shadow-md border-2 border-white ring-1 ring-slate-900/10">
-            ${conf.text}
-          </div>
+      const meta = PIN_CATEGORY_META[pin.type] || PIN_CATEGORY_META.custom;
+      const svgPath = getPinSvgPath(pin.type);
+
+      const iconHtml = `
+        <div style="width:${badgeSize}px;height:${badgeSize}px;border-radius:12px;background:${
+        meta.markerBg
+      };color:#ffffff;border:2.5px solid ${
+        isSelected ? "#0f172a" : "#ffffff"
+      };display:flex;align-items:center;justify-content:center;box-shadow:0 3px 8px rgba(15,23,42,0.3);cursor:pointer;">
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            ${svgPath}
+          </svg>
         </div>
       `;
 
-      const icon = L.divIcon({
-        className: "custom-pin-marker",
-        html: html,
-        iconSize: [32, 32],
-        iconAnchor: [16, 16]
+      const pinIcon = L.divIcon({
+        className: "kp3-entity-pin",
+        html: iconHtml,
+        iconSize: [badgeSize, badgeSize],
+        iconAnchor: [badgeSize / 2, badgeSize / 2],
       });
 
-      const marker = L.marker([pin.lat, pin.lng], { icon });
-
-      // Popup content
-      const popupHtml = `
-        <div class="p-1 max-w-[240px] font-sans">
-          <div class="font-bold text-xs text-slate-900 mb-0.5">${pin.name}</div>
-          <div class="text-[11px] text-slate-600 mb-1.5">${pin.location}</div>
-          <div class="flex items-center justify-between text-[10px] border-t border-slate-100 pt-1 text-slate-500">
-            <span class="font-mono">${pin.lat.toFixed(5)}, ${pin.lng.toFixed(5)}</span>
-            <span class="font-bold ${pin.status === "Hoạt động" ? "text-emerald-600" : "text-amber-600"}">${pin.status}</span>
-          </div>
-          ${pin.type === "camera" ? `
-            <button id="leaflet-popup-cam-btn-${pin.id}" class="mt-2 w-full py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded text-[11px] font-bold flex items-center justify-center gap-1 cursor-pointer">
-              🎥 Xem Camera Trực Tiếp
-            </button>
-          ` : ""}
-        </div>
-      `;
-
-      marker.bindPopup(popupHtml, { className: "custom-leaflet-popup" });
-
-      marker.on("click", () => {
-        onSelectPin(pin);
+      const marker = L.marker([pin.lat, pin.lng], {
+        icon: pinIcon,
+        zIndexOffset: isSelected ? 1100 : pin.type === "report" || pin.type === "civic" ? 650 : 320,
+        title: pin.name,
       });
 
-      marker.on("popupopen", () => {
-        const camBtn = document.getElementById(`leaflet-popup-cam-btn-${pin.id}`);
-        if (camBtn && onLiveCameraClick) {
-          camBtn.onclick = () => {
-            onLiveCameraClick();
-          };
+      marker.on("click", (ev) => {
+        if (isPickLocationRef.current) return;
+        L.DomEvent.stopPropagation(ev);
+        selectPinRef.current(pin);
+        if (pin.type === "camera" && pin.status === "Hoạt động" && liveStreamRef.current) {
+          // Expose quick inspection; drawer also lets user launch stream
         }
       });
 
-      try {
-        marker.addTo(pinsGroupRef.current!);
-      } catch {
-        // ignore
-      }
-    });
-  }, [pins, layers, selectedPin]);
+      const toTag = pin.toNumber ? ` · Tổ ${pin.toNumber}` : "";
+      marker.bindTooltip(
+        `<div class="text-xs font-sans">
+          <div class="font-bold text-slate-900">${escapeHtml(pin.name)}</div>
+          <div class="text-slate-600 mt-0.5">${escapeHtml(meta.shortLabel)}${escapeHtml(toTag)} · ${escapeHtml(
+          pin.status
+        )}</div>
+        </div>`,
+        { direction: "auto", offset: [0, -14] }
+      );
 
-  // Fit bounds to entire KP3 boundary
-  const handleFitKp3Bounds = () => {
-    if (!mapInstanceRef.current || boundaryCoords.length < 3) return;
-    const latLngs = boundaryCoords.map(p => [p.lat, p.lng] as [number, number]);
-    const bounds = L.latLngBounds(latLngs);
-    mapInstanceRef.current.fitBounds(bounds, {
-      padding: [40, 40],
-      animate: true,
-      duration: 0.8
+      marker.addTo(group);
     });
+  }, [pins, selectedPin, currentZoom, activeToFilter, mapMoveSeq]);
+
+  // 9. Render coordinate picker preview marker when choosing on map
+  useEffect(() => {
+    const group = pickerLayerRef.current;
+    if (!group) return;
+    group.clearLayers();
+
+    if (!pickedCoord) return;
+
+    const targetIcon = L.divIcon({
+      className: "kp3-picker-pin",
+      html: `<div style="width:36px;height:36px;border-radius:9999px;background:#073B72;color:#ffffff;border:3px solid #ffffff;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 12px rgba(7,59,114,0.45);cursor:grab;">
+        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="22" y1="12" x2="18" y2="12"/><line x1="6" y1="12" x2="2" y2="12"/><line x1="12" y1="6" x2="12" y2="2"/><line x1="12" y1="22" x2="12" y2="18"/></svg>
+      </div>`,
+      iconSize: [36, 36],
+      iconAnchor: [18, 18],
+    });
+
+    const marker = L.marker([pickedCoord.lat, pickedCoord.lng], {
+      icon: targetIcon,
+      draggable: true,
+      zIndexOffset: 1400,
+    });
+
+    marker.on("dragend", (e) => {
+      const ll = (e.target as L.Marker).getLatLng();
+      const lat = Number(ll.lat.toFixed(6));
+      const lng = Number(ll.lng.toFixed(6));
+      const z = detectToDanPhoFromCoord(lat, lng);
+      pickLocationRef.current?.({
+        lat,
+        lng,
+        detectedTo: z ? z.toNumber : null,
+      });
+    });
+
+    marker.bindTooltip(
+      `<div class="text-xs font-sans font-bold text-slate-900">Điểm đã chấm (${formatLatLngVN(
+        pickedCoord.lat,
+        pickedCoord.lng
+      )}) — Kéo để tinh chỉnh</div>`,
+      { permanent: true, direction: "top", offset: [0, -18] }
+    );
+
+    marker.addTo(group);
+  }, [pickedCoord]);
+
+  // 10. Pan when focusZoomCoord triggers or selectedPin changes
+  useEffect(() => {
+    const map = mapInstanceRef.current;
+    if (!map || !selectedPin) return;
+    map.panTo([selectedPin.lat, selectedPin.lng], { animate: true });
+  }, [selectedPin]);
+
+  useEffect(() => {
+    const map = mapInstanceRef.current;
+    if (!map || !focusZoomCoord) return;
+    map.setView(
+      [focusZoomCoord.lat, focusZoomCoord.lng],
+      focusZoomCoord.zoom || 17,
+      { animate: true }
+    );
+  }, [focusZoomCoord]);
+
+  const handleFitKp3Bounds = () => {
+    const map = mapInstanceRef.current;
+    if (!map) return;
+    if (boundaryCoords.length >= 3) {
+      const bounds = L.latLngBounds(
+        boundaryCoords.map((c) => [c.lat, c.lng] as L.LatLngTuple)
+      );
+      map.fitBounds(bounds, { padding: [54, 48], maxZoom: 16, animate: true });
+    } else {
+      map.setView([KP3_CENTER.lat, KP3_CENTER.lng], 16, { animate: true });
+    }
   };
 
   return (
-    <div className="relative w-full h-full overflow-hidden">
-      {/* 1. Leaflet Container */}
-      <div 
-        ref={mapContainerRef} 
-        id="leaflet-gis-map-canvas"
-        className="w-full h-full z-0 cursor-grab active:cursor-grabbing" 
+    <div className="relative isolate z-0 w-full h-full min-w-0 overflow-hidden bg-slate-100">
+      <div
+        ref={mapContainerRef}
+        className={`w-full h-full z-0 ${
+          isPickLocationMode || isBoundaryEditMode
+            ? "cursor-crosshair"
+            : "cursor-grab active:cursor-grabbing"
+        }`}
       />
 
-      {/* 2. Top-Right Map Mode & Controls Toolbar */}
-      <div className="absolute top-4 right-4 z-20 flex flex-col gap-2">
-        {/* Style Selector */}
-        <div className="bg-white/95 backdrop-blur-md p-1 rounded-2xl shadow-lg border border-slate-200/80 flex items-center gap-1 text-xs">
-          <button
-            onClick={() => setMapStyle("streets")}
-            className={`px-3 py-1.5 rounded-xl font-bold transition-all cursor-pointer ${
-              mapStyle === "streets" 
-                ? "bg-emerald-600 text-white shadow-xs" 
-                : "text-slate-600 hover:bg-slate-100"
-            }`}
-            title="Bản đồ đường phố OpenStreetMap"
-          >
-            Đường phố
-          </button>
-          <button
-            onClick={() => setMapStyle("satellite")}
-            className={`px-3 py-1.5 rounded-xl font-bold transition-all cursor-pointer ${
-              mapStyle === "satellite" 
-                ? "bg-emerald-600 text-white shadow-xs" 
-                : "text-slate-600 hover:bg-slate-100"
-            }`}
-            title="Ảnh chụp vệ tinh Esri World Imagery"
-          >
-            Vệ tinh
-          </button>
-          <button
-            onClick={() => setMapStyle("light")}
-            className={`px-3 py-1.5 rounded-xl font-bold transition-all cursor-pointer ${
-              mapStyle === "light" 
-                ? "bg-emerald-600 text-white shadow-xs" 
-                : "text-slate-600 hover:bg-slate-100"
-            }`}
-            title="Bản đồ tối giản độ tương phản cao"
-          >
-            Sáng dịu
-          </button>
-        </div>
-
-        {/* Quick Map Action Buttons */}
-        <div className="flex items-center gap-2 self-end">
-          {/* TDP Sub-zones Toggle */}
-          <button
-            onClick={() => setShowTdpZones(!showTdpZones)}
-            className={`px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 backdrop-blur-md shadow-md border transition-all cursor-pointer ${
-              showTdpZones
-                ? "bg-indigo-600 text-white border-indigo-700 shadow-indigo-600/20"
-                : "bg-white/95 text-slate-700 border-slate-200 hover:bg-slate-100"
-            }`}
-            title="Bật/Tắt hiển thị ranh giới 5 Tổ dân phố (TDP 11 - 15)"
-          >
-            <Compass size={14} />
-            <span>5 Tổ Dân Phố</span>
-          </button>
-
-          {/* Fit Boundary Button */}
-          <button
-            onClick={handleFitKp3Bounds}
-            className="px-3.5 py-1.5 bg-slate-900/90 hover:bg-slate-950 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 backdrop-blur-md shadow-lg border border-slate-700/50 transition-all cursor-pointer hover:scale-105"
-            title="Tự động thu phóng ôm trọn ranh giới hành chính Khu phố 3"
-          >
-            <Maximize2 size={13} className="text-emerald-400" />
-            <span>Toàn cảnh KP3</span>
-          </button>
-        </div>
-      </div>
-
-      {/* 3. Bottom-Left Information HUD */}
-      <div className="absolute bottom-4 left-4 z-20 pointer-events-none">
-        <div className="bg-slate-950/85 backdrop-blur-md text-white p-3 rounded-2xl shadow-2xl border border-white/10 flex items-center gap-3 pointer-events-auto">
-          <div className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse"></div>
-          <div className="text-xs">
-            <span className="font-bold text-white block">Leaflet WGS-84 GIS Engine</span>
-            <span className="text-[10px] text-slate-400 block font-mono">
-              Ranh giới cố định • Khóa tọa độ thực tế • Zoom: {zoomLevel}x
+      {/* Pick location live guide banner (1-tap map coordinate selection) */}
+      {isPickLocationMode && (
+        <div className="absolute top-3 left-3 right-3 z-[410] flex flex-wrap items-center justify-between gap-2 rounded-xl bg-slate-900 text-white px-3.5 py-2.5 shadow-lg border border-slate-700">
+          <div className="flex items-center gap-2 text-xs font-medium min-w-0">
+            <Crosshair size={16} className="text-emerald-400 shrink-0" aria-hidden="true" />
+            <span className="text-pretty">
+              Chạm vào bất kỳ điểm nào trên bản đồ để lấy tọa độ tự động nhận diện Tổ DP
             </span>
           </div>
+          {onCancelPickLocation && (
+            <button
+              type="button"
+              onClick={onCancelPickLocation}
+              className="min-h-8 px-3 rounded-lg bg-slate-800 hover:bg-slate-700 text-white text-xs font-semibold flex items-center gap-1 cursor-pointer shrink-0 transition-colors"
+            >
+              <X size={14} aria-hidden="true" />
+              <span>Hủy chọn</span>
+            </button>
+          )}
+        </div>
+      )}
+
+      {/* Top-right Map Toolbar (strictly constrained inside container so it never clips) */}
+      {!isPickLocationMode && (
+        <div className="pointer-events-none absolute top-3 inset-x-3 z-[400] flex flex-col items-end gap-2">
+          <div className="pointer-events-auto flex flex-wrap items-center justify-end gap-1 rounded-xl bg-white/95 border border-slate-300/80 p-1 shadow-md max-w-full">
+            {(
+              [
+                { id: "streets", label: "Đường phố" },
+                { id: "satellite", label: "Vệ tinh" },
+                { id: "light", label: "Sáng dịu" },
+              ] as const
+            ).map((tile) => {
+              const active = mapStyle === tile.id;
+              return (
+                <button
+                  key={tile.id}
+                  type="button"
+                  onClick={() => setMapStyle(tile.id)}
+                  className={`min-h-8 px-2.5 rounded-lg text-xs font-semibold transition-colors cursor-pointer whitespace-nowrap ${
+                    active
+                      ? "bg-[#073B72] text-white"
+                      : "text-slate-700 hover:bg-slate-100"
+                  }`}
+                >
+                  {tile.label}
+                </button>
+              );
+            })}
+          </div>
+
+          <div className="pointer-events-auto flex flex-wrap items-center justify-end gap-1.5 max-w-full">
+            <button
+              type="button"
+              onClick={() => setShowTdpZones((v) => !v)}
+              className={`min-h-8 px-2.5 rounded-xl text-xs font-semibold border flex items-center gap-1.5 transition-colors cursor-pointer whitespace-nowrap ${
+                showTdpZones
+                  ? "bg-emerald-700 text-white border-emerald-700 hover:bg-emerald-800"
+                  : "bg-white text-slate-900 border-slate-300 hover:bg-emerald-50"
+              }`}
+            >
+              <Layers size={14} aria-hidden="true" />
+              <span>14 Tổ</span>
+            </button>
+
+            {onToggleCoverageRadius && (
+              <button
+                type="button"
+                onClick={onToggleCoverageRadius}
+                className={`min-h-8 px-2.5 rounded-xl text-xs font-semibold border flex items-center gap-1.5 transition-colors cursor-pointer whitespace-nowrap ${
+                  showCoverageRadius
+                    ? "bg-[#073B72] text-white border-[#073B72] hover:bg-[#06305d]"
+                    : "bg-white text-slate-900 border-slate-300 hover:bg-emerald-50"
+                }`}
+              >
+                <Radar size={14} aria-hidden="true" />
+                <span>Vùng phủ</span>
+              </button>
+            )}
+
+            <button
+              type="button"
+              onClick={handleFitKp3Bounds}
+              className="min-h-8 px-2.5 rounded-xl text-xs font-semibold bg-slate-900 hover:bg-slate-700 text-white border border-slate-900 flex items-center gap-1.5 transition-colors cursor-pointer whitespace-nowrap"
+            >
+              <Compass size={14} aria-hidden="true" />
+              <span>Toàn cảnh</span>
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Compact Bottom-Left Map Status & Zoom Bar (never overflows 375px or 768px) */}
+      <div className="pointer-events-none absolute bottom-3 left-3 right-3 z-[400] flex flex-wrap items-center justify-between gap-2">
+        <div className="pointer-events-auto inline-flex flex-wrap items-center gap-2 rounded-xl bg-slate-900/95 text-white border border-slate-700 px-3 py-1.5 text-xs max-w-full">
+          <span className="w-2 h-2 rounded-full bg-emerald-400 shrink-0" aria-hidden="true" />
+          <span className="font-semibold hidden sm:inline">Leaflet WGS-84</span>
+          <span className="text-slate-200 font-mono">
+            Zoom {String(Math.round(currentZoom * 10) / 10).replace(".", ",")}×
+          </span>
+          {activeToFilter !== null && (
+            <button
+              type="button"
+              onClick={() => onSelectToFilter?.(null)}
+              className="min-h-8 px-2.5 rounded-lg bg-amber-700 hover:bg-amber-800 text-white font-semibold cursor-pointer transition-colors"
+            >
+              Tổ {activeToFilter} ×
+            </button>
+          )}
           <button
+            type="button"
             onClick={handleFitKp3Bounds}
-            className="ml-2 px-2.5 py-1 bg-emerald-600/80 hover:bg-emerald-600 text-white rounded-lg text-[10px] font-bold cursor-pointer transition-colors"
+            className="min-h-8 px-2.5 rounded-lg bg-emerald-700 hover:bg-emerald-800 text-white font-semibold cursor-pointer transition-colors"
           >
             Căn giữa
+          </button>
+        </div>
+
+        <div className="pointer-events-auto inline-flex items-center gap-1 rounded-xl bg-white/95 border border-slate-300 p-1">
+          <button
+            type="button"
+            onClick={() => mapInstanceRef.current?.zoomIn()}
+            aria-label="Phóng to bản đồ"
+            className="min-h-8 min-w-8 rounded-lg text-slate-900 hover:bg-slate-200 font-bold text-sm flex items-center justify-center cursor-pointer"
+          >
+            +
+          </button>
+          <button
+            type="button"
+            onClick={() => mapInstanceRef.current?.zoomOut()}
+            aria-label="Thu nhỏ bản đồ"
+            className="min-h-8 min-w-8 rounded-lg text-slate-900 hover:bg-slate-200 font-bold text-sm flex items-center justify-center cursor-pointer"
+          >
+            −
           </button>
         </div>
       </div>

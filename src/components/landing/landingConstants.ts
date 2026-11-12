@@ -1,7 +1,22 @@
 import React from "react";
-import { FieldReport } from "../../types";
+import { FieldReport, LandingConfig } from "../../types";
 
 export const PUBLIC_CONTACT_EMAIL = "bdhkhupho3.ap@gmail.com";
+export const LANDING_CONFIG_STORAGE_KEY = "kp3_landing_config_v1";
+
+export const DEFAULT_LANDING_CONFIG: LandingConfig = {
+  siteTitle: "Khu phố 3 – Phường An Phú",
+  siteSubtitle: "Cổng thông tin cộng đồng & tiện ích số",
+  heroBadge: "Khu phố 3 · Phường An Phú · TP. Hồ Chí Minh",
+  heroTitle: "Kết nối người dân – Xây dựng khu phố văn minh",
+  heroAddressNote: "Địa bàn khép kín theo các trục đường Song Hành, Lương Định Của, Mai Chí Thọ.",
+  bannerNotice: "",
+  contactEmail: PUBLIC_CONTACT_EMAIL,
+  contactAddress: "Nhà Văn hóa Khu phố 3, Phường An Phú, TP. Hồ Chí Minh",
+  workingHours: "Thứ 2 – Thứ 6 (07:30 – 17:00) • Trực địa bàn 24/7",
+  hotline: "028.3747.xxxx (Ban Điều hành KP3)",
+  footerOperator: "Đơn vị phụ trách nội dung: Ban Điều hành Khu phố 3.",
+};
 
 /** Thông tin đã xác minh trong AGENTS.md — chỉ họ tên & chức danh, không có SĐT/ảnh. */
 export const VERIFIED_LEADERSHIP = [
@@ -86,7 +101,7 @@ export function readSubmissionLog(): number[] {
 }
 
 export const btnPrimary =
-  "inline-flex items-center justify-center gap-2 min-h-11 px-5 rounded-xl text-sm font-bold text-white bg-gov-blue hover:bg-gov-navy active:scale-[0.98] transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed";
+  "inline-flex items-center justify-center gap-2 min-h-11 px-5 rounded-xl text-sm font-bold text-white bg-gov-blue hover:bg-gov-navy transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed";
 export const btnGhost =
   "inline-flex items-center justify-center gap-2 min-h-11 px-4 rounded-xl text-sm font-semibold text-gov-text bg-white border border-slate-200 hover:border-gov-blue hover:text-gov-blue transition-colors cursor-pointer";
 export const inputCls =

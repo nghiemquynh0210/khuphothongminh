@@ -18,35 +18,35 @@ const STATUS_CONFIG: Record<
   pending: {
     label: "Chờ duyệt",
     bg: "bg-amber-50",
-    text: "text-amber-800",
+    text: "text-amber-900",
     border: "border-amber-200",
     icon: Clock,
   },
   in_progress: {
     label: "Đang xử lý",
     bg: "bg-blue-50",
-    text: "text-blue-800",
+    text: "text-blue-900",
     border: "border-blue-200",
     icon: Loader2,
   },
   completed: {
     label: "Đã hoàn thành",
     bg: "bg-emerald-50",
-    text: "text-emerald-800",
+    text: "text-emerald-900",
     border: "border-emerald-200",
     icon: CheckCircle2,
   },
   danger: {
     label: "Cảnh báo / Quá hạn",
     bg: "bg-rose-50",
-    text: "text-rose-800",
+    text: "text-rose-900",
     border: "border-rose-200",
     icon: AlertTriangle,
   },
   info: {
     label: "Thông tin",
-    bg: "bg-slate-50",
-    text: "text-slate-700",
+    bg: "bg-slate-100",
+    text: "text-slate-800",
     border: "border-slate-200",
     icon: Info,
   },
@@ -64,19 +64,18 @@ export function StatusBadge({
   const displayLabel = label || config.label;
 
   const sizeClasses = {
-    sm: "px-2 py-0.5 text-[10.5px] gap-1",
-    md: "px-2.5 py-0.5 text-[11px] gap-1.5",
+    sm: "px-2 py-0.5 text-xs gap-1",
+    md: "px-2.5 py-0.5 text-xs gap-1.5",
   }[size];
 
   return (
     <span
-      className={`inline-flex items-center font-semibold rounded-full border tracking-wide whitespace-nowrap select-none transition-colors ${config.bg} ${config.text} ${config.border} ${sizeClasses} ${className}`}
+      className={`inline-flex items-center font-semibold rounded-full border tracking-normal whitespace-nowrap select-none transition-colors ${config.bg} ${config.text} ${config.border} ${sizeClasses} ${className}`}
     >
       {showIcon && (
         <IconComponent
-          className={`shrink-0 ${size === "sm" ? "w-3 h-3" : "w-3.5 h-3.5"} ${
-            status === "in_progress" ? "animate-spin" : ""
-          }`}
+          aria-hidden="true"
+          className="shrink-0 w-3.5 h-3.5"
         />
       )}
       <span>{displayLabel}</span>

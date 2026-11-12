@@ -20,6 +20,7 @@ import {
   Briefcase
 } from "lucide-react";
 import { SectionHeader } from "./LandingCommon";
+import { KP3_OFFICIAL_BASELINE } from "../../utils/kp3Utils";
 import { Link, ROUTES } from "./landingConstants";
 
 export default function CitizenAboutKP3Section() {
@@ -74,16 +75,14 @@ export default function CitizenAboutKP3Section() {
       <div className="space-y-8">
 
         {/* 1. Header Banner Giới Thiệu Trang Trọng */}
-        <div className="bg-gradient-to-r from-gov-navy via-[#0c407c] to-gov-blue rounded-3xl text-white p-6 sm:p-10 shadow-lg relative overflow-hidden">
-          <div className="absolute right-0 top-0 bottom-0 w-1/3 opacity-10 bg-[radial-gradient(#ffffff_1.5px,transparent_1.5px)] [background-size:20px_20px] pointer-events-none" />
-          
+        <div className="bg-gov-navy border border-blue-950 rounded-2xl text-white p-6 sm:p-10 relative overflow-hidden">
           <div className="relative z-10 max-w-3xl space-y-4">
             <div className="flex flex-wrap items-center gap-2">
-              <span className="px-3 py-1 rounded-full bg-red-600/90 text-white text-xs font-black uppercase tracking-wider flex items-center gap-1.5 shadow-xs">
-                <Landmark size={13} /> KHU PHỐ 04 / 14 KHU PHỐ
+              <span className="px-3 py-1 rounded-full bg-red-700 border border-red-500 text-white text-xs font-black uppercase tracking-wider inline-flex items-center gap-1.5">
+                <Landmark size={13} aria-hidden="true" /> KHU PHỐ 04 / 14 KHU PHỐ
               </span>
-              <span className="px-3 py-1 rounded-full bg-white/15 backdrop-blur-md text-blue-100 text-xs font-semibold border border-white/20 flex items-center gap-1">
-                <Globe size={13} /> DỮ LIỆU ĐẢNG BỘ PHƯỜNG AN PHÚ
+              <span className="px-3 py-1 rounded-full bg-white/10 text-blue-100 text-xs font-semibold border border-white/25 inline-flex items-center gap-1">
+                <Globe size={13} aria-hidden="true" /> DỮ LIỆU ĐẢNG BỘ PHƯỜNG AN PHÚ
               </span>
             </div>
 
@@ -101,80 +100,88 @@ export default function CitizenAboutKP3Section() {
                 href="https://danguy.phuonganphu.gov.vn/ban-do" 
                 target="_blank" 
                 rel="noreferrer"
-                className="px-4 py-2.5 rounded-xl bg-white text-gov-navy font-bold hover:bg-blue-50 transition-all flex items-center gap-2 shadow-sm"
+                className="min-h-[44px] px-4 py-2.5 rounded-xl bg-white text-gov-navy font-bold hover:bg-blue-50 transition-colors inline-flex items-center gap-2 border border-white"
               >
-                <Compass size={15} /> Xem trên Cổng Đảng ủy Phường <ExternalLink size={13} />
+                <Compass size={15} aria-hidden="true" /> Xem trên Cổng Đảng ủy Phường <ExternalLink size={13} aria-hidden="true" />
               </a>
               <button 
+                type="button"
                 onClick={handleShare}
-                className="px-4 py-2.5 rounded-xl bg-white/15 hover:bg-white/25 text-white font-bold transition-all flex items-center gap-2 border border-white/20 cursor-pointer"
+                className="min-h-[44px] px-4 py-2.5 rounded-xl bg-white/10 hover:bg-white/20 text-white font-bold transition-colors inline-flex items-center gap-2 border border-white/25 cursor-pointer"
               >
-                <Share2 size={15} /> {copiedLink ? "Đã sao chép liên kết!" : "Chia sẻ trang"}
+                <Share2 size={15} aria-hidden="true" /> {copiedLink ? "Đã sao chép liên kết!" : "Chia sẻ trang"}
               </button>
             </div>
           </div>
         </div>
 
         {/* 2. Quy Mô Địa Bàn & Chỉ Số Phát Triển (KPI Cards) */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4">
-          <div className="bg-white p-5 rounded-2xl border border-slate-200/90 shadow-xs space-y-1">
-            <span className="text-slate-400 text-xs font-semibold flex items-center gap-1.5">
-              <Home size={15} className="text-blue-600" /> Hộ gia đình
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4">
+          <div className="bg-white p-5 rounded-2xl border border-slate-200 space-y-1">
+            <span className="text-slate-600 text-xs font-semibold flex items-center gap-1.5">
+              <Home size={15} className="text-blue-700" aria-hidden="true" /> Hộ gia đình
             </span>
-            <div className="text-2xl sm:text-3xl font-black text-slate-900">488</div>
-            <p className="text-[11px] text-slate-500">Hộ dân cư thường trú & tạm trú</p>
+            <div className="text-2xl sm:text-3xl font-black text-slate-900">
+              {KP3_OFFICIAL_BASELINE.households.toLocaleString("vi-VN")}
+            </div>
+            <p className="text-xs text-slate-600">Hộ dân cư thường trú & tạm trú</p>
           </div>
 
-          <div className="bg-white p-5 rounded-2xl border border-slate-200/90 shadow-xs space-y-1">
-            <span className="text-slate-400 text-xs font-semibold flex items-center gap-1.5">
-              <Users size={15} className="text-emerald-600" /> Dân số khu phố
+          <div className="bg-white p-5 rounded-2xl border border-slate-200 space-y-1">
+            <span className="text-slate-600 text-xs font-semibold flex items-center gap-1.5">
+              <Users size={15} className="text-emerald-700" aria-hidden="true" /> Dân số khu phố
             </span>
-            <div className="text-2xl sm:text-3xl font-black text-slate-900">11.632</div>
-            <p className="text-[11px] text-slate-500">Nhân khẩu quản lý trên VNeID</p>
+            <div className="text-2xl sm:text-3xl font-black text-slate-900">
+              {KP3_OFFICIAL_BASELINE.population.toLocaleString("vi-VN")}
+            </div>
+            <p className="text-xs text-slate-600">Nhân khẩu quản lý trên VNeID</p>
           </div>
 
-          <div className="bg-white p-5 rounded-2xl border border-slate-200/90 shadow-xs space-y-1">
-            <span className="text-slate-400 text-xs font-semibold flex items-center gap-1.5">
-              <Briefcase size={15} className="text-amber-600" /> Cơ sở kinh doanh
+          <div className="bg-white p-5 rounded-2xl border border-slate-200 space-y-1">
+            <span className="text-slate-600 text-xs font-semibold flex items-center gap-1.5">
+              <Briefcase size={15} className="text-amber-700" aria-hidden="true" /> Cơ sở kinh doanh
             </span>
-            <div className="text-2xl sm:text-3xl font-black text-slate-900">118</div>
-            <p className="text-[11px] text-slate-500">Hộ KD cá thể & doanh nghiệp</p>
+            <div className="text-2xl sm:text-3xl font-black text-slate-900">
+              {KP3_OFFICIAL_BASELINE.activeBusinessesTotal.toLocaleString("vi-VN")}
+            </div>
+            <p className="text-xs text-slate-600">Hộ KD cá thể & doanh nghiệp</p>
           </div>
 
-          <div className="bg-white p-5 rounded-2xl border border-slate-200/90 shadow-xs space-y-1">
-            <span className="text-slate-400 text-xs font-semibold flex items-center gap-1.5">
-              <Award size={15} className="text-purple-600" /> Đô thị văn minh
+          <div className="bg-white p-5 rounded-2xl border border-slate-200 space-y-1">
+            <span className="text-slate-600 text-xs font-semibold flex items-center gap-1.5">
+              <Award size={15} className="text-purple-700" aria-hidden="true" /> Đô thị văn minh
             </span>
             <div className="text-2xl sm:text-3xl font-black text-slate-900">100%</div>
-            <p className="text-[11px] text-slate-500">Hẻm đạt chuẩn xanh - sạch - đẹp</p>
+            <p className="text-xs text-slate-600">Hẻm đạt chuẩn xanh - sạch - đẹp</p>
           </div>
         </div>
 
         {/* 3. Bản Đồ Số Hóa Địa Giới Hành Chính Khu Phố 3 */}
-        <div className="bg-white rounded-3xl border border-slate-200/90 p-6 sm:p-8 shadow-sm space-y-5">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-4">
+        <div className="bg-white rounded-2xl border border-slate-200 p-5 sm:p-8 space-y-5">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-200 pb-4">
             <div>
-              <span className="text-[11px] font-black text-rose-600 uppercase tracking-widest block">
+              <span className="text-xs font-black text-rose-700 uppercase tracking-widest block">
                 BẢN ĐỒ ĐỊA GIỚI HÀNH CHÍNH
               </span>
               <h2 className="text-lg sm:text-xl font-black text-slate-900 mt-0.5">
                 Bản Đồ Số Hóa Vị Trí Địa Lý Khu Phố 3
               </h2>
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
               <button 
+                type="button"
                 onClick={() => setShowMapZoom(true)}
-                className="px-3.5 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer"
+                className="min-h-[44px] px-3.5 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 border border-slate-200 text-slate-800 text-xs font-bold transition-colors flex items-center gap-1.5 cursor-pointer"
               >
-                <Maximize2 size={13} /> Phóng to bản đồ
+                <Maximize2 size={14} aria-hidden="true" /> Phóng to bản đồ
               </button>
               <a 
                 href="https://danguy.phuonganphu.gov.vn/ban-do" 
                 target="_blank" 
                 rel="noreferrer"
-                className="px-3.5 py-1.5 rounded-xl bg-gov-blue hover:bg-gov-navy text-white text-xs font-bold transition-all flex items-center gap-1.5"
+                className="min-h-[44px] px-3.5 py-2 rounded-xl bg-gov-blue hover:bg-gov-navy text-white text-xs font-bold transition-colors flex items-center gap-1.5"
               >
-                Bản đồ 14 KP Phường <ExternalLink size={12} />
+                Bản đồ 14 KP Phường <ExternalLink size={13} aria-hidden="true" />
               </a>
             </div>
           </div>
@@ -182,24 +189,24 @@ export default function CitizenAboutKP3Section() {
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-center">
             {/* Cột Trái: Ảnh Bản đồ số KP3 từ Server Phường An Phú */}
             <div className="lg:col-span-7">
-              <div 
+              <button 
+                type="button"
                 onClick={() => setShowMapZoom(true)}
-                className="group relative rounded-2xl overflow-hidden border-2 border-slate-200 shadow-sm cursor-pointer aspect-video bg-slate-100"
+                aria-label="Nhấn để phóng to bản đồ địa giới Khu phố 3"
+                className="group relative w-full block text-left rounded-2xl overflow-hidden border border-slate-200 cursor-pointer aspect-video bg-slate-100"
               >
                 <img 
                   src="https://danguy.phuonganphu.gov.vn/assets/images/maps/khu-pho-3.jpg?v=20261103-155725" 
                   alt="Bản đồ địa giới hành chính Khu phố 3 - Phường An Phú" 
-                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                  className="w-full h-full object-cover"
                 />
-                <div className="absolute inset-0 bg-slate-900/20 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                  <span className="px-4 py-2 rounded-xl bg-black/75 text-white text-xs font-bold flex items-center gap-2 backdrop-blur-xs">
-                    <Maximize2 size={15} /> Nhấn để phóng to bản đồ chi tiết
-                  </span>
+                <div className="absolute bottom-3 right-3 px-3.5 py-2 rounded-xl bg-slate-950 text-white text-xs font-bold inline-flex items-center gap-1.5 border border-white/25">
+                  <Maximize2 size={14} aria-hidden="true" /> Phóng to bản đồ chi tiết
                 </div>
-                <div className="absolute top-3 left-3 px-3 py-1 rounded-full bg-rose-600 text-white text-[10px] font-black tracking-wider uppercase shadow-xs">
+                <div className="absolute top-3 left-3 px-3 py-1 rounded-full bg-rose-700 text-white text-xs font-black tracking-wider uppercase border border-rose-500">
                   SỐ HÓA: KHU PHỐ 3
                 </div>
-              </div>
+              </button>
             </div>
 
             {/* Cột Phải: Miêu tả địa giới & Trục đường giao thông */}
@@ -232,10 +239,10 @@ export default function CitizenAboutKP3Section() {
         </div>
 
         {/* 4. Cấp Ủy & Chi Bộ Khu Phố 3 (Dữ Liệu Không Gian Số Đảng Ủy Phường) */}
-        <div className="bg-white rounded-3xl border border-slate-200/90 p-6 sm:p-8 shadow-sm space-y-5">
-          <div className="border-b border-slate-100 pb-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div className="bg-white rounded-2xl border border-slate-200 p-5 sm:p-8 space-y-5">
+          <div className="border-b border-slate-200 pb-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div>
-              <span className="text-[11px] font-black text-rose-600 uppercase tracking-widest block">
+              <span className="text-xs font-black text-rose-700 uppercase tracking-widest block">
                 TỔ CHỨC CƠ SỞ ĐẢNG TRỰC THUỘC
               </span>
               <h2 className="text-lg sm:text-xl font-black text-slate-900 mt-0.5">
@@ -246,9 +253,9 @@ export default function CitizenAboutKP3Section() {
               href="https://danguy.phuonganphu.gov.vn/chi-bo" 
               target="_blank" 
               rel="noreferrer"
-              className="px-3.5 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold transition-all flex items-center gap-1.5 self-start sm:self-auto"
+              className="min-h-[44px] px-3.5 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 border border-slate-200 text-slate-800 text-xs font-bold transition-colors flex items-center gap-1.5 self-start sm:self-auto"
             >
-              Tra cứu danh sách 39 Chi bộ Phường <ExternalLink size={12} />
+              Tra cứu danh sách 39 Chi bộ Phường <ExternalLink size={12} aria-hidden="true" />
             </a>
           </div>
 
@@ -256,20 +263,20 @@ export default function CitizenAboutKP3Section() {
             {capUyKP3.map((cu) => (
               <div 
                 key={cu.id}
-                className={`p-5 rounded-2xl border transition-all flex flex-col justify-between space-y-3 ${
+                className={`p-5 rounded-2xl border transition-colors flex flex-col justify-between space-y-3 ${
                   cu.highlight 
-                    ? "bg-gradient-to-br from-red-50/60 via-white to-amber-50/40 border-red-200 shadow-xs" 
+                    ? "bg-rose-50/50 border-rose-200" 
                     : "bg-white border-slate-200 hover:border-slate-300"
                 }`}
               >
                 <div className="space-y-2">
-                  <div className="flex items-center justify-between">
-                    <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-full bg-slate-100 text-slate-600">
+                  <div className="flex flex-wrap items-center justify-between gap-1.5">
+                    <span className="text-xs font-mono font-bold px-2 py-0.5 rounded-full bg-slate-100 text-slate-700">
                       #{cu.id}
                     </span>
-                    <span className={`text-[10px] font-extrabold px-2.5 py-0.5 rounded-full border ${
+                    <span className={`text-xs font-bold px-2.5 py-0.5 rounded-full border ${
                       cu.highlight 
-                        ? "bg-red-600 text-white border-red-600 shadow-2xs" 
+                        ? "bg-red-700 text-white border-red-700" 
                         : "bg-slate-50 text-slate-700 border-slate-200"
                     }`}>
                       {cu.role}
@@ -287,18 +294,18 @@ export default function CitizenAboutKP3Section() {
                     )}
                   </div>
 
-                  <p className="text-xs text-slate-500 leading-relaxed">
+                  <p className="text-xs text-slate-600 leading-relaxed">
                     {cu.desc}
                   </p>
                 </div>
 
-                <div className="pt-3 border-t border-slate-100 flex items-center justify-between">
-                  <span className="text-[11px] text-slate-400 font-medium">Điện thoại liên hệ:</span>
+                <div className="pt-3 border-t border-slate-200 flex flex-wrap items-center justify-between gap-2">
+                  <span className="text-xs text-slate-600 font-medium">Điện thoại:</span>
                   <a 
                     href={`tel:${cu.phone}`} 
-                    className="text-xs font-black font-mono text-gov-blue hover:text-gov-navy flex items-center gap-1 px-2.5 py-1 rounded-lg bg-blue-50 hover:bg-blue-100 transition-colors"
+                    className="min-h-[36px] text-xs font-black font-mono text-gov-blue hover:text-gov-navy flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-blue-50 hover:bg-blue-100 border border-blue-200 transition-colors"
                   >
-                    <Phone size={11} /> {cu.phone}
+                    <Phone size={12} aria-hidden="true" /> {cu.phone}
                   </a>
                 </div>
               </div>
@@ -307,10 +314,10 @@ export default function CitizenAboutKP3Section() {
         </div>
 
         {/* 5. Cổng Liên Kết Số Hóa Đảng Ủy Phường An Phú (Inter-portal Navigation) */}
-        <div className="bg-slate-900 text-white rounded-3xl p-6 sm:p-8 space-y-5 shadow-lg">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-800 pb-4">
+        <div className="bg-slate-800 border border-slate-700 text-white rounded-2xl p-6 sm:p-8 space-y-5">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-700 pb-4">
             <div>
-              <span className="text-xs font-extrabold text-teal-400 uppercase tracking-wider block">
+              <span className="text-xs font-extrabold text-teal-300 uppercase tracking-wider block">
                 HỆ SINH THÁI CHUYỂN ĐỔI SỐ
               </span>
               <h2 className="text-lg sm:text-xl font-black text-white mt-0.5">
@@ -321,9 +328,9 @@ export default function CitizenAboutKP3Section() {
               href="https://danguy.phuonganphu.gov.vn/" 
               target="_blank" 
               rel="noreferrer"
-              className="px-4 py-2 rounded-xl bg-teal-500 hover:bg-teal-600 text-slate-950 font-black text-xs transition-colors flex items-center gap-2 self-start sm:self-auto"
+              className="min-h-[44px] px-4 py-2 rounded-xl bg-teal-400 hover:bg-teal-300 text-slate-950 font-black text-xs transition-colors flex items-center gap-2 self-start sm:self-auto"
             >
-              Truy cập https://danguy.phuonganphu.gov.vn/ <ExternalLink size={14} />
+              Mở Cổng Đảng ủy Phường <ExternalLink size={14} aria-hidden="true" />
             </a>
           </div>
 
@@ -338,7 +345,7 @@ export default function CitizenAboutKP3Section() {
                 <span className="font-bold text-teal-300 text-sm flex items-center gap-1.5">
                   <Compass size={16} /> Bản đồ số 14 Khu phố
                 </span>
-                <ChevronRight size={14} className="text-white/40 group-hover:translate-x-1 transition-transform" />
+                <ChevronRight size={14} className="text-white/60" />
               </div>
               <p className="text-slate-300 leading-relaxed">
                 Tra cứu trực quan toàn bộ bản đồ địa giới hành chính 14 khu phố Phường An Phú sau khi sắp xếp theo Nghị quyết 34-NQ/ĐU.
@@ -355,7 +362,7 @@ export default function CitizenAboutKP3Section() {
                 <span className="font-bold text-teal-300 text-sm flex items-center gap-1.5">
                   <Building2 size={16} /> 39 Chi, Đảng bộ trực thuộc
                 </span>
-                <ChevronRight size={14} className="text-white/40 group-hover:translate-x-1 transition-transform" />
+                <ChevronRight size={14} className="text-white/60" />
               </div>
               <p className="text-slate-300 leading-relaxed">
                 Danh sách lãnh đạo cấp ủy, điện thoại liên hệ và địa chỉ của 14 Chi bộ Khu phố, Khối trường học, LLVT và Doanh nghiệp.
@@ -372,7 +379,7 @@ export default function CitizenAboutKP3Section() {
                 <span className="font-bold text-teal-300 text-sm flex items-center gap-1.5">
                   <Globe size={16} /> Fanpage Phường An Phú
                 </span>
-                <ChevronRight size={14} className="text-white/40 group-hover:translate-x-1 transition-transform" />
+                <ChevronRight size={14} className="text-white/60" />
               </div>
               <p className="text-slate-300 leading-relaxed">
                 Kênh thông tin tuyên truyền chính thức của Đảng ủy – HĐND – UBND Phường An Phú trên mạng xã hội Facebook.
@@ -385,27 +392,29 @@ export default function CitizenAboutKP3Section() {
 
       {/* MODAL PHÓNG TO BẢN ĐỒ CHI TIẾT */}
       {showMapZoom && (
-        <div className="fixed inset-0 z-50 bg-slate-950/85 backdrop-blur-sm flex items-center justify-center p-3 sm:p-5 animate-in fade-in duration-150">
-          <div className="bg-white rounded-3xl shadow-2xl border border-slate-200 max-w-4xl w-full max-h-[92vh] overflow-hidden flex flex-col">
-            <div className="p-4 border-b border-slate-200 flex items-center justify-between shrink-0 bg-slate-50">
-              <div className="flex items-center gap-2 text-xs">
-                <span className="font-black px-2.5 py-0.5 rounded-full bg-rose-600 text-white">
+        <div className="fixed inset-0 z-50 bg-slate-900/75 flex items-center justify-center p-3 sm:p-5">
+          <div className="bg-white rounded-2xl border border-slate-200 max-w-4xl w-full max-h-[92vh] overflow-hidden flex flex-col">
+            <div className="p-4 border-b border-slate-200 flex items-center justify-between gap-2 shrink-0 bg-slate-50">
+              <div className="flex flex-wrap items-center gap-2 text-xs min-w-0">
+                <span className="font-black px-2.5 py-0.5 rounded-full bg-rose-700 text-white">
                   KHU PHỐ 3
                 </span>
-                <span className="font-bold text-slate-800">Bản đồ số địa giới hành chính Phường An Phú</span>
+                <span className="font-bold text-slate-800 truncate">Bản đồ số địa giới hành chính Phường An Phú</span>
               </div>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 shrink-0">
                 <a 
                   href="https://danguy.phuonganphu.gov.vn/assets/images/maps/khu-pho-3.jpg?v=20261103-155725" 
                   target="_blank" 
                   rel="noreferrer"
-                  className="px-3 py-1.5 rounded-xl bg-slate-200 hover:bg-slate-300 text-slate-800 text-xs font-bold transition-all flex items-center gap-1"
+                  className="min-h-[44px] px-3 py-1.5 rounded-xl bg-slate-200 hover:bg-slate-300 text-slate-800 text-xs font-bold transition-colors flex items-center gap-1"
                 >
-                  Mở ảnh gốc <ExternalLink size={12} />
+                  Mở ảnh gốc <ExternalLink size={12} aria-hidden="true" />
                 </a>
                 <button 
+                  type="button"
                   onClick={() => setShowMapZoom(false)}
-                  className="p-1 rounded-full text-slate-400 hover:text-slate-700 hover:bg-slate-200 transition-colors cursor-pointer"
+                  aria-label="Đóng bản đồ phóng to"
+                  className="min-h-[44px] min-w-[44px] rounded-xl text-slate-600 hover:text-slate-900 hover:bg-slate-200 transition-colors cursor-pointer flex items-center justify-center"
                 >
                   <X size={20} />
                 </button>
@@ -416,11 +425,11 @@ export default function CitizenAboutKP3Section() {
               <img 
                 src="https://danguy.phuonganphu.gov.vn/assets/images/maps/khu-pho-3.jpg?v=20261103-155725" 
                 alt="Bản đồ Khu phố 3 phóng to" 
-                className="max-h-[75vh] w-auto object-contain rounded-xl shadow-md border border-slate-200"
+                className="max-h-[75vh] w-auto object-contain rounded-xl border border-slate-200"
               />
             </div>
 
-            <div className="p-3 bg-white border-t border-slate-200 text-center text-xs text-slate-500">
+            <div className="p-3 bg-white border-t border-slate-200 text-center text-xs text-slate-600">
               Nguồn trích xuất: Bản đồ số 14 Khu phố — Không Gian Số Đảng Ủy Phường An Phú (Nhiệm kỳ 2025 – 2030)
             </div>
           </div>

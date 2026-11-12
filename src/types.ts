@@ -188,17 +188,58 @@ export interface Business {
   inspections?: InspectionLog[];
 }
 
+export type ReportCategory =
+  | "Rác thải"
+  | "Lấn chiếm lòng đường"
+  | "Tiếng ồn"
+  | "An ninh trật tự"
+  | "Hạ tầng đô thị"
+  | "Trật tự đô thị"
+  | "Ngập nước";
+
+export type ReportPriority = "Bình thường" | "Cao" | "Khẩn cấp";
+export type ReportStatus = "Đã tiếp nhận" | "Đang xử lý" | "Đã giải quyết";
+
+export interface ReportMessage {
+  id: string;
+  senderRole: "canbo" | "citizen" | "system";
+  senderName: string;
+  senderTitle?: string;
+  content: string;
+  images?: string[];
+  createdAt: string;
+  isInternal?: boolean;
+}
+
+export interface ReportFeedback {
+  rating: number;
+  comment?: string;
+  satisfied: boolean;
+  submittedAt: string;
+}
+
 export interface FieldReport {
   id: string;
   title: string;
-  category: "Rác thải" | "Lấn chiếm lòng đường" | "Tiếng ồn" | "An ninh trật tự" | "Hạ tầng đô thị";
+  category: ReportCategory;
   reporterName: string;
   reporterPhone: string;
+  isAnonymous?: boolean;
   reportedAt: string;
+  createdAt?: string;
   location: string;
+  alleyGroup?: string;
   coordinates: { x: number; y: number };
+  lat?: number;
+  lng?: number;
   description: string;
-  status: "Đã tiếp nhận" | "Đang xử lý" | "Đã giải quyết";
+  status: ReportStatus;
+  priority?: ReportPriority;
+  slaHours?: number;
+  slaDeadline?: string;
+  assignedUnit?: string;
+  assignedOfficer?: string;
+  resolvedAt?: string;
   timeline: {
     time: string;
     title: string;
@@ -207,6 +248,11 @@ export interface FieldReport {
   }[];
   beforeImage?: string;
   afterImage?: string;
+  beforeImages?: string[];
+  afterImages?: string[];
+  images?: string[];
+  messages?: ReportMessage[];
+  citizenFeedback?: ReportFeedback;
 }
 
 export interface PartyMember {
@@ -331,14 +377,62 @@ export interface LocalNews {
   };
 }
 
+export type FundGroup =
+  | "Bắt buộc / Chỉ tiêu"
+  | "Vận động tự nguyện"
+  | "Quỹ tự quản khu phố";
+
+export type FundAudience =
+  | "Hộ dân"
+  | "Doanh nghiệp & Tổ chức"
+  | "Hộ dân & Tổ chức";
+
+export type FundStatus = "Đang vận động" | "Tạm dừng" | "Đã khóa sổ";
+
+export interface FundCategory {
+  id: string;
+  code: string;
+  name: string;
+  aliases?: string[];
+  group: FundGroup;
+  targetAudience: FundAudience;
+  defaultAmount: number;
+  annualTarget: number;
+  openingBalance: number;
+  status: FundStatus;
+  description?: string;
+  bankId?: string;
+  bankName?: string;
+  bankAccountNo?: string;
+  bankAccountName?: string;
+  isDefault?: boolean;
+  createdAt?: string;
+}
+
+export interface FundExpenditure {
+  id: string;
+  voucherCode?: string;
+  fundName: string;
+  title: string;
+  amount: number;
+  spentAt: string;
+  receiver: string;
+  evidence?: string;
+  approvedBy: string;
+}
+
 export interface FundContribution {
   id: string;
+  receiptCode?: string;
   householdCode: string;
   ownerName: string;
-  fundName: "Quỹ Khuyến học" | "Quỹ Vì người nghèo" | "Quỹ Quốc phòng an ninh" | "Quỹ Phòng chống thiên tai" | "Quỹ Bảo trì hẻm";
+  payerType?: "household" | "organization" | "enterprise" | "sponsor";
+  fundName: string;
   amount: number;
   status: "Đã nộp" | "Chưa nộp";
+  paymentMethod?: "Tiền mặt" | "VietQR" | "Chuyển khoản";
   paidAt?: string;
+  note?: string;
 }
 
 export interface AdministrativeForm {
@@ -407,7 +501,16 @@ export type ActiveTab =
 
 export interface TargetGisItem {
   id?: string;
-  type?: "household" | "business" | "enterprise" | "custom" | "camera" | "fire" | "light";
+  type?:
+    | "household"
+    | "business"
+    | "enterprise"
+    | "custom"
+    | "camera"
+    | "fire"
+    | "light"
+    | "report"
+    | "civic";
   name: string;
   address?: string;
   coordinates?: string;
@@ -498,5 +601,19 @@ export interface RecurringReminder {
   submissionNotes?: string; // Ghi chú khi nộp báo cáo
   autoCreateTask?: boolean; // Tự động tạo Task trong danh mục Nhiệm vụ khi đến hạn
   createdAt: string;
+}
+
+export interface LandingConfig {
+  siteTitle: string;
+  siteSubtitle: string;
+  heroBadge: string;
+  heroTitle: string;
+  heroAddressNote: string;
+  bannerNotice?: string;
+  contactEmail: string;
+  contactAddress: string;
+  workingHours: string;
+  hotline: string;
+  footerOperator: string;
 }
 

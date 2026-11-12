@@ -3,17 +3,19 @@ import {
   Briefcase,
   Calendar,
   Compass,
+  Edit2,
   FileText,
   Home,
   MapPin,
+  Megaphone,
   MessageSquare,
   Search,
   Users,
   Landmark,
-  ExternalLink
 } from "lucide-react";
-import { AdministrativeForm, CommunityEvent, LocalNews } from "../../types";
-import { VERIFIED_LEADERSHIP, ROUTES, Link } from "./landingConstants";
+import { AdministrativeForm, CommunityEvent, LandingConfig, LocalNews } from "../../types";
+import { KP3_OFFICIAL_BASELINE } from "../../utils/kp3Utils";
+import { DEFAULT_LANDING_CONFIG, VERIFIED_LEADERSHIP, ROUTES, Link } from "./landingConstants";
 
 export interface CitizenHeroProps {
   portalSearch: string;
@@ -32,6 +34,9 @@ export interface CitizenHeroProps {
   households?: any[];
   residents?: any[];
   businesses?: any[];
+  landingConfig?: LandingConfig;
+  isAdmin?: boolean;
+  onEditConfig?: () => void;
 }
 
 export default function CitizenHero({
@@ -45,76 +50,98 @@ export default function CitizenHero({
   onNavigateToTab,
   households,
   residents,
-  businesses
+  businesses,
+  landingConfig = DEFAULT_LANDING_CONFIG,
+  isAdmin = false,
+  onEditConfig,
 }: CitizenHeroProps) {
   return (
-    <section className="relative overflow-hidden bg-gradient-to-br from-gov-navy via-[#0a4a8c] to-gov-blue text-white">
+    <section className="relative overflow-hidden bg-gov-navy border-b border-blue-950 text-white">
       <div
         className="absolute inset-0 opacity-10 bg-[radial-gradient(#ffffff_1px,transparent_1px)] [background-size:24px_24px]"
         aria-hidden="true"
       />
-      <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-10 sm:pt-16 pb-20 sm:pb-24 grid lg:grid-cols-12 gap-10 items-center">
+      <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-10 sm:pt-14 pb-16 sm:pb-20 grid lg:grid-cols-12 gap-8 lg:gap-10 items-center">
         {/* Left Column: Slogan, Actions & Search */}
-        <div className="lg:col-span-7 space-y-6 kp3-fade-up">
+        <div className="lg:col-span-7 space-y-5 min-w-0">
           <div className="flex flex-wrap items-center gap-2">
-            <span className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/10 border border-white/20 text-xs font-semibold text-blue-100">
-              Khu phố 3 · Phường An Phú · TP. Hồ Chí Minh
+            <span className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/10 border border-white/25 text-xs font-semibold text-blue-100">
+              {landingConfig.heroBadge}
             </span>
             <a
               href="https://danguy.phuonganphu.gov.vn/"
               target="_blank"
               rel="noreferrer"
-              className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-red-600/80 hover:bg-red-600 text-white text-xs font-bold transition-colors shadow-2xs"
+              className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-red-700 hover:bg-red-800 border border-red-500 text-white text-xs font-bold transition-colors"
             >
-              🏛️ Không Gian Số Đảng Ủy Phường ↗
+              Không Gian Số Đảng Ủy Phường ↗
             </a>
+            {isAdmin && onEditConfig && (
+              <button
+                type="button"
+                onClick={onEditConfig}
+                className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-600 hover:bg-emerald-500 border border-emerald-400 text-white text-xs font-bold transition-colors cursor-pointer"
+              >
+                <Edit2 size={12} aria-hidden="true" /> Sửa nội dung Trang chủ
+              </button>
+            )}
           </div>
           <h1 className="text-3xl sm:text-4xl lg:text-5xl font-black leading-tight tracking-tight">
-            Kết nối người dân – Xây dựng khu phố văn minh
+            {landingConfig.heroTitle}
           </h1>
+          {landingConfig.bannerNotice && landingConfig.bannerNotice.trim() !== "" && (
+            <div className="flex items-start gap-2.5 rounded-xl bg-amber-500/20 border border-amber-300/40 px-4 py-3 text-sm text-amber-50 font-medium">
+              <Megaphone size={16} className="shrink-0 mt-0.5 text-amber-200" aria-hidden="true" />
+              <span>{landingConfig.bannerNotice}</span>
+            </div>
+          )}
 
-          <div className="flex flex-col sm:flex-row gap-3">
+          <div className="flex flex-col sm:flex-row flex-wrap gap-3">
             <Link
               to={ROUTES.REFLECTION}
-              className="inline-flex items-center justify-center gap-2 min-h-12 px-6 rounded-xl text-base font-bold bg-white text-gov-navy hover:bg-blue-50 shadow-lg transition-all cursor-pointer"
+              className="inline-flex items-center justify-center gap-2 min-h-[44px] px-6 rounded-xl text-base font-bold bg-white text-gov-navy border border-white hover:bg-blue-50 transition-colors cursor-pointer"
             >
               <MessageSquare size={18} aria-hidden="true" /> Phản ánh hiện trường
             </Link>
             <Link
               to={ROUTES.FORMS}
-              className="inline-flex items-center justify-center gap-2 min-h-12 px-5 rounded-xl text-base font-semibold bg-white/10 border border-white/30 hover:bg-white/20 transition-all cursor-pointer"
+              className="inline-flex items-center justify-center gap-2 min-h-[44px] px-5 rounded-xl text-base font-semibold bg-white/10 border border-white/30 hover:bg-white/20 transition-colors cursor-pointer"
             >
               <FileText size={18} aria-hidden="true" /> Tra cứu biểu mẫu
             </Link>
             <Link
               to={ROUTES.ABOUT}
-              className="inline-flex items-center justify-center gap-2 min-h-12 px-5 rounded-xl text-base font-bold bg-red-600/90 hover:bg-red-700 text-white shadow-lg transition-all cursor-pointer border border-red-500/40"
+              className="inline-flex items-center justify-center gap-2 min-h-[44px] px-5 rounded-xl text-base font-bold bg-red-700 hover:bg-red-800 text-white transition-colors cursor-pointer border border-red-500"
             >
               <Landmark size={18} aria-hidden="true" /> Giới thiệu KP3
             </Link>
           </div>
 
           {/* Tìm kiếm toàn cổng */}
-          <div className="relative max-w-xl">
+          <search className="relative max-w-xl">
             <label htmlFor="portal-search" className="sr-only">
               Tìm kiếm biểu mẫu, hoạt động, cán bộ
             </label>
             <Search
               size={18}
-              className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"
+              className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-600"
               aria-hidden="true"
             />
             <input
               id="portal-search"
               type="search"
+              enterKeyHint="search"
+              autoCorrect="off"
+              autoCapitalize="none"
+              spellCheck={false}
               value={portalSearch}
               onChange={e => setPortalSearch(e.target.value)}
               placeholder="Tìm biểu mẫu, hoạt động, cán bộ…"
-              className="w-full min-h-12 pl-11 pr-4 rounded-xl text-sm text-gov-text bg-white border-0 shadow-lg focus:outline-none"
+              className="w-full min-h-[48px] pl-11 pr-4 rounded-xl text-sm text-gov-text bg-white border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-400"
             />
             {searchResults && (
               <div
-                className="absolute left-0 right-0 mt-2 bg-white text-gov-text rounded-2xl shadow-2xl border border-slate-200 p-2 max-h-80 overflow-y-auto z-30"
+                className="absolute left-0 right-0 mt-2 bg-white text-gov-text rounded-2xl border border-slate-200 p-2 max-h-80 overflow-y-auto z-30 shadow-sm"
                 role="listbox"
                 aria-label="Kết quả tìm kiếm"
               >
@@ -123,7 +150,7 @@ export default function CitizenHero({
                   searchResults.leaders.length +
                   searchResults.news.length ===
                 0 ? (
-                  <p className="p-3 text-sm text-slate-500">
+                  <p className="p-3 text-sm text-slate-600">
                     Không tìm thấy kết quả cho “{portalSearch}”.
                   </p>
                 ) : (
@@ -188,23 +215,23 @@ export default function CitizenHero({
                 )}
               </div>
             )}
-          </div>
+          </search>
         </div>
 
-        {/* Right Column: Quy mô địa bàn KP3 (Số liệu đã xác minh theo AGENTS.md) */}
-        <div className="lg:col-span-5 kp3-fade-up [animation-delay:120ms]">
-          <div className="rounded-3xl bg-white/10 border border-white/20 backdrop-blur-md p-5 sm:p-6 space-y-4">
+        {/* Right Column: Quy mô địa bàn KP3 */}
+        <div className="lg:col-span-5 min-w-0">
+          <div className="rounded-2xl bg-white/10 border border-white/25 p-5 sm:p-6 space-y-4">
             <div className="flex items-center gap-2 text-sm font-semibold text-blue-100">
-              <Compass size={16} aria-hidden="true" /> Quy mô địa bàn Khu phố 3
+              <Compass size={16} aria-hidden="true" /> Quy mô địa bàn Khu phố 3 (14 Tổ Dân Phố)
             </div>
-            <dl className="grid grid-cols-3 gap-3">
+            <dl className="grid grid-cols-3 gap-2 sm:gap-3">
               {[
                 {
                   icon: <Home size={18} />,
                   value:
                     households?.length && households.length >= 100
                       ? households.length.toLocaleString("vi-VN")
-                      : "488",
+                      : KP3_OFFICIAL_BASELINE.households.toLocaleString("vi-VN"),
                   label: "Hộ gia đình"
                 },
                 {
@@ -212,7 +239,7 @@ export default function CitizenHero({
                   value:
                     residents?.length && residents.length >= 1000
                       ? residents.length.toLocaleString("vi-VN")
-                      : "11.632",
+                      : KP3_OFFICIAL_BASELINE.population.toLocaleString("vi-VN"),
                   label: "Nhân khẩu"
                 },
                 {
@@ -220,32 +247,33 @@ export default function CitizenHero({
                   value:
                     businesses?.length && businesses.length >= 50
                       ? businesses.length.toLocaleString("vi-VN")
-                      : "118",
-                  label: "Cơ sở kinh doanh"
+                      : KP3_OFFICIAL_BASELINE.activeBusinessesTotal.toLocaleString("vi-VN"),
+                  label: "Cơ sở KD"
                 }
               ].map(s => (
-                <div key={s.label} className="rounded-2xl bg-white/10 p-3 text-center">
+                <div key={s.label} className="rounded-xl bg-white/10 border border-white/15 p-2.5 sm:p-3 text-center min-w-0">
                   <span className="text-blue-200 flex justify-center" aria-hidden="true">
                     {s.icon}
                   </span>
-                  <dd className="text-xl sm:text-2xl font-black mt-1">{s.value}</dd>
-                  <dt className="text-[11px] text-blue-100">{s.label}</dt>
+                  <dd className="text-lg sm:text-2xl font-black mt-1 truncate">{s.value}</dd>
+                  <dt className="text-xs text-blue-100">{s.label}</dt>
                 </div>
               ))}
             </dl>
-            <p className="text-xs text-blue-100/90 leading-relaxed">
-              Địa bàn khép kín theo các trục đường Song Hành, Lương Định Của, Mai Chí Thọ.
+            <p className="text-xs text-blue-100 leading-relaxed">
+              {landingConfig.heroAddressNote}
             </p>
-            <div className="flex gap-2">
+            <div className="flex flex-col sm:flex-row gap-2">
               <button
+                type="button"
                 onClick={() => onNavigateToTab("gis")}
-                className="flex-1 min-h-11 inline-flex items-center justify-center gap-2 rounded-xl bg-white/15 hover:bg-white/25 text-xs sm:text-sm font-semibold cursor-pointer"
+                className="flex-1 min-h-[44px] inline-flex items-center justify-center gap-2 rounded-xl bg-white/15 hover:bg-white/25 border border-white/20 text-xs sm:text-sm font-semibold cursor-pointer px-3"
               >
                 <MapPin size={15} aria-hidden="true" /> Bản đồ số GIS
               </button>
               <Link
                 to={ROUTES.ABOUT}
-                className="flex-1 min-h-11 inline-flex items-center justify-center gap-2 rounded-xl bg-red-600/90 hover:bg-red-600 text-xs sm:text-sm font-bold text-white cursor-pointer shadow-xs border border-red-500/50"
+                className="flex-1 min-h-[44px] inline-flex items-center justify-center gap-2 rounded-xl bg-red-700 hover:bg-red-800 text-xs sm:text-sm font-bold text-white cursor-pointer border border-red-500 px-3"
               >
                 <Compass size={15} aria-hidden="true" /> Bản đồ Đảng ủy
               </Link>

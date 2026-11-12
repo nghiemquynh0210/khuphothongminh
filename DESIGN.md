@@ -53,7 +53,8 @@ Skill evon:ui-ux đọc file này trước khi dựng. Sửa tay được; file 
 - `/enterprises`: Quản lý Doanh nghiệp & Pháp nhân
 - `/businesses`: Cơ sở Kinh doanh & Tiêu chuẩn PCCC
 - `/gis`: Bản đồ GIS Không gian địa lý & Điểm nóng
-- `/reports`: Phản ánh hiện trường 2 chiều
+- `/dashboard/reports`: Phản ánh hiện trường 1022 — Đa ảnh Trước/Sau, giao tiếp 2 chiều Cư dân ↔ Cán bộ, SLA & định vị GIS
 - `/tasks`: Lịch & Nhiệm vụ cán bộ
+- `/dashboard/finance`: Quản lý Đóng góp, Danh mục Quỹ động (CRUD) & Thu Chi Quỹ Khu phố
 - `/design-system`: Trang Showcase duyệt toàn bộ Design System
 

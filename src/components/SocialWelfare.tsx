@@ -45,12 +45,17 @@ import {
   WelfareSubCategory,
   WelfareCampaign,
   EmergencySupportRecord,
-  WelfareBenefit
+  WelfareBenefit,
+  FundExpenditure
 } from "../types";
 import Pagination from "./Pagination";
 import { DetailRow, DetailGrid } from "./common/DetailRow";
 import { StatCard } from "./common/StatCard";
 import { PageHeader } from "./common/PageHeader";
+import { ReportSelect } from "./reports/ReportSelect";
+import { ConfirmModal, InlineNotice } from "./ui/ConfirmModal";
+import { Modal } from "./ui/Modal";
+import { KP3_TO_LIST, extractToDanPho, formatShortRecordId } from "../utils/kp3Utils";
 import { formatVNNumber } from "../utils/numberFormat";
 import {
   DEFAULT_WELFARE_SUBCATEGORIES,
@@ -70,6 +75,7 @@ interface SocialWelfareProps {
   onUpdateRecipient?: (updatedRec: WelfareRecipient) => void;
   onDeleteRecipient: (id: string) => void;
   residents?: Resident[];
+  onRecordFundExpenditure?: (exp: FundExpenditure) => void;
 }
 
 export default function SocialWelfare({
@@ -78,7 +84,8 @@ export default function SocialWelfare({
   onAddRecipient,
   onUpdateRecipient,
   onDeleteRecipient,
-  residents = []
+  residents = [],
+  onRecordFundExpenditure
 }: SocialWelfareProps) {
   // Navigation Tabs: 4 comprehensive views
   const [activeTab, setActiveTab] = useState<"recipients" | "submodules" | "campaigns" | "emergency">("recipients");
@@ -110,9 +117,32 @@ export default function SocialWelfare({
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedCategoryPill, setSelectedCategoryPill] = useState<string>("all");
   const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [toFilter, setToFilter] = useState<string>("all");
   const [currentPage, setCurrentPage] = useState(1);
   const [viewMode, setViewMode] = useState<"card" | "table">("card");
   const itemsPerPage = 8;
+
+  // Map CCCD -> Resident for cross-module BHYT status verification
+  const residentByCccd = useMemo(() => {
+    const map = new Map<string, Resident>();
+    residents.forEach(res => {
+      if (res.cccd) map.set(res.cccd.trim(), res);
+    });
+    return map;
+  }, [residents]);
+
+  const getBhytInfo = (rec: WelfareRecipient) => {
+    const matchedResident = residentByCccd.get((rec.cccd || "").trim());
+    const cardNumber = matchedResident?.healthInsuranceNumber?.trim();
+    const hasBenefitBhyt = (rec.benefits || []).some(b => /bhyt|bảo hiểm y tế/i.test(b));
+    if (cardNumber) {
+      return { hasBhyt: true, code: cardNumber, label: `BHYT: ${cardNumber}` };
+    }
+    if (hasBenefitBhyt) {
+      return { hasBhyt: true, code: "", label: "Có thẻ BHYT chính sách" };
+    }
+    return { hasBhyt: false, code: "", label: "Chưa cập nhật BHYT" };
+  };
 
   // Modals
   const [showAddRecipientModal, setShowAddRecipientModal] = useState(false);
@@ -122,6 +152,7 @@ export default function SocialWelfare({
   const [selectedRecipient, setSelectedRecipient] = useState<WelfareRecipient | null>(null);
   const [selectedCampaign, setSelectedCampaign] = useState<WelfareCampaign | null>(null);
   const [recipientToDelete, setRecipientToDelete] = useState<WelfareRecipient | null>(null);
+  const [subCategoryConfirmToDelete, setSubCategoryConfirmToDelete] = useState<WelfareSubCategory | null>(null);
   const [emergencyTargetRecipient, setEmergencyTargetRecipient] = useState<WelfareRecipient | null>(null);
 
   // Edit Recipient Modal State
@@ -315,11 +346,7 @@ export default function SocialWelfare({
       showToast(`Không thể xóa phân hệ "${target.name}" vì đang có đối tượng thụ hưởng!`, "error");
       return;
     }
-    if (confirm(`Bạn có chắc chắn muốn xóa phân hệ "${target.name}"?`)) {
-      const updated = subCategories.filter(s => s.id !== subId);
-      updateSubCategories(updated);
-      showToast(`Đã xóa phân hệ "${target.name}"!`, "info");
-    }
+    setSubCategoryConfirmToDelete(target);
   };
 
   // ================= FORM STATE: PROPOSE SUPPORT CAMPAIGN =================
@@ -437,8 +464,21 @@ export default function SocialWelfare({
 
     const updated = [newRecord, ...emergencyRecords];
     updateEmergencyRecords(updated);
+    if (onRecordFundExpenditure && emgAmount > 0) {
+      onRecordFundExpenditure({
+        id: `EXP_${newRecord.id}_${Date.now().toString(36)}`,
+        voucherCode: newRecord.id,
+        fundName: emgFundingSource.trim() || "Quỹ An sinh Xã hội KP3",
+        title: `Chi hỗ trợ khẩn cấp: ${newRecord.recipientName} — ${newRecord.reason}`,
+        amount: emgAmount,
+        spentAt: newRecord.disbursedDate,
+        receiver: newRecord.recipientName,
+        evidence: `HS An sinh ${newRecord.recipientId}`,
+        approvedBy: emgApprover.trim() || "Trưởng Ban Điều hành KP3"
+      });
+    }
     setShowEmergencyModal(false);
-    showToast(`⚡ ĐÃ CHI TRẢ HỖ TRỢ NGAY ${formatVNNumber(emgAmount)} VNĐ cho ${emgRecipientName}!`, "success");
+    showToast(`Đã chi trả hỗ trợ ngay ${formatVNNumber(emgAmount)} VNĐ cho ${emgRecipientName} và ghi nhận phiếu chi Quỹ khu phố.`, "success");
   };
 
   // Add Custom Benefit to Selected Recipient
@@ -536,7 +576,7 @@ export default function SocialWelfare({
         const stored = JSON.parse(localStorage.getItem("kp3_welfare_recipients") || "[]");
         const newStored = stored.map((r: any) => r.id === updated.id ? updated : r);
         localStorage.setItem("kp3_welfare_recipients", JSON.stringify(newStored));
-      } catch {}
+      } catch { }
     }
 
     if (selectedRecipient?.id === updated.id) {
@@ -641,10 +681,12 @@ export default function SocialWelfare({
 
       const matchCategory = selectedCategoryPill === "all" || r.category === selectedCategoryPill;
       const matchStatus = statusFilter === "all" || r.status === statusFilter;
+      const toNum = extractToDanPho(r.address);
+      const matchTo = toFilter === "all" || (toNum !== null && String(toNum) === toFilter);
 
-      return matchSearch && matchCategory && matchStatus;
+      return matchSearch && matchCategory && matchStatus && matchTo;
     });
-  }, [recipients, searchTerm, selectedCategoryPill, statusFilter]);
+  }, [recipients, searchTerm, selectedCategoryPill, statusFilter, toFilter]);
 
   // Pagination
   const totalItems = filteredRecipients.length;
@@ -684,8 +726,8 @@ export default function SocialWelfare({
       blue: "bg-blue-50 text-blue-800 border-blue-200"
     };
     return (
-      <span className={`inline-flex items-center gap-1 text-[11px] font-bold px-2.5 py-0.5 rounded-full border ${colorClasses[color] || colorClasses.rose}`}>
-        <Tag size={10} />
+      <span className={`inline-flex items-center gap-1 text-xs font-bold px-2.5 py-0.5 rounded-full border ${colorClasses[color] || colorClasses.rose}`}>
+        <Tag size={11} />
         {catName}
       </span>
     );
@@ -693,33 +735,24 @@ export default function SocialWelfare({
 
   return (
     <div id="social-welfare-view" className="space-y-6">
-      {/* Toast Notification Container */}
-      {toast && (
-        <div className="fixed top-5 right-5 z-70 max-w-md bg-slate-900/95 backdrop-blur-md text-white px-4 py-3 rounded-2xl shadow-2xl border border-slate-700/80 animate-in slide-in-from-top-4 duration-200 flex items-start gap-3">
-          <div className="p-1.5 rounded-lg bg-rose-500/20 text-rose-400 shrink-0 mt-0.5">
-            <Heart size={16} className="animate-pulse" />
-          </div>
-          <div className="text-xs leading-relaxed flex-1">
-            <span className="font-bold block text-rose-300 mb-0.5">HỆ THỐNG AN SINH XÃ HỘI KP3</span>
-            {toast.message}
-          </div>
-          <button onClick={() => setToast(null)} className="p-1 text-slate-400 hover:text-white rounded-lg hover:bg-white/10 cursor-pointer">
-            <X size={14} />
-          </button>
-        </div>
-      )}
+      {/* Inline Notification Bar */}
+      <InlineNotice
+        message={toast?.message ?? null}
+        type={toast?.type ?? "info"}
+        onDismiss={() => setToast(null)}
+      />
 
-      {/* Page Header with Main Sub-tab Navigation & Action Controls */}
+      {/* Page Header with Clean Dual-Action Controls */}
       <PageHeader
         badgeIcon={<Heart size={13} className="text-rose-600 fill-rose-500/20" />}
-        badgeText="CHÍNH SÁCH BẢO TRỢ & AN SINH CỘNG ĐỒNG • KHU PHỐ 3, PHƯỜNG AN PHÚ"
+        badgeText="CHÍNH SÁCH & AN SINH CỘNG ĐỒNG • KHU PHỐ 3, PHƯỜNG AN PHÚ"
         badgeSubtext="NGHỊ ĐỊNH 20/2021/NĐ-CP & ĐỀ ÁN AN SINH"
-        title="An Sinh Xã Hội, Chăm Lo Chính Sách & Cứu Trợ Cộng Đồng"
+        title="An Sinh Xã Hội"
         actions={
           <div className="flex flex-wrap items-center gap-2">
-            {/* Quick Action Buttons */}
             <button
               id="btn-add-welfare-recipient"
+              type="button"
               onClick={() => {
                 setShowAddRecipientModal(true);
                 handleCategorySelectChange("Người có công");
@@ -730,23 +763,8 @@ export default function SocialWelfare({
             </button>
 
             <button
-              id="btn-add-submodule"
-              onClick={() => setShowAddSubCategoryModal(true)}
-              className="flex items-center gap-1.5 bg-slate-100 hover:bg-slate-200 text-slate-800 border border-slate-300 px-3 py-2 rounded-xl font-bold text-xs cursor-pointer transition-colors"
-            >
-              <FolderPlus size={14} className="text-indigo-600" /> Tạo phân hệ con mới
-            </button>
-
-            <button
-              id="btn-add-campaign"
-              onClick={() => setShowAddCampaignModal(true)}
-              className="flex items-center gap-1.5 bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-2 rounded-xl font-bold text-xs shadow-xs cursor-pointer transition-colors"
-            >
-              <Gift size={14} /> Lập đợt hỗ trợ
-            </button>
-
-            <button
               id="btn-emergency-support"
+              type="button"
               onClick={() => {
                 setEmergencyTargetRecipient(null);
                 setEmgRecipientId("");
@@ -756,9 +774,9 @@ export default function SocialWelfare({
                 setEmgReason("Hỗ trợ khẩn cấp đột xuất cho trường hợp khó khăn cấp bách");
                 setShowEmergencyModal(true);
               }}
-              className="flex items-center gap-1.5 bg-gradient-to-r from-amber-500 to-rose-600 hover:from-amber-600 hover:to-rose-700 text-white px-3.5 py-2 rounded-xl font-bold text-xs shadow-xs cursor-pointer transition-all animate-pulse"
+              className="flex items-center gap-1.5 bg-white hover:bg-amber-50 text-amber-800 border border-amber-300 px-3.5 py-2 rounded-xl font-bold text-xs shadow-xs cursor-pointer transition-colors"
             >
-              <Zap size={14} /> Hỗ trợ ngay ⚡
+              <Zap size={14} className="text-amber-600" /> Hỗ trợ khẩn cấp
             </button>
           </div>
         }
@@ -806,49 +824,53 @@ export default function SocialWelfare({
       </div>
 
       {/* Sub-tab Navigation Bar */}
-      <div className="flex items-center gap-1.5 bg-slate-100/90 p-1 rounded-2xl border border-slate-200/80 overflow-x-auto">
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-1.5 bg-slate-100/90 p-1.5 rounded-2xl border border-slate-200/80">
         <button
+          type="button"
           onClick={() => setActiveTab("recipients")}
-          className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-2 shrink-0 ${activeTab === "recipients"
-              ? "bg-white text-rose-700 shadow-xs border border-slate-200"
-              : "text-slate-600 hover:text-slate-900 hover:bg-white/60"
+          className={`min-h-[40px] px-3 py-2 rounded-xl text-xs font-bold transition-colors cursor-pointer flex items-center justify-center gap-2 whitespace-nowrap ${activeTab === "recipients"
+            ? "bg-white text-rose-800 border border-slate-200"
+            : "text-slate-700 hover:text-slate-900 hover:bg-white/60"
             }`}
         >
-          <Users size={14} className={activeTab === "recipients" ? "text-rose-600" : "text-slate-400"} />
-          <span>Danh Sách Đối Tượng Thụ Hưởng ({recipients.length})</span>
+          <Users size={14} className={activeTab === "recipients" ? "text-rose-700" : "text-slate-600"} />
+          <span>Đối tượng thụ hưởng ({recipients.length})</span>
         </button>
 
         <button
+          type="button"
           onClick={() => setActiveTab("submodules")}
-          className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-2 shrink-0 ${activeTab === "submodules"
-              ? "bg-white text-indigo-700 shadow-xs border border-slate-200"
-              : "text-slate-600 hover:text-slate-900 hover:bg-white/60"
+          className={`min-h-[40px] px-3 py-2 rounded-xl text-xs font-bold transition-colors cursor-pointer flex items-center justify-center gap-2 whitespace-nowrap ${activeTab === "submodules"
+            ? "bg-white text-indigo-800 border border-slate-200"
+            : "text-slate-700 hover:text-slate-900 hover:bg-white/60"
             }`}
         >
-          <FolderPlus size={14} className={activeTab === "submodules" ? "text-indigo-600" : "text-slate-400"} />
-          <span>Phân Hệ & Chế Độ Chính Sách ({subCategories.length})</span>
+          <FolderPlus size={14} className={activeTab === "submodules" ? "text-indigo-700" : "text-slate-600"} />
+          <span>Phân hệ chính sách ({subCategories.length})</span>
         </button>
 
         <button
+          type="button"
           onClick={() => setActiveTab("campaigns")}
-          className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-2 shrink-0 ${activeTab === "campaigns"
-              ? "bg-white text-emerald-700 shadow-xs border border-slate-200"
-              : "text-slate-600 hover:text-slate-900 hover:bg-white/60"
+          className={`min-h-[40px] px-3 py-2 rounded-xl text-xs font-bold transition-colors cursor-pointer flex items-center justify-center gap-2 whitespace-nowrap ${activeTab === "campaigns"
+            ? "bg-white text-emerald-800 border border-slate-200"
+            : "text-slate-700 hover:text-slate-900 hover:bg-white/60"
             }`}
         >
-          <Gift size={14} className={activeTab === "campaigns" ? "text-emerald-600" : "text-slate-400"} />
-          <span>Đợt Hỗ Trợ & Cấp Phát Tập Trung ({campaigns.length})</span>
+          <Gift size={14} className={activeTab === "campaigns" ? "text-emerald-700" : "text-slate-600"} />
+          <span>Đợt hỗ trợ tập trung ({campaigns.length})</span>
         </button>
 
         <button
+          type="button"
           onClick={() => setActiveTab("emergency")}
-          className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-2 shrink-0 ${activeTab === "emergency"
-              ? "bg-white text-amber-800 shadow-xs border border-slate-200"
-              : "text-slate-600 hover:text-slate-900 hover:bg-white/60"
+          className={`min-h-[40px] px-3 py-2 rounded-xl text-xs font-bold transition-colors cursor-pointer flex items-center justify-center gap-2 whitespace-nowrap ${activeTab === "emergency"
+            ? "bg-white text-amber-800 border border-slate-200"
+            : "text-slate-700 hover:text-slate-900 hover:bg-white/60"
             }`}
         >
-          <Zap size={14} className={activeTab === "emergency" ? "text-amber-500 fill-amber-500" : "text-slate-400"} />
-          <span>Hỗ Trợ Ngay & Cứu Trợ Khẩn Cấp ({emergencyRecords.length})</span>
+          <Zap size={14} className={activeTab === "emergency" ? "text-amber-700" : "text-slate-600"} />
+          <span>Cứu trợ khẩn cấp ({emergencyRecords.length})</span>
         </button>
       </div>
 
@@ -858,12 +880,13 @@ export default function SocialWelfare({
       {activeTab === "recipients" && (
         <div className="space-y-4">
           {/* Sub-Category Filter Pills */}
-          <div className="flex items-center gap-1.5 overflow-x-auto pb-1">
+          <div className="flex flex-wrap items-center gap-1.5">
             <button
+              type="button"
               onClick={() => { setSelectedCategoryPill("all"); setCurrentPage(1); }}
-              className={`px-3 py-1.5 rounded-xl text-xs font-bold shrink-0 transition-all cursor-pointer border ${selectedCategoryPill === "all"
-                  ? "bg-slate-900 text-white border-slate-900 shadow-xs"
-                  : "bg-white text-slate-600 border-slate-200 hover:bg-slate-50"
+              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer border ${selectedCategoryPill === "all"
+                ? "bg-rose-600 text-white border-rose-600 shadow-xs"
+                : "bg-white text-slate-700 border-slate-200 hover:bg-slate-50"
                 }`}
             >
               Tất cả phân hệ ({recipients.length})
@@ -873,14 +896,15 @@ export default function SocialWelfare({
               return (
                 <button
                   key={sub.id}
+                  type="button"
                   onClick={() => { setSelectedCategoryPill(sub.name); setCurrentPage(1); }}
-                  className={`px-3 py-1.5 rounded-xl text-xs font-bold shrink-0 transition-all cursor-pointer border flex items-center gap-1.5 ${selectedCategoryPill === sub.name
-                      ? "bg-rose-600 text-white border-rose-600 shadow-xs"
-                      : "bg-white text-slate-700 border-slate-200 hover:bg-rose-50/50"
+                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer border flex items-center gap-1.5 ${selectedCategoryPill === sub.name
+                    ? "bg-rose-600 text-white border-rose-600 shadow-xs"
+                    : "bg-white text-slate-700 border-slate-200 hover:bg-rose-50/50"
                     }`}
                 >
                   <span>{sub.name}</span>
-                  <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-mono ${selectedCategoryPill === sub.name ? "bg-white/20 text-white" : "bg-slate-100 text-slate-600"
+                  <span className={`text-xs px-1.5 py-0.5 rounded-full font-mono ${selectedCategoryPill === sub.name ? "bg-white/25 text-white" : "bg-slate-100 text-slate-700"
                     }`}>
                     {count}
                   </span>
@@ -889,10 +913,10 @@ export default function SocialWelfare({
             })}
           </div>
 
-          {/* Search, Status Filter & View Mode Bar */}
-          <div className="bg-white p-3.5 rounded-2xl border border-slate-200/80 shadow-xs flex flex-col sm:flex-row gap-3 items-stretch sm:items-center justify-between">
-            <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
+          {/* Search, Status Filter, Tổ 1–14 & View Mode Bar */}
+          <div className="bg-white p-3.5 rounded-2xl border border-slate-200/80 shadow-xs flex flex-col lg:flex-row gap-3 items-stretch lg:items-center justify-between">
+            <div className="relative flex-1 min-w-0">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" size={16} />
               <input
                 id="social-welfare-search"
                 type="text"
@@ -904,19 +928,32 @@ export default function SocialWelfare({
             </div>
 
             <div className="flex flex-wrap items-center gap-2 shrink-0">
-              {/* Status Filter */}
-              <div className="flex items-center gap-1.5 text-xs">
-                <span className="font-semibold text-slate-500">Trạng thái:</span>
-                <select
+              <div className="min-w-[145px]">
+                <ReportSelect
+                  aria-label="Lọc theo Tổ dân phố"
+                  value={toFilter}
+                  onChange={val => { setToFilter(val); setCurrentPage(1); }}
+                  options={[
+                    { value: "all", label: "Tất cả Tổ 1–14" },
+                    ...KP3_TO_LIST.map(n => ({ value: String(n), label: `Tổ dân phố ${n}` }))
+                  ]}
+                  className="text-xs"
+                />
+              </div>
+
+              <div className="min-w-[165px]">
+                <ReportSelect
+                  aria-label="Lọc trạng thái trợ cấp"
                   value={statusFilter}
-                  onChange={e => { setStatusFilter(e.target.value); setCurrentPage(1); }}
-                  className="px-2.5 py-2 border border-slate-200 rounded-xl text-xs font-medium bg-slate-50/60 focus:outline-none focus:border-rose-500"
-                >
-                  <option value="all">Tất cả trạng thái</option>
-                  <option value="Đang nhận trợ cấp">Đang nhận trợ cấp</option>
-                  <option value="Chờ duyệt hồ sơ">Chờ duyệt hồ sơ</option>
-                  <option value="Đã tạm ngưng">Đã tạm ngưng</option>
-                </select>
+                  onChange={val => { setStatusFilter(val); setCurrentPage(1); }}
+                  options={[
+                    { value: "all", label: "Tất cả trạng thái" },
+                    { value: "Đang nhận trợ cấp", label: "Đang nhận trợ cấp" },
+                    { value: "Chờ duyệt hồ sơ", label: "Chờ duyệt hồ sơ" },
+                    { value: "Đã tạm ngưng", label: "Đã tạm ngưng" }
+                  ]}
+                  className="text-xs"
+                />
               </div>
 
               {/* View mode toggle */}
@@ -924,16 +961,18 @@ export default function SocialWelfare({
                 <button
                   type="button"
                   onClick={() => setViewMode("card")}
-                  className={`p-1.5 rounded-lg transition-all cursor-pointer ${viewMode === "card" ? "bg-white text-rose-700 shadow-xs font-bold" : "text-slate-400 hover:text-slate-600"}`}
+                  className={`p-2 rounded-lg transition-all cursor-pointer ${viewMode === "card" ? "bg-white text-rose-700 shadow-xs font-bold" : "text-slate-600 hover:text-slate-900"}`}
                   title="Xem dạng Lưới Thẻ"
+                  aria-label="Xem dạng Lưới Thẻ"
                 >
                   <LayoutGrid size={15} />
                 </button>
                 <button
                   type="button"
                   onClick={() => setViewMode("table")}
-                  className={`p-1.5 rounded-lg transition-all cursor-pointer ${viewMode === "table" ? "bg-white text-rose-700 shadow-xs font-bold" : "text-slate-400 hover:text-slate-600"}`}
+                  className={`p-2 rounded-lg transition-all cursor-pointer ${viewMode === "table" ? "bg-white text-rose-700 shadow-xs font-bold" : "text-slate-600 hover:text-slate-900"}`}
                   title="Xem dạng Bảng Danh sách"
+                  aria-label="Xem dạng Bảng Danh sách"
                 >
                   <List size={15} />
                 </button>
@@ -945,7 +984,7 @@ export default function SocialWelfare({
           {viewMode === "card" ? (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
               {paginatedRecipients.length === 0 ? (
-                <div className="col-span-full bg-white rounded-2xl border border-slate-200 p-12 text-center text-sm text-slate-400">
+                <div className="col-span-full bg-white rounded-2xl border border-slate-200 p-12 text-center text-sm text-slate-600">
                   Không tìm thấy thông tin đối tượng chính sách phù hợp bộ lọc.
                 </div>
               ) : (
@@ -953,17 +992,19 @@ export default function SocialWelfare({
                   const statusColors: Record<string, string> = {
                     "Đang nhận trợ cấp": "bg-emerald-50 text-emerald-800 border-emerald-200",
                     "Chờ duyệt hồ sơ": "bg-amber-50 text-amber-800 border-amber-200",
-                    "Đã tạm ngưng": "bg-slate-100 text-slate-600 border-slate-200"
+                    "Đã tạm ngưng": "bg-slate-100 text-slate-700 border-slate-200"
                   };
+                  const bhyt = getBhytInfo(rec);
+                  const toNum = extractToDanPho(rec.address);
                   return (
                     <div
                       key={rec.id}
                       className="bg-white rounded-2xl border border-slate-200/90 hover:border-rose-300 p-4 hover:shadow-md transition-all flex flex-col justify-between space-y-3 group"
                     >
                       <div className="space-y-2">
-                        <div className="flex justify-between items-start gap-1.5">
+                        <div className="flex flex-wrap justify-between items-start gap-1.5">
                           {getSubCategoryBadge(rec.category)}
-                          <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${statusColors[rec.status] || "bg-slate-50 text-slate-500 border-slate-200"}`}>
+                          <span className={`text-xs font-bold px-2 py-0.5 rounded-full border ${statusColors[rec.status] || "bg-slate-100 text-slate-700 border-slate-200"}`}>
                             {rec.status}
                           </span>
                         </div>
@@ -972,21 +1013,37 @@ export default function SocialWelfare({
                           {rec.fullName}
                         </h3>
 
-                        <div className="text-xs text-slate-500 flex items-center gap-1">
-                          <MapPin size={12} className="shrink-0 text-slate-400" />
+                        <div className="text-xs text-slate-600 flex items-center gap-1.5 min-w-0">
+                          <MapPin size={12} className="shrink-0 text-slate-500" />
                           <span className="truncate">{rec.address}</span>
+                          {toNum !== null && (
+                            <span className="shrink-0 px-1.5 py-0.5 rounded bg-slate-100 border border-slate-200 text-slate-700 font-semibold text-xs">
+                              Tổ {toNum}
+                            </span>
+                          )}
+                        </div>
+
+                        <div className="flex flex-wrap items-center gap-1.5">
+                          <span
+                            className={`text-xs font-semibold px-2 py-0.5 rounded-md border ${bhyt.hasBhyt
+                              ? "bg-emerald-50 text-emerald-800 border-emerald-200"
+                              : "bg-slate-100 text-slate-600 border-slate-200"
+                              }`}
+                          >
+                            {bhyt.label}
+                          </span>
                         </div>
 
                         {/* Active Benefits Chips */}
                         {rec.benefits && rec.benefits.length > 0 && (
                           <div className="pt-1 flex flex-wrap gap-1">
                             {rec.benefits.slice(0, 2).map((b, idx) => (
-                              <span key={idx} className="text-[10px] bg-slate-50 text-slate-700 border border-slate-200 px-1.5 py-0.5 rounded truncate max-w-[180px]" title={b}>
+                              <span key={idx} className="text-xs bg-slate-50 text-slate-700 border border-slate-200 px-2 py-0.5 rounded truncate max-w-[180px]" title={b}>
                                 ✓ {b}
                               </span>
                             ))}
                             {rec.benefits.length > 2 && (
-                              <span className="text-[10px] text-slate-400 font-bold self-center">
+                              <span className="text-xs text-slate-600 font-bold self-center">
                                 +{rec.benefits.length - 2} chế độ
                               </span>
                             )}
@@ -996,7 +1053,7 @@ export default function SocialWelfare({
 
                       <div className="pt-2.5 border-t border-slate-100 space-y-2">
                         <div className="flex justify-between items-center text-xs">
-                          <span className="font-mono text-slate-500 text-[11px]">CCCD: {rec.cccd.substring(0, 6)}***</span>
+                          <span className="font-mono text-slate-600 text-xs">CCCD: {rec.cccd.substring(0, 6)}***</span>
                           <span className="font-black text-rose-700 text-xs">{rec.supportLevel}</span>
                         </div>
 
@@ -1007,33 +1064,33 @@ export default function SocialWelfare({
                             onClick={() => setSelectedRecipient(rec)}
                             className="px-2.5 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-700 rounded-lg text-xs font-bold flex items-center gap-1 border border-rose-200 cursor-pointer transition-colors"
                           >
-                            <Eye size={13} /> Hồ sơ & Quyền lợi
+                            <Eye size={13} /> Hồ sơ
                           </button>
 
                           <div className="flex items-center gap-1">
                             <button
                               type="button"
                               onClick={() => handleOpenEmergencyForRecipient(rec)}
-                              className="p-1.5 bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200 rounded-lg text-xs font-bold flex items-center gap-1 cursor-pointer"
+                              className="p-2 bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200 rounded-lg text-xs font-bold flex items-center gap-1 cursor-pointer"
                               title="Hỗ trợ khẩn cấp ngay cho đối tượng này"
                             >
-                              <Zap size={12} className="text-amber-600" />
+                              <Zap size={13} className="text-amber-700" />
                             </button>
                             <button
                               type="button"
                               onClick={() => handleOpenEditRecipient(rec)}
-                              className="p-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 rounded-lg text-xs font-bold cursor-pointer"
+                              className="p-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 rounded-lg text-xs font-bold cursor-pointer"
                               title="Chỉnh sửa hồ sơ"
                             >
-                              <Edit2 size={12} />
+                              <Edit2 size={13} />
                             </button>
                             <button
                               type="button"
                               onClick={() => setRecipientToDelete(rec)}
-                              className="p-1.5 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-lg text-xs font-bold cursor-pointer"
+                              className="p-2 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-lg text-xs font-bold cursor-pointer"
                               title="Xóa đối tượng"
                             >
-                              <Trash2 size={12} />
+                              <Trash2 size={13} />
                             </button>
                           </div>
                         </div>
@@ -1049,84 +1106,117 @@ export default function SocialWelfare({
               <div className="overflow-x-auto">
                 <table className="w-full text-left border-collapse text-xs">
                   <thead>
-                    <tr className="bg-slate-50/80 border-b border-slate-200 text-slate-500 font-bold uppercase text-[10px] tracking-wider">
-                      <th className="py-3 px-4">Mã & Đối tượng thụ hưởng</th>
-                      <th className="py-3 px-4">Số CCCD & Liên hệ</th>
-                      <th className="py-3 px-4">Phân hệ an sinh</th>
-                      <th className="py-3 px-4">Địa chỉ cư trú</th>
-                      <th className="py-3 px-4">Mức trợ cấp</th>
-                      <th className="py-3 px-4 text-center">Trạng thái</th>
-                      <th className="py-3 px-4 text-center">Thao tác</th>
+                    <tr className="bg-slate-50/80 border-b border-slate-200 text-slate-700 font-bold uppercase text-xs tracking-wider">
+                      <th className="py-3 px-4 min-w-[215px] whitespace-nowrap">Mã & Đối tượng</th>
+                      <th className="py-3 px-4 min-w-[210px] whitespace-nowrap">CCCD & Liên hệ</th>
+                      <th className="py-3 px-4 min-w-[215px] whitespace-nowrap">Phân hệ & BHYT</th>
+                      <th className="py-3 px-4 min-w-[215px] whitespace-nowrap">Địa chỉ cư trú</th>
+                      <th className="py-3 px-4 min-w-[140px] whitespace-nowrap">Trợ cấp</th>
+                      <th className="py-3 px-4 text-center min-w-[150px] whitespace-nowrap">Trạng thái</th>
+                      <th className="py-3 px-4 text-center min-w-[130px] whitespace-nowrap">Thao tác</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
-                    {paginatedRecipients.map(rec => (
-                      <tr key={rec.id} className="hover:bg-rose-50/30 transition-colors">
-                        <td className="py-3.5 px-4">
-                          <div className="font-bold text-slate-900 text-xs">{rec.fullName}</div>
-                          <span className="font-mono text-[10px] font-bold text-rose-700 bg-rose-50 px-1.5 py-0.2 rounded border border-rose-100 mt-0.5 inline-block">
-                            {rec.id}
-                          </span>
-                        </td>
-                        <td className="py-3.5 px-4">
-                          <div className="font-mono font-bold text-slate-700">{rec.cccd}</div>
-                          <div className="text-[10px] text-slate-400 font-mono mt-0.5 flex items-center gap-1">
-                            <Phone size={11} /> {rec.phone || "Chưa có SĐT"}
-                          </div>
-                        </td>
-                        <td className="py-3.5 px-4">{getSubCategoryBadge(rec.category)}</td>
-                        <td className="py-3.5 px-4">
-                          <div className="text-[11px] text-slate-600 truncate max-w-[200px] flex items-center gap-1">
-                            <MapPin size={11} className="text-slate-400 shrink-0" />
-                            <span>{rec.address}</span>
-                          </div>
-                        </td>
-                        <td className="py-3.5 px-4">
-                          <span className="font-bold text-rose-700 text-xs">{rec.supportLevel}</span>
-                        </td>
-                        <td className="py-3.5 px-4 text-center">
-                          <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-full border bg-emerald-50 text-emerald-800 border-emerald-200">
-                            {rec.status}
-                          </span>
-                        </td>
-                        <td className="py-3.5 px-4 text-center">
-                          <div className="flex items-center justify-center gap-1.5">
-                            <button
-                              type="button"
-                              onClick={() => setSelectedRecipient(rec)}
-                              className="px-2 py-1 bg-rose-50 hover:bg-rose-100 text-rose-700 rounded-lg text-xs font-semibold border border-rose-200 cursor-pointer"
-                              title="Xem chi tiết hồ sơ & quyền lợi"
-                            >
-                              <Eye size={13} />
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => handleOpenEditRecipient(rec)}
-                              className="p-1 text-indigo-600 hover:bg-indigo-50 rounded-lg cursor-pointer"
-                              title="Chỉnh sửa thông tin đối tượng"
-                            >
-                              <Edit2 size={13} />
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => handleOpenEmergencyForRecipient(rec)}
-                              className="p-1 text-amber-700 hover:bg-amber-50 rounded-lg cursor-pointer"
-                              title="Hỗ trợ ngay"
-                            >
-                              <Zap size={14} />
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => setRecipientToDelete(rec)}
-                              className="p-1 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg cursor-pointer"
-                              title="Xóa đối tượng"
-                            >
-                              <Trash2 size={13} />
-                            </button>
-                          </div>
+                    {paginatedRecipients.length === 0 ? (
+                      <tr>
+                        <td colSpan={7} className="py-10 text-center text-sm text-slate-600">
+                          Không tìm thấy thông tin đối tượng chính sách phù hợp bộ lọc.
                         </td>
                       </tr>
-                    ))}
+                    ) : (
+                      paginatedRecipients.map(rec => {
+                        const bhyt = getBhytInfo(rec);
+                        const toNum = extractToDanPho(rec.address);
+                        const statusClasses =
+                          rec.status === "Đang nhận trợ cấp"
+                            ? "bg-emerald-50 text-emerald-800 border-emerald-200"
+                            : rec.status === "Chờ duyệt hồ sơ"
+                              ? "bg-amber-50 text-amber-800 border-amber-200"
+                              : "bg-slate-100 text-slate-700 border-slate-200";
+                        return (
+                          <tr key={rec.id} className="hover:bg-rose-50/30 transition-colors">
+                            <td className="py-3.5 px-4">
+                              <div className="font-bold text-slate-900 text-xs">{rec.fullName}</div>
+                              <span className="font-mono text-xs font-bold text-rose-700 bg-rose-50 px-1.5 py-0.5 rounded border border-rose-200 mt-0.5 inline-block">
+                                {rec.id}
+                              </span>
+                            </td>
+                            <td className="py-3.5 px-4">
+                              <div className="font-mono font-bold text-slate-800">{rec.cccd}</div>
+                              <div className="text-xs text-slate-600 font-mono mt-0.5 flex items-center gap-1">
+                                <Phone size={12} /> {rec.phone || "Chưa có SĐT"}
+                              </div>
+                            </td>
+                            <td className="py-3.5 px-4 space-y-1">
+                              <div>{getSubCategoryBadge(rec.category)}</div>
+                              <div>
+                                <span
+                                  className={`inline-block text-xs font-semibold px-2 py-0.5 rounded border ${bhyt.hasBhyt
+                                    ? "bg-emerald-50 text-emerald-800 border-emerald-200"
+                                    : "bg-slate-100 text-slate-600 border-slate-200"
+                                    }`}
+                                >
+                                  {bhyt.label}
+                                </span>
+                              </div>
+                            </td>
+                            <td className="py-3.5 px-4">
+                              <div className="text-xs text-slate-700 truncate max-w-[210px] flex items-center gap-1">
+                                <MapPin size={12} className="text-slate-500 shrink-0" />
+                                <span className="truncate">{rec.address}</span>
+                              </div>
+                              {toNum !== null && (
+                                <span className="text-xs font-semibold text-slate-600">Tổ dân phố {toNum}</span>
+                              )}
+                            </td>
+                            <td className="py-3.5 px-4 whitespace-nowrap">
+                              <span className="font-bold text-rose-700 text-xs">{rec.supportLevel}</span>
+                            </td>
+                            <td className="py-3.5 px-4 text-center whitespace-nowrap">
+                              <span className={`text-xs font-bold px-2.5 py-0.5 rounded-full border inline-block ${statusClasses}`}>
+                                {rec.status}
+                              </span>
+                            </td>
+                            <td className="py-3.5 px-4 text-center">
+                              <div className="flex items-center justify-center gap-1.5">
+                                <button
+                                  type="button"
+                                  onClick={() => setSelectedRecipient(rec)}
+                                  className="px-2 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-700 rounded-lg text-xs font-semibold border border-rose-200 cursor-pointer"
+                                  title="Xem chi tiết hồ sơ"
+                                >
+                                  <Eye size={13} />
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => handleOpenEditRecipient(rec)}
+                                  className="p-1.5 text-indigo-700 hover:bg-indigo-50 rounded-lg cursor-pointer"
+                                  title="Chỉnh sửa thông tin đối tượng"
+                                >
+                                  <Edit2 size={13} />
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => handleOpenEmergencyForRecipient(rec)}
+                                  className="p-1.5 text-amber-800 hover:bg-amber-50 rounded-lg cursor-pointer"
+                                  title="Hỗ trợ ngay"
+                                >
+                                  <Zap size={14} />
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => setRecipientToDelete(rec)}
+                                  className="p-1.5 text-slate-600 hover:text-rose-700 hover:bg-rose-50 rounded-lg cursor-pointer"
+                                  title="Xóa đối tượng"
+                                >
+                                  <Trash2 size={13} />
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })
+                    )}
                   </tbody>
                 </table>
               </div>
@@ -1149,18 +1239,19 @@ export default function SocialWelfare({
       {/* ========================================================================= */}
       {activeTab === "submodules" && (
         <div className="space-y-4">
-          <div className="flex items-center justify-between bg-white p-4 rounded-2xl border border-slate-200 shadow-xs">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white p-4 rounded-2xl border border-slate-200 shadow-xs">
             <div>
               <h3 className="font-bold text-slate-900 text-sm sm:text-base">
                 Danh Mục Phân Hệ An Sinh Con & Chế Độ Chính Sách
               </h3>
-              <p className="text-xs text-slate-500">
+              <p className="text-xs text-slate-600">
                 Quản lý các nhóm đối tượng bảo trợ đặc thù (người có công, hộ nghèo, người cao tuổi...) và chuẩn hóa quyền lợi theo quy định
               </p>
             </div>
             <button
+              type="button"
               onClick={() => setShowAddSubCategoryModal(true)}
-              className="px-3.5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-xs cursor-pointer transition-colors"
+              className="px-3.5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-xs cursor-pointer transition-colors self-start sm:self-auto shrink-0"
             >
               <Plus size={14} /> Tạo phân hệ con mới
             </button>
@@ -1182,7 +1273,7 @@ export default function SocialWelfare({
                         </div>
                         <div>
                           <h4 className="font-bold text-slate-900 text-sm leading-tight">{sub.name}</h4>
-                          <span className="text-[10px] text-slate-400 font-mono">
+                          <span className="text-xs text-slate-600 font-mono">
                             {sub.isCustom ? "Phân hệ tự tạo" : "Phân hệ quy chuẩn"}
                           </span>
                         </div>
@@ -1197,22 +1288,22 @@ export default function SocialWelfare({
                     </p>
 
                     <div className="p-2.5 bg-slate-50 rounded-xl border border-slate-200/80 text-xs">
-                      <span className="text-[10px] uppercase font-bold text-slate-400 block mb-1">Tiêu chí xét duyệt:</span>
-                      <p className="text-slate-700 text-[11px] leading-relaxed line-clamp-2">{sub.criteria}</p>
+                      <span className="text-xs uppercase font-bold text-slate-600 block mb-1">Tiêu chí xét duyệt:</span>
+                      <p className="text-slate-700 text-xs leading-relaxed line-clamp-2">{sub.criteria}</p>
                     </div>
 
                     {/* Standard Benefits */}
                     <div className="space-y-1.5 pt-1">
-                      <span className="text-[10px] uppercase font-bold text-slate-400 block">Chế độ & Quyền lợi chuẩn ({sub.standardBenefits?.length || 0}):</span>
+                      <span className="text-xs uppercase font-bold text-slate-600 block">Chế độ & Quyền lợi chuẩn ({sub.standardBenefits?.length || 0}):</span>
                       <ul className="space-y-1">
                         {(sub.standardBenefits || []).slice(0, 3).map((ben, i) => (
-                          <li key={i} className="text-[11px] text-slate-700 flex items-start gap-1.5">
-                            <CheckCircle2 size={12} className="text-emerald-600 shrink-0 mt-0.5" />
+                          <li key={i} className="text-xs text-slate-700 flex items-start gap-1.5">
+                            <CheckCircle2 size={13} className="text-emerald-600 shrink-0 mt-0.5" />
                             <span className="line-clamp-1">{ben}</span>
                           </li>
                         ))}
                         {(sub.standardBenefits?.length || 0) > 3 && (
-                          <li className="text-[10px] text-indigo-700 font-semibold pl-4">
+                          <li className="text-xs text-indigo-700 font-semibold pl-4">
                             +{(sub.standardBenefits?.length || 0) - 3} chế độ chính sách khác...
                           </li>
                         )}
@@ -1269,18 +1360,19 @@ export default function SocialWelfare({
       {/* ========================================================================= */}
       {activeTab === "campaigns" && (
         <div className="space-y-4">
-          <div className="flex items-center justify-between bg-white p-4 rounded-2xl border border-slate-200 shadow-xs">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white p-4 rounded-2xl border border-slate-200 shadow-xs">
             <div>
               <h3 className="font-bold text-slate-900 text-sm sm:text-base">
                 Kế Hoạch & Các Đợt Trao Quà Hỗ Trợ Định Kỳ
               </h3>
-              <p className="text-xs text-slate-500">
+              <p className="text-xs text-slate-600">
                 Tổ chức các đợt phát quà Tết, học bổng khuyến học, gạo cứu trợ định kỳ theo từng diện chính sách
               </p>
             </div>
             <button
+              type="button"
               onClick={() => setShowAddCampaignModal(true)}
-              className="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-xs cursor-pointer transition-colors"
+              className="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-xs cursor-pointer transition-colors self-start sm:self-auto shrink-0"
             >
               <Plus size={14} /> Lập đợt hỗ trợ mới
             </button>
@@ -1305,7 +1397,7 @@ export default function SocialWelfare({
                       <span className="font-mono text-xs font-bold px-2.5 py-1 rounded-md bg-emerald-50 text-emerald-800 border border-emerald-200">
                         {cam.id}
                       </span>
-                      <span className={`text-[11px] font-bold px-2.5 py-1 rounded-full border ${statusBadges[cam.status] || "bg-slate-100 text-slate-700"}`}>
+                      <span className={`text-xs font-bold px-2.5 py-1 rounded-full border ${statusBadges[cam.status] || "bg-slate-100 text-slate-700"}`}>
                         {cam.status}
                       </span>
                     </div>
@@ -1316,9 +1408,9 @@ export default function SocialWelfare({
 
                     {/* Target Categories */}
                     <div className="flex flex-wrap items-center gap-1.5">
-                      <span className="text-[11px] text-slate-400 font-semibold">Đối tượng thụ hưởng:</span>
+                      <span className="text-xs text-slate-600 font-semibold">Đối tượng thụ hưởng:</span>
                       {cam.targetCategories.map((c, i) => (
-                        <span key={i} className="text-[11px] bg-slate-100 text-slate-700 px-2 py-0.5 rounded-md font-medium">
+                        <span key={i} className="text-xs bg-slate-100 text-slate-700 px-2 py-0.5 rounded-md font-medium">
                           {c}
                         </span>
                       ))}
@@ -1327,15 +1419,15 @@ export default function SocialWelfare({
                     {/* Key Metrics */}
                     <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5 p-3 rounded-xl bg-slate-50 border border-slate-200/80">
                       <div>
-                        <span className="text-[10px] uppercase font-bold text-slate-400 block">Số đối tượng:</span>
+                        <span className="text-xs uppercase font-bold text-slate-600 block">Số đối tượng:</span>
                         <span className="font-bold text-slate-900 text-sm">{cam.recipientCount} người</span>
                       </div>
                       <div>
-                        <span className="text-[10px] uppercase font-bold text-slate-400 block">Mức tiền mặt:</span>
+                        <span className="text-xs uppercase font-bold text-slate-600 block">Mức tiền mặt:</span>
                         <span className="font-bold text-rose-700 text-sm">{formatVNNumber(cam.cashAmountPerPerson)} đ</span>
                       </div>
                       <div className="col-span-2 sm:col-span-1">
-                        <span className="text-[10px] uppercase font-bold text-slate-400 block">Tổng ngân sách:</span>
+                        <span className="text-xs uppercase font-bold text-slate-600 block">Tổng ngân sách:</span>
                         <span className="font-black text-emerald-800 text-sm">{formatVNNumber(cam.totalBudget)} đ</span>
                       </div>
                     </div>
@@ -1424,22 +1516,23 @@ export default function SocialWelfare({
       {/* ========================================================================= */}
       {activeTab === "emergency" && (
         <div className="space-y-4">
-          <div className="flex items-center justify-between bg-gradient-to-r from-amber-50 to-rose-50 p-4 rounded-2xl border border-amber-200 shadow-xs">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-amber-50/70 p-4 rounded-2xl border border-amber-200 shadow-xs">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-amber-500 text-white flex items-center justify-center font-bold shadow-xs">
-                <Zap size={22} className="animate-bounce" />
+              <div className="w-10 h-10 rounded-xl bg-amber-100 text-amber-800 border border-amber-300 flex items-center justify-center font-bold shrink-0">
+                <Zap size={20} />
               </div>
               <div>
                 <h3 className="font-black text-amber-950 text-sm sm:text-base">
                   Cơ Chế Hỗ Trợ Ngay & Cứu Trợ Khẩn Cấp
                 </h3>
-                <p className="text-xs text-amber-800">
+                <p className="text-xs text-amber-900">
                   Xử lý ngay các trường hợp tai nạn đột xuất, viện phí nóng, hỏa hoạn, tang gia khó khăn trong ngày
                 </p>
               </div>
             </div>
 
             <button
+              type="button"
               onClick={() => {
                 setEmergencyTargetRecipient(null);
                 setEmgRecipientId("");
@@ -1449,7 +1542,7 @@ export default function SocialWelfare({
                 setEmgReason("Hỗ trợ khẩn cấp đột xuất cho trường hợp khó khăn cấp bách");
                 setShowEmergencyModal(true);
               }}
-              className="px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-xs cursor-pointer transition-colors"
+              className="px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-xs cursor-pointer transition-colors self-start sm:self-auto shrink-0"
             >
               <Zap size={14} /> Chi trả hỗ trợ ngay
             </button>
@@ -1466,14 +1559,14 @@ export default function SocialWelfare({
                     <span className="font-mono text-xs font-black px-2.5 py-1 rounded-md bg-amber-100 text-amber-900 border border-amber-300">
                       {rec.id}
                     </span>
-                    <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200 flex items-center gap-1">
-                      <CheckCircle2 size={11} /> {rec.status}
+                    <span className="text-xs font-bold px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200 flex items-center gap-1">
+                      <CheckCircle2 size={12} /> {rec.status}
                     </span>
                   </div>
 
                   <div>
                     <h4 className="font-bold text-slate-900 text-base leading-snug">{rec.recipientName}</h4>
-                    <span className="text-xs text-slate-500 font-mono">CCCD: {rec.cccd}</span>
+                    <span className="text-xs text-slate-600 font-mono">CCCD: {rec.cccd}</span>
                   </div>
 
                   <div className="p-3 bg-rose-50/70 rounded-xl border border-rose-200 flex items-center justify-between">
@@ -1483,17 +1576,17 @@ export default function SocialWelfare({
 
                   <div className="p-2.5 bg-slate-50 rounded-xl border border-slate-200 text-xs text-slate-700 space-y-1">
                     <span className="font-bold text-slate-900 block">Lý do khẩn cấp:</span>
-                    <p className="text-[11px] leading-relaxed text-slate-600">{rec.reason}</p>
+                    <p className="text-xs leading-relaxed text-slate-700">{rec.reason}</p>
                   </div>
 
                   {rec.giftItems && (
-                    <div className="text-[11px] text-amber-900 bg-amber-50/60 p-2 rounded-lg border border-amber-200 flex items-center gap-1.5">
-                      <Gift size={13} className="text-amber-600 shrink-0" />
+                    <div className="text-xs text-amber-900 bg-amber-50/60 p-2 rounded-lg border border-amber-200 flex items-center gap-1.5">
+                      <Gift size={13} className="text-amber-700 shrink-0" />
                       <span>Hiện vật: {rec.giftItems}</span>
                     </div>
                   )}
 
-                  <div className="text-[11px] text-slate-500 space-y-0.5 pt-1 border-t border-slate-100">
+                  <div className="text-xs text-slate-600 space-y-0.5 pt-1 border-t border-slate-100">
                     <div>Ngày giải ngân: <strong className="text-slate-800">{rec.disbursedDate}</strong></div>
                     <div>Người duyệt nóng: <strong className="text-slate-800">{rec.approver}</strong></div>
                     <div>Cán bộ chi trả: {rec.disbursedBy}</div>
@@ -1502,11 +1595,11 @@ export default function SocialWelfare({
                 </div>
 
                 <div className="pt-2 border-t border-slate-100 flex items-center justify-between">
-                  <span className="text-[11px] text-emerald-700 font-bold">Đã lưu trữ biên lai</span>
+                  <span className="text-xs text-emerald-700 font-bold">Đã lưu trữ biên lai</span>
                   <button
                     type="button"
                     onClick={() => window.print()}
-                    className="p-1.5 text-slate-400 hover:text-slate-800 rounded-lg cursor-pointer"
+                    className="p-1.5 text-slate-600 hover:text-slate-900 rounded-lg cursor-pointer"
                     title="In phiếu chi cứu trợ khẩn cấp"
                   >
                     <Printer size={14} />
@@ -1531,14 +1624,15 @@ export default function SocialWelfare({
             className="bg-white w-full max-w-xl rounded-2xl shadow-2xl border border-slate-200 overflow-hidden flex flex-col max-h-[92vh] animate-in zoom-in-95 duration-200"
           >
             {/* Header */}
-            <div className="p-4 bg-gradient-to-r from-slate-900 via-slate-800 to-rose-950 text-white flex items-center justify-between shrink-0 border-b border-slate-700/80">
+            <div className="p-4 bg-slate-50 text-slate-900 flex items-center justify-between shrink-0 border-b border-slate-200">
               <h3 className="font-black text-sm flex items-center gap-2">
-                <Heart size={16} className="text-rose-400" /> Thêm Đối Tượng Thụ Hưởng Từ Danh Sách Cư Dân
+                <Heart size={16} className="text-rose-600" /> Thêm Đối Tượng Thụ Hưởng Từ Danh Sách Cư Dân
               </h3>
               <button
                 type="button"
                 onClick={() => setShowAddRecipientModal(false)}
-                className="p-1 rounded-full text-slate-400 hover:text-white hover:bg-white/10 cursor-pointer"
+                className="p-1.5 rounded-full text-slate-600 hover:text-slate-900 hover:bg-slate-200/70 cursor-pointer"
+                aria-label="Đóng cửa sổ"
               >
                 <X size={18} />
               </button>
@@ -1552,7 +1646,7 @@ export default function SocialWelfare({
                   1. Chọn nhanh từ CSDL Dân cư Khu phố 3 ({residents.length} nhân khẩu):
                 </label>
                 <div className="relative">
-                  <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                  <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
                   <input
                     type="text"
                     placeholder="Tìm theo tên cư dân hoặc số CCCD..."
@@ -1561,19 +1655,20 @@ export default function SocialWelfare({
                     className="w-full pl-9 pr-3 py-1.5 rounded-lg border border-slate-300 bg-white text-xs focus:outline-none focus:border-rose-500"
                   />
                 </div>
-                <select
+                <ReportSelect
+                  aria-label="Chọn cư dân thụ hưởng"
                   value={selectedResidentCccd}
-                  onChange={e => handleSelectResident(e.target.value)}
-                  className="w-full p-2 rounded-lg border border-slate-300 bg-white font-semibold text-slate-800 text-xs"
-                >
-                  <option value="">-- Bấm để chọn cư dân thụ hưởng ({candidateResidents.length} kết quả) --</option>
-                  {candidateResidents.map(r => (
-                    <option key={r.cccd} value={r.cccd}>
-                      {r.fullName} - CCCD: {r.cccd} ({r.address})
-                    </option>
-                  ))}
-                </select>
-                <p className="text-[10px] text-slate-500">
+                  onChange={val => handleSelectResident(val)}
+                  options={[
+                    { value: "", label: `-- Bấm để chọn cư dân thụ hưởng (${candidateResidents.length} kết quả) --` },
+                    ...candidateResidents.map(r => ({
+                      value: r.cccd,
+                      label: `${r.fullName} - CCCD: ${r.cccd} (${r.address})`
+                    }))
+                  ]}
+                  className="text-xs"
+                />
+                <p className="text-xs text-slate-600">
                   * Dữ liệu định danh, CCCD, địa chỉ và SĐT sẽ tự động được đồng bộ vào hồ sơ an sinh.
                 </p>
               </div>
@@ -1631,17 +1726,16 @@ export default function SocialWelfare({
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="block font-bold text-slate-700 mb-1">Phân hệ an sinh con *</label>
-                  <select
+                  <ReportSelect
+                    aria-label="Phân hệ an sinh con"
                     value={recCategory}
-                    onChange={e => handleCategorySelectChange(e.target.value)}
-                    className="w-full p-2.5 rounded-xl border border-slate-300 bg-white font-bold text-rose-900"
-                  >
-                    {subCategories.map(s => (
-                      <option key={s.id} value={s.name}>
-                        {s.name} ({s.code})
-                      </option>
-                    ))}
-                  </select>
+                    onChange={val => handleCategorySelectChange(val)}
+                    options={subCategories.map(s => ({
+                      value: s.name,
+                      label: `${s.name} (${s.code})`
+                    }))}
+                    className="text-xs"
+                  />
                 </div>
                 <div>
                   <label className="block font-bold text-slate-700 mb-1">Mức hỗ trợ đề xuất *</label>
@@ -1675,7 +1769,7 @@ export default function SocialWelfare({
                           }}
                           className="rounded accent-rose-600 mt-0.5"
                         />
-                        <span>{ben.name} <strong className="text-[10px] text-slate-400">({ben.standardValue})</strong></span>
+                        <span>{ben.name} <strong className="text-xs text-slate-600">({ben.standardValue})</strong></span>
                       </label>
                     );
                   })}
@@ -1727,14 +1821,15 @@ export default function SocialWelfare({
             onClick={e => e.stopPropagation()}
             className="bg-white w-full max-w-lg rounded-2xl shadow-2xl border border-slate-200 overflow-hidden flex flex-col max-h-[92vh] animate-in zoom-in-95 duration-200"
           >
-            <div className="p-4 bg-gradient-to-r from-slate-900 via-slate-800 to-indigo-950 text-white flex items-center justify-between shrink-0 border-b border-slate-700/80">
+            <div className="p-4 bg-slate-50 text-slate-900 flex items-center justify-between shrink-0 border-b border-slate-200">
               <h3 className="font-black text-sm flex items-center gap-2">
-                <FolderPlus size={16} className="text-indigo-400" /> Tạo Phân Hệ Con An Sinh Xã Hội Mới
+                <FolderPlus size={16} className="text-indigo-600" /> Tạo Phân Hệ Con An Sinh Xã Hội Mới
               </h3>
               <button
                 type="button"
                 onClick={() => setShowAddSubCategoryModal(false)}
-                className="p-1 rounded-full text-slate-400 hover:text-white hover:bg-white/10 cursor-pointer"
+                className="p-1.5 rounded-full text-slate-600 hover:text-slate-900 hover:bg-slate-200/70 cursor-pointer"
+                aria-label="Đóng cửa sổ"
               >
                 <X size={18} />
               </button>
@@ -1766,18 +1861,20 @@ export default function SocialWelfare({
                 </div>
                 <div>
                   <label className="block font-bold text-slate-700 mb-1">Màu nhận diện</label>
-                  <select
+                  <ReportSelect
+                    aria-label="Màu nhận diện"
                     value={newSubColor}
-                    onChange={e => setNewSubColor(e.target.value)}
-                    className="w-full p-2 rounded-lg border border-slate-300 bg-white font-semibold"
-                  >
-                    <option value="rose">Đỏ hoa hồng (Rose)</option>
-                    <option value="indigo">Xanh chàm (Indigo)</option>
-                    <option value="emerald">Xanh lục (Emerald)</option>
-                    <option value="amber">Vàng hổ phách (Amber)</option>
-                    <option value="purple">Tím (Purple)</option>
-                    <option value="cyan">Xanh ngọc (Cyan)</option>
-                  </select>
+                    onChange={val => setNewSubColor(val)}
+                    options={[
+                      { value: "rose", label: "Đỏ hoa hồng (Rose)" },
+                      { value: "indigo", label: "Xanh chàm (Indigo)" },
+                      { value: "emerald", label: "Xanh lục (Emerald)" },
+                      { value: "amber", label: "Vàng hổ phách (Amber)" },
+                      { value: "purple", label: "Tím (Purple)" },
+                      { value: "cyan", label: "Xanh ngọc (Cyan)" }
+                    ]}
+                    className="text-xs"
+                  />
                 </div>
               </div>
 
@@ -1871,14 +1968,15 @@ export default function SocialWelfare({
             onClick={e => e.stopPropagation()}
             className="bg-white w-full max-w-lg rounded-2xl shadow-2xl border border-slate-200 overflow-hidden flex flex-col max-h-[92vh] animate-in zoom-in-95 duration-200"
           >
-            <div className="p-4 bg-gradient-to-r from-slate-900 via-slate-800 to-emerald-950 text-white flex items-center justify-between shrink-0 border-b border-slate-700/80">
+            <div className="p-4 bg-slate-50 text-slate-900 flex items-center justify-between shrink-0 border-b border-slate-200">
               <h3 className="font-black text-sm flex items-center gap-2">
-                <Gift size={16} className="text-emerald-400" /> Đề Xuất Đợt Hỗ Trợ & Cấp Phát Tập Trung
+                <Gift size={16} className="text-emerald-600" /> Đề Xuất Đợt Hỗ Trợ & Cấp Phát Tập Trung
               </h3>
               <button
                 type="button"
                 onClick={() => setShowAddCampaignModal(false)}
-                className="p-1 rounded-full text-slate-400 hover:text-white hover:bg-white/10 cursor-pointer"
+                className="p-1.5 rounded-full text-slate-600 hover:text-slate-900 hover:bg-slate-200/70 cursor-pointer"
+                aria-label="Đóng cửa sổ"
               >
                 <X size={18} />
               </button>
@@ -2021,14 +2119,15 @@ export default function SocialWelfare({
             onClick={e => e.stopPropagation()}
             className="bg-white w-full max-w-lg rounded-2xl shadow-2xl border border-amber-300 overflow-hidden flex flex-col max-h-[92vh] animate-in zoom-in-95 duration-200"
           >
-            <div className="p-4 bg-gradient-to-r from-amber-600 via-rose-600 to-slate-900 text-white flex items-center justify-between shrink-0 border-b border-amber-400/80">
+            <div className="p-4 bg-amber-50/70 text-slate-900 flex items-center justify-between shrink-0 border-b border-amber-200">
               <h3 className="font-black text-sm flex items-center gap-2">
-                <Zap size={18} className="text-amber-300 animate-bounce" /> Quyết Định Chi Trả Hỗ Trợ Ngay (Cứu Trợ Khẩn)
+                <Zap size={17} className="text-amber-700" /> Quyết Định Chi Trả Hỗ Trợ Ngay (Cứu Trợ Khẩn)
               </h3>
               <button
                 type="button"
                 onClick={() => setShowEmergencyModal(false)}
-                className="p-1 rounded-full text-white/80 hover:text-white hover:bg-white/10 cursor-pointer"
+                className="p-1.5 rounded-full text-slate-600 hover:text-slate-900 hover:bg-amber-100 cursor-pointer"
+                aria-label="Đóng cửa sổ"
               >
                 <X size={18} />
               </button>
@@ -2036,9 +2135,9 @@ export default function SocialWelfare({
 
             <form onSubmit={handleConfirmEmergencySupport} className="p-5 space-y-3.5 text-xs overflow-y-auto flex-1">
               <div className="p-3 bg-amber-50 rounded-xl border border-amber-200 text-amber-950 space-y-1">
-                <span className="font-black block text-xs">⚡ CƠ CHẾ DUYỆT NÓNG CƠ SỞ KHU PHỐ 3:</span>
-                <p className="text-[11px] leading-relaxed">
-                  Áp dụng cho tai nạn đột xuất, tang tế, hỏa hoạn, bệnh hiểm nghèo cần xuất quỹ hỗ trợ tận tay trong vòng 24h.
+                <span className="font-black block text-xs">CƠ CHẾ DUYỆT NÓNG CƠ SỞ KHU PHỐ 3:</span>
+                <p className="text-xs leading-relaxed">
+                  Áp dụng cho tai nạn đột xuất, tang tế, hỏa hoạn, bệnh hiểm nghèo cần xuất quỹ hỗ trợ tận tay trong vòng 24h. Khoản chi sẽ tự động ghi nhận vào Quỹ khu phố.
                 </p>
               </div>
 
@@ -2090,16 +2189,16 @@ export default function SocialWelfare({
                 </div>
                 <div>
                   <label className="block font-bold text-slate-700 mb-1">Phân loại diện chính sách</label>
-                  <select
+                  <ReportSelect
+                    aria-label="Phân loại diện chính sách"
                     value={emgCategory}
-                    onChange={e => setEmgCategory(e.target.value)}
-                    className="w-full p-2.5 rounded-xl border border-slate-300 bg-white font-semibold"
-                  >
-                    {subCategories.map(s => (
-                      <option key={s.id} value={s.name}>{s.name}</option>
-                    ))}
-                    <option value="Khó khăn đột xuất khác">Khó khăn đột xuất khác</option>
-                  </select>
+                    onChange={val => setEmgCategory(val)}
+                    options={[
+                      ...subCategories.map(s => ({ value: s.name, label: s.name })),
+                      { value: "Khó khăn đột xuất khác", label: "Khó khăn đột xuất khác" }
+                    ]}
+                    className="text-xs"
+                  />
                 </div>
               </div>
 
@@ -2159,7 +2258,7 @@ export default function SocialWelfare({
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-2 rounded-xl bg-gradient-to-r from-amber-500 to-rose-600 hover:from-amber-600 hover:to-rose-700 font-black text-white shadow-xs cursor-pointer flex items-center gap-1.5"
+                  className="px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 font-bold text-white shadow-xs cursor-pointer flex items-center gap-1.5"
                 >
                   <Zap size={14} /> Xác nhận chi trả hỗ trợ ngay
                 </button>
@@ -2172,268 +2271,237 @@ export default function SocialWelfare({
       {/* ========================================================================= */}
       {/* MODAL 5: CHI TIẾT HỒ SƠ, CHẾ ĐỘ CHÍNH SÁCH & QUYỀN LỢI ĐỐI TƯỢNG          */}
       {/* ========================================================================= */}
-      {selectedRecipient && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/70 backdrop-blur-sm animate-in fade-in duration-150"
-          onClick={() => setSelectedRecipient(null)}
-        >
-          <div
-            onClick={e => e.stopPropagation()}
-            className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-xl max-h-[92vh] flex flex-col overflow-hidden animate-in zoom-in-95 duration-200 text-slate-800"
-          >
-            {/* Header */}
-            <div className="bg-gradient-to-b from-slate-50 via-white to-rose-50/30 px-5 pt-6 pb-4 text-slate-800 relative text-center border-b border-slate-200 shrink-0">
-              <button
-                onClick={() => setSelectedRecipient(null)}
-                className="absolute top-3.5 right-3.5 p-1.5 rounded-full text-slate-400 hover:text-slate-600 hover:bg-slate-100 cursor-pointer transition-colors"
-                title="Đóng modal"
-              >
-                <X size={18} />
-              </button>
+      {selectedRecipient && (() => {
+        const navList = filteredRecipients.length > 0 ? filteredRecipients : recipients;
+        const currentIdx = navList.findIndex(r => r.id === selectedRecipient.id);
+        const totalNav = navList.length;
+        const hasPrev = currentIdx > 0;
+        const hasNext = currentIdx >= 0 && currentIdx < totalNav - 1;
+        const shortId = formatShortRecordId(selectedRecipient.id, "ASXH");
+        const bhyt = getBhytInfo(selectedRecipient);
 
-              <div className="w-14 h-14 rounded-2xl bg-rose-50 border border-rose-200 text-rose-600 mx-auto flex items-center justify-center shadow-2xs mb-2">
-                <Heart size={26} className="fill-rose-500/20 text-rose-600" />
-              </div>
-
-              <h3 className="text-lg font-black text-slate-900 leading-snug tracking-tight">
-                {selectedRecipient.fullName}
-              </h3>
-
-              <div className="flex flex-wrap items-center justify-center gap-2 mt-2">
-                <span className="font-mono text-xs font-bold px-2.5 py-0.5 rounded-md bg-rose-50 text-rose-800 border border-rose-200">
-                  {selectedRecipient.id}
-                </span>
-                {getSubCategoryBadge(selectedRecipient.category)}
-                <span className={`text-[11px] font-bold px-2.5 py-0.5 rounded-full border ${
-                  selectedRecipient.status === "Đang nhận trợ cấp" ? "bg-emerald-50 text-emerald-800 border-emerald-200" :
-                  selectedRecipient.status === "Chờ duyệt hồ sơ" ? "bg-amber-50 text-amber-800 border-amber-200" :
-                  "bg-slate-100 text-slate-700 border-slate-300"
-                }`}>
-                  {selectedRecipient.status}
-                </span>
-              </div>
-
-              <p className="text-slate-500 text-xs mt-2 flex items-center justify-center gap-1 font-medium">
-                <MapPin size={12} className="text-rose-500 shrink-0" />
-                <span className="truncate max-w-sm">{selectedRecipient.address}</span>
-              </p>
-
-              {/* Quick Action Header Controls */}
-              <div className="flex items-center justify-center gap-2 mt-3 pt-2.5 border-t border-slate-100">
-                <button
-                  type="button"
-                  onClick={() => handleOpenEditRecipient(selectedRecipient)}
-                  className="px-3 py-1 bg-white hover:bg-indigo-50 text-indigo-700 border border-indigo-200 rounded-lg text-xs font-bold flex items-center gap-1.5 shadow-2xs cursor-pointer transition-colors"
-                  title="Sửa thông tin đối tượng"
-                >
-                  <Edit2 size={12} />
-                  <span>Sửa thông tin hồ sơ</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setRecipientToDelete(selectedRecipient)}
-                  className="px-3 py-1 bg-white hover:bg-rose-50 text-rose-600 border border-rose-200 rounded-lg text-xs font-bold flex items-center gap-1.5 shadow-2xs cursor-pointer transition-colors"
-                  title="Xóa đối tượng khỏi danh sách"
-                >
-                  <Trash2 size={12} />
-                  <span>Xóa hồ sơ</span>
-                </button>
-              </div>
-            </div>
-
-            {/* Scrollable Body */}
-            <div className="flex-1 overflow-y-auto p-4 sm:p-5 space-y-3.5 bg-slate-50/60 text-xs">
-              {/* Thẻ 1: Thông tin định danh */}
-              <div className="bg-white rounded-xl p-4 border border-slate-200 shadow-xs space-y-3">
-                <div className="flex items-center justify-between pb-2 border-b border-slate-100">
-                  <div className="flex items-center gap-2 font-bold text-slate-900">
-                    <User size={15} className="text-rose-600" />
-                    <span className="text-sm">1. Thông tin Định danh & Cư trú</span>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => handleOpenEditRecipient(selectedRecipient)}
-                    className="text-indigo-600 hover:text-indigo-800 text-[11px] font-bold flex items-center gap-1 cursor-pointer"
-                  >
-                    <Edit2 size={11} /> Sửa
-                  </button>
+        return (
+          <Modal
+            isOpen={Boolean(selectedRecipient)}
+            onClose={() => setSelectedRecipient(null)}
+            size="2xl"
+            ariaLabel={`Hồ sơ an sinh ${selectedRecipient.fullName}`}
+            headerNavigation={
+              totalNav > 1 && currentIdx >= 0
+                ? {
+                    positionText: `Đối tượng ${currentIdx + 1}/${totalNav}`,
+                    hasPrev,
+                    hasNext,
+                    onPrev: () => hasPrev && setSelectedRecipient(navList[currentIdx - 1]),
+                    onNext: () => hasNext && setSelectedRecipient(navList[currentIdx + 1]),
+                    prevLabel: "Đối tượng trước",
+                    nextLabel: "Đối tượng tiếp theo",
+                  }
+                : undefined
+            }
+            headerSlot={
+              <div className="flex items-start gap-3.5">
+                <div className="w-12 h-12 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 flex items-center justify-center shrink-0">
+                  <Heart size={22} className="fill-rose-500/20 text-rose-600" />
                 </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <div className="p-2.5 rounded-lg bg-slate-50 border border-slate-100">
-                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-0.5">Số CCCD / Định danh:</span>
-                    <span className="font-mono font-bold text-slate-900 text-sm tracking-wide">{selectedRecipient.cccd}</span>
-                  </div>
-                  
-                  <div className="p-2.5 rounded-lg bg-slate-50 border border-slate-100">
-                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-0.5">Số điện thoại liên hệ:</span>
-                    {selectedRecipient.phone ? (
-                      <span className="font-mono font-bold text-slate-900 text-sm">{selectedRecipient.phone}</span>
-                    ) : (
-                      <span className="inline-block px-2 py-0.5 rounded bg-slate-200/80 text-slate-600 font-semibold text-[11px]">Chưa cập nhật</span>
-                    )}
-                  </div>
-
-                  <div className="p-2.5 rounded-lg bg-rose-50/60 border border-rose-100">
-                    <span className="text-[10px] font-bold text-rose-700 uppercase tracking-wider block mb-0.5">Mức trợ cấp hàng tháng:</span>
-                    <span className="text-base font-black text-rose-700">{selectedRecipient.supportLevel}</span>
-                  </div>
-
-                  <div className="p-2.5 rounded-lg bg-slate-50 border border-slate-100">
-                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-0.5">Trạng thái thụ hưởng:</span>
-                    <span className={`inline-flex items-center gap-1.5 text-xs font-bold px-2 py-0.5 rounded-full border ${
-                      selectedRecipient.status === "Đang nhận trợ cấp" ? "bg-emerald-50 text-emerald-800 border-emerald-200" :
-                      selectedRecipient.status === "Chờ duyệt hồ sơ" ? "bg-amber-50 text-amber-800 border-amber-200" :
-                      "bg-slate-100 text-slate-700 border-slate-300"
+                <div className="min-w-0 flex-1 space-y-1">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="font-mono text-xs font-semibold px-2 py-0.5 rounded-md bg-slate-100 text-slate-700 border border-slate-200">
+                      MÃ: {shortId}
+                    </span>
+                    {getSubCategoryBadge(selectedRecipient.category)}
+                    <span className={`text-xs font-semibold px-2.5 py-0.5 rounded-full border ${
+                      selectedRecipient.status === "Đang nhận trợ cấp"
+                        ? "bg-emerald-50 text-emerald-800 border-emerald-200"
+                        : selectedRecipient.status === "Chờ duyệt hồ sơ"
+                          ? "bg-amber-50 text-amber-800 border-amber-200"
+                          : "bg-slate-100 text-slate-700 border-slate-300"
                     }`}>
-                      <span className={`w-1.5 h-1.5 rounded-full ${selectedRecipient.status === "Đang nhận trợ cấp" ? "bg-emerald-600 animate-pulse" : "bg-slate-400"}`} />
                       {selectedRecipient.status}
                     </span>
                   </div>
-
-                  <div className="sm:col-span-2 p-2.5 rounded-lg bg-slate-50 border border-slate-100">
-                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-0.5">Nơi cư trú hiện tại:</span>
-                    <p className="text-xs font-semibold text-slate-800 leading-relaxed flex items-center gap-1.5">
-                      <MapPin size={13} className="text-rose-500 shrink-0" />
-                      {selectedRecipient.address}
-                    </p>
-                  </div>
+                  <h3 className="text-base sm:text-lg font-bold text-slate-900 leading-snug">
+                    {selectedRecipient.fullName}
+                  </h3>
+                  <p className="text-slate-600 text-xs flex items-center gap-1 font-medium">
+                    <MapPin size={12} className="text-rose-600 shrink-0" />
+                    <span className="truncate">{selectedRecipient.address}</span>
+                  </p>
                 </div>
               </div>
-
-              {/* Thẻ 2: Chế độ Chính sách & Quyền lợi được hưởng */}
-              <div className="bg-white rounded-xl p-4 border border-slate-200 shadow-xs space-y-3">
-                <div className="flex items-center justify-between pb-2 border-b border-slate-100">
-                  <div className="flex items-center gap-2 font-bold text-slate-900">
-                    <Gift size={15} className="text-emerald-600" />
-                    <span className="text-sm">2. Chế độ Chính sách & Quyền lợi ({selectedRecipient.benefits?.length || 0})</span>
-                  </div>
-                </div>
-
-                <div className="space-y-1.5">
-                  {(selectedRecipient.benefits || []).length === 0 ? (
-                    <div className="p-3 text-slate-400 text-center italic bg-slate-50 rounded-lg">
-                      Chưa gắn chế độ chính sách cụ thể nào cho đối tượng.
-                    </div>
-                  ) : (
-                    (selectedRecipient.benefits || []).map((ben, i) => (
-                      <div key={i} className="flex items-center justify-between p-2 rounded-lg bg-emerald-50/40 border border-emerald-200/80 text-xs text-slate-800">
-                        <span className="font-medium flex items-center gap-1.5">
-                          <CheckCircle2 size={13} className="text-emerald-600 shrink-0" />
-                          {ben}
-                        </span>
-                        <button
-                          type="button"
-                          onClick={() => handleRemoveBenefitFromSelected(ben)}
-                          className="text-slate-400 hover:text-rose-600 p-1 cursor-pointer"
-                          title="Hủy quyền lợi này"
-                        >
-                          <X size={12} />
-                        </button>
-                      </div>
-                    ))
-                  )}
-                </div>
-
-                {/* Form to add custom benefit to this recipient */}
-                <div className="pt-2 border-t border-slate-100 flex items-center gap-2">
-                  <input
-                    type="text"
-                    placeholder="Thêm quyền lợi mới (e.g. Cấp máy may, học bổng, quà Tết...)"
-                    value={newCustomBenefitName}
-                    onChange={e => setNewCustomBenefitName(e.target.value)}
-                    onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); handleAddBenefitToSelected(); } }}
-                    className="flex-1 p-2 rounded-lg border border-slate-300 bg-white text-xs"
-                  />
+            }
+            bodyClassName="p-4 sm:p-5 space-y-4 bg-slate-50/60 text-xs"
+            footer={
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div className="flex flex-wrap items-center gap-1.5">
                   <button
                     type="button"
-                    onClick={handleAddBenefitToSelected}
-                    className="px-3 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-lg text-xs cursor-pointer shrink-0"
+                    onClick={() => onUpdateStatus(selectedRecipient.id, "Đang nhận trợ cấp")}
+                    className="min-h-9 text-xs font-semibold py-1.5 px-3 rounded-lg border border-emerald-200 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 cursor-pointer"
                   >
-                    + Thêm quyền lợi
+                    Duyệt chi
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => onUpdateStatus(selectedRecipient.id, "Đã tạm ngưng")}
+                    className="min-h-9 text-xs font-semibold py-1.5 px-3 rounded-lg border border-slate-200 bg-white hover:bg-slate-100 text-slate-700 cursor-pointer"
+                  >
+                    Tạm ngưng
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      handleOpenEmergencyForRecipient(selectedRecipient);
+                      setSelectedRecipient(null);
+                    }}
+                    className="min-h-9 text-xs font-semibold py-1.5 px-3 rounded-lg bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-200 cursor-pointer inline-flex items-center gap-1"
+                  >
+                    <Zap size={12} /> Hỗ trợ ngay
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => window.print()}
+                    className="min-h-9 px-3 py-1.5 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 rounded-lg text-xs font-semibold inline-flex items-center gap-1 cursor-pointer"
+                  >
+                    <Printer size={13} /> In phiếu
+                  </button>
+                </div>
+
+                <div className="flex flex-wrap items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setRecipientToDelete(selectedRecipient)}
+                    className="min-h-9 px-3 py-1.5 border border-rose-200 text-rose-700 hover:bg-rose-50 rounded-lg text-xs font-semibold inline-flex items-center gap-1 cursor-pointer"
+                  >
+                    <Trash2 size={13} /> Xóa
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setSelectedRecipient(null)}
+                    className="min-h-9 px-3.5 py-1.5 bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 rounded-lg text-xs font-semibold cursor-pointer"
+                  >
+                    Đóng
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleOpenEditRecipient(selectedRecipient)}
+                    className="min-h-9 px-4 py-1.5 bg-emerald-700 hover:bg-emerald-800 text-white rounded-lg text-xs font-semibold inline-flex items-center gap-1.5 cursor-pointer"
+                  >
+                    <Edit2 size={13} /> Chỉnh sửa hồ sơ
                   </button>
                 </div>
               </div>
+            }
+          >
+            {/* Thẻ 1: Thông tin định danh */}
+            <div className="bg-white rounded-xl p-4 border border-slate-200 space-y-3">
+              <div className="flex items-center gap-2 font-bold text-slate-900 pb-2 border-b border-slate-100">
+                <User size={15} className="text-rose-600" />
+                <span className="text-sm">1. Thông tin Định danh, Bảo trợ & Cư trú</span>
+              </div>
 
-              {/* Thẻ 3: Hoàn cảnh & Ghi chú khảo sát */}
-              {selectedRecipient.notes && (
-                <div className="bg-white rounded-xl p-4 border border-slate-200 shadow-xs space-y-2">
-                  <div className="font-bold text-slate-900 flex items-center gap-1.5">
-                    <FileCheck size={14} className="text-indigo-600" />
-                    <span>3. Ghi chú khảo sát hoàn cảnh</span>
-                  </div>
-                  <p className="text-slate-600 leading-relaxed bg-slate-50 p-3 rounded-lg border border-slate-200">
-                    {selectedRecipient.notes}
-                  </p>
+              <DetailGrid>
+                <DetailRow
+                  label="Số CCCD / Định danh"
+                  value={selectedRecipient.cccd}
+                  isMono
+                  copyValue={selectedRecipient.cccd}
+                />
+                <DetailRow
+                  label="Số điện thoại liên hệ"
+                  value={selectedRecipient.phone}
+                  isMono
+                  copyValue={selectedRecipient.phone}
+                  href={selectedRecipient.phone ? `tel:${selectedRecipient.phone}` : undefined}
+                />
+                <DetailRow
+                  label="Mức trợ cấp hàng tháng"
+                  value={<span className="font-bold text-rose-700">{selectedRecipient.supportLevel}</span>}
+                  isNumeric
+                />
+                <DetailRow
+                  label="Bảo hiểm y tế (BHYT)"
+                  value={bhyt.label}
+                  isMono={Boolean(bhyt.code)}
+                  copyValue={bhyt.code || undefined}
+                />
+                <DetailRow
+                  label="Nơi cư trú hiện tại"
+                  value={selectedRecipient.address}
+                  colSpan={2}
+                />
+              </DetailGrid>
+            </div>
+
+            {/* Thẻ 2: Chế độ Chính sách & Quyền lợi được hưởng */}
+            <div className="bg-white rounded-xl p-4 border border-slate-200 space-y-3">
+              <div className="flex items-center justify-between pb-2 border-b border-slate-100">
+                <div className="flex items-center gap-2 font-bold text-slate-900">
+                  <Gift size={15} className="text-emerald-700" />
+                  <span className="text-sm">2. Chế độ Chính sách & Quyền lợi ({selectedRecipient.benefits?.length || 0})</span>
                 </div>
-              )}
-            </div>
-
-            {/* Footer Actions */}
-            <div className="p-3.5 bg-white border-t border-slate-200 flex flex-wrap items-center justify-between gap-2 shrink-0">
-              <div className="flex items-center gap-1.5">
-                <button
-                  type="button"
-                  onClick={() => onUpdateStatus(selectedRecipient.id, "Đang nhận trợ cấp")}
-                  className="text-xs font-bold py-1.5 px-3 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white cursor-pointer"
-                >
-                  Duyệt chi
-                </button>
-                <button
-                  type="button"
-                  onClick={() => onUpdateStatus(selectedRecipient.id, "Đã tạm ngưng")}
-                  className="text-xs font-bold py-1.5 px-3 rounded-lg border border-slate-300 hover:bg-slate-100 text-slate-700 cursor-pointer"
-                >
-                  Tạm ngưng
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    handleOpenEmergencyForRecipient(selectedRecipient);
-                    setSelectedRecipient(null);
-                  }}
-                  className="text-xs font-bold py-1.5 px-3 rounded-lg bg-amber-500 hover:bg-amber-600 text-white cursor-pointer flex items-center gap-1"
-                >
-                  <Zap size={12} /> Hỗ trợ ngay
-                </button>
               </div>
 
-              <div className="flex items-center gap-1.5">
+              <div className="space-y-1.5">
+                {(selectedRecipient.benefits || []).length === 0 ? (
+                  <div className="p-3 text-slate-500 text-center italic bg-slate-50 rounded-lg border border-slate-100">
+                    Chưa gắn chế độ chính sách cụ thể nào cho đối tượng.
+                  </div>
+                ) : (
+                  (selectedRecipient.benefits || []).map((ben, i) => (
+                    <div key={i} className="flex items-center justify-between p-2 rounded-lg bg-emerald-50/40 border border-emerald-200/80 text-xs text-slate-800">
+                      <span className="font-medium flex items-center gap-1.5">
+                        <CheckCircle2 size={13} className="text-emerald-700 shrink-0" />
+                        {ben}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveBenefitFromSelected(ben)}
+                        className="text-slate-400 hover:text-rose-600 p-1 cursor-pointer"
+                        title="Hủy quyền lợi này"
+                        aria-label={`Hủy quyền lợi ${ben}`}
+                      >
+                        <X size={12} />
+                      </button>
+                    </div>
+                  ))
+                )}
+              </div>
+
+              <div className="pt-2 border-t border-slate-100 flex items-center gap-2">
+                <input
+                  type="text"
+                  placeholder="Thêm quyền lợi mới (VD: Cấp thẻ BHYT, học bổng, quà Tết...)"
+                  value={newCustomBenefitName}
+                  onChange={e => setNewCustomBenefitName(e.target.value)}
+                  onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); handleAddBenefitToSelected(); } }}
+                  className="flex-1 p-2 rounded-lg border border-slate-300 bg-white text-xs text-slate-900"
+                />
                 <button
                   type="button"
-                  onClick={() => handleOpenEditRecipient(selectedRecipient)}
-                  className="px-2.5 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 rounded-lg text-xs font-bold flex items-center gap-1 cursor-pointer"
-                  title="Chỉnh sửa toàn bộ hồ sơ"
+                  onClick={handleAddBenefitToSelected}
+                  className="min-h-8 px-3 py-1.5 bg-emerald-700 hover:bg-emerald-800 text-white font-semibold rounded-lg text-xs cursor-pointer shrink-0"
                 >
-                  <Edit2 size={13} /> Sửa
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setRecipientToDelete(selectedRecipient)}
-                  className="px-2.5 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-lg text-xs font-bold flex items-center gap-1 cursor-pointer"
-                  title="Xóa đối tượng"
-                >
-                  <Trash2 size={13} /> Xóa
-                </button>
-                <button
-                  type="button"
-                  onClick={() => window.print()}
-                  className="px-2.5 py-1.5 bg-slate-50 hover:bg-slate-100 text-slate-700 border border-slate-200 rounded-lg text-xs font-semibold flex items-center gap-1 cursor-pointer"
-                >
-                  <Printer size={13} /> In phiếu
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setSelectedRecipient(null)}
-                  className="px-3.5 py-1.5 bg-slate-800 hover:bg-slate-900 text-white rounded-lg text-xs font-bold cursor-pointer"
-                >
-                  Đóng
+                  + Thêm quyền lợi
                 </button>
               </div>
             </div>
-          </div>
-        </div>
-      )}
+
+            {/* Thẻ 3: Hoàn cảnh & Ghi chú khảo sát */}
+            {selectedRecipient.notes && (
+              <div className="bg-white rounded-xl p-4 border border-slate-200 space-y-2">
+                <div className="font-bold text-slate-900 flex items-center gap-1.5">
+                  <FileCheck size={14} className="text-slate-700" />
+                  <span>3. Ghi chú khảo sát hoàn cảnh</span>
+                </div>
+                <p className="text-slate-700 leading-relaxed bg-slate-50 p-3 rounded-lg border border-slate-200">
+                  {selectedRecipient.notes}
+                </p>
+              </div>
+            )}
+          </Modal>
+        );
+      })()}
 
       {/* ========================================================================= */}
       {/* MODAL 6: CHI TIẾT ĐỢT HỖ TRỢ / DANH SÁCH THỤ HƯỞNG                         */}
@@ -2447,14 +2515,15 @@ export default function SocialWelfare({
             onClick={e => e.stopPropagation()}
             className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-xl max-h-[92vh] flex flex-col overflow-hidden animate-in zoom-in-95 duration-200 text-slate-800 text-xs"
           >
-            <div className="p-4 bg-gradient-to-r from-slate-900 via-slate-800 to-emerald-950 text-white flex items-center justify-between shrink-0 border-b border-slate-700/80">
+            <div className="p-4 bg-slate-50 text-slate-900 flex items-center justify-between shrink-0 border-b border-slate-200">
               <h3 className="font-black text-sm flex items-center gap-2">
-                <Gift size={16} className="text-emerald-400" /> {selectedCampaign.title}
+                <Gift size={16} className="text-emerald-600" /> {selectedCampaign.title}
               </h3>
               <button
                 type="button"
                 onClick={() => setSelectedCampaign(null)}
-                className="p-1 rounded-full text-slate-400 hover:text-white hover:bg-white/10 cursor-pointer"
+                className="p-1.5 rounded-full text-slate-600 hover:text-slate-900 hover:bg-slate-200/70 cursor-pointer"
+                aria-label="Đóng cửa sổ"
               >
                 <X size={18} />
               </button>
@@ -2463,11 +2532,11 @@ export default function SocialWelfare({
             <div className="p-5 space-y-3 overflow-y-auto flex-1">
               <div className="grid grid-cols-2 gap-2 p-3 bg-emerald-50/70 rounded-xl border border-emerald-200">
                 <div>
-                  <span className="text-[10px] uppercase font-bold text-emerald-900 block">Tổng kinh phí:</span>
+                  <span className="text-xs uppercase font-bold text-emerald-900 block">Tổng kinh phí:</span>
                   <span className="font-black text-emerald-800 text-base">{formatVNNumber(selectedCampaign.totalBudget)} đ</span>
                 </div>
                 <div>
-                  <span className="text-[10px] uppercase font-bold text-emerald-900 block">Số đối tượng:</span>
+                  <span className="text-xs uppercase font-bold text-emerald-900 block">Số đối tượng:</span>
                   <span className="font-bold text-slate-900 text-base">{selectedCampaign.recipientCount} người</span>
                 </div>
               </div>
@@ -2488,7 +2557,7 @@ export default function SocialWelfare({
                       <div key={r.id} className="p-2 bg-white rounded-lg border border-slate-200 flex items-center justify-between">
                         <div>
                           <span className="font-bold text-slate-900 block">{r.fullName}</span>
-                          <span className="text-[10px] text-slate-400 font-mono">CCCD: {r.cccd} • {r.address}</span>
+                          <span className="text-xs text-slate-600 font-mono">CCCD: {r.cccd} • {r.address}</span>
                         </div>
                         <span className="font-mono text-rose-700 font-bold">{formatVNNumber(selectedCampaign.cashAmountPerPerson)} đ</span>
                       </div>
@@ -2501,14 +2570,14 @@ export default function SocialWelfare({
               <button
                 type="button"
                 onClick={() => window.print()}
-                className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-bold flex items-center gap-1"
+                className="px-3 py-1.5 bg-white hover:bg-slate-100 text-slate-700 border border-slate-300 rounded-lg text-xs font-bold flex items-center gap-1 cursor-pointer"
               >
                 <Printer size={13} /> In danh sách ký nhận quà
               </button>
               <button
                 type="button"
                 onClick={() => setSelectedCampaign(null)}
-                className="px-4 py-1.5 bg-slate-800 hover:bg-slate-900 text-white rounded-lg text-xs font-bold"
+                className="px-4 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-800 border border-slate-300 rounded-lg text-xs font-bold cursor-pointer"
               >
                 Đóng
               </button>
@@ -2517,33 +2586,41 @@ export default function SocialWelfare({
         </div>
       )}
 
-      {/* Recipient Deletion Confirmation Dialog */}
-      {recipientToDelete && (
-        <div className="fixed inset-0 bg-slate-900/60 flex items-center justify-center z-50 p-4 backdrop-blur-sm animate-in fade-in duration-150">
-          <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm overflow-hidden animate-in zoom-in-95 duration-150 p-5 space-y-4">
-            <h3 className="font-bold text-slate-800 text-sm">Xác nhận xóa đối tượng trợ cấp</h3>
-            <p className="text-xs text-slate-500 leading-relaxed">
-              Bạn có chắc chắn muốn xóa đối tượng <strong className="text-slate-800">{recipientToDelete.fullName}</strong> (<span className="text-rose-700 font-semibold">{recipientToDelete.category}</span>) khỏi danh sách trợ giúp an sinh xã hội không?
-            </p>
-            <div className="flex justify-end gap-2 pt-2 border-t border-slate-100">
-              <button
-                type="button"
-                onClick={() => setRecipientToDelete(null)}
-                className="px-3.5 py-2 border border-slate-200 rounded-lg text-xs text-slate-600 hover:bg-slate-50 transition-colors cursor-pointer"
-              >
-                Hủy bỏ
-              </button>
-              <button
-                type="button"
-                onClick={() => executeDeleteRecipient(recipientToDelete.id)}
-                className="px-3.5 py-2 bg-rose-600 hover:bg-rose-700 text-white font-semibold rounded-lg text-xs transition-colors cursor-pointer"
-              >
-                Xác nhận xóa
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* Recipient Deletion Confirmation Modal */}
+      <ConfirmModal
+        isOpen={Boolean(recipientToDelete)}
+        onClose={() => setRecipientToDelete(null)}
+        onConfirm={() => recipientToDelete && executeDeleteRecipient(recipientToDelete.id)}
+        title="Xác nhận xóa đối tượng trợ cấp"
+        description={
+          recipientToDelete
+            ? `Bạn có chắc chắn muốn xóa đối tượng "${recipientToDelete.fullName}" (${recipientToDelete.category}) khỏi danh sách trợ giúp an sinh xã hội không?`
+            : ""
+        }
+        confirmLabel="Xác nhận xóa"
+        variant="danger"
+      />
+
+      {/* Unused empty subCategory deletion modal fallback */}
+      <ConfirmModal
+        isOpen={Boolean(subCategoryConfirmToDelete)}
+        onClose={() => setSubCategoryConfirmToDelete(null)}
+        onConfirm={() => {
+          if (!subCategoryConfirmToDelete) return;
+          const updated = subCategories.filter(s => s.id !== subCategoryConfirmToDelete.id);
+          updateSubCategories(updated);
+          showToast(`Đã xóa phân hệ "${subCategoryConfirmToDelete.name}"!`, "info");
+          setSubCategoryConfirmToDelete(null);
+        }}
+        title="Xác nhận xóa phân hệ"
+        description={
+          subCategoryConfirmToDelete
+            ? `Bạn có chắc chắn muốn xóa phân hệ "${subCategoryConfirmToDelete.name}"?`
+            : ""
+        }
+        confirmLabel="Xác nhận xóa"
+        variant="danger"
+      />
 
       {/* ========================================================================= */}
       {/* MODAL 7: CHỈNH SỬA THÔNG TIN ĐỐI TƯỢNG THỤ HƯỞNG                          */}
@@ -2558,24 +2635,25 @@ export default function SocialWelfare({
             className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-2xl max-h-[92vh] flex flex-col overflow-hidden animate-in zoom-in-95 duration-200 text-slate-800 text-xs"
           >
             {/* Header */}
-            <div className="p-4 bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 text-white flex items-center justify-between shrink-0 border-b border-indigo-900/60">
+            <div className="p-4 bg-slate-50 text-slate-900 flex items-center justify-between shrink-0 border-b border-slate-200">
               <div className="flex items-center gap-2.5">
-                <div className="w-8 h-8 rounded-lg bg-indigo-500/20 border border-indigo-400/30 flex items-center justify-center text-indigo-300">
+                <div className="w-8 h-8 rounded-lg bg-indigo-50 border border-indigo-200 flex items-center justify-center text-indigo-700">
                   <Edit2 size={16} />
                 </div>
                 <div>
-                  <h3 className="font-bold text-sm tracking-wide text-white">
+                  <h3 className="font-bold text-sm tracking-wide text-slate-900">
                     Chỉnh sửa hồ sơ đối tượng thụ hưởng
                   </h3>
-                  <p className="text-[11px] text-indigo-200/80">
-                    Mã hồ sơ: <span className="font-mono font-bold text-white">{recipientToEdit.id}</span> • Đối tượng: <span className="font-bold text-emerald-300">{recipientToEdit.fullName}</span>
+                  <p className="text-xs text-slate-600">
+                    Mã hồ sơ: <span className="font-mono font-bold text-slate-900">{recipientToEdit.id}</span> • Đối tượng: <span className="font-bold text-indigo-700">{recipientToEdit.fullName}</span>
                   </p>
                 </div>
               </div>
               <button
                 type="button"
                 onClick={() => setRecipientToEdit(null)}
-                className="p-1 rounded-full text-slate-400 hover:text-white hover:bg-white/10 cursor-pointer"
+                className="p-1.5 rounded-full text-slate-600 hover:text-slate-900 hover:bg-slate-200/70 cursor-pointer"
+                aria-label="Đóng cửa sổ"
               >
                 <X size={18} />
               </button>
@@ -2593,7 +2671,7 @@ export default function SocialWelfare({
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div>
-                      <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                      <label className="block text-xs font-bold text-slate-700 mb-1">
                         Họ và tên đối tượng <span className="text-rose-500">*</span>
                       </label>
                       <input
@@ -2607,7 +2685,7 @@ export default function SocialWelfare({
                     </div>
 
                     <div>
-                      <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                      <label className="block text-xs font-bold text-slate-700 mb-1">
                         Số CCCD / Định danh cá nhân <span className="text-rose-500">*</span>
                       </label>
                       <input
@@ -2621,7 +2699,7 @@ export default function SocialWelfare({
                     </div>
 
                     <div>
-                      <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                      <label className="block text-xs font-bold text-slate-700 mb-1">
                         Số điện thoại liên hệ
                       </label>
                       <input
@@ -2634,7 +2712,7 @@ export default function SocialWelfare({
                     </div>
 
                     <div>
-                      <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                      <label className="block text-xs font-bold text-slate-700 mb-1">
                         Địa chỉ cư trú
                       </label>
                       <input
@@ -2657,40 +2735,41 @@ export default function SocialWelfare({
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div>
-                      <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                      <label className="block text-xs font-bold text-slate-700 mb-1">
                         Phân hệ an sinh trực thuộc
                       </label>
-                      <select
+                      <ReportSelect
+                        aria-label="Phân hệ an sinh trực thuộc"
                         value={editCategory}
-                        onChange={e => setEditCategory(e.target.value)}
-                        className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-xs font-bold text-indigo-900 focus:outline-none focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-600 cursor-pointer"
-                      >
-                        {subCategories.map(cat => (
-                          <option key={cat.id} value={cat.name}>
-                            {cat.name} ({cat.code})
-                          </option>
-                        ))}
-                      </select>
+                        onChange={val => setEditCategory(val)}
+                        options={subCategories.map(cat => ({
+                          value: cat.name,
+                          label: `${cat.name} (${cat.code})`
+                        }))}
+                        className="text-xs"
+                      />
                     </div>
 
                     <div>
-                      <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                      <label className="block text-xs font-bold text-slate-700 mb-1">
                         Trạng thái thụ hưởng
                       </label>
-                      <select
+                      <ReportSelect
+                        aria-label="Trạng thái thụ hưởng"
                         value={editStatus}
-                        onChange={e => setEditStatus(e.target.value as any)}
-                        className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-xs font-bold focus:outline-none focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-600 cursor-pointer"
-                      >
-                        <option value="Đang nhận trợ cấp">🟢 Đang nhận trợ cấp</option>
-                        <option value="Chờ duyệt hồ sơ">🟡 Chờ duyệt hồ sơ</option>
-                        <option value="Đã tạm ngưng">🔴 Đã tạm ngưng</option>
-                      </select>
+                        onChange={val => setEditStatus(val as WelfareRecipient["status"])}
+                        options={[
+                          { value: "Đang nhận trợ cấp", label: "Đang nhận trợ cấp" },
+                          { value: "Chờ duyệt hồ sơ", label: "Chờ duyệt hồ sơ" },
+                          { value: "Đã tạm ngưng", label: "Đã tạm ngưng" }
+                        ]}
+                        className="text-xs"
+                      />
                     </div>
                   </div>
 
                   <div>
-                    <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                    <label className="block text-xs font-bold text-slate-700 mb-1">
                       Mức trợ cấp hàng tháng
                     </label>
                     <div className="space-y-1.5">
@@ -2702,17 +2781,16 @@ export default function SocialWelfare({
                         placeholder="Ví dụ: 2.500.000đ / tháng"
                       />
                       <div className="flex flex-wrap items-center gap-1.5">
-                        <span className="text-[10px] text-slate-400 font-medium">Gợi ý nhanh:</span>
+                        <span className="text-xs text-slate-600 font-medium">Gợi ý nhanh:</span>
                         {["1.000.000đ / tháng", "1.200.000đ / tháng", "1.500.000đ / tháng", "2.000.000đ / tháng", "2.500.000đ / tháng", "3.000.000đ / tháng"].map(lvl => (
                           <button
                             key={lvl}
                             type="button"
                             onClick={() => setEditSupportLevel(lvl)}
-                            className={`px-2 py-0.5 rounded text-[10px] font-bold transition-all cursor-pointer ${
-                              editSupportLevel === lvl
-                                ? "bg-rose-600 text-white shadow-xs"
-                                : "bg-white border border-slate-200 text-slate-700 hover:bg-slate-100"
-                            }`}
+                            className={`px-2 py-0.5 rounded text-xs font-bold transition-all cursor-pointer ${editSupportLevel === lvl
+                              ? "bg-rose-600 text-white shadow-xs"
+                              : "bg-white border border-slate-200 text-slate-700 hover:bg-slate-100"
+                              }`}
                           >
                             {lvl}
                           </button>
@@ -2729,12 +2807,12 @@ export default function SocialWelfare({
                       <Gift size={14} className="text-emerald-600" />
                       <span>3. Chế độ chính sách & Quyền lợi ({editBenefits.length})</span>
                     </div>
-                    <span className="text-[10px] text-slate-400">Tùy biến theo từng hồ sơ</span>
+                    <span className="text-xs text-slate-600">Tùy biến theo từng hồ sơ</span>
                   </div>
 
                   <div className="space-y-1.5">
                     {editBenefits.length === 0 ? (
-                      <p className="text-[11px] text-slate-400 italic py-2 text-center bg-white rounded-lg border border-dashed border-slate-200">
+                      <p className="text-xs text-slate-600 italic py-2 text-center bg-white rounded-lg border border-dashed border-slate-200">
                         Chưa có chế độ quyền lợi nào. Hãy nhập thêm bên dưới.
                       </p>
                     ) : (
@@ -2742,14 +2820,14 @@ export default function SocialWelfare({
                         {editBenefits.map((ben, idx) => (
                           <span
                             key={idx}
-                            className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-medium bg-emerald-50 text-emerald-900 border border-emerald-200 group"
+                            className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-emerald-50 text-emerald-900 border border-emerald-200 group"
                           >
                             <CheckCircle2 size={12} className="text-emerald-600 shrink-0" />
                             <span>{ben}</span>
                             <button
                               type="button"
                               onClick={() => handleRemoveBenefitFromEdit(ben)}
-                              className="w-4 h-4 rounded-full flex items-center justify-center text-emerald-600 hover:text-rose-600 hover:bg-rose-100 transition-colors cursor-pointer"
+                              className="w-4 h-4 rounded-full flex items-center justify-center text-emerald-700 hover:text-rose-600 hover:bg-rose-100 transition-colors cursor-pointer"
                               title="Bỏ quyền lợi này"
                             >
                               <X size={10} />
@@ -2835,24 +2913,25 @@ export default function SocialWelfare({
             className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-xl max-h-[92vh] flex flex-col overflow-hidden animate-in zoom-in-95 duration-200 text-slate-800 text-xs"
           >
             {/* Header */}
-            <div className="p-4 bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 text-white flex items-center justify-between shrink-0 border-b border-indigo-900/60">
+            <div className="p-4 bg-slate-50 text-slate-900 flex items-center justify-between shrink-0 border-b border-slate-200">
               <div className="flex items-center gap-2.5">
-                <div className="w-8 h-8 rounded-lg bg-indigo-500/20 border border-indigo-400/30 flex items-center justify-center text-indigo-300">
+                <div className="w-8 h-8 rounded-lg bg-indigo-50 border border-indigo-200 flex items-center justify-center text-indigo-700">
                   <FolderPlus size={16} />
                 </div>
                 <div>
-                  <h3 className="font-bold text-sm tracking-wide text-white">
+                  <h3 className="font-bold text-sm tracking-wide text-slate-900">
                     Chỉnh sửa phân hệ an sinh con
                   </h3>
-                  <p className="text-[11px] text-indigo-200/80">
-                    Mã phân hệ: <span className="font-mono font-bold text-white">{subCategoryToEdit.code}</span> • Đang có <span className="font-bold text-emerald-300">{recipients.filter(r => r.category === subCategoryToEdit.name).length}</span> đối tượng
+                  <p className="text-xs text-slate-600">
+                    Mã phân hệ: <span className="font-mono font-bold text-slate-900">{subCategoryToEdit.code}</span> • Đang có <span className="font-bold text-indigo-700">{recipients.filter(r => r.category === subCategoryToEdit.name).length}</span> đối tượng
                   </p>
                 </div>
               </div>
               <button
                 type="button"
                 onClick={() => setSubCategoryToEdit(null)}
-                className="p-1 rounded-full text-slate-400 hover:text-white hover:bg-white/10 cursor-pointer"
+                className="p-1.5 rounded-full text-slate-600 hover:text-slate-900 hover:bg-slate-200/70 cursor-pointer"
+                aria-label="Đóng cửa sổ"
               >
                 <X size={18} />
               </button>
@@ -2863,7 +2942,7 @@ export default function SocialWelfare({
               <div className="p-4 sm:p-5 space-y-4 overflow-y-auto flex-1">
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
-                    <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                    <label className="block text-xs font-bold text-slate-700 mb-1">
                       Tên phân hệ an sinh <span className="text-rose-500">*</span>
                     </label>
                     <input
@@ -2876,7 +2955,7 @@ export default function SocialWelfare({
                     />
                   </div>
                   <div>
-                    <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                    <label className="block text-xs font-bold text-slate-700 mb-1">
                       Mã ký hiệu
                     </label>
                     <input
@@ -2890,7 +2969,7 @@ export default function SocialWelfare({
                 </div>
 
                 <div>
-                  <label className="block text-[11px] font-bold text-slate-700 mb-1.5">
+                  <label className="block text-xs font-bold text-slate-700 mb-1.5">
                     Màu sắc nhận diện
                   </label>
                   <div className="flex flex-wrap gap-2">
@@ -2907,11 +2986,10 @@ export default function SocialWelfare({
                         key={c.key}
                         type="button"
                         onClick={() => setEditSubColor(c.key)}
-                        className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg border text-xs font-medium cursor-pointer transition-all ${
-                          editSubColor === c.key
-                            ? "border-slate-800 bg-slate-900 text-white font-bold shadow-xs"
-                            : "border-slate-200 bg-white hover:bg-slate-50 text-slate-700"
-                        }`}
+                        className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg border text-xs font-medium cursor-pointer transition-all ${editSubColor === c.key
+                          ? "border-indigo-600 bg-indigo-50 text-indigo-900 font-bold shadow-xs"
+                          : "border-slate-200 bg-white hover:bg-slate-50 text-slate-700"
+                          }`}
                       >
                         <span className={`w-2.5 h-2.5 rounded-full ${c.bg}`}></span>
                         <span>{c.label}</span>
@@ -2921,7 +2999,7 @@ export default function SocialWelfare({
                 </div>
 
                 <div>
-                  <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                  <label className="block text-xs font-bold text-slate-700 mb-1">
                     Mô tả phân hệ
                   </label>
                   <textarea
@@ -2934,7 +3012,7 @@ export default function SocialWelfare({
                 </div>
 
                 <div>
-                  <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                  <label className="block text-xs font-bold text-slate-700 mb-1">
                     Tiêu chí xét duyệt hồ sơ
                   </label>
                   <textarea
@@ -2948,10 +3026,10 @@ export default function SocialWelfare({
 
                 <div>
                   <div className="flex items-center justify-between mb-1">
-                    <label className="block text-[11px] font-bold text-slate-700">
+                    <label className="block text-xs font-bold text-slate-700">
                       Danh mục chính sách & quyền lợi chuẩn ({editSubBenefits.length})
                     </label>
-                    <span className="text-[10px] text-slate-400">Áp dụng mặc định khi thêm đối tượng mới</span>
+                    <span className="text-xs text-slate-600">Áp dụng mặc định khi thêm đối tượng mới</span>
                   </div>
 
                   <div className="space-y-1.5 p-2.5 bg-slate-50 rounded-xl border border-slate-200">
@@ -2959,7 +3037,7 @@ export default function SocialWelfare({
                       {editSubBenefits.map((ben, idx) => (
                         <span
                           key={idx}
-                          className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-medium bg-indigo-50 text-indigo-900 border border-indigo-200"
+                          className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-indigo-50 text-indigo-900 border border-indigo-200"
                         >
                           <CheckCircle2 size={12} className="text-indigo-600 shrink-0" />
                           <span>{ben}</span>
@@ -3059,26 +3137,25 @@ export default function SocialWelfare({
                       <AlertCircle size={14} className="text-amber-600 shrink-0" />
                       <span>Cảnh báo: Đang có {affectedCount} đối tượng thuộc phân hệ này!</span>
                     </div>
-                    <p className="leading-relaxed text-[11px]">
+                    <p className="leading-relaxed text-xs">
                       Để không làm mất dữ liệu an sinh xã hội của người dân, toàn bộ {affectedCount} đối tượng sẽ được tự động chuyển sang phân hệ bạn chỉ định dưới đây:
                     </p>
                   </div>
 
                   <div>
-                    <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                    <label className="block text-xs font-bold text-slate-700 mb-1">
                       Chọn phân hệ tiếp nhận chuyển giao <span className="text-rose-500">*</span>
                     </label>
-                    <select
+                    <ReportSelect
+                      aria-label="Chọn phân hệ tiếp nhận chuyển giao"
                       value={reassignCategoryTarget}
-                      onChange={e => setReassignCategoryTarget(e.target.value)}
-                      className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-xs font-bold text-indigo-900 focus:outline-none focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-600 cursor-pointer"
-                    >
-                      {otherCategories.map(c => (
-                        <option key={c.id} value={c.name}>
-                          {c.name} ({c.code})
-                        </option>
-                      ))}
-                    </select>
+                      onChange={val => setReassignCategoryTarget(val)}
+                      options={otherCategories.map(c => ({
+                        value: c.name,
+                        label: `${c.name} (${c.code})`
+                      }))}
+                      className="text-xs"
+                    />
                   </div>
                 </div>
               ) : (

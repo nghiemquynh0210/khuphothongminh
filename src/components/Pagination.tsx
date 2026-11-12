@@ -70,7 +70,7 @@ export default function Pagination({
         <button
           onClick={() => onPageChange(currentPage - 1)}
           disabled={currentPage === 1}
-          className="p-1.5 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 disabled:opacity-40 disabled:hover:bg-transparent transition-colors cursor-pointer disabled:cursor-not-allowed"
+          className="p-1.5 rounded-lg border border-slate-200 bg-white text-slate-600 hover:bg-slate-100 disabled:opacity-40 disabled:hover:bg-transparent transition-colors cursor-pointer disabled:cursor-not-allowed"
           title="Trang trước"
         >
           <ChevronLeft size={16} />
@@ -79,7 +79,7 @@ export default function Pagination({
         {pages.map((page, index) => {
           if (page === "...") {
             return (
-              <span key={`ellipsis-${index}`} className="px-2.5 py-1 text-slate-400 font-mono">
+              <span key={`ellipsis-${index}`} className="px-2.5 py-1 text-slate-600 font-mono">
                 ...
               </span>
             );
@@ -90,10 +90,10 @@ export default function Pagination({
             <button
               key={`page-${page}`}
               onClick={() => onPageChange(page as number)}
-              className={`min-w-8 h-8 flex items-center justify-center rounded-lg font-bold transition-all text-xs cursor-pointer ${
+              className={`min-w-9 h-9 flex items-center justify-center rounded-lg font-bold transition-colors text-xs cursor-pointer ${
                 isCurrent
-                  ? "bg-emerald-600 text-white shadow-sm shadow-emerald-600/10"
-                  : "border border-slate-200 text-slate-600 hover:bg-slate-50"
+                  ? "bg-emerald-700 text-white"
+                  : "border border-slate-200 bg-white text-slate-700 hover:bg-slate-100"
               }`}
             >
               {page}
@@ -104,7 +104,8 @@ export default function Pagination({
         <button
           onClick={() => onPageChange(currentPage + 1)}
           disabled={currentPage === totalPages}
-          className="p-1.5 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 disabled:opacity-40 disabled:hover:bg-transparent transition-colors cursor-pointer disabled:cursor-not-allowed"
+          aria-label="Trang sau"
+          className="p-1.5 rounded-lg border border-slate-200 bg-white text-slate-600 hover:bg-slate-100 disabled:opacity-40 disabled:hover:bg-transparent transition-colors cursor-pointer disabled:cursor-not-allowed"
           title="Trang sau"
         >
           <ChevronRight size={16} />

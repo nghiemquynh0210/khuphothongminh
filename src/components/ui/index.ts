@@ -5,4 +5,6 @@ export * from "./Card";
 export * from "./Table";
 export * from "./Modal";
 export * from "./EmptyState";
+export * from "./ConfirmModal";
+export { ReportSelect } from "../reports/ReportSelect";
 

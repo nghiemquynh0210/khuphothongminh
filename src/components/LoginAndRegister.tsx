@@ -26,6 +26,7 @@ import {
   X
 } from "lucide-react";
 import { PendingRegistration } from "./SettingsAndPermissions";
+import { ReportSelect } from "./reports/ReportSelect";
 import { supabase, isSupabaseConfigured } from "../lib/supabase";
 import { initialResidents } from "../mockData";
 
@@ -301,7 +302,7 @@ export default function LoginAndRegister({
         }
       }
 
-      // Tra cứu số CCCD (12 chữ số) hoặc Số điện thoại trong CSDL 11.632 Cư dân
+      // Tra cứu số CCCD (12 chữ số) hoặc Số điện thoại trong CSDL Cư dân KP3
       const matchedResident = initialResidents.find(
         r => r.cccd === inputUser || (r.phone && r.phone.replace(/\s/g, "") === inputUser.replace(/\s/g, ""))
       );
@@ -473,29 +474,27 @@ export default function LoginAndRegister({
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-100 via-slate-50 to-emerald-50/40 flex flex-col justify-between p-4 sm:p-6 relative overflow-hidden font-sans select-none">
-      {/* Background Decorative Patterns */}
-      <div className="absolute inset-0 bg-[radial-gradient(#cbd5e1_1px,transparent_1px)] [background-size:24px_24px] opacity-40 pointer-events-none"></div>
-      <div className="absolute top-0 right-1/4 w-96 h-96 rounded-full bg-emerald-500/10 blur-[130px] pointer-events-none"></div>
-      <div className="absolute bottom-0 left-1/4 w-96 h-96 rounded-full bg-teal-500/10 blur-[130px] pointer-events-none"></div>
+    <div className="min-h-screen bg-slate-50 flex flex-col justify-between p-4 sm:p-6 relative font-sans">
+      {/* Subtle Flat Hairline Grid Backdrop */}
+      <div className="absolute inset-0 bg-[radial-gradient(#cbd5e1_1px,transparent_1px)] [background-size:24px_24px] opacity-35 pointer-events-none" aria-hidden="true"></div>
 
       {/* TOP HEADER BAR */}
-      <div className="w-full max-w-5xl mx-auto flex items-center justify-between relative z-10 pt-2 pb-4">
+      <div className="w-full max-w-5xl mx-auto flex flex-wrap items-center justify-between gap-2 relative z-10 pt-1 pb-4">
         {onBackToLanding ? (
           <button
             type="button"
             onClick={onBackToLanding}
-            className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-xl bg-white/90 border border-slate-200/90 text-slate-700 hover:text-emerald-700 hover:border-emerald-300 text-xs font-semibold transition-all cursor-pointer shadow-2xs backdrop-blur-sm"
+            className="min-h-[44px] inline-flex items-center gap-2 px-3.5 py-2 rounded-lg bg-white border border-slate-200 text-slate-700 hover:text-emerald-800 hover:border-emerald-300 text-xs font-semibold transition-colors cursor-pointer"
           >
-            <ArrowLeft size={14} />
+            <ArrowLeft size={15} aria-hidden="true" />
             <span>Về Cổng thông tin Cư dân</span>
           </button>
         ) : (
           <div />
         )}
 
-        <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-50 border border-emerald-200/90 text-emerald-800 text-[11px] font-bold shadow-2xs">
-          <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+        <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-bold">
+          <span className="w-2 h-2 rounded-full bg-emerald-600" aria-hidden="true"></span>
           <span>HỆ THỐNG XÁC THỰC SỐ KP3</span>
         </div>
       </div>
@@ -504,48 +503,58 @@ export default function LoginAndRegister({
       <div className="w-full max-w-md mx-auto relative z-10 my-auto py-2">
         {/* Success Alert */}
         {successMsg && (
-          <div className="mb-4 bg-emerald-50 border border-emerald-200 text-emerald-900 rounded-2xl p-4 text-xs leading-relaxed flex gap-3 shadow-xs animate-in fade-in duration-200">
-            <CheckCircle2 size={18} className="text-emerald-600 shrink-0 mt-0.5" />
+          <div
+            role="status"
+            aria-live="polite"
+            className="mb-4 bg-emerald-50 border border-emerald-200 text-emerald-900 rounded-2xl p-4 text-xs leading-relaxed flex gap-3"
+          >
+            <CheckCircle2 size={18} className="text-emerald-700 shrink-0 mt-0.5" aria-hidden="true" />
             <div className="flex-1">
               <p className="font-bold text-emerald-950">Thao tác thành công!</p>
               <p className="mt-0.5 text-emerald-800">{successMsg}</p>
               <button
+                type="button"
                 onClick={() => {
                   setSuccessMsg("");
                   setAuthMode("login");
                 }}
-                className="mt-2.5 inline-flex items-center gap-1.5 text-white bg-emerald-600 hover:bg-emerald-700 px-3 py-1.5 rounded-lg font-bold text-[11px] transition-colors cursor-pointer shadow-2xs"
+                className="mt-2.5 min-h-[44px] inline-flex items-center gap-1.5 text-white bg-emerald-700 hover:bg-emerald-800 px-3.5 py-2 rounded-lg font-bold text-xs transition-colors cursor-pointer"
               >
                 <span>Về màn hình Đăng nhập</span>
-                <ArrowRight size={12} />
+                <ArrowRight size={13} aria-hidden="true" />
               </button>
             </div>
           </div>
         )}
 
         {/* Card Box */}
-        <div className="bg-white/95 backdrop-blur-xl border border-slate-200/90 rounded-3xl shadow-xl shadow-slate-200/60 p-6 sm:p-8 transition-all">
+        <div className="bg-white border border-slate-200 rounded-2xl p-6 sm:p-8">
 
           {/* Header Title & Crest */}
           <div className="text-center mb-6">
-            <div className="w-14 h-14 rounded-2xl bg-gradient-to-tr from-emerald-600 to-teal-500 text-white flex items-center justify-center font-black text-xl shadow-lg shadow-emerald-600/20 mx-auto mb-3 border-2 border-white">
+            <div className="w-14 h-14 rounded-2xl bg-emerald-700 text-white flex items-center justify-center font-black text-xl mx-auto mb-3 border border-emerald-800">
               KP3
             </div>
             <h1 className="text-lg sm:text-xl font-black text-slate-900 tracking-tight uppercase">
               KHU PHỐ THÔNG MINH AN PHÚ
             </h1>
-            <p className="text-[11px] font-bold text-emerald-700 uppercase tracking-widest mt-0.5">
+            <p className="text-xs font-bold text-emerald-700 uppercase tracking-wider mt-1">
               ỦY BAN NHÂN DÂN PHƯỜNG AN PHÚ • KHU PHỐ 3
             </p>
-            <p className="text-xs text-slate-500 mt-1">
+            <p className="text-xs text-slate-600 mt-1">
               Trung tâm Chỉ huy Điều hành số & Quản trị Dân cư
             </p>
           </div>
 
           {/* Error Alert */}
           {error && (
-            <div className="mb-4 bg-rose-50 border border-rose-200 text-rose-800 rounded-xl p-3 text-xs flex gap-2.5 items-start animate-in shake duration-200">
-              <AlertCircle size={16} className="text-rose-600 shrink-0 mt-0.5" />
+            <div
+              id="auth-form-error"
+              role="alert"
+              aria-live="assertive"
+              className="mb-4 bg-rose-50 border border-rose-200 text-rose-800 rounded-xl p-3 text-xs flex gap-2.5 items-start"
+            >
+              <AlertCircle size={16} className="text-rose-600 shrink-0 mt-0.5" aria-hidden="true" />
               <span className="font-medium">{error}</span>
             </div>
           )}
@@ -553,25 +562,25 @@ export default function LoginAndRegister({
           {/* 1. SCREEN: PENDING APPROVAL */}
           {pendingUser ? (
             <div className="text-center py-4 space-y-4">
-              <div className="w-16 h-16 rounded-2xl bg-amber-50 border border-amber-200 text-amber-600 flex items-center justify-center mx-auto shadow-inner">
-                <Clock size={30} className="animate-pulse" />
+              <div className="w-16 h-16 rounded-2xl bg-amber-50 border border-amber-200 text-amber-700 flex items-center justify-center mx-auto">
+                <Clock size={30} aria-hidden="true" />
               </div>
               <div className="space-y-1">
                 <h3 className="text-base font-extrabold text-slate-900">Tài khoản đang chờ phê duyệt</h3>
                 <p className="text-xs text-slate-600 max-w-sm mx-auto leading-relaxed">
-                  Xin chào <strong className="text-slate-900">{pendingUser.fullName}</strong>. Hồ sơ công tác ({pendingUser.position || "Cán bộ"}) với email <code className="text-amber-800 font-mono text-[11px] bg-amber-50 px-1 py-0.5 rounded">{pendingUser.email}</code> đã được ghi nhận.
+                  Xin chào <strong className="text-slate-900">{pendingUser.fullName}</strong>. Hồ sơ công tác ({pendingUser.position || "Cán bộ"}) với email <code className="text-amber-900 font-mono text-xs bg-amber-50 px-1.5 py-0.5 rounded border border-amber-200">{pendingUser.email}</code> đã được ghi nhận.
                 </p>
               </div>
 
-              <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200 text-left text-xs space-y-2">
+              <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 text-left text-xs space-y-2">
                 <p className="font-bold text-slate-800 flex items-center gap-1.5">
-                  <ShieldCheck size={15} className="text-emerald-600" />
+                  <ShieldCheck size={15} className="text-emerald-700" aria-hidden="true" />
                   Quy trình bảo mật Cán bộ:
                 </p>
-                <p className="text-slate-600 text-[11px] leading-relaxed">
+                <p className="text-slate-600 text-xs leading-relaxed">
                   Để đảm bảo an toàn dữ liệu dân cư theo Luật An ninh mạng, tài khoản cán bộ mới cần được Thường trực Ban Điều Hành Khu phố 3 (Bí thư Chi bộ Nguyễn Văn Hùng) xác nhận danh tính trước khi cấp quyền điều hành.
                 </p>
-                <p className="text-slate-500 text-[10px] italic">
+                <p className="text-slate-600 text-xs italic">
                   Hỗ trợ nhanh: Liên hệ <strong>bdhkhupho3.ap@gmail.com</strong>
                 </p>
               </div>
@@ -583,7 +592,7 @@ export default function LoginAndRegister({
                     setPendingUser(null);
                     setAuthMode("login");
                   }}
-                  className="w-full bg-slate-100 hover:bg-slate-200 text-slate-700 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer"
+                  className="w-full min-h-[44px] bg-slate-100 hover:bg-slate-200 border border-slate-200 text-slate-800 py-2.5 rounded-xl text-xs font-bold transition-colors cursor-pointer"
                 >
                   Quay lại đăng nhập
                 </button>
@@ -594,34 +603,38 @@ export default function LoginAndRegister({
             <div className="space-y-4">
 
               {/* Role Segmented Selector */}
-              <div className="grid grid-cols-2 p-1 bg-slate-100 rounded-2xl border border-slate-200 text-xs font-bold">
+              <div className="grid grid-cols-2 p-1 bg-slate-100 rounded-xl border border-slate-200 text-xs font-bold" role="tablist" aria-label="Chọn loại tài khoản đăng nhập">
                 <button
                   type="button"
+                  role="tab"
+                  aria-selected={loginRoleTab === "canbo"}
                   onClick={() => {
                     setLoginRoleTab("canbo");
                     setError("");
                   }}
-                  className={`py-2 px-3 rounded-xl transition-all cursor-pointer flex items-center justify-center gap-1.5 ${loginRoleTab === "canbo"
-                    ? "bg-white text-emerald-950 shadow-xs border border-slate-200/80 font-extrabold"
-                    : "text-slate-500 hover:text-slate-800"
+                  className={`min-h-[44px] py-2 px-3 rounded-lg transition-colors cursor-pointer flex items-center justify-center gap-1.5 ${loginRoleTab === "canbo"
+                    ? "bg-white text-emerald-950 border border-slate-200 font-bold"
+                    : "text-slate-600 hover:text-slate-900 border border-transparent"
                     }`}
                 >
-                  <ShieldCheck size={14} className={loginRoleTab === "canbo" ? "text-emerald-600" : "text-slate-400"} />
+                  <ShieldCheck size={15} className={loginRoleTab === "canbo" ? "text-emerald-700" : "text-slate-500"} aria-hidden="true" />
                   <span>Cán bộ / Quản trị</span>
                 </button>
 
                 <button
                   type="button"
+                  role="tab"
+                  aria-selected={loginRoleTab === "nguoidan"}
                   onClick={() => {
                     setLoginRoleTab("nguoidan");
                     setError("");
                   }}
-                  className={`py-2 px-3 rounded-xl transition-all cursor-pointer flex items-center justify-center gap-1.5 ${loginRoleTab === "nguoidan"
-                    ? "bg-white text-emerald-950 shadow-xs border border-slate-200/80 font-extrabold"
-                    : "text-slate-500 hover:text-slate-800"
+                  className={`min-h-[44px] py-2 px-3 rounded-lg transition-colors cursor-pointer flex items-center justify-center gap-1.5 ${loginRoleTab === "nguoidan"
+                    ? "bg-white text-emerald-950 border border-slate-200 font-bold"
+                    : "text-slate-600 hover:text-slate-900 border border-transparent"
                     }`}
                 >
-                  <User size={14} className={loginRoleTab === "nguoidan" ? "text-emerald-600" : "text-slate-400"} />
+                  <User size={15} className={loginRoleTab === "nguoidan" ? "text-emerald-700" : "text-slate-500"} aria-hidden="true" />
                   <span>Cư dân Khu phố</span>
                 </button>
               </div>
@@ -634,7 +647,7 @@ export default function LoginAndRegister({
                     {loginRoleTab === "canbo" ? "Tên đăng nhập hoặc Email công vụ *" : "Số CCCD hoặc Tên đăng nhập *"}
                   </label>
                   <div className="relative">
-                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
+                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-500" aria-hidden="true">
                       {loginRoleTab === "canbo" ? <User size={15} /> : <CreditCard size={15} />}
                     </div>
                     <input
@@ -642,7 +655,13 @@ export default function LoginAndRegister({
                       name="username"
                       type="text"
                       autoComplete="username"
+                      autoCorrect="off"
+                      autoCapitalize="none"
+                      spellCheck={false}
+                      enterKeyHint="next"
                       required
+                      aria-invalid={Boolean(error && !username.trim())}
+                      aria-describedby={error ? "auth-form-error" : undefined}
                       value={username}
                       onChange={(e) => setUsername(e.target.value)}
                       placeholder={
@@ -650,14 +669,14 @@ export default function LoginAndRegister({
                           ? "admin hoặc bdhkhupho3.ap@gmail.com"
                           : "Số CCCD (12 số) hoặc SĐT đã đăng ký"
                       }
-                      className="w-full pl-9 pr-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 text-sm focus:outline-none focus:border-emerald-500 focus:bg-white transition-all font-medium"
+                      className="w-full min-h-[44px] pl-9 pr-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 text-sm focus:outline-none focus:border-emerald-600 focus:bg-white user-invalid:border-rose-500 user-invalid:bg-rose-50/40 transition-colors font-medium"
                     />
                   </div>
                 </div>
 
                 {/* Field: Password */}
                 <div className="space-y-1">
-                  <div className="flex items-center justify-between">
+                  <div className="flex items-center justify-between gap-2">
                     <label htmlFor="auth-password-input" className="text-xs font-bold text-slate-700 block">Mật khẩu truy cập *</label>
                     <button
                       type="button"
@@ -665,13 +684,13 @@ export default function LoginAndRegister({
                         setAuthMode("forgot_password");
                         setError("");
                       }}
-                      className="text-[11px] text-emerald-700 hover:text-emerald-800 hover:underline font-semibold cursor-pointer"
+                      className="min-h-[32px] inline-flex items-center text-xs text-emerald-700 hover:text-emerald-800 hover:underline font-semibold cursor-pointer py-1 px-1.5 rounded"
                     >
                       Quên mật khẩu?
                     </button>
                   </div>
                   <div className="relative">
-                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
+                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-500" aria-hidden="true">
                       <Lock size={15} />
                     </div>
                     <input
@@ -679,30 +698,35 @@ export default function LoginAndRegister({
                       name="password"
                       type={showPassword ? "text" : "password"}
                       autoComplete="current-password"
+                      enterKeyHint="done"
                       required
+                      aria-invalid={Boolean(error && !password.trim())}
+                      aria-describedby={error ? "auth-form-error" : undefined}
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
                       placeholder="Nhập mật khẩu truy cập"
-                      className="w-full pl-9 pr-10 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 text-sm focus:outline-none focus:border-emerald-500 focus:bg-white transition-all font-medium"
+                      className="w-full min-h-[44px] pl-9 pr-11 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 text-sm focus:outline-none focus:border-emerald-600 focus:bg-white user-invalid:border-rose-500 user-invalid:bg-rose-50/40 transition-colors font-medium"
                     />
                     <button
                       type="button"
                       onClick={() => setShowPassword(!showPassword)}
-                      className="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-slate-600 cursor-pointer"
+                      aria-pressed={showPassword}
+                      aria-label={showPassword ? "Ẩn mật khẩu" : "Hiện mật khẩu"}
+                      className="absolute inset-y-0 right-0 min-w-[44px] flex items-center justify-center text-slate-500 hover:text-slate-800 cursor-pointer rounded-r-xl"
                     >
-                      {showPassword ? <EyeOff size={15} /> : <Eye size={15} />}
+                      {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
                     </button>
                   </div>
                 </div>
 
                 {/* Remember Me Checkbox */}
-                <div className="flex items-center justify-between pt-0.5">
-                  <label className="flex items-center gap-2 cursor-pointer text-xs text-slate-600">
+                <div className="flex items-center justify-between">
+                  <label className="min-h-[44px] inline-flex items-center gap-2.5 cursor-pointer text-xs text-slate-700">
                     <input
                       type="checkbox"
                       checked={rememberMe}
                       onChange={(e) => setRememberMe(e.target.checked)}
-                      className="rounded border-slate-300 text-emerald-600 focus:ring-emerald-500"
+                      className="w-4 h-4 rounded border-slate-300 text-emerald-700 focus:ring-emerald-600"
                     />
                     <span className="font-medium">Ghi nhớ đăng nhập trên thiết bị này</span>
                   </label>
@@ -712,31 +736,64 @@ export default function LoginAndRegister({
                 <button
                   type="submit"
                   disabled={loading}
-                  className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2.5 px-4 rounded-xl text-sm transition-all shadow-sm hover:shadow-md cursor-pointer flex items-center justify-center gap-2 disabled:opacity-50 mt-2"
+                  className="w-full min-h-[44px] bg-emerald-700 hover:bg-emerald-800 text-white font-bold py-2.5 px-4 rounded-xl text-sm border border-emerald-800 transition-colors cursor-pointer flex items-center justify-center gap-2 disabled:opacity-50"
                 >
                   {loading ? (
                     <>
-                      <Loader2 size={16} className="animate-spin" />
+                      <Loader2 size={16} className="animate-spin" aria-hidden="true" />
                       <span>Đang xác thực thông tin...</span>
                     </>
                   ) : (
                     <>
                       <span>Đăng nhập hệ thống</span>
-                      <ArrowRight size={15} />
+                      <ArrowRight size={15} aria-hidden="true" />
                     </>
                   )}
                 </button>
               </form>
 
+              {/* 1-click Demo Role Quick-Fill */}
+              <div className="pt-2 border-t border-slate-100 space-y-2">
+                <p className="text-xs font-semibold text-slate-600 text-center">
+                  Điền nhanh tài khoản dùng thử:
+                </p>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setLoginRoleTab("canbo");
+                      setUsername("admin");
+                      setPassword("Trunghuy741");
+                      setError("");
+                    }}
+                    className="min-h-[44px] px-3 py-2 rounded-xl border border-slate-200 bg-slate-50 hover:bg-emerald-50 hover:border-emerald-300 text-xs font-semibold text-slate-700 hover:text-emerald-800 transition-colors cursor-pointer"
+                  >
+                    Cán bộ (admin)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setLoginRoleTab("nguoidan");
+                      setUsername("nguoidan");
+                      setPassword("user123");
+                      setError("");
+                    }}
+                    className="min-h-[44px] px-3 py-2 rounded-xl border border-slate-200 bg-slate-50 hover:bg-emerald-50 hover:border-emerald-300 text-xs font-semibold text-slate-700 hover:text-emerald-800 transition-colors cursor-pointer"
+                  >
+                    Cư dân (nguoidan)
+                  </button>
+                </div>
+              </div>
+
               {/* Bottom Nav Links */}
-              <div className="pt-3 border-t border-slate-100 flex items-center justify-between text-xs font-semibold">
+              <div className="pt-2 border-t border-slate-100 flex flex-wrap items-center justify-between gap-2 text-xs font-semibold">
                 <button
                   type="button"
                   onClick={() => {
                     setAuthMode("register_cadre");
                     setError("");
                   }}
-                  className="text-slate-600 hover:text-emerald-700 transition-colors cursor-pointer"
+                  className="min-h-[44px] py-2 text-slate-700 hover:text-emerald-700 transition-colors cursor-pointer"
                 >
                   Đăng ký Cán bộ mới ➜
                 </button>
@@ -746,7 +803,7 @@ export default function LoginAndRegister({
                     setAuthMode("register_resident");
                     setError("");
                   }}
-                  className="text-emerald-700 hover:text-emerald-800 hover:underline cursor-pointer"
+                  className="min-h-[44px] py-2 text-emerald-700 hover:text-emerald-800 hover:underline cursor-pointer"
                 >
                   Khai báo Cư dân mới ➜
                 </button>
@@ -758,27 +815,31 @@ export default function LoginAndRegister({
             <form onSubmit={handleForgotPassword} className="space-y-4">
               <div className="border-b border-slate-100 pb-3 mb-2">
                 <h3 className="text-base font-extrabold text-slate-900 flex items-center gap-2">
-                  <KeyRound size={17} className="text-emerald-600" />
+                  <KeyRound size={17} className="text-emerald-700" aria-hidden="true" />
                   Khôi phục Mật khẩu
                 </h3>
-                <p className="text-slate-500 text-xs mt-0.5">
+                <p className="text-slate-600 text-xs mt-0.5">
                   Hệ thống sẽ gửi liên kết thiết lập lại mật khẩu qua email công vụ của bạn
                 </p>
               </div>
 
               <div className="space-y-1">
-                <label className="text-xs font-bold text-slate-700 block">Email đã đăng ký *</label>
+                <label htmlFor="auth-forgot-email" className="text-xs font-bold text-slate-700 block">Email đã đăng ký *</label>
                 <div className="relative">
-                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-500" aria-hidden="true">
                     <Mail size={15} />
                   </div>
                   <input
+                    id="auth-forgot-email"
+                    name="email"
                     type="email"
+                    autoComplete="email"
                     required
+                    aria-invalid={Boolean(error && !forgotEmail.trim())}
                     value={forgotEmail}
                     onChange={(e) => setForgotEmail(e.target.value)}
                     placeholder="bdhkhupho3.ap@gmail.com"
-                    className="w-full pl-9 pr-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 text-sm focus:outline-none focus:border-emerald-500 focus:bg-white transition-all"
+                    className="w-full min-h-[44px] pl-9 pr-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 text-sm focus:outline-none focus:border-emerald-600 focus:bg-white user-invalid:border-rose-500 transition-colors"
                   />
                 </div>
               </div>
@@ -790,14 +851,14 @@ export default function LoginAndRegister({
                     setAuthMode("login");
                     setError("");
                   }}
-                  className="flex-1 bg-slate-100 hover:bg-slate-200 text-slate-700 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer"
+                  className="flex-1 min-h-[44px] bg-slate-100 hover:bg-slate-200 border border-slate-200 text-slate-800 py-2.5 rounded-xl text-xs font-bold transition-colors cursor-pointer"
                 >
                   Hủy quay lại
                 </button>
                 <button
                   type="submit"
                   disabled={loading}
-                  className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white py-2.5 rounded-xl text-xs font-bold transition-all shadow-sm cursor-pointer disabled:opacity-50"
+                  className="flex-1 min-h-[44px] bg-emerald-700 hover:bg-emerald-800 text-white py-2.5 rounded-xl text-xs font-bold border border-emerald-800 transition-colors cursor-pointer disabled:opacity-50"
                 >
                   {loading ? "Đang gửi..." : "Gửi liên kết khôi phục"}
                 </button>
@@ -808,76 +869,91 @@ export default function LoginAndRegister({
             <form onSubmit={handleCadreRegisterSubmit} className="space-y-3.5">
               <div className="border-b border-slate-100 pb-3 mb-2">
                 <h3 className="text-base font-extrabold text-slate-900 flex items-center gap-2">
-                  <ShieldCheck size={17} className="text-emerald-600" />
+                  <ShieldCheck size={17} className="text-emerald-700" aria-hidden="true" />
                   Đăng ký Tài khoản Cán bộ
                 </h3>
-                <p className="text-slate-500 text-xs mt-0.5">
+                <p className="text-slate-600 text-xs mt-0.5">
                   Dành cho Cán bộ chi bộ, Ban điều hành, Tổ dân phố & Trưởng các đoàn thể
                 </p>
               </div>
 
               <div className="space-y-1">
-                <label className="text-xs font-bold text-slate-700 block">Họ và tên Cán bộ *</label>
+                <label htmlFor="cadre-fullname" className="text-xs font-bold text-slate-700 block">Họ và tên Cán bộ *</label>
                 <input
+                  id="cadre-fullname"
+                  name="name"
                   type="text"
+                  autoComplete="name"
                   required
                   placeholder="Ví dụ: Nguyễn Văn Hùng"
                   value={cadreFullName}
                   onChange={(e) => setCadreFullName(e.target.value)}
-                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 text-xs focus:outline-none focus:border-emerald-500 focus:bg-white"
+                  className="w-full min-h-[44px] px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 text-xs focus:outline-none focus:border-emerald-600 focus:bg-white user-invalid:border-rose-500"
                 />
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                 <div className="space-y-1">
-                  <label className="text-xs font-bold text-slate-700 block">Email công vụ *</label>
+                  <label htmlFor="cadre-email" className="text-xs font-bold text-slate-700 block">Email công vụ *</label>
                   <input
+                    id="cadre-email"
+                    name="email"
                     type="email"
+                    autoComplete="email"
                     required
                     placeholder="canbo@gmail.com"
                     value={cadreEmail}
                     onChange={(e) => setCadreEmail(e.target.value)}
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 text-xs focus:outline-none focus:border-emerald-500 focus:bg-white"
+                    className="w-full min-h-[44px] px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 text-xs focus:outline-none focus:border-emerald-600 focus:bg-white user-invalid:border-rose-500"
                   />
                 </div>
                 <div className="space-y-1">
-                  <label className="text-xs font-bold text-slate-700 block">Số điện thoại *</label>
+                  <label htmlFor="cadre-phone" className="text-xs font-bold text-slate-700 block">Số điện thoại *</label>
                   <input
-                    type="text"
+                    id="cadre-phone"
+                    name="phone"
+                    type="tel"
+                    autoComplete="tel"
                     required
                     placeholder="090xxxxxxx"
                     value={cadrePhone}
                     onChange={(e) => setCadrePhone(e.target.value)}
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 text-xs focus:outline-none focus:border-emerald-500 focus:bg-white"
+                    className="w-full min-h-[44px] px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 text-xs focus:outline-none focus:border-emerald-600 focus:bg-white user-invalid:border-rose-500"
                   />
                 </div>
               </div>
 
               <div className="space-y-1">
                 <label className="text-xs font-bold text-slate-700 block">Chức vụ / Vị trí công tác *</label>
-                <select
+                <ReportSelect
+                  aria-label="Chức vụ / Vị trí công tác"
                   value={cadrePosition}
-                  onChange={(e) => setCadrePosition(e.target.value)}
-                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 text-xs focus:outline-none focus:border-emerald-500 focus:bg-white font-medium"
-                >
-                  <option value="Cán bộ Tổ dân phố">Cán bộ Tổ dân phố</option>
-                  <option value="Chi ủy viên / Đảng viên">Chi ủy viên / Đảng viên</option>
-                  <option value="Tổ trưởng / Tổ phó Tổ ANTT">Tổ trưởng / Tổ phó Tổ ANTT</option>
-                  <option value="Trưởng / Phó Chi hội đoàn thể">Trưởng / Phó Chi hội đoàn thể</option>
-                  <option value="Cảnh sát khu vực">Cảnh sát khu vực</option>
-                  <option value="Cán bộ UBND Phường">Cán bộ UBND Phường</option>
-                </select>
+                  onChange={setCadrePosition}
+                  options={[
+                    { value: "Cán bộ Tổ dân phố", label: "Cán bộ Tổ dân phố" },
+                    { value: "Chi ủy viên / Đảng viên", label: "Chi ủy viên / Đảng viên" },
+                    { value: "Tổ trưởng / Tổ phó Tổ ANTT", label: "Tổ trưởng / Tổ phó Tổ ANTT" },
+                    { value: "Trưởng / Phó Chi hội đoàn thể", label: "Trưởng / Phó Chi hội đoàn thể" },
+                    { value: "Cảnh sát khu vực", label: "Cảnh sát khu vực" },
+                    { value: "Cán bộ UBND Phường", label: "Cán bộ UBND Phường" },
+                  ]}
+                  className="w-full"
+                />
               </div>
 
               <div className="space-y-1">
-                <label className="text-xs font-bold text-slate-700 block">Mật khẩu khởi tạo *</label>
+                <label htmlFor="cadre-password" className="text-xs font-bold text-slate-700 block">Mật khẩu khởi tạo *</label>
                 <input
+                  id="cadre-password"
+                  name="new-password"
                   type="password"
+                  autoComplete="new-password"
                   required
+                  minLength={6}
                   placeholder="Tối thiểu 6 ký tự"
                   value={cadrePassword}
                   onChange={(e) => setCadrePassword(e.target.value)}
-                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 text-xs focus:outline-none focus:border-emerald-500 focus:bg-white"
+                  className="w-full min-h-[44px] px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 text-xs focus:outline-none focus:border-emerald-600 focus:bg-white user-invalid:border-rose-500"
                 />
               </div>
 
@@ -888,14 +964,14 @@ export default function LoginAndRegister({
                     setAuthMode("login");
                     setError("");
                   }}
-                  className="flex-1 bg-slate-100 hover:bg-slate-200 text-slate-700 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer"
+                  className="flex-1 min-h-[44px] bg-slate-100 hover:bg-slate-200 border border-slate-200 text-slate-800 py-2.5 rounded-xl text-xs font-bold transition-colors cursor-pointer"
                 >
                   Hủy quay lại
                 </button>
                 <button
                   type="submit"
                   disabled={loading}
-                  className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white py-2.5 rounded-xl text-xs font-bold transition-all shadow-sm cursor-pointer disabled:opacity-50"
+                  className="flex-1 min-h-[44px] bg-emerald-700 hover:bg-emerald-800 text-white py-2.5 rounded-xl text-xs font-bold border border-emerald-800 transition-colors cursor-pointer disabled:opacity-50"
                 >
                   {loading ? "Đang gửi hồ sơ..." : "Gửi đăng ký Cán bộ"}
                 </button>
@@ -906,148 +982,172 @@ export default function LoginAndRegister({
             <form onSubmit={handleResidentRegisterSubmit} className="space-y-3">
               <div className="border-b border-slate-100 pb-3 mb-1">
                 <h3 className="text-base font-extrabold text-slate-900 flex items-center gap-2">
-                  <User size={17} className="text-emerald-600" />
+                  <User size={17} className="text-emerald-700" aria-hidden="true" />
                   Khai báo Cư dân Trực tuyến
                 </h3>
-                <p className="text-slate-500 text-xs mt-0.5">
+                <p className="text-slate-600 text-xs mt-0.5">
                   Đăng ký thường trú / tạm trú mới vào danh bạ số Khu phố 3
                 </p>
               </div>
 
-              <div className="grid grid-cols-2 gap-2.5">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                 <div className="space-y-1">
-                  <label className="text-[11px] font-bold text-slate-700 block">Họ và tên *</label>
+                  <label htmlFor="reg-fullname" className="text-xs font-bold text-slate-700 block">Họ và tên *</label>
                   <input
+                    id="reg-fullname"
+                    name="name"
                     type="text"
+                    autoComplete="name"
                     required
                     placeholder="Nguyễn Văn A"
                     value={regFullName}
                     onChange={(e) => setRegFullName(e.target.value)}
-                    className="w-full px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 text-xs focus:outline-none focus:border-emerald-500 focus:bg-white"
+                    className="w-full min-h-[44px] px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 text-xs focus:outline-none focus:border-emerald-600 focus:bg-white user-invalid:border-rose-500"
                   />
                 </div>
                 <div className="space-y-1">
-                  <label className="text-[11px] font-bold text-slate-700 block">Giới tính *</label>
-                  <select
+                  <span className="text-xs font-bold text-slate-700 block">Giới tính *</span>
+                  <ReportSelect
+                    aria-label="Giới tính"
                     value={regGender}
-                    onChange={(e) => setRegGender(e.target.value as any)}
-                    className="w-full px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 text-xs focus:outline-none focus:border-emerald-500 focus:bg-white"
-                  >
-                    <option value="Nam">Nam</option>
-                    <option value="Nữ">Nữ</option>
-                  </select>
+                    onChange={(val) => setRegGender(val as "Nam" | "Nữ")}
+                    options={[
+                      { value: "Nam", label: "Nam" },
+                      { value: "Nữ", label: "Nữ" },
+                    ]}
+                    className="w-full"
+                  />
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-2.5">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                 <div className="space-y-1">
-                  <label className="text-[11px] font-bold text-slate-700 block">Số CCCD (12 số) *</label>
+                  <label htmlFor="reg-cccd" className="text-xs font-bold text-slate-700 block">Số CCCD (12 số) *</label>
                   <input
+                    id="reg-cccd"
+                    name="cccd"
                     type="text"
+                    inputMode="numeric"
+                    pattern="\d{12}"
                     required
                     maxLength={12}
                     placeholder="079xxxxxxxxx"
                     value={regCCCD}
                     onChange={(e) => setRegCCCD(e.target.value.replace(/\D/g, ""))}
-                    className="w-full px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 text-xs focus:outline-none focus:border-emerald-500 focus:bg-white font-mono"
+                    className="w-full min-h-[44px] px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 text-xs focus:outline-none focus:border-emerald-600 focus:bg-white user-invalid:border-rose-500 font-mono"
                   />
                 </div>
                 <div className="space-y-1">
-                  <label className="text-[11px] font-bold text-slate-700 block">Số điện thoại *</label>
+                  <label htmlFor="reg-phone" className="text-xs font-bold text-slate-700 block">Số điện thoại *</label>
                   <input
-                    type="text"
+                    id="reg-phone"
+                    name="phone"
+                    type="tel"
+                    autoComplete="tel"
                     required
                     placeholder="090xxxxxxx"
                     value={regPhone}
                     onChange={(e) => setRegPhone(e.target.value)}
-                    className="w-full px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 text-xs focus:outline-none focus:border-emerald-500 focus:bg-white font-mono"
+                    className="w-full min-h-[44px] px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 text-xs focus:outline-none focus:border-emerald-600 focus:bg-white user-invalid:border-rose-500 font-mono"
                   />
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-2.5">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                 <div className="space-y-1">
-                  <label className="text-[11px] font-bold text-slate-700 block">Ngày sinh *</label>
+                  <label htmlFor="reg-birthdate" className="text-xs font-bold text-slate-700 block">Ngày sinh *</label>
                   <input
+                    id="reg-birthdate"
+                    name="bday"
                     type="text"
+                    autoComplete="bday"
                     required
                     placeholder="DD/MM/YYYY"
                     value={regBirthDate}
                     onChange={(e) => setRegBirthDate(e.target.value)}
-                    className="w-full px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 text-xs focus:outline-none focus:border-emerald-500 focus:bg-white font-mono"
+                    className="w-full min-h-[44px] px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 text-xs focus:outline-none focus:border-emerald-600 focus:bg-white user-invalid:border-rose-500 font-mono"
                   />
                 </div>
                 <div className="space-y-1">
-                  <label className="text-[11px] font-bold text-slate-700 block">Nghề nghiệp *</label>
+                  <label htmlFor="reg-occupation" className="text-xs font-bold text-slate-700 block">Nghề nghiệp *</label>
                   <input
+                    id="reg-occupation"
+                    name="occupation"
                     type="text"
                     required
                     placeholder="Kỹ sư, Giáo viên..."
                     value={regOccupation}
                     onChange={(e) => setRegOccupation(e.target.value)}
-                    className="w-full px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 text-xs focus:outline-none focus:border-emerald-500 focus:bg-white"
+                    className="w-full min-h-[44px] px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 text-xs focus:outline-none focus:border-emerald-600 focus:bg-white user-invalid:border-rose-500"
                   />
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-2.5">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                 <div className="space-y-1">
-                  <label className="text-[11px] font-bold text-slate-700 block">Mã Hộ khẩu *</label>
-                  <select
+                  <span className="text-xs font-bold text-slate-700 block">Mã Hộ khẩu *</span>
+                  <ReportSelect
+                    aria-label="Mã Hộ khẩu"
                     value={regHouseholdId}
-                    onChange={(e) => setRegHouseholdId(e.target.value)}
-                    className="w-full px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 text-xs focus:outline-none focus:border-emerald-500 focus:bg-white font-mono"
-                  >
-                    {householdCodes.map(code => (
-                      <option key={code} value={code}>{code}</option>
-                    ))}
-                  </select>
+                    onChange={setRegHouseholdId}
+                    options={householdCodes.map((code) => ({ value: code, label: code }))}
+                    className="w-full"
+                  />
                 </div>
                 <div className="space-y-1">
-                  <label className="text-[11px] font-bold text-slate-700 block">Quan hệ chủ hộ *</label>
+                  <label htmlFor="reg-relation" className="text-xs font-bold text-slate-700 block">Quan hệ chủ hộ *</label>
                   <input
+                    id="reg-relation"
+                    name="relation"
                     type="text"
                     required
                     placeholder="Con, Vợ, Chồng..."
                     value={regRelation}
                     onChange={(e) => setRegRelation(e.target.value)}
-                    className="w-full px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 text-xs focus:outline-none focus:border-emerald-500 focus:bg-white"
+                    className="w-full min-h-[44px] px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 text-xs focus:outline-none focus:border-emerald-600 focus:bg-white user-invalid:border-rose-500"
                   />
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-2.5">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                 <div className="space-y-1">
-                  <label className="text-[11px] font-bold text-slate-700 block">Hình thức cư trú *</label>
-                  <select
+                  <span className="text-xs font-bold text-slate-700 block">Hình thức cư trú *</span>
+                  <ReportSelect
+                    aria-label="Hình thức cư trú"
                     value={regStatus}
-                    onChange={(e) => setRegStatus(e.target.value as any)}
-                    className="w-full px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 text-xs focus:outline-none focus:border-emerald-500 focus:bg-white"
-                  >
-                    <option value="Thường trú">Thường trú</option>
-                    <option value="Tạm trú">Tạm trú</option>
-                  </select>
+                    onChange={(val) => setRegStatus(val as "Thường trú" | "Tạm trú")}
+                    options={[
+                      { value: "Thường trú", label: "Thường trú" },
+                      { value: "Tạm trú", label: "Tạm trú" },
+                    ]}
+                    className="w-full"
+                  />
                 </div>
                 <div className="space-y-1">
-                  <label className="text-[11px] font-bold text-slate-700 block">Tọa độ GPS *</label>
+                  <label htmlFor="reg-coordinates" className="text-xs font-bold text-slate-700 block">Tọa độ GPS *</label>
                   <input
+                    id="reg-coordinates"
+                    name="coordinates"
                     type="text"
                     required
                     value={regCoordinates}
                     onChange={(e) => setRegCoordinates(e.target.value)}
-                    className="w-full px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 text-xs focus:outline-none focus:border-emerald-500 focus:bg-white font-mono text-[10px]"
+                    className="w-full min-h-[44px] px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 text-xs focus:outline-none focus:border-emerald-600 focus:bg-white user-invalid:border-rose-500 font-mono"
                   />
                 </div>
               </div>
 
               <div className="space-y-1">
-                <label className="text-[11px] font-bold text-slate-700 block">Địa chỉ nơi cư trú *</label>
+                <label htmlFor="reg-address" className="text-xs font-bold text-slate-700 block">Địa chỉ nơi cư trú *</label>
                 <input
+                  id="reg-address"
+                  name="street-address"
                   type="text"
+                  autoComplete="street-address"
                   required
                   value={regAddress}
                   onChange={(e) => setRegAddress(e.target.value)}
-                  className="w-full px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 text-xs focus:outline-none focus:border-emerald-500 focus:bg-white"
+                  className="w-full min-h-[44px] px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 text-xs focus:outline-none focus:border-emerald-600 focus:bg-white user-invalid:border-rose-500"
                 />
               </div>
 
@@ -1058,13 +1158,13 @@ export default function LoginAndRegister({
                     setAuthMode("login");
                     setError("");
                   }}
-                  className="flex-1 bg-slate-100 hover:bg-slate-200 text-slate-700 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer"
+                  className="flex-1 min-h-[44px] bg-slate-100 hover:bg-slate-200 border border-slate-200 text-slate-800 py-2.5 rounded-xl text-xs font-bold transition-colors cursor-pointer"
                 >
                   Quay lại
                 </button>
                 <button
                   type="submit"
-                  className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white py-2.5 rounded-xl text-xs font-bold transition-all shadow-sm cursor-pointer"
+                  className="flex-1 min-h-[44px] bg-emerald-700 hover:bg-emerald-800 text-white py-2.5 rounded-xl text-xs font-bold border border-emerald-800 transition-colors cursor-pointer"
                 >
                   Gửi hồ sơ đăng ký
                 </button>
@@ -1078,10 +1178,10 @@ export default function LoginAndRegister({
 
       {/* FOOTER */}
       <div className="w-full max-w-md mx-auto text-center relative z-10 py-3 space-y-1">
-        <p className="text-[11px] text-slate-500 font-medium">
+        <p className="text-xs text-slate-600 font-medium">
           Bản quyền © 2026 Ban điều hành Khu phố 3, Phường An Phú, TP. Hồ Chí Minh
         </p>
-        <p className="text-[10px] text-slate-400">
+        <p className="text-xs text-slate-600">
           Hệ thống bảo vệ dữ liệu theo Luật An ninh mạng & Đề án 06/CP Chuyển đổi số quốc gia
         </p>
       </div>

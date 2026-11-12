@@ -28,7 +28,8 @@ import {
   Check,
   Copy,
   RefreshCw,
-  Eye
+  Eye,
+  EyeOff
 } from "lucide-react";
 import { Household, Resident, TargetGisItem } from "../types";
 import { 
@@ -39,9 +40,14 @@ import {
   getGoogleMapsDirectionUrl 
 } from "../utils/gisUtils";
 import Pagination from "./Pagination";
+import { DetailRow, DetailGrid } from "./common/DetailRow";
 import { PageHeader } from "./common/PageHeader";
 import { StatCard } from "./common/StatCard";
+import { ReportSelect } from "./reports/ReportSelect";
+import { Modal } from "./ui/Modal";
+import { ConfirmModal, InlineNotice } from "./ui/ConfirmModal";
 import { formatVNNumber } from "../utils/numberFormat";
+import { KP3_TO_LIST, extractToDanPho, maskCccd, maskPhone } from "../utils/kp3Utils";
 
 // Sub-component imports
 import HouseholdDashboard from "./household/HouseholdDashboard";
@@ -132,12 +138,28 @@ export default function HouseholdManagement({
     setCurrentPage(1);
   }, []);
   const [typeFilter, setTypeFilter] = useState<"Tất cả" | "Thường trú" | "Tạm trú">("Tất cả");
+  const [toFilter, setToFilter] = useState<string>("all");
+  const [showFullPii, setShowFullPii] = useState<boolean>(false);
   const [showSoftDeleted, setShowSoftDeleted] = useState(false); // Recycle bin toggle
   
   // Pagination
   const [currentPage, setCurrentPage] = useState(1);
-  const [viewMode, setViewMode] = useState<"list" | "card">("list");
+  const [viewMode, setViewMode] = useState<"list" | "card">("card");
   const itemsPerPage = 8;
+
+  // Notice & Confirm states
+  const [notice, setNotice] = useState<{ message: string; type: "success" | "error" | "info" | "warning" } | null>(null);
+  const [confirmDialog, setConfirmDialog] = useState<{
+    title: string;
+    description: string;
+    confirmLabel: string;
+    variant: "danger" | "warning" | "primary";
+    onConfirm: () => void;
+  } | null>(null);
+
+  const showNotice = useCallback((message: string, type: "success" | "error" | "info" | "warning" = "info") => {
+    setNotice({ message, type });
+  }, []);
 
   // Modal displays
   const [showAddModal, setShowAddModal] = useState(false);
@@ -157,7 +179,6 @@ export default function HouseholdManagement({
   // GIS Coordinate Pinning & Navigation Modal States
   const [gisPinModalHousehold, setGisPinModalHousehold] = useState<Household | null>(null);
   const [gisPinInput, setGisPinInput] = useState("");
-  const [gisPinToast, setGisPinToast] = useState<string | null>(null);
 
   const handleDirections = (h: Household) => {
     let coords = h.coordinates;
@@ -195,7 +216,7 @@ export default function HouseholdManagement({
     if (!gisPinModalHousehold) return;
     const finalCoord = gisPinInput.trim();
     if (!finalCoord) {
-      alert("Vui lòng nhập hoặc lấy tọa độ GIS!");
+      showNotice("Vui lòng nhập hoặc lấy tọa độ GIS!", "warning");
       return;
     }
 
@@ -224,8 +245,7 @@ export default function HouseholdManagement({
         navigateRoute: true
       });
     } else {
-      setGisPinToast(`Đã đồng bộ tọa độ Hộ ${targetH.ownerName} (${finalCoord}) lên bản đồ GIS!`);
-      setTimeout(() => setGisPinToast(null), 3500);
+      showNotice(`Đã đồng bộ tọa độ Hộ ${targetH.ownerName} (${finalCoord}) lên bản đồ GIS!`, "success");
     }
   };
 
@@ -336,7 +356,7 @@ export default function HouseholdManagement({
     setParsedGPS(parsed);
   };
 
-  // Filter households by search, type, and soft-delete status (Memoized)
+  // Filter households by search, type, Tổ dân phố, and soft-delete status (Memoized)
   const filteredHouseholds = useMemo(() => {
     const q = searchTerm.toLowerCase().trim();
     const hasQuery = q.length > 0;
@@ -348,6 +368,8 @@ export default function HouseholdManagement({
       const matchesType = typeFilter === "Tất cả" || (h.type || "Thường trú") === typeFilter;
       if (!matchesType) return false;
 
+      if (toFilter !== "all" && extractToDanPho(h.address) !== toFilter) return false;
+
       if (!hasQuery) return true;
 
       return (
@@ -357,7 +379,7 @@ export default function HouseholdManagement({
         (h.members && h.members.some(m => (m.name && m.name.toLowerCase().includes(q)) || (m.cccd && m.cccd.includes(q))))
       );
     });
-  }, [households, searchTerm, showSoftDeleted, typeFilter]);
+  }, [households, searchTerm, showSoftDeleted, typeFilter, toFilter]);
 
   // Paginated selection
   const paginatedHouseholds = filteredHouseholds.slice(
@@ -371,7 +393,7 @@ export default function HouseholdManagement({
   const handleCreateHousehold = (e: React.FormEvent) => {
     e.preventDefault();
     if (!newHCode || !newOwner || !newAddress) {
-      alert("Vui lòng điền đầy đủ các thông mục có dấu sao (*)");
+      showNotice("Vui lòng điền đầy đủ các thông mục có dấu sao (*)", "warning");
       return;
     }
 
@@ -446,7 +468,7 @@ export default function HouseholdManagement({
 
   const handleAddTempMember = () => {
     if (!newMemberName || !newMemberCccd || !newMemberBirthYear) {
-      alert("Vui lòng điền tên, CCCD và năm sinh thành viên tạm thời!");
+      showNotice("Vui lòng điền tên, CCCD và năm sinh thành viên tạm thời!", "warning");
       return;
     }
     setTempMembers([
@@ -471,27 +493,36 @@ export default function HouseholdManagement({
     if (!target) return;
 
     if (target.members.length > 0) {
-      alert("Cảnh báo: Không thể xóa sổ hộ khẩu khi vẫn còn thành viên cư ngụ! Vui lòng thực hiện tách hộ hoặc chuyển thành viên trước.");
+      showNotice("Cảnh báo: Không thể xóa sổ hộ khẩu khi vẫn còn thành viên cư ngụ! Vui lòng thực hiện tách hộ hoặc chuyển thành viên trước.", "warning");
       return;
     }
 
-    if (!confirm(`Bạn có chắc chắn muốn xóa (Soft Delete) Sổ hộ khẩu ${target.code}? Sổ sẽ được chuyển vào mục lưu trữ.`)) return;
+    setConfirmDialog({
+      title: "Chuyển Sổ hộ khẩu vào lưu trữ",
+      description: `Bạn có chắc chắn muốn xóa (Soft Delete) Sổ hộ khẩu ${target.code}? Sổ sẽ được chuyển vào mục lưu trữ.`,
+      confirmLabel: "Chuyển vào lưu trữ",
+      variant: "danger",
+      onConfirm: () => {
+        const updated = households.map(h => {
+          if (h.id === id) {
+            return {
+              ...h,
+              deletedAt: new Date().toISOString(),
+              deletedBy: "Cán bộ Hành chính Phường"
+            };
+          }
+          return h;
+        });
 
-    const updated = households.map(h => {
-      if (h.id === id) {
-        return {
-          ...h,
-          deletedAt: new Date().toISOString(),
-          deletedBy: "Cán bộ Hành chính Phường"
-        };
+        onUpdateHouseholds(updated);
+        if (selectedHousehold?.id === id) {
+          setSelectedHousehold(updated.find(h => !(h as any).deletedAt) || null);
+        }
+        setShowDetailModal(false);
+        setConfirmDialog(null);
+        showNotice(`Đã chuyển Sổ ${target.code} vào thùng rác lưu trữ.`, "info");
       }
-      return h;
     });
-
-    onUpdateHouseholds(updated);
-    if (selectedHousehold?.id === id) {
-      setSelectedHousehold(updated.find(h => !(h as any).deletedAt) || null);
-    }
   };
 
   // Restore Soft Deleted Household Book
@@ -507,7 +538,7 @@ export default function HouseholdManagement({
     });
 
     onUpdateHouseholds(updated);
-    alert("Khôi phục sổ hộ khẩu thành công!");
+    showNotice("Khôi phục sổ hộ khẩu thành công!", "success");
     setShowSoftDeleted(false);
   };
 
@@ -563,39 +594,45 @@ export default function HouseholdManagement({
     if (!member) return;
 
     if (member.relation === "Chủ hộ") {
-      alert("Không thể xóa chủ hộ khỏi sổ! Hãy chỉ định một chủ hộ mới bằng cách Sửa sổ trước.");
+      showNotice("Không thể xóa chủ hộ khỏi sổ! Hãy chỉ định một chủ hộ mới bằng cách Sửa sổ trước.", "warning");
       return;
     }
 
-    if (!confirm(`Bạn chắc chắn muốn xóa thành viên ${member.name} khỏi sổ hộ tịch ${selectedHousehold.code}?`)) return;
+    setConfirmDialog({
+      title: "Xóa thành viên khỏi sổ",
+      description: `Bạn chắc chắn muốn xóa thành viên ${member.name} khỏi sổ hộ tịch ${selectedHousehold.code}?`,
+      confirmLabel: "Xóa thành viên",
+      variant: "danger",
+      onConfirm: () => {
+        const updatedMembers = selectedHousehold.members.filter(m => m.cccd !== cccd);
+        const updatedHouseholds = households.map(h => {
+          if (h.id === selectedHousehold.id) {
+            return {
+              ...h,
+              members: updatedMembers,
+              memberCount: updatedMembers.length
+            };
+          }
+          return h;
+        });
 
-    // Update Household Members
-    const updatedMembers = selectedHousehold.members.filter(m => m.cccd !== cccd);
-    const updatedHouseholds = households.map(h => {
-      if (h.id === selectedHousehold.id) {
-        return {
-          ...h,
-          members: updatedMembers,
-          memberCount: updatedMembers.length
-        };
+        const updatedResidents = residents.map(r => {
+          if (r.cccd === cccd) {
+            return {
+              ...r,
+              householdId: "N/A",
+              relationToOwner: "Tự do"
+            };
+          }
+          return r;
+        });
+
+        onUpdateHouseholds(updatedHouseholds);
+        onUpdateResidents(updatedResidents);
+        setConfirmDialog(null);
+        showNotice(`Đã xóa thành viên ${member.name} khỏi sổ ${selectedHousehold.code}.`, "info");
       }
-      return h;
     });
-
-    // Update Residents to NA household
-    const updatedResidents = residents.map(r => {
-      if (r.cccd === cccd) {
-        return {
-          ...r,
-          householdId: "N/A",
-          relationToOwner: "Tự do"
-        };
-      }
-      return r;
-    });
-
-    onUpdateHouseholds(updatedHouseholds);
-    onUpdateResidents(updatedResidents);
   };
 
   // Add Member into selected household
@@ -608,7 +645,7 @@ export default function HouseholdManagement({
   const handleAddNewMember = (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedHousehold || !addMemName || !addMemCccd || !addMemBirthYear) {
-      alert("Vui lòng nhập tên, CCCD và năm sinh!");
+      showNotice("Vui lòng nhập tên, CCCD và năm sinh!", "warning");
       return;
     }
 
@@ -678,7 +715,7 @@ export default function HouseholdManagement({
 
     const targetH = households.find(h => h.code === moveTargetHCode);
     if (!targetH) {
-      alert("Hộ tịch đích không tồn tại!");
+      showNotice("Hộ tịch đích không tồn tại!", "error");
       return;
     }
 
@@ -731,7 +768,7 @@ export default function HouseholdManagement({
     onUpdateHouseholds(updatedHouseholds);
     onUpdateResidents(updatedResidents);
     setShowMoveModal(false);
-    alert(`Đã chuyển nhân khẩu ${moveTargetMember.name} cư trú sang sổ ${targetH.code} thành công.`);
+    showNotice(`Đã chuyển nhân khẩu ${moveTargetMember.name} cư trú sang sổ ${targetH.code} thành công.`, "success");
   };
 
   // Split household (Tách hộ)
@@ -745,7 +782,7 @@ export default function HouseholdManagement({
 
   const handlePerformSplitHousehold = () => {
     if (!selectedHousehold || splitSelectedCccds.length === 0 || !splitNewHCode || !splitNewOwner) {
-      alert("Vui lòng tích chọn thành viên tách và nhập mã sổ mới + chủ hộ mới!");
+      showNotice("Vui lòng tích chọn thành viên tách và nhập mã sổ mới + chủ hộ mới!", "warning");
       return;
     }
 
@@ -800,7 +837,7 @@ export default function HouseholdManagement({
 
     onUpdateResidents(updatedResidents);
     setShowSplitModal(false);
-    alert(`Tách hộ tịch thành công! Sổ mới ${splitNewHCode} đã được khởi tạo.`);
+    showNotice(`Tách hộ tịch thành công! Sổ mới ${splitNewHCode} đã được khởi tạo.`, "success");
   };
 
   const toggleSelectSplitMember = (cccd: string) => {
@@ -825,44 +862,49 @@ export default function HouseholdManagement({
         actions={
           <div className="flex flex-wrap items-center gap-2.5">
             {/* Main Module Selection */}
-            <div className="flex items-center border border-slate-200 rounded-xl p-1 bg-slate-100/80 text-xs text-slate-600 shadow-2xs">
+            <div className="flex flex-wrap items-center border border-slate-200 rounded-xl p-1 bg-slate-100/80 text-xs text-slate-600">
               <button
+                type="button"
                 onClick={() => setActiveTab("list")}
-                className={`px-3 py-1.5 rounded-lg font-bold transition-all cursor-pointer flex items-center gap-1.5 ${activeTab === "list" ? "bg-white text-emerald-800 shadow-2xs" : "text-slate-600 hover:text-slate-900"}`}
+                className={`px-3 py-1.5 rounded-lg font-bold transition-colors cursor-pointer flex items-center gap-1.5 ${activeTab === "list" ? "bg-white text-emerald-800 border border-slate-200" : "text-slate-600 hover:text-slate-900"}`}
               >
-                <Home size={13} className={activeTab === "list" ? "text-emerald-600" : "text-slate-400"} />
+                <Home size={13} className={activeTab === "list" ? "text-emerald-600" : "text-slate-500"} />
                 <span>Hộ Gia Đình</span>
               </button>
               <button
+                type="button"
                 id="btn-tab-auto-recognition"
                 onClick={() => setActiveTab("recognition")}
-                className={`px-3 py-1.5 rounded-lg font-bold transition-all cursor-pointer flex items-center gap-1.5 ${activeTab === "recognition" ? "bg-white text-emerald-800 shadow-2xs" : "text-slate-600 hover:text-slate-900"}`}
+                className={`px-3 py-1.5 rounded-lg font-bold transition-colors cursor-pointer flex items-center gap-1.5 ${activeTab === "recognition" ? "bg-white text-emerald-800 border border-slate-200" : "text-slate-600 hover:text-slate-900"}`}
                 title="Quét dữ liệu dân cư thường trú để tự động nhận diện chủ hộ và thành viên"
               >
-                <Sparkles size={13} className={activeTab === "recognition" ? "text-emerald-600" : "text-slate-400"} />
+                <Sparkles size={13} className={activeTab === "recognition" ? "text-emerald-600" : "text-slate-500"} />
                 <span>Nhận Diện Tự Động</span>
               </button>
               <button
+                type="button"
                 onClick={() => setActiveTab("dashboard")}
-                className={`px-3 py-1.5 rounded-lg font-bold transition-all cursor-pointer flex items-center gap-1.5 ${activeTab === "dashboard" ? "bg-white text-emerald-800 shadow-2xs" : "text-slate-600 hover:text-slate-900"}`}
+                className={`px-3 py-1.5 rounded-lg font-bold transition-colors cursor-pointer flex items-center gap-1.5 ${activeTab === "dashboard" ? "bg-white text-emerald-800 border border-slate-200" : "text-slate-600 hover:text-slate-900"}`}
                 title="Báo cáo chuyên sâu và thống kê cơ cấu hộ"
               >
-                <Layers size={13} className={activeTab === "dashboard" ? "text-emerald-600" : "text-slate-400"} />
+                <Layers size={13} className={activeTab === "dashboard" ? "text-emerald-600" : "text-slate-500"} />
                 <span>Báo Cáo Thống Kê</span>
               </button>
               <button
+                type="button"
                 onClick={() => setActiveTab("audit")}
-                className={`px-3 py-1.5 rounded-lg font-bold transition-all cursor-pointer flex items-center gap-1.5 ${activeTab === "audit" ? "bg-white text-emerald-800 shadow-2xs" : "text-slate-600 hover:text-slate-900"}`}
+                className={`px-3 py-1.5 rounded-lg font-bold transition-colors cursor-pointer flex items-center gap-1.5 ${activeTab === "audit" ? "bg-white text-emerald-800 border border-slate-200" : "text-slate-600 hover:text-slate-900"}`}
                 title="Rà soát hồ sơ trùng lặp và công cụ gộp sổ"
               >
-                <GitBranch size={13} className={activeTab === "audit" ? "text-emerald-600" : "text-slate-400"} />
+                <GitBranch size={13} className={activeTab === "audit" ? "text-emerald-600" : "text-slate-500"} />
                 <span>Trùng Lặp & Gộp Sổ</span>
               </button>
             </div>
 
             <button
+              type="button"
               onClick={() => setShowAddModal(true)}
-              className="flex items-center justify-center gap-1.5 bg-gradient-to-tr from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer shadow-xs hover:shadow-md shrink-0 ml-auto md:ml-0"
+              className="flex items-center justify-center gap-1.5 bg-emerald-700 hover:bg-emerald-800 text-white px-4 h-10 rounded-xl text-xs font-bold transition-colors cursor-pointer shrink-0 ml-auto md:ml-0 whitespace-nowrap"
             >
               <Plus size={15} />
               <span>Lập Sổ Hộ Mới</span>
@@ -870,6 +912,14 @@ export default function HouseholdManagement({
           </div>
         }
       />
+
+      {notice && !showAddModal && !showEditModal && !showAddMemberModal && !showMoveModal && !showSplitModal && !gisPinModalHousehold && (
+        <InlineNotice
+          message={notice.message}
+          type={notice.type}
+          onDismiss={() => setNotice(null)}
+        />
+      )}
 
         {/* RENDER BY ACTIVE MODULE TAB */}
       {activeTab === "recognition" && (
@@ -953,43 +1003,63 @@ export default function HouseholdManagement({
             })()}
 
             {/* Filters Bar */}
-          <div className="flex flex-col md:flex-row gap-3 justify-between items-stretch md:items-center bg-white p-4 rounded-xl border border-slate-100 shadow-xs">
+          <div className="flex flex-col lg:flex-row gap-3 justify-between items-stretch lg:items-center bg-white p-4 rounded-xl border border-slate-200">
             {/* Search Box */}
             <HouseholdSearchInput defaultValue={searchTerm} onSearch={handleSearchChange} />
 
             {/* Quick selectors */}
             <div className="flex flex-wrap items-center gap-2.5 text-xs">
-              <div className="flex items-center border border-slate-200 rounded-lg p-0.5 bg-slate-50 gap-0.5">
+              <div className="flex flex-wrap items-center border border-slate-200 rounded-lg p-0.5 bg-slate-50 gap-0.5">
                 <button
-                  onClick={() => setTypeFilter("Tất cả")}
-                  className={`px-3 py-1.5 rounded-md text-[11px] font-bold transition-all cursor-pointer ${typeFilter === "Tất cả" ? "bg-white text-slate-800 shadow-sm" : "text-slate-400 hover:text-slate-700"}`}
+                  type="button"
+                  onClick={() => { setTypeFilter("Tất cả"); setCurrentPage(1); }}
+                  className={`px-3 py-1.5 rounded-md text-xs font-bold transition-colors cursor-pointer ${typeFilter === "Tất cả" ? "bg-white text-slate-900 border border-slate-200" : "text-slate-600 hover:text-slate-900"}`}
                 >
                   Tất cả ({households.filter(h => !(h as any).deletedAt).length})
                 </button>
                 <button
-                  onClick={() => setTypeFilter("Thường trú")}
-                  className={`px-3 py-1.5 rounded-md text-[11px] font-bold transition-all cursor-pointer ${typeFilter === "Thường trú" ? "bg-white text-emerald-800 shadow-sm" : "text-slate-400 hover:text-slate-700"}`}
+                  type="button"
+                  onClick={() => { setTypeFilter("Thường trú"); setCurrentPage(1); }}
+                  className={`px-3 py-1.5 rounded-md text-xs font-bold transition-colors cursor-pointer ${typeFilter === "Thường trú" ? "bg-white text-emerald-800 border border-slate-200" : "text-slate-600 hover:text-slate-900"}`}
                 >
                   Thường trú ({households.filter(h => !(h as any).deletedAt && (h.type || "Thường trú") === "Thường trú").length})
                 </button>
                 <button
-                  onClick={() => setTypeFilter("Tạm trú")}
-                  className={`px-3 py-1.5 rounded-md text-[11px] font-bold transition-all cursor-pointer ${typeFilter === "Tạm trú" ? "bg-white text-amber-800 shadow-sm" : "text-slate-400 hover:text-slate-700"}`}
+                  type="button"
+                  onClick={() => { setTypeFilter("Tạm trú"); setCurrentPage(1); }}
+                  className={`px-3 py-1.5 rounded-md text-xs font-bold transition-colors cursor-pointer ${typeFilter === "Tạm trú" ? "bg-white text-amber-800 border border-slate-200" : "text-slate-600 hover:text-slate-900"}`}
                 >
                   Tạm trú ({households.filter(h => !(h as any).deletedAt && h.type === "Tạm trú").length})
                 </button>
               </div>
 
+              <div className="w-40">
+                <ReportSelect
+                  aria-label="Lọc theo Tổ dân phố"
+                  value={toFilter}
+                  onChange={(val) => {
+                    setToFilter(val);
+                    setCurrentPage(1);
+                  }}
+                  options={[
+                    { value: "all", label: "Tất cả 14 Tổ KP3" },
+                    ...KP3_TO_LIST.map((to) => ({ value: to, label: to })),
+                  ]}
+                  className="w-full"
+                />
+              </div>
+
               {/* Recycle bin trash toggle */}
               <button
+                type="button"
                 onClick={() => {
                   setShowSoftDeleted(!showSoftDeleted);
                   setCurrentPage(1);
                 }}
-                className={`flex items-center gap-1 px-3 py-2 border rounded-xl font-bold transition-all cursor-pointer ${
+                className={`flex items-center gap-1.5 px-3 h-10 border rounded-xl text-xs font-bold transition-colors cursor-pointer ${
                   showSoftDeleted 
                     ? "bg-rose-50 text-rose-700 border-rose-200" 
-                    : "bg-white text-slate-500 hover:bg-slate-50 border-slate-200"
+                    : "bg-white text-slate-600 hover:bg-slate-50 border-slate-200"
                 }`}
               >
                 <Trash2 size={13} />
@@ -1001,16 +1071,18 @@ export default function HouseholdManagement({
                 <button
                   type="button"
                   onClick={() => setViewMode("list")}
-                  className={`p-1.5 rounded transition-all cursor-pointer ${viewMode === "list" ? "bg-white text-emerald-600 shadow-xs" : "text-slate-400 hover:text-slate-600"}`}
+                  className={`p-2 rounded transition-colors cursor-pointer ${viewMode === "list" ? "bg-white text-emerald-700 border border-slate-200" : "text-slate-600 hover:text-slate-900"}`}
                   title="Xem dạng Danh sách"
+                  aria-label="Xem dạng Danh sách"
                 >
                   <List size={14} />
                 </button>
                 <button
                   type="button"
                   onClick={() => setViewMode("card")}
-                  className={`p-1.5 rounded transition-all cursor-pointer ${viewMode === "card" ? "bg-white text-emerald-600 shadow-xs" : "text-slate-400 hover:text-slate-600"}`}
+                  className={`p-2 rounded transition-colors cursor-pointer ${viewMode === "card" ? "bg-white text-emerald-700 border border-slate-200" : "text-slate-600 hover:text-slate-900"}`}
                   title="Xem dạng Thẻ Grid"
+                  aria-label="Xem dạng Thẻ Grid"
                 >
                   <LayoutGrid size={14} />
                 </button>
@@ -1019,7 +1091,7 @@ export default function HouseholdManagement({
           </div>
 
           {/* Main Container: Toàn bộ chiều rộng cho danh sách Sổ Hộ Khẩu */}
-          <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden flex flex-col w-full">
+          <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden flex flex-col w-full">
             <div className="p-4 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
               <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">
                 {showSoftDeleted ? "Lưu trữ thùng rác sổ hộ khẩu" : "Danh sách sổ chính thống"} ({formatVNNumber(filteredHouseholds.length)})
@@ -1046,10 +1118,13 @@ export default function HouseholdManagement({
                         }`}
                       >
                         <div className="space-y-1.5 min-w-0 flex-1">
-                          {/* Line 1: Mã hộ, Tên chủ hộ, Loại hộ, Tag GIS gọn gàng */}
+                          {/* Line 1: Mã hộ, Tên chủ hộ, Tổ KP3, Loại hộ, Tag GIS gọn gàng */}
                           <div className="flex flex-wrap items-center gap-2">
-                            <span className="font-mono text-xs font-bold px-2.5 py-0.5 rounded-md bg-slate-100 text-slate-800 border border-slate-200 shadow-2xs">
+                            <span className="font-mono text-xs font-bold px-2.5 py-0.5 rounded-md bg-slate-100 text-slate-800 border border-slate-200">
                               {h.code}
+                            </span>
+                            <span className="text-xs font-semibold px-2 py-0.5 rounded-md bg-slate-50 text-slate-700 border border-slate-200">
+                              {extractToDanPho(h.address)}
                             </span>
                             <h3 
                               onClick={() => handleOpenDetailModal(h)}
@@ -1057,7 +1132,7 @@ export default function HouseholdManagement({
                             >
                               Hộ gia đình: {h.ownerName}
                             </h3>
-                            <span className={`px-2 py-0.5 rounded-md text-[10.5px] font-bold border shadow-2xs ${
+                            <span className={`px-2 py-0.5 rounded-md text-xs font-bold border ${
                               hType === "Tạm trú"
                                 ? "bg-amber-50 text-amber-800 border-amber-200"
                                 : "bg-emerald-50 text-emerald-800 border-emerald-200"
@@ -1067,14 +1142,14 @@ export default function HouseholdManagement({
                             {h.coordinates ? (
                               <span 
                                 title={`Tọa độ GPS mốc ranh giới: ${h.coordinates}`}
-                                className="text-[11px] text-indigo-700 font-semibold bg-indigo-50 border border-indigo-200 px-2 py-0.5 rounded-md flex items-center gap-1 shadow-2xs cursor-help"
+                                className="text-xs text-indigo-700 font-semibold bg-indigo-50 border border-indigo-200 px-2 py-0.5 rounded-md flex items-center gap-1 cursor-help"
                               >
-                                <MapPin size={11} className="text-indigo-600" />
+                                <MapPin size={12} className="text-indigo-600" />
                                 <span>Đã định vị GIS</span>
                               </span>
                             ) : (
-                              <span className="text-[11px] text-amber-700 font-medium bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-md flex items-center gap-1">
-                                <AlertCircle size={11} />
+                              <span className="text-xs text-amber-800 font-medium bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-md flex items-center gap-1">
+                                <AlertCircle size={12} />
                                 <span>Chưa có tọa độ</span>
                               </span>
                             )}
@@ -1087,11 +1162,11 @@ export default function HouseholdManagement({
                               <span className="truncate max-w-md">{h.address}</span>
                             </div>
 
-                            <div className="flex items-center gap-1.5 text-slate-500">
-                              <Users size={12} className="text-slate-400" />
+                            <div className="flex items-center gap-1.5 text-slate-600">
+                              <Users size={12} className="text-slate-500" />
                               <span className="font-semibold text-slate-700">{h.memberCount} nhân khẩu</span>
                               {h.members && h.members.length > 0 && (
-                                <span className="text-slate-400 hidden lg:inline">
+                                <span className="text-slate-500 hidden lg:inline">
                                   ({h.members.map(m => m.name).slice(0, 3).join(", ")}{h.members.length > 3 ? `, +${h.members.length - 3}` : ""})
                                 </span>
                               )}
@@ -1100,12 +1175,11 @@ export default function HouseholdManagement({
                         </div>
 
                         {/* Right: Cân bằng phân cấp hành động */}
-                        <div className="flex items-center gap-2 shrink-0 self-end md:self-auto pt-2 md:pt-0">
-                          {/* Utility GIS actions - Nhẹ nhàng, chuyên nghiệp */}
+                        <div className="flex flex-wrap items-center gap-2 shrink-0 self-end md:self-auto pt-2 md:pt-0">
                           <button
                             type="button"
                             onClick={() => handleDirections(h)}
-                            className="px-2.5 py-1.5 bg-white hover:bg-emerald-50 text-slate-600 hover:text-emerald-700 border border-slate-200 hover:border-emerald-300 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer shadow-2xs"
+                            className="px-2.5 py-2 bg-white hover:bg-emerald-50 text-slate-700 hover:text-emerald-700 border border-slate-200 hover:border-emerald-300 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer"
                             title="Chỉ đường tới hộ trên bản đồ số GIS"
                           >
                             <Navigation size={12} className="text-emerald-600" />
@@ -1115,7 +1189,7 @@ export default function HouseholdManagement({
                           <button
                             type="button"
                             onClick={() => openPinModal(h)}
-                            className="px-2.5 py-1.5 bg-white hover:bg-slate-50 text-slate-600 hover:text-slate-900 border border-slate-200 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer shadow-2xs"
+                            className="px-2.5 py-2 bg-white hover:bg-slate-50 text-slate-700 hover:text-slate-900 border border-slate-200 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer"
                             title={h.coordinates ? `Đã ghim: ${h.coordinates}` : "Ghim tọa độ bản đồ"}
                           >
                             <MapPin size={12} className="text-indigo-600" />
@@ -1126,7 +1200,7 @@ export default function HouseholdManagement({
                           <button
                             type="button"
                             onClick={() => handleOpenDetailModal(h)}
-                            className="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all shadow-xs hover:shadow-md cursor-pointer"
+                            className="px-3.5 py-2 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer whitespace-nowrap"
                             title="Mở Sổ hộ khẩu điện tử chi tiết"
                           >
                             <span>Xem sổ</span>
@@ -1153,50 +1227,54 @@ export default function HouseholdManagement({
                         key={h.id}
                         id={`household-card-${h.id}`}
                         onClick={() => handleOpenDetailModal(h)}
-                        className={`p-4 rounded-2xl border cursor-pointer transition-all flex flex-col justify-between gap-3 bg-white hover:shadow-md group
+                        className={`p-4 rounded-2xl border cursor-pointer transition-colors flex flex-col justify-between gap-3 bg-white group
                           ${isSelected 
                             ? "border-emerald-500 ring-2 ring-emerald-500/10 bg-emerald-50/20" 
-                            : "border-slate-200/80 hover:border-slate-300"
+                            : "border-slate-200 hover:border-slate-300"
                           }
                         `}
                       >
                         <div className="space-y-2">
                           <div className="flex items-center justify-between gap-2 flex-wrap">
-                            <span className="font-mono text-[10px] font-bold px-2 py-0.5 rounded bg-slate-100 text-slate-700 shrink-0">{h.code}</span>
-                            <span className={`px-2 py-0.5 rounded text-[10px] font-bold shrink-0 ${hType === "Tạm trú" ? "bg-amber-100 text-amber-800 border border-amber-200" : "bg-emerald-100 text-emerald-800 border border-emerald-200"}`}>
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                              <span className="font-mono text-xs font-bold px-2 py-0.5 rounded bg-slate-100 text-slate-700 border border-slate-200">{h.code}</span>
+                              <span className="text-xs font-semibold px-2 py-0.5 rounded bg-slate-50 text-slate-700 border border-slate-200">{extractToDanPho(h.address)}</span>
+                            </div>
+                            <span className={`px-2 py-0.5 rounded text-xs font-bold shrink-0 border ${hType === "Tạm trú" ? "bg-amber-50 text-amber-800 border-amber-200" : "bg-emerald-50 text-emerald-800 border-emerald-200"}`}>
                               {hType}
                             </span>
                           </div>
                           <h3 className="font-bold text-slate-800 text-sm line-clamp-1 group-hover:text-emerald-700 transition-colors">Chủ hộ: {h.ownerName}</h3>
-                          <p className="text-xs text-slate-500 flex items-center gap-1">
-                            <MapPin size={12} className="shrink-0 text-slate-400" /> <span className="truncate">{h.address}</span>
+                          <p className="text-xs text-slate-600 flex items-center gap-1">
+                            <MapPin size={12} className="shrink-0 text-slate-500" /> <span className="truncate">{h.address}</span>
                           </p>
                         </div>
-                        <div className="pt-2.5 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500" onClick={(e) => e.stopPropagation()}>
-                          <div className="flex items-center gap-1">
+                        <div className="pt-2.5 border-t border-slate-100 flex items-center justify-between text-xs text-slate-600" onClick={(e) => e.stopPropagation()}>
+                          <div className="flex items-center gap-1.5">
                             <button
                               type="button"
                               onClick={() => handleDirections(h)}
-                              className="px-2 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-[11px] font-bold flex items-center gap-1 transition-all cursor-pointer shadow-xs"
+                              className="min-h-[34px] px-2.5 py-1.5 bg-emerald-700 hover:bg-emerald-800 text-white rounded-lg text-xs font-bold flex items-center gap-1 transition-colors cursor-pointer whitespace-nowrap"
                               title="Chỉ đường trên bản đồ GIS"
                             >
-                              <Navigation size={11} />
+                              <Navigation size={12} />
                               <span>Dẫn đường</span>
                             </button>
                             <button
                               type="button"
                               onClick={() => openPinModal(h)}
-                              className={`p-1 rounded-lg text-[11px] font-semibold flex items-center gap-0.5 border ${
+                              className={`p-1.5 rounded-lg text-xs font-semibold flex items-center gap-0.5 border cursor-pointer ${
                                 h.coordinates 
                                   ? "bg-indigo-50 text-indigo-700 border-indigo-200 hover:bg-indigo-100" 
-                                  : "bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-100"
+                                  : "bg-amber-50 text-amber-800 border-amber-200 hover:bg-amber-100"
                               }`}
                               title={h.coordinates ? `Tọa độ: ${h.coordinates}` : "Thêm tọa độ GIS"}
+                              aria-label="Ghim tọa độ GIS"
                             >
-                              <MapPin size={11} />
+                              <MapPin size={12} />
                             </button>
                           </div>
-                          <span className="text-[11px] text-emerald-700 font-bold group-hover:underline flex items-center gap-0.5" onClick={() => handleOpenDetailModal(h)}>
+                          <span className="text-xs text-emerald-700 font-bold group-hover:underline flex items-center gap-0.5 cursor-pointer" onClick={() => handleOpenDetailModal(h)}>
                             Chi tiết ➜
                           </span>
                         </div>
@@ -1219,96 +1297,179 @@ export default function HouseholdManagement({
             </div>
           </div>
 
-          {/* MODAL CHI TIẾT SỔ HỘ KHẨU Ở CHÍNH GIỮA VIEWPORT (Chuẩn Reference KP3) */}
-          {showDetailModal && selectedHousehold && (
-            <div 
-              className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/65 backdrop-blur-[2px] animate-in fade-in duration-200"
-              onClick={handleCloseDetailModal}
-            >
-              <div 
-                id="household-detail-modal"
-                onClick={(e) => e.stopPropagation()}
-                className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-4xl max-h-[92dvh] flex flex-col overflow-hidden animate-in zoom-in-95 duration-200 text-slate-800"
-              >
-                {/* Header: Clean, Executive Government Portal Design */}
-                <div className="bg-gradient-to-r from-slate-50 via-white to-emerald-50/30 px-5 sm:px-6 py-5 border-b border-slate-200 relative shrink-0">
-                  <button 
-                    id="btn-close-household-modal"
-                    onClick={handleCloseDetailModal}
-                    className="absolute top-4 right-4 p-2 rounded-xl text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors cursor-pointer"
-                    title="Đóng (Esc)"
-                  >
-                    <X size={18} />
-                  </button>
+          {/* MODAL CHI TIẾT SỔ HỘ KHẨU (Chuẩn Flat Hairline • Neo đỉnh • ‹ › chuyển sổ) */}
+          {selectedHousehold && (() => {
+            const hhIdx = filteredHouseholds.findIndex((h) => h.id === selectedHousehold.id);
+            const hasPrev = hhIdx > 0;
+            const hasNext = hhIdx >= 0 && hhIdx < filteredHouseholds.length - 1;
 
-                  <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 pr-10">
-                    {/* Household Icon Badge */}
-                    <div className="w-13 h-13 sm:w-14 sm:h-14 rounded-2xl bg-emerald-600/10 border border-emerald-500/30 text-emerald-700 flex items-center justify-center shrink-0 shadow-2xs">
-                      <Home size={26} className="text-emerald-700" />
+            return (
+              <Modal
+                isOpen={showDetailModal}
+                onClose={handleCloseDetailModal}
+                title={`Hộ gia đình: ${selectedHousehold.ownerName}`}
+                size="4xl"
+                bodyClassName="p-4 sm:p-6 space-y-4 bg-slate-50"
+                footerClassName="justify-between"
+                headerNavigation={{
+                  hasPrev,
+                  hasNext,
+                  prevLabel: "Sổ hộ trước",
+                  nextLabel: "Sổ hộ sau",
+                  onPrev: () => hasPrev && handleOpenDetailModal(filteredHouseholds[hhIdx - 1]),
+                  onNext: () => hasNext && handleOpenDetailModal(filteredHouseholds[hhIdx + 1]),
+                }}
+                headerSlot={
+                  <div className="flex items-start sm:items-center gap-3.5">
+                    <div className="w-12 h-12 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-700 flex items-center justify-center shrink-0">
+                      <Home size={22} aria-hidden="true" />
                     </div>
-
-                    {/* Metadata & Title */}
-                    <div className="space-y-1.5 flex-1 min-w-0">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <span className="text-[10px] font-bold text-slate-600 uppercase tracking-wider font-mono bg-slate-100 px-2 py-0.5 rounded-md border border-slate-200">
-                          SỔ HỘ KHẨU ĐIỆN TỬ
-                        </span>
-                        <span className="font-mono text-xs font-bold px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-800 border border-emerald-200">
+                    <div className="min-w-0 flex-1 space-y-1">
+                      <div className="flex flex-wrap items-center gap-2 text-xs">
+                        <span className="font-mono font-bold px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-800 border border-emerald-200">
                           {selectedHousehold.code}
                         </span>
-                        <span className={`px-2 py-0.5 rounded-md text-[11px] font-bold ${
-                          selectedHousehold.type === "Tạm trú" 
-                            ? "bg-amber-50 text-amber-800 border border-amber-200" 
-                            : "bg-blue-50 text-blue-800 border border-blue-200"
+                        <span className={`px-2 py-0.5 rounded-full font-bold border ${
+                          selectedHousehold.type === "Tạm trú"
+                            ? "bg-amber-50 text-amber-800 border-amber-200"
+                            : "bg-blue-50 text-blue-800 border-blue-200"
                         }`}>
                           {selectedHousehold.type || "Thường trú"}
                         </span>
-                        <span className="text-[11px] font-semibold bg-slate-100 text-slate-700 border border-slate-200 px-2 py-0.5 rounded-md flex items-center gap-1">
-                          <Users size={12} className="text-emerald-600" />
-                          <span>{selectedHousehold.members.length} nhân khẩu</span>
+                        <span className="font-semibold text-slate-600">
+                          {extractToDanPho(selectedHousehold.address)} · {selectedHousehold.members.length} nhân khẩu
                         </span>
                       </div>
-
                       <h2 className="text-lg sm:text-xl font-extrabold text-slate-900 tracking-tight leading-snug break-words">
                         Hộ gia đình: {selectedHousehold.ownerName}
                       </h2>
-
-                      {/* Address & GPS Bar - Compact & Clean */}
-                      <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-slate-600 pt-0.5">
-                        <div className="flex items-center gap-1.5 font-medium text-slate-700 min-w-0">
-                          <MapPin size={13} className="text-emerald-600 shrink-0" />
+                      <div className="flex flex-wrap items-center gap-2 text-xs text-slate-600">
+                        <span className="inline-flex items-center gap-1 min-w-0">
+                          <MapPin size={13} className="text-emerald-700 shrink-0" aria-hidden="true" />
                           <span className="truncate max-w-md">{selectedHousehold.address}</span>
-                          {selectedHousehold.coordinates && (
-                            <span className="text-[11px] text-slate-400 font-mono hidden lg:inline">
-                              • ({selectedHousehold.coordinates})
-                            </span>
-                          )}
-                        </div>
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                }
+                subHeader={
+                  <div className="flex px-5 sm:px-6 gap-6 text-xs font-bold overflow-x-auto">
+                    <button
+                      type="button"
+                      onClick={() => setDetailTab("members")}
+                      className={`py-3 transition-colors relative cursor-pointer flex items-center gap-1.5 whitespace-nowrap ${
+                        detailTab === "members" ? "text-emerald-800 font-extrabold" : "text-slate-500 hover:text-slate-800"
+                      }`}
+                    >
+                      <Users size={15} aria-hidden="true" />
+                      <span>Thông tin & Thành viên ({selectedHousehold.members.length})</span>
+                      {detailTab === "members" && <div className="absolute bottom-0 left-0 w-full h-0.5 bg-emerald-700" />}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setDetailTab("businesses")}
+                      className={`py-3 transition-colors relative cursor-pointer flex items-center gap-1.5 whitespace-nowrap ${
+                        detailTab === "businesses" ? "text-emerald-800 font-extrabold" : "text-slate-500 hover:text-slate-800"
+                      }`}
+                    >
+                      <Home size={15} aria-hidden="true" />
+                      <span>Hộ kinh doanh tại địa chỉ</span>
+                      {detailTab === "businesses" && <div className="absolute bottom-0 left-0 w-full h-0.5 bg-emerald-700" />}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setDetailTab("history")}
+                      className={`py-3 transition-colors relative cursor-pointer flex items-center gap-1.5 whitespace-nowrap ${
+                        detailTab === "history" ? "text-slate-900 font-extrabold" : "text-slate-500 hover:text-slate-800"
+                      }`}
+                    >
+                      <History size={15} aria-hidden="true" />
+                      <span>Nhật ký biến động</span>
+                      {detailTab === "history" && <div className="absolute bottom-0 left-0 w-full h-0.5 bg-slate-900" />}
+                    </button>
+                  </div>
+                }
+                footer={
+                  <>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <button
+                        type="button"
+                        id="btn-modal-tree"
+                        onClick={() => setShowTreeModal(true)}
+                        className="min-h-9 flex items-center gap-1.5 bg-white hover:bg-slate-100 text-slate-800 border border-slate-300 font-bold px-3 py-1.5 rounded-xl text-xs transition-colors cursor-pointer"
+                      >
+                        <GitBranch size={14} className="text-emerald-700" aria-hidden="true" />
+                        <span>Sơ đồ Phả Hệ</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          handleDirections(selectedHousehold);
+                          setShowDetailModal(false);
+                        }}
+                        className="min-h-9 flex items-center gap-1.5 bg-white hover:bg-slate-100 text-slate-800 border border-slate-300 font-bold px-3 py-1.5 rounded-xl text-xs transition-colors cursor-pointer"
+                      >
+                        <Navigation size={13} className="text-emerald-700" aria-hidden="true" />
+                        <span>Chỉ đường GIS</span>
+                      </button>
+                    </div>
 
-                        <div className="flex items-center gap-1 shrink-0">
-                          <button
-                            type="button"
-                            onClick={() => {
-                              handleDirections(selectedHousehold);
-                              setShowDetailModal(false);
-                            }}
-                            className="px-2 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-bold text-[11px] flex items-center gap-1 transition-all cursor-pointer shadow-2xs"
-                            title="Dẫn đường trực tiếp trên bản đồ số GIS Khu phố 3"
-                          >
-                            <Navigation size={11} />
-                            <span>Dẫn đường</span>
-                          </button>
-
+                    <div className="flex flex-wrap items-center gap-2">
+                      {showSoftDeleted ? (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            handleRestoreHousehold(selectedHousehold.id);
+                            setShowDetailModal(false);
+                          }}
+                          className="min-h-9 flex items-center gap-1.5 px-3.5 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 rounded-xl text-xs font-bold transition-colors cursor-pointer"
+                        >
+                          <Undo2 size={13} aria-hidden="true" /> Khôi phục sổ
+                        </button>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => handleSoftDeleteHousehold(selectedHousehold.id)}
+                          className="min-h-9 flex items-center gap-1.5 px-3.5 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-800 border border-rose-200 rounded-xl text-xs font-bold transition-colors cursor-pointer"
+                        >
+                          <span>Đóng sổ / Chuyển đi</span>
+                        </button>
+                      )}
+                      <button
+                        type="button"
+                        id="btn-close-household-footer"
+                        onClick={handleCloseDetailModal}
+                        className="min-h-9 px-3.5 py-1.5 bg-white hover:bg-slate-100 text-slate-700 border border-slate-300 rounded-xl text-xs font-bold transition-colors cursor-pointer"
+                      >
+                        Đóng
+                      </button>
+                      <button
+                        type="button"
+                        id="btn-modal-edit-household"
+                        onClick={startEditHousehold}
+                        className="min-h-9 flex items-center gap-1.5 px-4 py-1.5 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl text-xs font-bold transition-colors cursor-pointer"
+                      >
+                        <Edit3 size={13} aria-hidden="true" />
+                        <span>Chỉnh sửa sổ hộ</span>
+                      </button>
+                    </div>
+                  </>
+                }
+              >
+                {detailTab === "members" && (
+                  <div className="space-y-4">
+                    <div className="bg-white rounded-2xl border border-slate-200 p-4 sm:p-5 space-y-3">
+                      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 pb-2.5">
+                        <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wider">Thông tin Sổ Hộ Khẩu</h3>
+                        <div className="flex flex-wrap items-center gap-2">
                           <button
                             type="button"
                             onClick={() => openPinModal(selectedHousehold)}
-                            className="px-2 py-1 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 rounded-lg font-medium text-[11px] flex items-center gap-1 transition-all cursor-pointer shadow-2xs"
-                            title="Cập nhật tọa độ ghim trên bản đồ GIS"
+                            className="min-h-8 px-2.5 py-1 bg-white hover:bg-slate-100 text-slate-700 border border-slate-300 rounded-lg font-semibold text-xs inline-flex items-center gap-1 cursor-pointer"
                           >
-                            <MapPin size={11} className="text-indigo-600" />
-                            <span>{selectedHousehold.coordinates ? "Sửa tọa độ" : "Ghim"}</span>
+                            <MapPin size={12} className="text-indigo-600" aria-hidden="true" />
+                            <span>{selectedHousehold.coordinates ? "Sửa tọa độ" : "Ghim tọa độ"}</span>
                           </button>
-
                           {selectedHousehold.coordinates && (
                             <a
                               href={getGoogleMapsDirectionUrl(
@@ -1318,392 +1479,335 @@ export default function HouseholdManagement({
                               )}
                               target="_blank"
                               rel="noopener noreferrer"
-                              className="px-2 py-1 bg-white hover:bg-slate-50 text-slate-600 hover:text-slate-900 border border-slate-200 rounded-lg font-medium text-[11px] flex items-center gap-1 transition-all cursor-pointer shadow-2xs"
-                              title="Mở chỉ đường bằng Google Maps"
+                              className="min-h-8 px-2.5 py-1 bg-white hover:bg-slate-100 text-slate-700 border border-slate-300 rounded-lg font-semibold text-xs inline-flex items-center gap-1"
                             >
-                              <ExternalLink size={10} />
+                              <ExternalLink size={12} aria-hidden="true" />
                               <span>Google Maps</span>
                             </a>
                           )}
                         </div>
                       </div>
+                      <DetailGrid>
+                        <DetailRow label="Mã sổ hộ khẩu" value={selectedHousehold.code} copyValue={selectedHousehold.code} isMono />
+                        <DetailRow label="Chủ hộ" value={selectedHousehold.ownerName} />
+                        <DetailRow label="Loại cư trú" value={selectedHousehold.type || "Thường trú"} />
+                        <DetailRow label="Tổ dân phố" value={extractToDanPho(selectedHousehold.address)} />
+                        <DetailRow label="Số nhân khẩu" value={`${selectedHousehold.members.length} người`} isNumeric />
+                        <DetailRow label="Tọa độ GIS" value={selectedHousehold.coordinates} copyValue={selectedHousehold.coordinates} isMono />
+                        <DetailRow label="Địa chỉ thường trú" value={selectedHousehold.address} colSpan={2} />
+                      </DetailGrid>
+                    </div>
+
+                    <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
+                      <span className="text-xs font-bold text-slate-600 uppercase tracking-wider">Danh sách nhân khẩu ({selectedHousehold.members.length})</span>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => setShowFullPii(prev => !prev)}
+                          className="min-h-8 flex items-center gap-1.5 bg-white hover:bg-slate-100 text-slate-700 px-3 py-1 rounded-xl text-xs font-bold cursor-pointer transition-colors border border-slate-300"
+                          aria-pressed={showFullPii}
+                        >
+                          {showFullPii ? <EyeOff size={13} aria-hidden="true" /> : <Eye size={13} aria-hidden="true" />}
+                          <span>{showFullPii ? "Che CCCD/SĐT" : "Hiện CCCD/SĐT"}</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setShowDetailModal(false);
+                            setActiveTab("recognition");
+                          }}
+                          className="min-h-8 flex items-center gap-1.5 bg-white hover:bg-slate-100 text-slate-700 px-3 py-1 rounded-xl text-xs font-bold cursor-pointer transition-colors border border-slate-300"
+                        >
+                          <Sparkles size={13} className="text-emerald-700" aria-hidden="true" /> Nhận diện Dân cư
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setShowAddMemberModal(true)}
+                          className="min-h-8 flex items-center gap-1.5 bg-emerald-700 hover:bg-emerald-800 text-white px-3 py-1 rounded-xl text-xs font-bold cursor-pointer transition-colors"
+                        >
+                          <UserPlus size={13} aria-hidden="true" /> Thêm nhân khẩu
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      {selectedHousehold.members.map(m => (
+                        <div key={m.cccd} className="p-3.5 bg-white hover:border-slate-300 border border-slate-200 rounded-2xl space-y-2.5 transition-colors">
+                          <div className="flex justify-between items-start gap-2">
+                            <button
+                              type="button"
+                              onClick={() => setProfileViewMember({ name: m.name, relation: m.relation, cccd: m.cccd })}
+                              className="text-left cursor-pointer hover:text-emerald-800 transition-colors flex-1 min-w-0"
+                            >
+                              <h4 className="font-bold text-slate-900 text-sm hover:underline truncate">{m.name}</h4>
+                              <p className="text-xs text-slate-600 font-mono mt-0.5 truncate">
+                                Sinh {m.birthYear} • CCCD: {maskCccd(m.cccd, showFullPii)}
+                              </p>
+                            </button>
+                            <span className={`px-2 py-0.5 rounded-md text-xs font-bold shrink-0 border ${
+                              m.relation === "Chủ hộ"
+                                ? "bg-emerald-50 text-emerald-800 border-emerald-200"
+                                : "bg-slate-100 text-slate-700 border-slate-200"
+                            }`}>
+                              {m.relation}
+                            </span>
+                          </div>
+
+                          <div className="pt-2 border-t border-slate-100 flex items-center justify-between text-xs gap-2">
+                            <span className="text-slate-600 font-mono truncate">
+                              {m.phone && m.phone !== "N/A" ? maskPhone(m.phone, showFullPii) : "—"}
+                            </span>
+                            <div className="flex items-center gap-1.5 shrink-0">
+                              <button
+                                type="button"
+                                onClick={() => setProfileViewMember({ name: m.name, relation: m.relation, cccd: m.cccd })}
+                                className="min-h-7 text-xs bg-white hover:bg-slate-100 text-slate-700 border border-slate-300 px-2.5 py-1 rounded-lg font-semibold transition-colors cursor-pointer"
+                              >
+                                Hồ sơ
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => startMoveMember(m.name, m.cccd)}
+                                className="min-h-7 text-xs bg-white hover:bg-slate-100 text-indigo-700 border border-slate-300 px-2.5 py-1 rounded-lg font-semibold transition-colors cursor-pointer"
+                              >
+                                Chuyển
+                              </button>
+                              {m.relation !== "Chủ hộ" && (
+                                <>
+                                  <button
+                                    type="button"
+                                    onClick={startSplitHousehold}
+                                    className="min-h-7 text-xs bg-white hover:bg-slate-100 text-emerald-800 border border-slate-300 px-2.5 py-1 rounded-lg font-semibold transition-colors cursor-pointer"
+                                  >
+                                    Tách
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleRemoveMember(m.cccd)}
+                                    className="min-h-7 text-xs text-rose-700 hover:bg-rose-50 p-1.5 rounded-lg transition-colors cursor-pointer"
+                                    aria-label={`Xóa ${m.name} khỏi sổ`}
+                                  >
+                                    <Trash2 size={14} aria-hidden="true" />
+                                  </button>
+                                </>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      ))}
                     </div>
                   </div>
-                </div>
+                )}
 
-                {/* Sub-tabs header */}
-                <div className="flex border-b border-slate-200 bg-white px-5 sm:px-6 gap-6 text-xs font-bold shrink-0">
-                  <button 
-                    onClick={() => setDetailTab("members")}
-                    className={`py-3 transition-all relative cursor-pointer flex items-center gap-1.5 ${
-                      detailTab === "members" ? "text-emerald-700 font-extrabold" : "text-slate-500 hover:text-slate-800"
-                    }`}
-                  >
-                    <Users size={15} />
-                    <span>Thành viên nhân khẩu ({selectedHousehold.members.length})</span>
-                    {detailTab === "members" && <div className="absolute bottom-0 left-0 w-full h-0.5 bg-emerald-600"></div>}
-                  </button>
-                  <button 
-                    onClick={() => setDetailTab("businesses")}
-                    className={`py-3 transition-all relative cursor-pointer flex items-center gap-1.5 ${
-                      detailTab === "businesses" ? "text-indigo-700 font-extrabold" : "text-slate-500 hover:text-slate-800"
-                    }`}
-                  >
-                    <Home size={15} />
-                    <span>Hộ kinh doanh tại địa chỉ</span>
-                    {detailTab === "businesses" && <div className="absolute bottom-0 left-0 w-full h-0.5 bg-indigo-600"></div>}
-                  </button>
-                  <button 
-                    onClick={() => setDetailTab("history")}
-                    className={`py-3 transition-all relative cursor-pointer flex items-center gap-1.5 ${
-                      detailTab === "history" ? "text-slate-900 font-extrabold" : "text-slate-500 hover:text-slate-800"
-                    }`}
-                  >
-                    <History size={15} />
-                    <span>Nhật ký biến động</span>
-                    {detailTab === "history" && <div className="absolute bottom-0 left-0 w-full h-0.5 bg-slate-900"></div>}
-                  </button>
-                </div>
+                {detailTab === "businesses" && (
+                  <div className="bg-white p-5 rounded-2xl border border-slate-200">
+                    <HouseholdBusinesses
+                      household={selectedHousehold}
+                      residents={residents}
+                    />
+                  </div>
+                )}
 
-                {/* Nội dung chi tiết cuộn độc lập */}
-                <div className="flex-1 overflow-y-auto p-5 sm:p-6 space-y-4 bg-slate-50/70">
-                  {detailTab === "members" && (
-                    <div className="space-y-4">
-                      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
-                        <span className="text-xs font-bold text-slate-600 uppercase tracking-wider">Danh sách nhân khẩu thường trú / tạm trú</span>
-                        <div className="flex items-center gap-2">
-                          <button
-                            onClick={() => {
-                              setShowDetailModal(false);
-                              setActiveTab("recognition");
-                            }}
-                            className="flex items-center gap-1.5 bg-white hover:bg-teal-50 text-teal-700 px-3 py-1.5 rounded-xl text-xs font-bold cursor-pointer transition-colors border border-teal-200 shadow-2xs"
-                            title="Tự động nhận diện chủ hộ và thành viên từ dữ liệu cư dân"
-                          >
-                            <Sparkles size={13} className="text-teal-600" /> Nhận diện từ Dân cư
-                          </button>
-                          <button
-                            onClick={() => setShowAddMemberModal(true)}
-                            className="flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-1.5 rounded-xl text-xs font-bold cursor-pointer transition-colors shadow-2xs"
-                          >
-                            <UserPlus size={13} /> Thêm nhân khẩu
-                          </button>
-                        </div>
-                      </div>
-
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                        {selectedHousehold.members.map(m => (
-                          <div key={m.cccd} className="p-3.5 bg-white hover:shadow-md border border-slate-200/90 rounded-2xl space-y-2.5 transition-all relative group shadow-2xs">
-                            <div className="flex justify-between items-start gap-2">
-                              <div 
-                                onClick={() => setProfileViewMember({ name: m.name, relation: m.relation, cccd: m.cccd })}
-                                className="cursor-pointer group-hover:text-emerald-700 transition-colors flex-1 min-w-0"
-                              >
-                                <h4 className="font-bold text-slate-900 text-sm hover:underline truncate">{m.name}</h4>
-                                <p className="text-[11px] text-slate-500 font-mono mt-0.5 truncate">
-                                  Sinh {m.birthYear} • CCCD: {m.cccd}
-                                </p>
-                              </div>
-                              <span className={`px-2 py-0.5 rounded-md text-[10.5px] font-bold shrink-0 ${
-                                m.relation === "Chủ hộ" 
-                                  ? "bg-emerald-50 text-emerald-800 border border-emerald-200" 
-                                  : "bg-slate-100 text-slate-700 border border-slate-200"
-                              }`}>
-                                {m.relation}
-                              </span>
-                            </div>
-
-                            <div className="pt-2 border-t border-slate-100 flex items-center justify-between text-xs gap-2">
-                              <span className="text-slate-500 font-mono text-[11px] truncate">
-                                {m.phone && m.phone !== "N/A" ? m.phone : "Chưa có SĐT"}
-                              </span>
-                              <div className="flex items-center gap-1 shrink-0">
-                                <button
-                                  onClick={() => setProfileViewMember({ name: m.name, relation: m.relation, cccd: m.cccd })}
-                                  className="text-[11px] bg-slate-100 hover:bg-slate-200 text-slate-700 px-2 py-1 rounded-lg font-semibold transition-all cursor-pointer flex items-center gap-1 shadow-2xs"
-                                  title="Xem chi tiết hồ sơ nhân thân"
-                                >
-                                  <Eye size={11} className="text-slate-500" />
-                                  <span>Hồ sơ</span>
-                                </button>
-                                <button
-                                  onClick={() => startMoveMember(m.name, m.cccd)}
-                                  className="text-[11px] bg-indigo-50 text-indigo-700 hover:bg-indigo-100 border border-indigo-200/80 px-2 py-1 rounded-lg font-semibold transition-all cursor-pointer shadow-2xs"
-                                  title="Chuyển sang sổ hộ khẩu khác"
-                                >
-                                  Chuyển
-                                </button>
-                                {m.relation !== "Chủ hộ" && (
-                                  <>
-                                    <button
-                                      onClick={startSplitHousehold}
-                                      className="text-[11px] bg-emerald-50 text-emerald-800 hover:bg-emerald-100 border border-emerald-200/80 px-2 py-1 rounded-lg font-semibold transition-all cursor-pointer shadow-2xs"
-                                      title="Tách thành sổ hộ khẩu mới"
-                                    >
-                                      Tách
-                                    </button>
-                                    <button
-                                      onClick={() => handleRemoveMember(m.cccd)}
-                                      className="text-[11px] text-rose-500 hover:text-rose-700 hover:bg-rose-50 p-1 rounded-lg transition-all cursor-pointer"
-                                      title="Xóa nhân khẩu khỏi hộ"
-                                    >
-                                      <Trash2 size={13} />
-                                    </button>
-                                  </>
-                                )}
-                              </div>
+                {detailTab === "history" && (
+                  <div className="bg-white p-5 rounded-2xl border border-slate-200 space-y-3">
+                    <span className="text-xs font-bold text-slate-600 uppercase tracking-wider block">Nhật ký biến động và sửa đổi sổ</span>
+                    {((selectedHousehold as any).auditHistory || []).length === 0 ? (
+                      <p className="text-xs text-slate-500 py-4 text-center">Chưa ghi nhận biến động chính thức nào kể từ ngày lập sổ.</p>
+                    ) : (
+                      <div className="space-y-2.5">
+                        {((selectedHousehold as any).auditHistory || []).map((log: any, idx: number) => (
+                          <div key={idx} className="p-3 bg-slate-50 border border-slate-200 rounded-xl flex items-start gap-2.5 text-xs">
+                            <History size={14} className="text-slate-500 mt-0.5 shrink-0" aria-hidden="true" />
+                            <div>
+                              <p className="text-slate-800 font-semibold">{log.action}</p>
+                              <span className="text-xs text-slate-500 font-mono block mt-0.5">{log.date} • Cán bộ: {log.actor}</span>
                             </div>
                           </div>
                         ))}
                       </div>
-                    </div>
-                  )}
-
-                  {detailTab === "businesses" && (
-                    <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-xs">
-                      <HouseholdBusinesses 
-                        household={selectedHousehold} 
-                        residents={residents} 
-                      />
-                    </div>
-                  )}
-
-                  {detailTab === "history" && (
-                    <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-xs space-y-3">
-                      <span className="text-xs font-bold text-slate-500 uppercase tracking-wider block">Nhật ký biến động và sửa đổi sổ</span>
-                      {((selectedHousehold as any).auditHistory || []).length === 0 ? (
-                        <p className="text-xs text-slate-400 italic py-4 text-center">Chưa ghi nhận biến động chính thức nào kể từ ngày lập sổ.</p>
-                      ) : (
-                        <div className="space-y-2.5">
-                          {((selectedHousehold as any).auditHistory || []).map((log: any, idx: number) => (
-                            <div key={idx} className="p-3 bg-slate-50 border border-slate-200/80 rounded-xl flex items-start gap-2.5 text-xs">
-                              <History size={14} className="text-slate-400 mt-0.5 shrink-0" />
-                              <div>
-                                <p className="text-slate-800 font-semibold">{log.action}</p>
-                                <span className="text-[10px] text-slate-400 font-mono block mt-0.5">{log.date} • Cán bộ: {log.actor}</span>
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  )}
-                </div>
-
-                {/* Footer hành động của Modal */}
-                <div className="p-4 sm:px-6 bg-white border-t border-slate-200 flex flex-wrap items-center justify-between gap-3 shrink-0">
-                  <button 
-                    id="btn-modal-tree"
-                    onClick={() => setShowTreeModal(true)}
-                    className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2 px-3.5 rounded-xl text-xs shadow-2xs transition-all cursor-pointer"
-                  >
-                    <GitBranch size={14} /> Sơ đồ cây Phả Hệ Hộ Tịch
-                  </button>
-
-                  <div className="flex items-center gap-2">
-                    <button
-                      id="btn-modal-edit-household"
-                      onClick={startEditHousehold}
-                      className="flex items-center gap-1.5 py-2 px-3.5 border border-slate-300 bg-white text-slate-700 hover:bg-slate-50 rounded-xl text-xs font-bold transition-all cursor-pointer"
-                    >
-                      <Edit3 size={13} /> Sửa Sổ
-                    </button>
-                    
-                    {showSoftDeleted ? (
-                      <button
-                        onClick={() => {
-                          handleRestoreHousehold(selectedHousehold.id);
-                          setShowDetailModal(false);
-                        }}
-                        className="flex items-center gap-1.5 py-2 px-3.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 rounded-xl text-xs font-bold transition-all cursor-pointer"
-                      >
-                        <Undo2 size={13} /> Khôi phục Sổ
-                      </button>
-                    ) : (
-                      <button
-                        onClick={() => {
-                          handleSoftDeleteHousehold(selectedHousehold.id);
-                          setShowDetailModal(false);
-                        }}
-                        className="flex items-center gap-1.5 py-2 px-3.5 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-xl text-xs font-bold transition-all cursor-pointer"
-                      >
-                        <Trash2 size={13} /> Xóa Sổ
-                      </button>
                     )}
-
-                    <button
-                      id="btn-close-household-footer"
-                      onClick={handleCloseDetailModal}
-                      className="py-2 px-4 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition-colors cursor-pointer"
-                    >
-                      Đóng
-                    </button>
                   </div>
-                </div>
-              </div>
-            </div>
-          )}
+                )}
+              </Modal>
+            );
+          })()}
         </div>
       )}
 
       {/* Lập Sổ Hộ Khẩu Mới Modal */}
       {showAddModal && (
-        <div className="fixed inset-0 bg-slate-900/60 flex items-center justify-center z-50 p-4 backdrop-blur-sm animate-in fade-in duration-150">
-          <div className="bg-white rounded-2xl shadow-xl w-full max-w-xl overflow-hidden border border-slate-100 animate-in zoom-in-95 duration-150">
-            <div className="bg-slate-900 text-white p-4 flex justify-between items-center">
+        <div className="fixed inset-0 bg-slate-900/50 flex items-center justify-center z-50 p-4 backdrop-blur-xs animate-in fade-in duration-150">
+          <div className="bg-white rounded-2xl w-full max-w-xl max-h-[90dvh] overflow-y-auto border border-slate-200 animate-in zoom-in-95 duration-150">
+            <div className="bg-slate-50 border-b border-slate-200 text-slate-900 p-4 flex justify-between items-center sticky top-0 z-10">
               <div>
                 <h3 className="font-bold text-sm">Lập Sổ Hộ Khẩu Điện Tử Mới</h3>
-                <p className="text-[10px] text-slate-300 mt-0.5">Phân khoa số hóa Tư pháp cơ sở</p>
+                <p className="text-xs text-slate-600 mt-0.5">Phân khoa số hóa Tư pháp cơ sở</p>
               </div>
               <button 
+                type="button"
                 onClick={() => setShowAddModal(false)}
-                className="text-slate-400 hover:text-white bg-white/10 p-1.5 rounded-lg transition-colors cursor-pointer"
+                className="text-slate-500 hover:text-slate-900 hover:bg-slate-200/70 p-1.5 rounded-lg transition-colors cursor-pointer"
+                aria-label="Đóng cửa sổ lập sổ mới"
               >
                 <X size={16} />
               </button>
             </div>
 
-            <form onSubmit={handleCreateHousehold} className="p-6 space-y-4 text-xs text-slate-600">
-              <div className="grid grid-cols-2 gap-3">
+            <form onSubmit={handleCreateHousehold} className="p-6 space-y-4 text-xs text-slate-700">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div className="space-y-1">
-                  <label className="font-bold text-slate-600 block">Mã số Sổ Hộ Khẩu *</label>
+                  <label htmlFor="new-h-code" className="font-bold text-slate-700 block">Mã số Sổ Hộ Khẩu *</label>
                   <input 
+                    id="new-h-code"
                     type="text"
                     required
                     placeholder="HK-XXX"
                     value={newHCode}
                     onChange={(e) => setNewHCode(e.target.value)}
-                    className="w-full px-3 py-1.5 border border-slate-200 rounded-lg text-sm font-mono focus:outline-none focus:border-emerald-500 bg-white"
+                    className="w-full px-3 h-10 border border-slate-200 rounded-lg text-sm font-mono focus:outline-none focus:border-emerald-500 bg-white"
                   />
                 </div>
                 <div className="space-y-1">
-                  <label className="font-bold text-slate-600 block">Loại cư trú *</label>
-                  <select
+                  <label className="font-bold text-slate-700 block">Loại cư trú *</label>
+                  <ReportSelect
+                    aria-label="Loại cư trú"
                     value={newHType}
-                    onChange={(e) => setNewHType(e.target.value as "Thường trú" | "Tạm trú")}
-                    className="w-full px-3 py-1.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:border-emerald-500 bg-white"
-                  >
-                    <option value="Thường trú">Thường trú (KT1, KT2)</option>
-                    <option value="Tạm trú">Tạm trú (KT3, KT4)</option>
-                  </select>
+                    onChange={(val) => setNewHType(val as "Thường trú" | "Tạm trú")}
+                    options={[
+                      { value: "Thường trú", label: "Thường trú (KT1, KT2)" },
+                      { value: "Tạm trú", label: "Tạm trú (KT3, KT4)" },
+                    ]}
+                    className="w-full"
+                  />
                 </div>
               </div>
 
               <div className="grid grid-cols-1 gap-3">
                 <div className="space-y-1">
-                  <label className="font-bold text-slate-600 block">Tên Chủ hộ mới *</label>
+                  <label htmlFor="new-h-owner" className="font-bold text-slate-700 block">Tên Chủ hộ mới *</label>
                   <input 
+                    id="new-h-owner"
                     type="text"
                     required
                     placeholder="Nguyễn Văn A"
                     value={newOwner}
                     onChange={(e) => setNewOwner(e.target.value)}
-                    className="w-full px-3 py-1.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:border-emerald-500 bg-white"
+                    className="w-full px-3 h-10 border border-slate-200 rounded-lg text-sm focus:outline-none focus:border-emerald-500 bg-white"
                   />
                 </div>
               </div>
 
               <div className="space-y-1">
-                <label className="font-bold text-slate-600 block">Địa chỉ Đăng ký Thường trú *</label>
+                <label htmlFor="new-h-address" className="font-bold text-slate-700 block">Địa chỉ Đăng ký Thường trú *</label>
                 <input 
+                  id="new-h-address"
                   type="text"
                   required
                   placeholder="Số..., đường Lương Định Của, Phường An Phú"
                   value={newAddress}
                   onChange={(e) => setNewAddress(e.target.value)}
-                  className="w-full px-3 py-1.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:border-emerald-500 bg-white"
+                  className="w-full px-3 h-10 border border-slate-200 rounded-lg text-sm focus:outline-none focus:border-emerald-500 bg-white"
                 />
               </div>
 
               {/* LIVE COORDINATE INPUT & FEEDBACK */}
               <div className="space-y-1">
-                <label className="font-bold text-slate-600 block flex justify-between">
-                  <span>Tọa độ GPS WGS84 (Kết hợp Vĩ độ, Kinh độ)</span>
-                  <span className="font-normal text-slate-400 font-mono">Ví dụ: 10.936828, 106.743392</span>
+                <label htmlFor="new-h-coord" className="font-bold text-slate-700 block flex justify-between gap-2">
+                  <span>Tọa độ GPS WGS84 (Vĩ độ, Kinh độ)</span>
+                  <span className="font-normal text-slate-500 font-mono">VD: 10.936828, 106.743392</span>
                 </label>
                 <input 
+                  id="new-h-coord"
                   type="text"
                   placeholder="Dán hoặc điền tọa độ GPS có sẵn..."
                   value={coordInput}
                   onChange={(e) => handleCoordInputChange(e.target.value)}
-                  className="w-full px-3 py-1.5 border border-slate-200 rounded-lg text-sm font-mono focus:outline-none focus:border-emerald-500 bg-white"
+                  className="w-full px-3 h-10 border border-slate-200 rounded-lg text-sm font-mono focus:outline-none focus:border-emerald-500 bg-white"
                 />
                 {parsedGPS && (
-                  <div className="text-[10px] text-emerald-600 bg-emerald-50 border border-emerald-100 p-2 rounded-lg font-mono">
+                  <div className="text-xs text-emerald-700 bg-emerald-50 border border-emerald-200 p-2 rounded-lg font-mono">
                     ✓ Phát hiện hệ WGS84: Vĩ độ <strong>{parsedGPS.lat}</strong>, Kinh độ <strong>{parsedGPS.lng}</strong>
                   </div>
                 )}
               </div>
 
               {/* Sub-members registration */}
-              <div className="p-4 border border-slate-100 rounded-xl bg-slate-50 space-y-3">
-                <span className="font-bold text-slate-700 block uppercase tracking-wider text-[10px]">Đăng ký thêm thành viên hộ</span>
+              <div className="p-4 border border-slate-200 rounded-xl bg-slate-50 space-y-3">
+                <span className="font-bold text-slate-700 block uppercase tracking-wider text-xs">Đăng ký thêm thành viên hộ</span>
                 <div className="grid grid-cols-2 gap-2">
                   <input 
                     type="text"
+                    aria-label="Tên thành viên"
                     placeholder="Tên thành viên"
                     value={newMemberName}
                     onChange={(e) => setNewMemberName(e.target.value)}
-                    className="p-2 border border-slate-200 rounded-lg bg-white"
+                    className="px-3 h-10 border border-slate-200 rounded-lg bg-white"
                   />
                   <input 
                     type="text"
+                    aria-label="Số CCCD"
                     placeholder="Số CCCD"
                     value={newMemberCccd}
                     onChange={(e) => setNewMemberCccd(e.target.value)}
-                    className="p-2 border border-slate-200 rounded-lg bg-white font-mono"
+                    className="px-3 h-10 border border-slate-200 rounded-lg bg-white font-mono"
                   />
                 </div>
 
-                <div className="grid grid-cols-3 gap-2">
-                  <select 
-                    value={newMemberRelation}
-                    onChange={(e) => setNewMemberRelation(e.target.value)}
-                    className="col-span-1 p-2 border border-slate-200 rounded-lg bg-white"
-                  >
-                    <option value="Vợ">Vợ</option>
-                    <option value="Con trai">Con trai</option>
-                    <option value="Con gái">Con gái</option>
-                    <option value="Bố">Bố</option>
-                    <option value="Mẹ">Mẹ</option>
-                    <option value="Anh/Em trai">Anh/Em trai</option>
-                    <option value="Khác">Khác</option>
-                  </select>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                  <div className="sm:col-span-1">
+                    <ReportSelect
+                      aria-label="Quan hệ với chủ hộ"
+                      value={newMemberRelation}
+                      onChange={setNewMemberRelation}
+                      options={[
+                        { value: "Vợ", label: "Vợ" },
+                        { value: "Con trai", label: "Con trai" },
+                        { value: "Con gái", label: "Con gái" },
+                        { value: "Bố", label: "Bố" },
+                        { value: "Mẹ", label: "Mẹ" },
+                        { value: "Anh/Em trai", label: "Anh/Em trai" },
+                        { value: "Khác", label: "Khác" },
+                      ]}
+                      className="w-full"
+                    />
+                  </div>
                   <input 
                     type="number"
+                    aria-label="Năm sinh"
                     placeholder="Năm sinh"
                     value={newMemberBirthYear}
                     onChange={(e) => setNewMemberBirthYear(e.target.value ? Number(e.target.value) : "")}
-                    className="col-span-1 p-2 border border-slate-200 rounded-lg bg-white"
+                    className="sm:col-span-1 px-3 h-10 border border-slate-200 rounded-lg bg-white"
                   />
                   <input 
                     type="text"
+                    aria-label="Số điện thoại"
                     placeholder="Số ĐT"
                     value={newMemberPhone}
                     onChange={(e) => setNewMemberPhone(e.target.value)}
-                    className="col-span-1 p-2 border border-slate-200 rounded-lg bg-white font-mono"
+                    className="sm:col-span-1 px-3 h-10 border border-slate-200 rounded-lg bg-white font-mono"
                   />
                 </div>
 
                 <button
                   type="button"
                   onClick={handleAddTempMember}
-                  className="w-full py-1.5 bg-slate-850 hover:bg-slate-900 text-white font-bold rounded-lg cursor-pointer flex justify-center items-center gap-1"
+                  className="w-full h-10 bg-slate-800 hover:bg-slate-900 text-white font-bold rounded-lg cursor-pointer flex justify-center items-center gap-1.5 text-xs"
                 >
-                  <Plus size={12} /> Thêm thành viên vào danh sách tạm
+                  <Plus size={14} /> Thêm thành viên vào danh sách tạm
                 </button>
 
                 {tempMembers.length > 0 && (
-                  <div className="space-y-1.5 border-t border-slate-200 pt-2 text-[11px]">
-                    <span className="font-bold text-slate-400 uppercase text-[10px] block font-bold">Danh sách đăng ký tạm ({tempMembers.length})</span>
+                  <div className="space-y-1.5 border-t border-slate-200 pt-2 text-xs">
+                    <span className="font-bold text-slate-600 uppercase text-xs block">Danh sách đăng ký tạm ({tempMembers.length})</span>
                     <div className="max-h-24 overflow-y-auto space-y-1">
                       {tempMembers.map((m, idx) => (
-                        <div key={idx} className="p-1.5 bg-white border border-slate-100 rounded-lg flex justify-between items-center font-mono">
+                        <div key={idx} className="p-2 bg-white border border-slate-200 rounded-lg flex justify-between items-center font-mono">
                           <span>{m.name} ({m.relation})</span>
                           <button
                             type="button"
                             onClick={() => setTempMembers(tempMembers.filter((_, i) => i !== idx))}
-                            className="text-rose-500 hover:text-rose-700 font-bold"
+                            className="text-rose-600 hover:text-rose-800 font-bold cursor-pointer"
                           >
                             Xóa
                           </button>
@@ -1737,61 +1841,67 @@ export default function HouseholdManagement({
 
       {/* Sửa Thông tin Sổ Hộ Khẩu Modal */}
       {showEditModal && selectedHousehold && (
-        <div className="fixed inset-0 bg-slate-900/60 flex items-center justify-center z-50 p-4 backdrop-blur-sm animate-in fade-in duration-150">
-          <div className="bg-white rounded-2xl shadow-xl w-full max-w-md overflow-hidden border border-slate-100 animate-in zoom-in-95 duration-150">
-            <div className="bg-slate-900 text-white p-4 flex justify-between items-center">
+        <div className="fixed inset-0 bg-slate-900/50 flex items-center justify-center z-50 p-4 backdrop-blur-xs animate-in fade-in duration-150">
+          <div className="bg-white rounded-2xl w-full max-w-md overflow-hidden border border-slate-200 animate-in zoom-in-95 duration-150">
+            <div className="bg-slate-50 border-b border-slate-200 text-slate-900 p-4 flex justify-between items-center">
               <div>
                 <h3 className="font-bold text-sm">Chỉnh sửa thông tin Sổ</h3>
-                <p className="text-[10px] text-slate-300 mt-0.5">Sổ ID: {selectedHousehold.code}</p>
+                <p className="text-xs text-slate-600 mt-0.5">Sổ ID: {selectedHousehold.code}</p>
               </div>
               <button 
+                type="button"
                 onClick={() => setShowEditModal(false)}
-                className="text-slate-400 hover:text-white bg-white/10 p-1.5 rounded-lg transition-colors cursor-pointer"
+                className="text-slate-500 hover:text-slate-900 hover:bg-slate-200/70 p-1.5 rounded-lg transition-colors cursor-pointer"
+                aria-label="Đóng cửa sổ sửa sổ"
               >
                 <X size={16} />
               </button>
             </div>
 
-            <form onSubmit={handleSaveEditHousehold} className="p-5 space-y-4 text-xs text-slate-600">
+            <form onSubmit={handleSaveEditHousehold} className="p-5 space-y-4 text-xs text-slate-700">
               <div className="space-y-1">
-                <label className="font-bold text-slate-600 block">Địa chỉ cư trú</label>
+                <label htmlFor="edit-h-address" className="font-bold text-slate-700 block">Địa chỉ cư trú</label>
                 <input 
+                  id="edit-h-address"
                   type="text"
                   value={editAddress}
                   onChange={(e) => setEditAddress(e.target.value)}
-                  className="w-full px-3 py-1.5 border border-slate-200 rounded-lg focus:outline-none focus:border-emerald-500 bg-white"
+                  className="w-full px-3 h-10 border border-slate-200 rounded-lg focus:outline-none focus:border-emerald-500 bg-white"
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div className="space-y-1">
-                  <label className="font-bold text-slate-600 block">Chủ hộ đại diện</label>
-                  <select
+                  <label className="font-bold text-slate-700 block">Chủ hộ đại diện</label>
+                  <ReportSelect
+                    aria-label="Chủ hộ đại diện"
                     value={editOwner}
-                    onChange={(e) => setEditOwner(e.target.value)}
-                    className="w-full px-3 py-1.5 border border-slate-200 rounded-lg focus:outline-none focus:border-emerald-500 bg-white"
-                  >
-                    {selectedHousehold.members.map(m => (
-                      <option key={m.cccd} value={m.name}>{m.name} ({m.relation})</option>
-                    ))}
-                  </select>
+                    onChange={setEditOwner}
+                    options={selectedHousehold.members.map(m => ({
+                      value: m.name,
+                      label: `${m.name} (${m.relation})`
+                    }))}
+                    className="w-full"
+                  />
                 </div>
                 <div className="space-y-1">
-                  <label className="font-bold text-slate-600 block">Phân hệ cư trú</label>
-                  <select
+                  <label className="font-bold text-slate-700 block">Phân hệ cư trú</label>
+                  <ReportSelect
+                    aria-label="Phân hệ cư trú"
                     value={editType}
-                    onChange={(e) => setEditType(e.target.value as "Thường trú" | "Tạm trú")}
-                    className="w-full px-3 py-1.5 border border-slate-200 rounded-lg focus:outline-none focus:border-emerald-500 bg-white"
-                  >
-                    <option value="Thường trú">Thường trú</option>
-                    <option value="Tạm trú">Tạm trú</option>
-                  </select>
+                    onChange={(val) => setEditType(val as "Thường trú" | "Tạm trú")}
+                    options={[
+                      { value: "Thường trú", label: "Thường trú" },
+                      { value: "Tạm trú", label: "Tạm trú" },
+                    ]}
+                    className="w-full"
+                  />
                 </div>
               </div>
 
               <div className="space-y-1">
-                <div className="flex justify-between items-center">
-                  <label className="font-bold text-slate-600 block">GPS vệ tinh WGS84</label>
+                <div className="flex justify-between items-center gap-2">
+                  <label htmlFor="edit-h-coord" className="font-bold text-slate-700 block">GPS vệ tinh WGS84</label>
                   <button
                     type="button"
                     onClick={() => {
@@ -1799,20 +1909,21 @@ export default function HouseholdManagement({
                       setCoordInput(auto.dms);
                       setParsedGPS(parseCoordinates(auto.dms));
                     }}
-                    className="text-[11px] font-bold text-emerald-700 hover:text-emerald-800 flex items-center gap-1 cursor-pointer"
+                    className="text-xs font-bold text-emerald-700 hover:text-emerald-800 flex items-center gap-1 cursor-pointer"
                   >
-                    <Sparkles size={11} className="text-emerald-600" /> Tự động nhận diện từ địa chỉ
+                    <Sparkles size={12} className="text-emerald-600" /> Tự động nhận diện từ địa chỉ
                   </button>
                 </div>
                 <input 
+                  id="edit-h-coord"
                   type="text"
                   placeholder="Dán hoặc chỉnh sửa tọa độ..."
                   value={coordInput}
                   onChange={(e) => handleCoordInputChange(e.target.value)}
-                  className="w-full px-3 py-1.5 border border-slate-200 rounded-lg font-mono focus:outline-none focus:border-emerald-500 bg-white"
+                  className="w-full px-3 h-10 border border-slate-200 rounded-lg font-mono focus:outline-none focus:border-emerald-500 bg-white"
                 />
                 {parsedGPS && (
-                  <div className="text-[10px] text-emerald-600 bg-emerald-50 border border-emerald-100 p-1.5 rounded-lg font-mono">
+                  <div className="text-xs text-emerald-700 bg-emerald-50 border border-emerald-200 p-2 rounded-lg font-mono">
                     ✓ Phát hiện WGS84: {parsedGPS.lat}, {parsedGPS.lng}
                   </div>
                 )}
@@ -1850,84 +1961,92 @@ export default function HouseholdManagement({
 
       {/* Thêm nhân khẩu vào Hộ tịch Modal */}
       {showAddMemberModal && selectedHousehold && (
-        <div className="fixed inset-0 bg-slate-900/60 flex items-center justify-center z-50 p-4 backdrop-blur-sm animate-in fade-in duration-150">
-          <div className="bg-white rounded-2xl shadow-xl w-full max-w-md overflow-hidden border border-slate-100 animate-in zoom-in-95 duration-150">
-            <div className="bg-slate-900 text-white p-4 flex justify-between items-center">
+        <div className="fixed inset-0 bg-slate-900/50 flex items-center justify-center z-50 p-4 backdrop-blur-xs animate-in fade-in duration-150">
+          <div className="bg-white rounded-2xl w-full max-w-md overflow-hidden border border-slate-200 animate-in zoom-in-95 duration-150">
+            <div className="bg-slate-50 border-b border-slate-200 text-slate-900 p-4 flex justify-between items-center">
               <div>
                 <h3 className="font-bold text-sm">Thêm Nhân khẩu vào Hộ tịch</h3>
-                <p className="text-[10px] text-slate-300 mt-0.5">Sổ HK: {selectedHousehold.code}</p>
+                <p className="text-xs text-slate-600 mt-0.5">Sổ HK: {selectedHousehold.code}</p>
               </div>
               <button 
+                type="button"
                 onClick={() => setShowAddMemberModal(false)}
-                className="text-slate-400 hover:text-white bg-white/10 p-1.5 rounded-lg transition-colors cursor-pointer"
+                className="text-slate-500 hover:text-slate-900 hover:bg-slate-200/70 p-1.5 rounded-lg transition-colors cursor-pointer"
+                aria-label="Đóng cửa sổ thêm nhân khẩu"
               >
                 <X size={16} />
               </button>
             </div>
 
-            <form onSubmit={handleAddNewMember} className="p-5 space-y-4 text-xs text-slate-600">
+            <form onSubmit={handleAddNewMember} className="p-5 space-y-4 text-xs text-slate-700">
               <div className="space-y-1">
-                <label className="font-bold text-slate-600 block">Họ và tên thành viên *</label>
+                <label htmlFor="add-mem-name" className="font-bold text-slate-700 block">Họ và tên thành viên *</label>
                 <input 
+                  id="add-mem-name"
                   type="text"
                   required
                   placeholder="Nguyễn Văn B"
                   value={addMemName}
                   onChange={(e) => setAddMemName(e.target.value)}
-                  className="w-full px-3 py-1.5 border border-slate-200 rounded-lg focus:outline-none focus:border-emerald-500 bg-white"
+                  className="w-full px-3 h-10 border border-slate-200 rounded-lg focus:outline-none focus:border-emerald-500 bg-white"
                 />
               </div>
 
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1">
-                  <label className="font-bold text-slate-600 block">Số CCCD gắn chip *</label>
+                  <label htmlFor="add-mem-cccd" className="font-bold text-slate-700 block">Số CCCD gắn chip *</label>
                   <input 
+                    id="add-mem-cccd"
                     type="text"
                     required
                     placeholder="079XXXXXXXXX"
                     value={addMemCccd}
                     onChange={(e) => setAddMemCccd(e.target.value)}
-                    className="w-full px-3 py-1.5 border border-slate-200 rounded-lg font-mono focus:outline-none focus:border-emerald-500 bg-white"
+                    className="w-full px-3 h-10 border border-slate-200 rounded-lg font-mono focus:outline-none focus:border-emerald-500 bg-white"
                   />
                 </div>
                 <div className="space-y-1">
-                  <label className="font-bold text-slate-600 block">Năm sinh *</label>
+                  <label htmlFor="add-mem-year" className="font-bold text-slate-700 block">Năm sinh *</label>
                   <input 
+                    id="add-mem-year"
                     type="number"
                     required
                     placeholder="1995"
                     value={addMemBirthYear}
                     onChange={(e) => setAddMemBirthYear(e.target.value ? Number(e.target.value) : "")}
-                    className="w-full px-3 py-1.5 border border-slate-200 rounded-lg focus:outline-none focus:border-emerald-500 bg-white"
+                    className="w-full px-3 h-10 border border-slate-200 rounded-lg focus:outline-none focus:border-emerald-500 bg-white"
                   />
                 </div>
               </div>
 
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1">
-                  <label className="font-bold text-slate-600 block">Quan hệ với chủ hộ *</label>
-                  <select
+                  <label className="font-bold text-slate-700 block">Quan hệ với chủ hộ *</label>
+                  <ReportSelect
+                    aria-label="Quan hệ với chủ hộ"
                     value={addMemRelation}
-                    onChange={(e) => setAddMemRelation(e.target.value)}
-                    className="w-full px-3 py-1.5 border border-slate-200 rounded-lg focus:outline-none focus:border-emerald-500 bg-white animate-none"
-                  >
-                    <option value="Vợ">Vợ</option>
-                    <option value="Con trai">Con trai</option>
-                    <option value="Con gái">Con gái</option>
-                    <option value="Bố">Bố</option>
-                    <option value="Mẹ">Mẹ</option>
-                    <option value="Anh/Em trai">Anh/Em trai</option>
-                    <option value="Khác">Khác</option>
-                  </select>
+                    onChange={setAddMemRelation}
+                    options={[
+                      { value: "Vợ", label: "Vợ" },
+                      { value: "Con trai", label: "Con trai" },
+                      { value: "Con gái", label: "Con gái" },
+                      { value: "Bố", label: "Bố" },
+                      { value: "Mẹ", label: "Mẹ" },
+                      { value: "Anh/Em trai", label: "Anh/Em trai" },
+                      { value: "Khác", label: "Khác" },
+                    ]}
+                    className="w-full"
+                  />
                 </div>
                 <div className="space-y-1">
-                  <label className="font-bold text-slate-600 block">Số điện thoại di động</label>
+                  <label htmlFor="add-mem-phone" className="font-bold text-slate-700 block">Số điện thoại di động</label>
                   <input 
+                    id="add-mem-phone"
                     type="text"
                     placeholder="09XXXXXXXX"
                     value={addMemPhone}
                     onChange={(e) => setAddMemPhone(e.target.value)}
-                    className="w-full px-3 py-1.5 border border-slate-200 rounded-lg font-mono focus:outline-none focus:border-emerald-500 bg-white"
+                    className="w-full px-3 h-10 border border-slate-200 rounded-lg font-mono focus:outline-none focus:border-emerald-500 bg-white"
                   />
                 </div>
               </div>
@@ -1954,34 +2073,39 @@ export default function HouseholdManagement({
 
       {/* Chuyển hộ tịch Modal */}
       {showMoveModal && selectedHousehold && moveTargetMember && (
-        <div className="fixed inset-0 bg-slate-900/60 flex items-center justify-center z-50 p-4 backdrop-blur-sm animate-in fade-in duration-150">
-          <div className="bg-white rounded-2xl shadow-xl w-full max-w-md overflow-hidden border border-slate-100 animate-in zoom-in-95 duration-150">
-            <div className="bg-slate-900 text-white p-4 flex justify-between items-center">
+        <div className="fixed inset-0 bg-slate-900/50 flex items-center justify-center z-50 p-4 backdrop-blur-xs animate-in fade-in duration-150">
+          <div className="bg-white rounded-2xl w-full max-w-md overflow-hidden border border-slate-200 animate-in zoom-in-95 duration-150">
+            <div className="bg-slate-50 border-b border-slate-200 text-slate-900 p-4 flex justify-between items-center">
               <h3 className="font-bold text-sm">Chuyển hộ tịch Nhân khẩu</h3>
               <button 
+                type="button"
                 onClick={() => setShowMoveModal(false)}
-                className="text-slate-400 hover:text-white bg-white/10 p-1.5 rounded-lg transition-colors cursor-pointer"
+                className="text-slate-500 hover:text-slate-900 hover:bg-slate-200/70 p-1.5 rounded-lg transition-colors cursor-pointer"
+                aria-label="Đóng cửa sổ chuyển hộ tịch"
               >
                 <X size={16} />
               </button>
             </div>
 
-            <div className="p-5 space-y-4 text-xs text-slate-600">
+            <div className="p-5 space-y-4 text-xs text-slate-700">
               <p className="leading-relaxed">
-                Đang thực hiện chuyển nhân khẩu <strong>{moveTargetMember.name}</strong> (CCCD: {moveTargetMember.cccd}) từ Sổ hộ khẩu hiện tại ({selectedHousehold.code}) sang một Sổ hộ khẩu điện tử đích khác.
+                Đang thực hiện chuyển nhân khẩu <strong>{moveTargetMember.name}</strong> (CCCD: {maskCccd(moveTargetMember.cccd, showFullPii)}) từ Sổ hộ khẩu hiện tại ({selectedHousehold.code}) sang một Sổ hộ khẩu điện tử đích khác.
               </p>
 
               <div className="space-y-1">
-                <label className="font-bold text-slate-600 block">Lựa chọn Sổ hộ khẩu đích</label>
-                <select
+                <label className="font-bold text-slate-700 block">Lựa chọn Sổ hộ khẩu đích</label>
+                <ReportSelect
+                  aria-label="Sổ hộ khẩu đích"
                   value={moveTargetHCode}
-                  onChange={(e) => setMoveTargetHCode(e.target.value)}
-                  className="w-full px-3 py-1.5 border border-slate-200 rounded-lg focus:outline-none focus:border-indigo-500 bg-white"
-                >
-                  {households.filter(h => h.id !== selectedHousehold.id && !(h as any).deletedAt).map(h => (
-                    <option key={h.id} value={h.code}>{h.code} - Hộ {h.ownerName} ({h.address})</option>
-                  ))}
-                </select>
+                  onChange={setMoveTargetHCode}
+                  options={households
+                    .filter(h => h.id !== selectedHousehold.id && !(h as any).deletedAt)
+                    .map(h => ({
+                      value: h.code,
+                      label: `${h.code} - Hộ ${h.ownerName} (${h.address})`
+                    }))}
+                  className="w-full"
+                />
               </div>
 
               <div className="pt-4 border-t border-slate-100 flex justify-end gap-2.5">
@@ -2006,25 +2130,27 @@ export default function HouseholdManagement({
 
       {/* Tách hộ tịch Modal */}
       {showSplitModal && selectedHousehold && (
-        <div className="fixed inset-0 bg-slate-900/60 flex items-center justify-center z-50 p-4 backdrop-blur-sm animate-in fade-in duration-150">
-          <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg overflow-hidden border border-slate-100 animate-in zoom-in-95 duration-150">
-            <div className="bg-slate-900 text-white p-4 flex justify-between items-center">
+        <div className="fixed inset-0 bg-slate-900/50 flex items-center justify-center z-50 p-4 backdrop-blur-xs animate-in fade-in duration-150">
+          <div className="bg-white rounded-2xl w-full max-w-lg overflow-hidden border border-slate-200 animate-in zoom-in-95 duration-150">
+            <div className="bg-slate-50 border-b border-slate-200 text-slate-900 p-4 flex justify-between items-center">
               <div>
                 <h3 className="font-bold text-sm">Tách hộ tịch (Chia tách gia đình)</h3>
-                <p className="text-[10px] text-slate-300 mt-0.5">Sổ nguồn: {selectedHousehold.code}</p>
+                <p className="text-xs text-slate-600 mt-0.5">Sổ nguồn: {selectedHousehold.code}</p>
               </div>
               <button 
+                type="button"
                 onClick={() => setShowSplitModal(false)}
-                className="text-slate-400 hover:text-white bg-white/10 p-1.5 rounded-lg transition-colors cursor-pointer"
+                className="text-slate-500 hover:text-slate-900 hover:bg-slate-200/70 p-1.5 rounded-lg transition-colors cursor-pointer"
+                aria-label="Đóng cửa sổ tách hộ tịch"
               >
                 <X size={16} />
               </button>
             </div>
 
-            <div className="p-5 space-y-4 text-xs text-slate-600">
+            <div className="p-5 space-y-4 text-xs text-slate-700">
               {/* Step 1: select members to split */}
               <div className="space-y-1.5">
-                <label className="font-bold text-slate-600 block">Tích chọn các thành viên muốn tách sổ *</label>
+                <label className="font-bold text-slate-700 block">Tích chọn các thành viên muốn tách sổ *</label>
                 <div className="space-y-1.5 max-h-32 overflow-y-auto border border-slate-200 p-2.5 rounded-lg bg-slate-50">
                   {selectedHousehold.members.filter(m => m.relation !== "Chủ hộ").map(m => (
                     <div key={m.cccd} className="flex items-center gap-2 select-none">
@@ -2035,51 +2161,55 @@ export default function HouseholdManagement({
                         onChange={() => toggleSelectSplitMember(m.cccd)}
                         className="w-4 h-4 text-indigo-600 border-slate-300 rounded cursor-pointer"
                       />
-                      <label htmlFor={`split-${m.cccd}`} className="text-slate-700 cursor-pointer font-semibold">
+                      <label htmlFor={`split-${m.cccd}`} className="text-slate-800 cursor-pointer font-semibold">
                         {m.name} ({m.relation})
                       </label>
                     </div>
                   ))}
                   {selectedHousehold.members.filter(m => m.relation !== "Chủ hộ").length === 0 && (
-                    <p className="text-xs text-slate-400 italic">Sổ này không có thành viên phụ để tách!</p>
+                    <p className="text-xs text-slate-500 italic">Sổ này không có thành viên phụ để tách!</p>
                   )}
                 </div>
               </div>
 
               {splitSelectedCccds.length > 0 && (
                 <>
-                  <div className="grid grid-cols-2 gap-3 animate-in fade-in duration-150">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 animate-in fade-in duration-150">
                     <div className="space-y-1">
-                      <label className="font-bold text-slate-600 block">Mã số Sổ mới *</label>
+                      <label htmlFor="split-new-h-code" className="font-bold text-slate-700 block">Mã số Sổ mới *</label>
                       <input 
+                        id="split-new-h-code"
                         type="text"
                         value={splitNewHCode}
                         onChange={(e) => setSplitNewHCode(e.target.value)}
-                        className="w-full px-3 py-1.5 border border-slate-200 rounded-lg font-mono focus:outline-none focus:border-indigo-500 bg-white"
+                        className="w-full px-3 h-10 border border-slate-200 rounded-lg font-mono focus:outline-none focus:border-indigo-500 bg-white"
                       />
                     </div>
                     <div className="space-y-1">
-                      <label className="font-bold text-slate-600 block">Chỉ định Chủ hộ mới *</label>
-                      <select
+                      <label className="font-bold text-slate-700 block">Chỉ định Chủ hộ mới *</label>
+                      <ReportSelect
+                        aria-label="Chỉ định chủ hộ mới"
                         value={splitNewOwner}
-                        onChange={(e) => setSplitNewOwner(e.target.value)}
-                        className="w-full px-3 py-1.5 border border-slate-200 rounded-lg focus:outline-none focus:border-indigo-500 bg-white"
-                      >
-                        <option value="">-- Lựa chọn --</option>
-                        {selectedHousehold.members.filter(m => splitSelectedCccds.includes(m.cccd)).map(m => (
-                          <option key={m.cccd} value={m.cccd}>{m.name}</option>
-                        ))}
-                      </select>
+                        onChange={setSplitNewOwner}
+                        options={[
+                          { value: "", label: "-- Lựa chọn --" },
+                          ...selectedHousehold.members
+                            .filter(m => splitSelectedCccds.includes(m.cccd))
+                            .map(m => ({ value: m.cccd, label: m.name }))
+                        ]}
+                        className="w-full"
+                      />
                     </div>
                   </div>
 
                   <div className="space-y-1">
-                    <label className="font-bold text-slate-600 block">Địa chỉ sổ mới đăng ký *</label>
+                    <label htmlFor="split-new-address" className="font-bold text-slate-700 block">Địa chỉ sổ mới đăng ký *</label>
                     <input 
+                      id="split-new-address"
                       type="text"
                       value={splitNewAddress}
                       onChange={(e) => setSplitNewAddress(e.target.value)}
-                      className="w-full px-3 py-1.5 border border-slate-200 rounded-lg focus:outline-none focus:border-indigo-500 bg-white"
+                      className="w-full px-3 h-10 border border-slate-200 rounded-lg focus:outline-none focus:border-indigo-500 bg-white"
                     />
                   </div>
                 </>
@@ -2126,33 +2256,25 @@ export default function HouseholdManagement({
         />
       )}
 
-      {/* TOAST THÔNG BÁO ĐỒNG BỘ GIS */}
-      {gisPinToast && (
-        <div className="fixed bottom-6 right-6 z-50 bg-slate-900 text-white px-4 py-3 rounded-2xl shadow-2xl border border-emerald-500/50 flex items-center gap-2.5 text-xs animate-in slide-in-from-bottom-5 duration-200">
-          <Check size={16} className="text-emerald-400 shrink-0" />
-          <span className="font-medium">{gisPinToast}</span>
-        </div>
-      )}
-
       {/* MODAL GHIM / ĐỒNG BỘ TỌA ĐỘ GIS HỘ KHẨU */}
       {gisPinModalHousehold && (
         <div 
-          className="fixed inset-0 bg-slate-950/70 backdrop-blur-xs flex items-center justify-center z-50 p-4 animate-in fade-in duration-200"
+          className="fixed inset-0 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center z-50 p-4 animate-in fade-in duration-200"
           onClick={() => setGisPinModalHousehold(null)}
         >
           <div 
             onClick={(e) => e.stopPropagation()}
-            className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-lg overflow-hidden animate-in zoom-in-95 duration-200 text-slate-800"
+            className="bg-white rounded-2xl border border-slate-200 w-full max-w-lg overflow-hidden animate-in zoom-in-95 duration-200 text-slate-800"
           >
-            {/* Modal Header */}
-            <div className="bg-gradient-to-r from-emerald-800 via-teal-800 to-slate-900 p-4 text-white flex justify-between items-center border-b border-emerald-700/50">
+            {/* Modal Header: Flat Hairline */}
+            <div className="bg-slate-50 p-4 text-slate-900 flex justify-between items-center border-b border-slate-200">
               <div className="flex items-center gap-2.5">
-                <div className="p-2 bg-white/10 rounded-xl text-emerald-300">
+                <div className="p-2 bg-emerald-50 border border-emerald-200 rounded-xl text-emerald-700">
                   <MapPin size={18} />
                 </div>
                 <div>
-                  <h3 className="font-black text-sm text-white">Ghim & Đồng bộ Tọa độ GIS Hộ Khẩu</h3>
-                  <p className="text-[11px] text-emerald-200/90 font-mono">
+                  <h3 className="font-bold text-sm text-slate-900">Ghim & Đồng bộ Tọa độ GIS Hộ Khẩu</h3>
+                  <p className="text-xs text-slate-600 font-mono">
                     Hộ: {gisPinModalHousehold.ownerName} • Mã sổ: {gisPinModalHousehold.code}
                   </p>
                 </div>
@@ -2160,7 +2282,8 @@ export default function HouseholdManagement({
               <button 
                 type="button"
                 onClick={() => setGisPinModalHousehold(null)}
-                className="p-1 hover:bg-white/10 rounded-lg text-slate-300 hover:text-white transition-colors cursor-pointer"
+                className="p-1.5 hover:bg-slate-200/70 rounded-lg text-slate-500 hover:text-slate-900 transition-colors cursor-pointer"
+                aria-label="Đóng cửa sổ ghim tọa độ GIS"
               >
                 <X size={18} />
               </button>
@@ -2168,23 +2291,23 @@ export default function HouseholdManagement({
 
             {/* Modal Body */}
             <div className="p-5 space-y-4 text-xs">
-              <div className="bg-slate-50 p-3 rounded-xl border border-slate-200/80 space-y-1">
-                <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block">Địa chỉ hộ cư trú:</span>
-                <p className="font-bold text-slate-800 text-xs sm:text-sm">{gisPinModalHousehold.address}</p>
-                <span className="text-[11px] text-slate-500 block">Khu phố 3, Phường An Phú, TP. Hồ Chí Minh</span>
+              <div className="bg-slate-50 p-3 rounded-xl border border-slate-200 space-y-1">
+                <span className="text-xs text-slate-600 font-bold uppercase tracking-wider block">Địa chỉ hộ cư trú:</span>
+                <p className="font-bold text-slate-900 text-xs sm:text-sm">{gisPinModalHousehold.address}</p>
+                <span className="text-xs text-slate-600 block">Khu phố 3, Phường An Phú, TP. Hồ Chí Minh</span>
               </div>
 
               {/* Coordinate Input */}
               <div className="space-y-1.5">
-                <div className="flex justify-between items-center">
-                  <label className="font-bold text-slate-700">Tọa độ GIS (Định dạng DMS hoặc Thập phân):</label>
+                <div className="flex flex-wrap justify-between items-center gap-2">
+                  <label htmlFor="gis-pin-coord-input" className="font-bold text-slate-700">Tọa độ GIS (Định dạng DMS hoặc Thập phân):</label>
                   <button
                     type="button"
                     onClick={() => {
                       const auto = generateDefaultCoordinatesForAddress(gisPinModalHousehold.address, gisPinModalHousehold.code);
                       setGisPinInput(auto.dms);
                     }}
-                    className="text-[11px] font-bold text-emerald-700 hover:text-emerald-800 hover:underline flex items-center gap-1 cursor-pointer"
+                    className="text-xs font-bold text-emerald-700 hover:text-emerald-800 hover:underline flex items-center gap-1 cursor-pointer"
                     title="Tự động ước tính tọa độ dựa trên địa chỉ hộ trong ranh giới KP3"
                   >
                     <Sparkles size={12} className="text-emerald-600" /> Tự động nhận diện từ địa chỉ
@@ -2193,11 +2316,12 @@ export default function HouseholdManagement({
 
                 <div className="relative">
                   <input 
+                    id="gis-pin-coord-input"
                     type="text"
                     value={gisPinInput}
                     onChange={(e) => setGisPinInput(e.target.value)}
                     placeholder="Ví dụ: 10°56'13.2&quot;N 106°44'40.8&quot;E hoặc 10.936997, 106.744645"
-                    className="w-full px-3.5 py-2.5 border border-slate-300 rounded-xl font-mono text-xs focus:outline-none focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600 bg-white"
+                    className="w-full px-3.5 h-10 border border-slate-300 rounded-xl font-mono text-xs focus:outline-none focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600 bg-white pr-9"
                   />
                   <MapPin size={15} className="absolute right-3 top-3 text-slate-400" />
                 </div>
@@ -2205,15 +2329,15 @@ export default function HouseholdManagement({
 
               {/* Presets for KP3 */}
               <div className="space-y-1.5">
-                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Gợi ý phân khu / tuyến đường nhanh:</span>
-                <div className="grid grid-cols-2 gap-1.5 text-[11px]">
+                <span className="text-xs font-bold text-slate-600 uppercase tracking-wider block">Gợi ý phân khu / tuyến đường nhanh:</span>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
                   <button
                     type="button"
                     onClick={() => setGisPinInput('10°56\'13.2"N 106°44\'40.7"E')}
                     className="p-2 text-left bg-slate-50 hover:bg-emerald-50 hover:border-emerald-200 border border-slate-200 rounded-lg text-slate-700 transition-colors cursor-pointer"
                   >
                     <strong className="block text-slate-900">42 Lương Định Của</strong>
-                    <span className="text-[10px] text-slate-500 font-mono">10.936997, 106.744645</span>
+                    <span className="text-xs text-slate-600 font-mono">10.936997, 106.744645</span>
                   </button>
                   <button
                     type="button"
@@ -2221,7 +2345,7 @@ export default function HouseholdManagement({
                     className="p-2 text-left bg-slate-50 hover:bg-emerald-50 hover:border-emerald-200 border border-slate-200 rounded-lg text-slate-700 transition-colors cursor-pointer"
                   >
                     <strong className="block text-slate-900">Hẻm 42 Lương Định Của</strong>
-                    <span className="text-[10px] text-slate-500 font-mono">10.937800, 106.745500</span>
+                    <span className="text-xs text-slate-600 font-mono">10.937800, 106.745500</span>
                   </button>
                   <button
                     type="button"
@@ -2229,7 +2353,7 @@ export default function HouseholdManagement({
                     className="p-2 text-left bg-slate-50 hover:bg-emerald-50 hover:border-emerald-200 border border-slate-200 rounded-lg text-slate-700 transition-colors cursor-pointer"
                   >
                     <strong className="block text-slate-900">Hẻm 18 Lương Định Của</strong>
-                    <span className="text-[10px] text-slate-500 font-mono">10.935800, 106.746800</span>
+                    <span className="text-xs text-slate-600 font-mono">10.935800, 106.746800</span>
                   </button>
                   <button
                     type="button"
@@ -2237,7 +2361,7 @@ export default function HouseholdManagement({
                     className="p-2 text-left bg-slate-50 hover:bg-emerald-50 hover:border-emerald-200 border border-slate-200 rounded-lg text-slate-700 transition-colors cursor-pointer"
                   >
                     <strong className="block text-slate-900">KDC Tổ dân phố 12-14</strong>
-                    <span className="text-[10px] text-slate-500 font-mono">10.936800, 106.744600</span>
+                    <span className="text-xs text-slate-600 font-mono">10.936800, 106.744600</span>
                   </button>
                 </div>
               </div>
@@ -2247,19 +2371,19 @@ export default function HouseholdManagement({
                 const parsed = parseGisCoords(gisPinInput);
                 if (parsed) {
                   return (
-                    <div className="p-2.5 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-[11px] flex items-center justify-between">
+                    <div className="p-2.5 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs flex flex-wrap items-center justify-between gap-2">
                       <div className="flex items-center gap-1.5 font-bold">
                         <Check size={13} className="text-emerald-600" />
                         <span>Tọa độ hợp lệ: {parsed.lat.toFixed(6)}, {parsed.lng.toFixed(6)}</span>
                       </div>
-                      <span className="font-mono text-[10px] bg-emerald-100 px-2 py-0.5 rounded">
+                      <span className="font-mono text-xs bg-emerald-100 px-2 py-0.5 rounded">
                         {decimalToDMS(parsed.lat, parsed.lng)}
                       </span>
                     </div>
                   );
                 } else {
                   return (
-                    <div className="p-2.5 rounded-xl bg-amber-50 border border-amber-200 text-amber-800 text-[11px] flex items-center gap-1.5">
+                    <div className="p-2.5 rounded-xl bg-amber-50 border border-amber-200 text-amber-800 text-xs flex items-center gap-1.5">
                       <AlertCircle size={13} className="text-amber-600 shrink-0" />
                       <span>Đang kiểm tra định dạng tọa độ. Vui lòng nhập đúng chuẩn hoặc bấm nút tự động nhận diện.</span>
                     </div>
@@ -2273,7 +2397,7 @@ export default function HouseholdManagement({
               <button
                 type="button"
                 onClick={() => setGisPinModalHousehold(null)}
-                className="px-3 py-2 text-slate-600 hover:bg-slate-200/60 rounded-xl text-xs font-bold transition-colors cursor-pointer"
+                className="px-3.5 py-2 text-slate-700 hover:bg-slate-200/70 border border-slate-200 bg-white rounded-xl text-xs font-bold transition-colors cursor-pointer"
               >
                 Hủy bỏ
               </button>
@@ -2282,14 +2406,14 @@ export default function HouseholdManagement({
                 <button
                   type="button"
                   onClick={() => handleSavePinCoordinates(false)}
-                  className="px-3.5 py-2 bg-slate-800 hover:bg-slate-900 text-white rounded-xl text-xs font-bold transition-colors cursor-pointer shadow-xs"
+                  className="px-3.5 py-2 bg-slate-800 hover:bg-slate-900 text-white rounded-xl text-xs font-bold transition-colors cursor-pointer"
                 >
                   Lưu & Đồng bộ GIS
                 </button>
                 <button
                   type="button"
                   onClick={() => handleSavePinCoordinates(true)}
-                  className="px-4 py-2 bg-gradient-to-tr from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-md transition-all cursor-pointer"
+                  className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer"
                 >
                   <Navigation size={13} />
                   <span>Lưu & Dẫn đường ngay</span>
@@ -2298,6 +2422,28 @@ export default function HouseholdManagement({
             </div>
           </div>
         </div>
+      )}
+
+      {notice && (showAddModal || showEditModal || showAddMemberModal || showMoveModal || showSplitModal || gisPinModalHousehold) && (
+        <div className="fixed bottom-5 right-5 z-[60] max-w-md w-full px-4 sm:px-0">
+          <InlineNotice
+            message={notice.message}
+            type={notice.type}
+            onDismiss={() => setNotice(null)}
+          />
+        </div>
+      )}
+
+      {confirmDialog && (
+        <ConfirmModal
+          isOpen={true}
+          title={confirmDialog.title}
+          description={confirmDialog.description}
+          confirmLabel={confirmDialog.confirmLabel}
+          variant={confirmDialog.variant}
+          onConfirm={confirmDialog.onConfirm}
+          onClose={() => setConfirmDialog(null)}
+        />
       )}
     </div>
   );

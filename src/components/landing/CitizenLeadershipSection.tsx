@@ -6,7 +6,7 @@ import { PUBLIC_CONTACT_EMAIL, VERIFIED_LEADERSHIP, btnGhost } from "./landingCo
 export default function CitizenLeadershipSection() {
   return (
     <section id="leadership" tabIndex={-1} className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-12 scroll-mt-24 outline-none">
-      <div className="bg-white rounded-3xl border border-slate-200 p-5 sm:p-8 shadow-sm space-y-5">
+      <div className="bg-white rounded-2xl border border-slate-200 p-5 sm:p-8 space-y-5">
         <SectionHeader
           icon={<ShieldCheck size={20} />}
           title="Cơ cấu tổ chức & cán bộ"

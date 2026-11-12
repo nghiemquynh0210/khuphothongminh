@@ -11,9 +11,14 @@ import {
 } from "lucide-react";
 import { FieldReport } from "../../types";
 import { EmptyState } from "./LandingCommon";
+import { uploadReportImages } from "../../utils/imageUpload";
+import {
+  REPORT_PRIORITY_CONFIG,
+  computeSlaDeadlineIso,
+  getCategoryMeta,
+} from "../../data/reportConfig";
 import {
   ALLOWED_IMAGE_TYPES,
-  MAX_IMAGE_BYTES,
   MAX_SUBMISSIONS_PER_DAY,
   RATE_KEY,
   REPORT_CATEGORIES,
@@ -42,7 +47,7 @@ export default function CitizenReflectionSection({
   const [repAnonymous, setRepAnonymous] = useState(false);
   const [repName, setRepName] = useState("");
   const [repPhone, setRepPhone] = useState("");
-  const [repImage, setRepImage] = useState("");
+  const [repImages, setRepImages] = useState<string[]>([]);
   const [repConsent, setRepConsent] = useState(false);
   const [repHoneypot, setRepHoneypot] = useState("");
   const [repErrors, setRepErrors] = useState<Record<string, string>>({});
@@ -52,24 +57,26 @@ export default function CitizenReflectionSection({
 
   const recentReports = reports.slice(0, 3);
 
-  const handleImageChange = (file?: File) => {
-    if (!file) return;
-    if (!ALLOWED_IMAGE_TYPES.includes(file.type)) {
-      setRepErrors(prev => ({ ...prev, image: "Chỉ chấp nhận ảnh định dạng JPG, PNG hoặc WebP." }));
+  const handleImageChange = async (fileList: FileList | null) => {
+    if (!fileList || fileList.length === 0) return;
+    const files = Array.from(fileList).slice(0, 3 - repImages.length);
+    if (files.length === 0) {
+      setRepErrors(prev => ({ ...prev, image: "Mỗi phản ánh đính kèm tối đa 3 ảnh hiện trường." }));
       return;
     }
-    if (file.size > MAX_IMAGE_BYTES) {
-      setRepErrors(prev => ({ ...prev, image: "Dung lượng ảnh tối đa 5 MB." }));
-      return;
+    const { urls, errors } = await uploadReportImages(files, "landing");
+    if (errors.length > 0) {
+      setRepErrors(prev => ({ ...prev, image: errors[0] }));
+    } else {
+      setRepErrors(prev => {
+        const copy = { ...prev };
+        delete copy.image;
+        return copy;
+      });
     }
-    setRepErrors(prev => {
-      const copy = { ...prev };
-      delete copy.image;
-      return copy;
-    });
-    const reader = new FileReader();
-    reader.onload = () => setRepImage(String(reader.result || ""));
-    reader.readAsDataURL(file);
+    if (urls.length > 0) {
+      setRepImages(prev => [...prev, ...urls].slice(0, 3));
+    }
   };
 
   const handleUseCurrentLocation = () => {
@@ -147,18 +154,27 @@ export default function CitizenReflectionSection({
     const timeStr = `${now.getHours().toString().padStart(2, "0")}:${now.getMinutes().toString().padStart(2, "0")} ${now.getDate().toString().padStart(2, "0")}/${(now.getMonth() + 1).toString().padStart(2, "0")}/${now.getFullYear()}`;
     const reporterName = repAnonymous ? "Cư dân (Ẩn danh)" : repName.trim();
 
+    const catMeta = getCategoryMeta(repCategory);
+    const defaultPriority = catMeta.defaultPriority;
     const newReport: FieldReport = {
       id,
       title: repTitle.trim(),
       category: repCategory,
+      priority: defaultPriority,
+      slaHours: REPORT_PRIORITY_CONFIG[defaultPriority].slaHours,
+      slaDeadline: computeSlaDeadlineIso(defaultPriority, now),
+      assignedUnit: catMeta.defaultUnit,
       reporterName,
       reporterPhone: repAnonymous ? "" : repPhone.trim(),
-      reportedAt: now.toLocaleString("vi-VN", { hour12: false }).replace(/\//g, "-"),
+      isAnonymous: repAnonymous,
+      reportedAt: timeStr,
+      createdAt: now.toLocaleDateString("vi-VN"),
       location: repLocation.trim(),
       coordinates: { x: 50, y: 50 },
       description: repDescription.trim(),
       status: "Đã tiếp nhận",
-      beforeImage: repImage || undefined,
+      beforeImage: repImages[0] || undefined,
+      beforeImages: repImages,
       timeline: [
         {
           time: timeStr,
@@ -166,7 +182,8 @@ export default function CitizenReflectionSection({
           description: `Phản ánh được gửi qua Cổng người dân${repAnonymous ? " (chế độ ẩn danh)" : ""}.`,
           actor: reporterName
         }
-      ]
+      ],
+      messages: []
     };
 
     try {
@@ -176,7 +193,7 @@ export default function CitizenReflectionSection({
       setRepTitle("");
       setRepLocation("");
       setRepDescription("");
-      setRepImage("");
+      setRepImages([]);
       setRepConsent(false);
       showToast(`Đã gửi phản ánh. Mã hồ sơ: ${id}`);
     } catch {
@@ -188,8 +205,8 @@ export default function CitizenReflectionSection({
 
   return (
     <section id="reflection" tabIndex={-1} className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-12 scroll-mt-24 outline-none">
-      <div className="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden">
-        <div className="bg-gradient-to-r from-gov-navy to-gov-blue p-5 sm:p-8 text-white">
+      <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
+        <div className="bg-gov-navy border-b border-blue-950 p-5 sm:p-8 text-white">
           <h2 className="text-xl sm:text-2xl font-black">Phản ánh hiện trường</h2>
           <p className="text-sm sm:text-base text-blue-100 mt-1 max-w-2xl">
             Vệ sinh môi trường, lấn chiếm vỉa hè, tiếng ồn, hạ tầng hay an ninh trật tự — phản ánh được chuyển vào hệ thống tiếp nhận của Ban Điều hành Khu phố 3.
@@ -261,15 +278,17 @@ export default function CitizenReflectionSection({
                   </label>
                   <input
                     id="rep-title"
+                    name="title"
                     value={repTitle}
                     onChange={e => setRepTitle(e.target.value)}
                     maxLength={150}
+                    enterKeyHint="next"
                     aria-invalid={!!repErrors.title}
-                    aria-describedby="rep-title-err"
+                    aria-describedby={repErrors.title ? "rep-title-err" : undefined}
                     className={inputCls}
                     placeholder="VD: Rác tồn đọng đầu hẻm chưa thu gom"
                   />
-                  {repErrors.title && <p id="rep-title-err" className="text-xs text-gov-danger">{repErrors.title}</p>}
+                  {repErrors.title && <p id="rep-title-err" role="alert" className="text-xs text-gov-danger">{repErrors.title}</p>}
                 </div>
                 <div className="space-y-1.5">
                   <label htmlFor="rep-location" className="text-sm font-bold block">
@@ -278,10 +297,12 @@ export default function CitizenReflectionSection({
                   <div className="flex gap-2">
                     <input
                       id="rep-location"
+                      name="location"
                       value={repLocation}
                       onChange={e => setRepLocation(e.target.value)}
+                      enterKeyHint="next"
                       aria-invalid={!!repErrors.location}
-                      aria-describedby="rep-location-err"
+                      aria-describedby={repErrors.location ? "rep-location-err" : undefined}
                       className={inputCls}
                       placeholder="Số nhà, hẻm, tuyến đường"
                     />
@@ -293,10 +314,10 @@ export default function CitizenReflectionSection({
                       aria-label="Dùng vị trí hiện tại"
                       title="Dùng vị trí hiện tại"
                     >
-                      <LocateFixed size={18} className={locating ? "animate-pulse" : ""} />
+                      <LocateFixed size={18} />
                     </button>
                   </div>
-                  {repErrors.location && <p id="rep-location-err" className="text-xs text-gov-danger">{repErrors.location}</p>}
+                  {repErrors.location && <p id="rep-location-err" role="alert" className="text-xs text-gov-danger">{repErrors.location}</p>}
                 </div>
               </div>
 
@@ -306,50 +327,57 @@ export default function CitizenReflectionSection({
                 </label>
                 <textarea
                   id="rep-desc"
+                  name="description"
                   rows={4}
                   value={repDescription}
                   onChange={e => setRepDescription(e.target.value)}
                   maxLength={2000}
                   aria-invalid={!!repErrors.description}
-                  aria-describedby="rep-desc-err rep-desc-count"
+                  aria-describedby={repErrors.description ? "rep-desc-err rep-desc-count" : "rep-desc-count"}
                   className={`${inputCls} py-3`}
                   placeholder="Mô tả thời điểm, mức độ ảnh hưởng…"
                 />
                 <div className="flex justify-between text-xs">
-                  <span id="rep-desc-err" className="text-gov-danger">{repErrors.description}</span>
-                  <span id="rep-desc-count" className="text-slate-400">{repDescription.length}/2000</span>
+                  <span id="rep-desc-err" role={repErrors.description ? "alert" : undefined} className="text-gov-danger">{repErrors.description}</span>
+                  <span id="rep-desc-count" className="text-slate-600">{repDescription.length}/2000</span>
                 </div>
               </div>
 
               <div className="space-y-1.5">
-                <span className="text-sm font-bold block">5. Ảnh hiện trường (tuỳ chọn · JPG/PNG/WebP · tối đa 5 MB)</span>
+                <span className="text-sm font-bold block">5. Ảnh hiện trường (tuỳ chọn · JPG/PNG/WebP · tối đa 3 ảnh)</span>
                 <div className="flex flex-wrap items-center gap-3">
-                  <label htmlFor="rep-image-file" className={`${btnGhost} border-dashed cursor-pointer`}>
-                    <Camera size={18} aria-hidden="true" /> Chọn ảnh
-                    <input
-                      id="rep-image-file"
-                      name="repImageFile"
-                      type="file"
-                      accept={ALLOWED_IMAGE_TYPES.join(",")}
-                      capture="environment"
-                      className="sr-only"
-                      aria-label="Chọn hoặc chụp ảnh hiện trường"
-                      onChange={e => handleImageChange(e.target.files?.[0])}
-                    />
-                  </label>
-                  {repImage && (
-                    <div className="flex items-center gap-2 p-1.5 bg-gov-light rounded-xl border border-slate-200">
-                      <img src={repImage} alt="Ảnh hiện trường đã chọn" className="w-12 h-12 rounded-lg object-cover" />
+                  {repImages.length < 3 && (
+                    <label htmlFor="rep-image-file" className={`${btnGhost} border-dashed cursor-pointer`}>
+                      <Camera size={18} aria-hidden="true" /> Chọn / chụp ảnh ({repImages.length}/3)
+                      <input
+                        id="rep-image-file"
+                        name="repImageFile"
+                        type="file"
+                        accept={ALLOWED_IMAGE_TYPES.join(",")}
+                        multiple
+                        capture="environment"
+                        className="sr-only"
+                        aria-label="Chọn hoặc chụp ảnh hiện trường"
+                        onChange={e => {
+                          handleImageChange(e.target.files);
+                          e.currentTarget.value = "";
+                        }}
+                      />
+                    </label>
+                  )}
+                  {repImages.map((imgUrl, idx) => (
+                    <div key={`rep-img-${idx}`} className="flex items-center gap-2 p-1.5 bg-gov-light rounded-xl border border-slate-200">
+                      <img src={imgUrl} alt={`Ảnh hiện trường đã chọn ${idx + 1}`} className="w-12 h-12 rounded-lg object-cover" />
                       <button
                         type="button"
-                        onClick={() => setRepImage("")}
-                        className="min-w-11 min-h-11 flex items-center justify-center text-slate-500 hover:text-gov-danger cursor-pointer"
-                        aria-label="Xoá ảnh"
+                        onClick={() => setRepImages(prev => prev.filter((_, i) => i !== idx))}
+                        className="min-w-11 min-h-11 flex items-center justify-center text-slate-600 hover:text-gov-danger cursor-pointer"
+                        aria-label={`Xoá ảnh ${idx + 1}`}
                       >
                         <X size={16} />
                       </button>
                     </div>
-                  )}
+                  ))}
                 </div>
                 {repErrors.image && <p className="text-xs text-gov-danger">{repErrors.image}</p>}
               </div>
@@ -463,10 +491,10 @@ export default function CitizenReflectionSection({
                       </span>
                     </div>
                     <p className="font-semibold text-sm line-clamp-1">{r.title}</p>
-                    <p className="text-xs text-slate-500 flex items-center gap-1">
+                    <p className="text-xs text-slate-600 flex items-center gap-1">
                       <MapPin size={12} aria-hidden="true" /> <span className="truncate">{r.location}</span>
                     </p>
-                    <p className="text-xs text-slate-400">{r.reportedAt}</p>
+                    <p className="text-xs text-slate-600">{r.reportedAt}</p>
                   </li>
                 ))}
               </ul>

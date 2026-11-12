@@ -81,3 +81,4 @@ CREATE POLICY "canbo_update_report_status" ON field_reports
 
 ## 4. KẾT LUẬN PHASE 4
 CSDL có cấu trúc chuẩn hóa cao, thiết kế quan hệ bảng chặt chẽ. Đã thiết lập phương án nâng cấp RLS Policy nhằm đảm bảo tính bảo mật tuyệt đối cho thông tin nhân khẩu theo Luật An ninh mạng và Đề án 06/CP.
+

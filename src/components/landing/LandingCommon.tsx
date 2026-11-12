@@ -19,7 +19,7 @@ export function SectionHeader({
           <span className="text-gov-blue" aria-hidden="true">{icon}</span>
           <h2 className="text-lg sm:text-xl font-black text-gov-navy tracking-tight">{title}</h2>
         </div>
-        {subtitle && <p className="text-sm text-slate-500 mt-1">{subtitle}</p>}
+        {subtitle && <p className="text-sm text-slate-600 mt-1">{subtitle}</p>}
       </div>
       {action}
     </div>
@@ -39,11 +39,11 @@ export function EmptyState({
 }) {
   return (
     <div className="py-10 px-6 text-center rounded-2xl border border-dashed border-slate-300 bg-gov-light space-y-3" role="status">
-      <div className="w-12 h-12 mx-auto rounded-2xl bg-white border border-slate-200 text-slate-400 flex items-center justify-center" aria-hidden="true">
+      <div className="w-12 h-12 mx-auto rounded-2xl bg-white border border-slate-200 text-slate-600 flex items-center justify-center" aria-hidden="true">
         {icon}
       </div>
       <h3 className="font-bold text-gov-text text-sm">{title}</h3>
-      <p className="text-sm text-slate-500 max-w-md mx-auto leading-relaxed">{description}</p>
+      <p className="text-sm text-slate-600 max-w-md mx-auto leading-relaxed">{description}</p>
       {action}
     </div>
   );
@@ -80,7 +80,7 @@ export function Modal({
         aria-modal="true"
         aria-label={title}
         onClick={e => e.stopPropagation()}
-        className="bg-white w-full sm:max-w-2xl max-h-[90vh] rounded-t-3xl sm:rounded-3xl flex flex-col overflow-hidden shadow-2xl"
+        className="bg-white w-full sm:max-w-2xl max-h-[90vh] rounded-t-3xl sm:rounded-2xl border border-slate-200 flex flex-col overflow-hidden"
       >
         <div className="p-4 sm:p-5 border-b border-slate-100 flex items-center justify-between gap-3 bg-gov-light">
           <h3 className="font-bold text-gov-text text-base leading-snug">{title}</h3>

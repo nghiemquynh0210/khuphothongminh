@@ -41,3 +41,4 @@
 
 ## 3. KẾT LUẬN PHASE 6
 Ứng dụng có độ phản hồi rất nhanh, chỉ số Core Web Vitals đạt chuẩn xanh của Google. Các lỗ hổng phụ thuộc cấp độ dev sẽ được xử lý trong Phase 7.
+

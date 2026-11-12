@@ -1,36 +1,81 @@
-import React, { useState, useRef, useEffect } from "react";
-import { 
-  Bot, 
-  Send, 
-  Sparkles, 
-  User, 
-  HelpCircle,
+import React, { useEffect, useRef, useState } from "react";
+import {
   AlertCircle,
-  Volume2,
-  Bookmark
+  Bot,
+  HelpCircle,
+  Send,
+  ShieldCheck,
+  Sparkles,
+  Trash2,
+  User,
+  Users,
 } from "lucide-react";
+import { KP3_OFFICIAL_BASELINE, Kp3AssistantContext, generateKp3AssistantReply } from "../utils/kp3Utils";
+import { formatVNNumber } from "../utils/numberFormat";
+import { PageHeader } from "./common/PageHeader";
+import { Button, ConfirmModal, InlineNotice } from "./ui";
+
+const EMPTY_KP3_CONTEXT: Kp3AssistantContext = {
+  residents: [],
+  households: [],
+  businesses: [],
+  reports: [],
+  welfareRecipients: [],
+  fundContributions: [],
+  fundExpenditures: [],
+  communityEvents: [],
+  tasks: [],
+};
 
 interface Message {
   role: "user" | "assistant";
   content: string;
+  source?: "gemini" | "kp3-local";
 }
 
-export default function AiAssistant() {
+export interface AiAssistantProps {
+  context?: Kp3AssistantContext;
+  currentUser?: {
+    fullName?: string;
+    role?: "canbo" | "nguoidan";
+  } | null;
+}
+
+const CANBO_PROMPTS = [
+  "Tình hình tạm trú sắp hết hạn và công việc ưu tiên tuần này?",
+  "Thống kê quỹ khu phố và các tổ dân phố (Tổ 1–14) hiện nay?",
+  "Quy trình tiếp nhận phản ánh 1022 và giao việc cho Tổ trưởng?",
+  "Tổng hợp nhân khẩu thường trú, tạm trú và hộ gia đình KP3?",
+];
+
+const CITIZEN_PROMPTS = [
+  "Thủ tục đăng ký tạm trú tại Khu phố 3 cần giấy tờ gì?",
+  "Ai là Bí thư Chi bộ / Trưởng ban Điều hành và số điện thoại liên hệ?",
+  "Làm thế nào gửi phản ánh rác thải, ngập úng hoặc đóng quỹ VietQR?",
+  "Lịch hỗ trợ kích hoạt định danh điện tử VNeID mức 2 ở đâu?",
+];
+
+export default function AiAssistant({ context, currentUser }: AiAssistantProps = {}) {
+  const defaultMode: "canbo" | "cudan" = currentUser?.role === "canbo" ? "canbo" : "cudan";
+  const [assistantMode, setAssistantMode] = useState<"canbo" | "cudan">(defaultMode);
   const [messages, setMessages] = useState<Message[]>([
-    { 
-      role: "assistant", 
-      content: "Xin chào! Tôi là Trợ lý Ảo Thông Minh của Ban quản lý Khu phố 3, Phường An Phú. Tôi có thể hỗ trợ cư dân và cán bộ tra cứu nhanh thủ tục hành chính, lịch sinh hoạt khu phố, thông tin liên hệ khẩn cấp hoặc phân loại phản ánh hiện trường. Bạn cần tôi trợ giúp điều gì hôm nay?" 
-    }
+    {
+      role: "assistant",
+      content:
+        "Xin chào! Tôi là **Trợ lý Số Khu phố 3 (Phường An Phú)**. Tôi có thể hỗ trợ tra cứu nhanh số liệu điều hành 14 Tổ dân phố, thủ tục cư trú, phản ánh 1022, tình hình Quỹ khu phố hoặc thông tin Ban điều hành. Anh/chị cần tra cứu nội dung gì hôm nay?",
+      source: "kp3-local",
+    },
   ]);
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [offlineFallbackUsed, setOfflineFallbackUsed] = useState(false);
+  const [showClearConfirm, setShowClearConfirm] = useState(false);
   const chatContainerRef = useRef<HTMLDivElement>(null);
 
-  const sampleQuestions = [
-    "Thủ tục đăng ký tạm trú tại khu phố?",
-    "Ai là Bí thư chi bộ và SĐT liên hệ?",
-    "Làm cách nào gửi phản ánh rác thải?"
-  ];
+  const safeContext = context ?? EMPTY_KP3_CONTEXT;
+  const pendingReportsCount = safeContext.reports.filter((r) => r.status !== "Đã giải quyết").length;
+  const openTasksCount = safeContext.tasks.filter((t) => t.status !== "Hoàn thành").length;
+  const sampleQuestions = assistantMode === "canbo" ? CANBO_PROMPTS : CITIZEN_PROMPTS;
 
   useEffect(() => {
     if (chatContainerRef.current) {
@@ -39,11 +84,11 @@ export default function AiAssistant() {
   }, [messages, isLoading]);
 
   const handleSend = async (textToSend: string) => {
-    if (!textToSend.trim()) return;
+    const trimmed = textToSend.trim();
+    if (!trimmed || isLoading) return;
 
-    const userMsg: Message = { role: "user", content: textToSend };
+    const userMsg: Message = { role: "user", content: trimmed };
     const updatedMessages = [...messages, userMsg];
-    
     setMessages(updatedMessages);
     setInput("");
     setIsLoading(true);
@@ -52,145 +97,249 @@ export default function AiAssistant() {
       const response = await fetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ messages: updatedMessages }),
+        body: JSON.stringify({
+          messages: updatedMessages.map((m) => ({ role: m.role, content: m.content })),
+          mode: assistantMode,
+          context: {
+            residentsCount: KP3_OFFICIAL_BASELINE.population,
+            householdsCount: KP3_OFFICIAL_BASELINE.households,
+            pendingReportsCount,
+            openTasksCount,
+          },
+        }),
       });
 
       if (!response.ok) {
-        throw new Error("Mất kết nối với máy chủ AI");
+        throw new Error("Offline or API unavailable");
       }
 
       const data = await response.json();
-      setMessages([...updatedMessages, { role: "assistant", content: data.content }]);
-    } catch (error: any) {
-      console.error(error);
-      setMessages([...updatedMessages, { 
-        role: "assistant", 
-        content: `❌ Không thể kết nối với Trợ lý AI: ${error.message}. Vui lòng thử lại sau hoặc liên hệ Văn phòng Khu phố.` 
-      }]);
+      if (!data?.content) {
+        throw new Error("Empty response");
+      }
+      setOfflineFallbackUsed(false);
+      setMessages([...updatedMessages, { role: "assistant", content: data.content, source: "gemini" }]);
+    } catch {
+      const fallbackReply = generateKp3AssistantReply(trimmed, safeContext, assistantMode);
+      setOfflineFallbackUsed(true);
+      setMessages([
+        ...updatedMessages,
+        { role: "assistant", content: fallbackReply, source: "kp3-local" },
+      ]);
     } finally {
       setIsLoading(false);
     }
   };
 
-  // Render markdown helper (bold, lists, paragraphs)
-  const renderFormattedText = (text: string) => {
+  const renderFormattedText = (text: string, isUserBubble: boolean) => {
     return text.split("\n").map((line, idx) => {
-      let content = line;
-      // Bold rendering
       const boldRegex = /\*\*(.*?)\*\*/g;
-      const parts = [];
+      const parts: React.ReactNode[] = [];
       let lastIndex = 0;
-      let match;
-      
-      while ((match = boldRegex.exec(content)) !== null) {
+      let match: RegExpExecArray | null;
+
+      while ((match = boldRegex.exec(line)) !== null) {
         if (match.index > lastIndex) {
-          parts.push(content.substring(lastIndex, match.index));
+          parts.push(line.substring(lastIndex, match.index));
         }
-        parts.push(<strong key={match.index} className="text-white font-bold">{match[1]}</strong>);
+        parts.push(
+          <strong
+            key={match.index}
+            className={isUserBubble ? "text-white font-bold" : "text-slate-950 font-bold"}
+          >
+            {match[1]}
+          </strong>
+        );
         lastIndex = boldRegex.lastIndex;
       }
-      
-      if (lastIndex < content.length) {
-        parts.push(content.substring(lastIndex));
+
+      if (lastIndex < line.length) {
+        parts.push(line.substring(lastIndex));
       }
 
-      const renderedLine = parts.length > 0 ? parts : content;
+      const renderedLine = parts.length > 0 ? parts : line;
 
-      if (line.startsWith("1.") || line.startsWith("2.") || line.startsWith("3.") || line.startsWith("4.")) {
-        return <div key={idx} className="pl-4 py-0.5 text-slate-300 font-sans text-sm">{renderedLine}</div>;
-      }
-      if (line.trim().startsWith("-") || line.trim().startsWith("*")) {
-        // Strip the dash/asterisk
-        const cleaned = line.replace(/^[\s-*]+/, "");
+      if (/^\d+\./.test(line.trim())) {
         return (
-          <div key={idx} className="flex gap-2 pl-6 py-0.5 text-slate-300 font-sans text-sm">
-            <span className="text-emerald-400">•</span>
-            <span>{cleaned}</span>
+          <div key={idx} className="pl-3 py-0.5 text-sm leading-relaxed">
+            {renderedLine}
           </div>
         );
       }
-      return <p key={idx} className="py-1 text-slate-300 leading-relaxed font-sans text-sm">{renderedLine}</p>;
+      if (line.trim().startsWith("-") || line.trim().startsWith("*")) {
+        return (
+          <div key={idx} className="flex gap-2 pl-4 py-0.5 text-sm leading-relaxed">
+            <span className="text-emerald-700 font-bold" aria-hidden="true">
+              •
+            </span>
+            <span>{renderedLine}</span>
+          </div>
+        );
+      }
+      if (!line.trim()) {
+        return <div key={idx} className="h-1.5" />;
+      }
+      return (
+        <p key={idx} className="py-0.5 leading-relaxed text-sm">
+          {renderedLine}
+        </p>
+      );
     });
   };
 
   return (
-    <div id="ai-assistant-view" className="space-y-6">
-      {/* Upper header */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-        <div className="space-y-1">
-          <div className="inline-flex items-center gap-2 px-2.5 py-1 rounded-md bg-emerald-50 border border-emerald-200 text-emerald-800 text-[11px] font-bold tracking-wide uppercase">
-            <Sparkles size={13} className="text-emerald-600 animate-pulse" />
-            <span>TRÍ TUỆ NHÂN TẠO KHU PHỐ 3</span>
-            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
-            <span className="font-normal text-[11px] text-emerald-700">GEMINI 2.5 FLASH</span>
+    <div id="ai-assistant-view" className="space-y-5">
+      <PageHeader
+        badgeIcon={<Sparkles size={14} className="text-emerald-700" />}
+        badgeText="TRỢ LÝ ĐIỀU HÀNH & TRA CỨU • KHU PHỐ 3"
+        badgeSubtext="CSDL THỰC TẾ"
+        title="Trợ Lý Ảo Khu Phố 3"
+        actions={
+          <div
+            role="radiogroup"
+            aria-label="Chế độ trả lời của Trợ lý"
+            className="inline-flex items-center rounded-xl border border-slate-200 bg-slate-100 p-1"
+          >
+            <button
+              type="button"
+              role="radio"
+              aria-checked={assistantMode === "canbo"}
+              onClick={() => setAssistantMode("canbo")}
+              className={`px-3 py-1.5 rounded-lg text-xs font-semibold inline-flex items-center gap-1.5 cursor-pointer transition-colors ${
+                assistantMode === "canbo"
+                  ? "bg-white text-emerald-900 border border-slate-200"
+                  : "text-slate-700 hover:text-slate-900"
+              }`}
+            >
+              <ShieldCheck size={14} aria-hidden="true" />
+              <span>Nghiệp vụ Cán bộ</span>
+            </button>
+            <button
+              type="button"
+              role="radio"
+              aria-checked={assistantMode === "cudan"}
+              onClick={() => setAssistantMode("cudan")}
+              className={`px-3 py-1.5 rounded-lg text-xs font-semibold inline-flex items-center gap-1.5 cursor-pointer transition-colors ${
+                assistantMode === "cudan"
+                  ? "bg-white text-emerald-900 border border-slate-200"
+                  : "text-slate-700 hover:text-slate-900"
+              }`}
+            >
+              <Users size={14} aria-hidden="true" />
+              <span>Hỏi đáp Cư dân</span>
+            </button>
           </div>
-          <h1 className="text-xl md:text-2xl font-black text-slate-800 tracking-tight">Trợ lý Cư dân Trí tuệ Nhân tạo</h1>
+        }
+      />
+
+      {offlineFallbackUsed && (
+        <InlineNotice
+          type="info"
+          message="Đang trả lời từ kho tri thức & CSDL KP3 trực tiếp trên trình duyệt (máy chủ /api/chat không kết nối)."
+          onDismiss={() => setOfflineFallbackUsed(false)}
+        />
+      )}
+
+      {/* Live Context Strip */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        <div className="bg-white border border-slate-200 rounded-xl px-4 py-3">
+          <div className="text-xs font-semibold text-slate-600">Quy mô KP3</div>
+          <div className="text-lg font-bold text-slate-900">
+            {formatVNNumber(KP3_OFFICIAL_BASELINE.households)} hộ / {KP3_OFFICIAL_BASELINE.residentialGroups} Tổ
+          </div>
         </div>
-        <div className="flex items-center gap-2 text-xs bg-indigo-50 border border-indigo-100 text-indigo-700 px-3 py-1.5 rounded-lg">
-          <Sparkles size={14} className="text-indigo-600 animate-pulse" />
-          <span>Vận hành bởi Gemini 2.5 Flash</span>
+        <div className="bg-white border border-slate-200 rounded-xl px-4 py-3">
+          <div className="text-xs font-semibold text-slate-600">Dân số định mức</div>
+          <div className="text-lg font-bold text-slate-900">
+            {formatVNNumber(KP3_OFFICIAL_BASELINE.population)} nhân khẩu
+          </div>
+        </div>
+        <div className="bg-white border border-slate-200 rounded-xl px-4 py-3">
+          <div className="text-xs font-semibold text-slate-600">Phản ánh chờ xử lý</div>
+          <div className="text-lg font-bold text-rose-700">
+            {formatVNNumber(pendingReportsCount)} hồ sơ
+          </div>
+        </div>
+        <div className="bg-white border border-slate-200 rounded-xl px-4 py-3">
+          <div className="text-xs font-semibold text-slate-600">Nhiệm vụ đang mở</div>
+          <div className="text-lg font-bold text-indigo-800">
+            {formatVNNumber(openTasksCount)} đầu việc
+          </div>
         </div>
       </div>
 
-      {/* Main chat UI */}
-      <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-        
-        {/* Chat message threads */}
-        <div className="lg:col-span-3 bg-slate-900 border border-slate-800 rounded-2xl flex flex-col h-[520px] shadow-xl overflow-hidden">
-          
-          {/* Chat box header */}
-          <div className="p-4 bg-slate-950 border-b border-slate-800 flex items-center justify-between">
+      {/* Main Chat Layout */}
+      <div className="grid grid-cols-1 lg:grid-cols-4 gap-5">
+        <section
+          aria-label="Hội thoại Trợ lý Khu phố 3"
+          className="lg:col-span-3 bg-white border border-slate-200 rounded-xl flex flex-col h-[520px] overflow-hidden"
+        >
+          {/* Header */}
+          <div className="px-4 py-3 bg-slate-50 border-b border-slate-200 flex items-center justify-between gap-2">
             <div className="flex items-center gap-2.5">
-              <div className="p-2 bg-emerald-500/10 rounded-lg text-emerald-400">
-                <Bot size={18} />
+              <div className="w-9 h-9 rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-700 flex items-center justify-center shrink-0">
+                <Bot size={18} aria-hidden="true" />
               </div>
               <div>
-                <span className="font-bold text-sm text-white block leading-none">AI Trợ lý Khu phố 3</span>
-                <span className="text-[10px] text-slate-500 font-mono">Đang trực tuyến • Sẵn sàng hỗ trợ</span>
+                <span className="font-bold text-sm text-slate-900 block leading-tight">
+                  Trợ lý Số Khu phố 3
+                </span>
+                <span className="text-xs text-slate-600">
+                  {assistantMode === "canbo" ? "Chế độ Điều hành Cán bộ KP3" : "Chế độ Hướng dẫn Cư dân"}
+                </span>
               </div>
             </div>
-            
-            <button 
-              onClick={() => {
-                if (confirm("Xóa lịch sử cuộc trò chuyện hiện tại?")) {
-                  setMessages([{ role: "assistant", content: "Lịch sử trò chuyện đã được làm sạch. Tôi có thể hỗ trợ gì thêm cho bạn?" }]);
-                }
-              }}
-              className="text-xs text-slate-500 hover:text-slate-300 border border-slate-800 hover:border-slate-700 px-2.5 py-1 rounded transition-all cursor-pointer"
+
+            <Button
+              variant="secondary"
+              size="sm"
+              leftIcon={<Trash2 size={14} />}
+              onClick={() => setShowClearConfirm(true)}
             >
-              Xóa lịch sử
-            </button>
+              Làm mới hội thoại
+            </Button>
           </div>
 
-          {/* Messages list container */}
-          <div ref={chatContainerRef} className="flex-1 p-5 overflow-y-auto space-y-4 bg-slate-950/20">
+          {/* Messages */}
+          <div
+            ref={chatContainerRef}
+            className="flex-1 p-4 sm:p-5 overflow-y-auto space-y-4 bg-white"
+            aria-live="polite"
+          >
             {messages.map((m, idx) => {
               const isUser = m.role === "user";
               return (
-                <div 
+                <div
                   key={idx}
-                  className={`flex gap-3 max-w-[85%] ${isUser ? "ml-auto flex-row-reverse" : "mr-auto"}`}
+                  className={`flex gap-3 max-w-[88%] ${isUser ? "ml-auto flex-row-reverse" : "mr-auto"}`}
                 >
-                  <div className={`p-2.5 rounded-full shrink-0 flex items-center justify-center self-end w-8 h-8 border
-                    ${isUser 
-                      ? "bg-slate-800 border-slate-700 text-slate-300" 
-                      : "bg-emerald-600/15 border-emerald-500/20 text-emerald-400"
-                    }
-                  `}>
-                    {isUser ? <User size={14} /> : <Bot size={14} />}
+                  <div
+                    className={`w-8 h-8 rounded-full shrink-0 flex items-center justify-center self-end border ${
+                      isUser
+                        ? "bg-emerald-700 border-emerald-700 text-white"
+                        : "bg-slate-100 border-slate-200 text-emerald-800"
+                    }`}
+                  >
+                    {isUser ? <User size={14} aria-hidden="true" /> : <Bot size={14} aria-hidden="true" />}
                   </div>
 
-                  <div className={`p-4 rounded-2xl border text-sm shadow-md leading-relaxed
-                    ${isUser 
-                      ? "bg-emerald-600 border-emerald-500 text-white rounded-br-none" 
-                      : "bg-slate-900 border-slate-800 text-slate-300 rounded-bl-none"
-                    }
-                  `}>
+                  <div
+                    className={`px-4 py-3 rounded-xl border text-sm leading-relaxed ${
+                      isUser
+                        ? "bg-emerald-700 border-emerald-700 text-white rounded-br-xs"
+                        : "bg-slate-50 border-slate-200 text-slate-900 rounded-bl-xs"
+                    }`}
+                  >
                     {isUser ? (
-                      <p className="font-sans text-sm">{m.content}</p>
+                      <p className="text-sm">{m.content}</p>
                     ) : (
-                      <div className="space-y-1">
-                        {renderFormattedText(m.content)}
+                      <div className="space-y-0.5">
+                        {renderFormattedText(m.content, false)}
+                        {m.source && (
+                          <div className="pt-2 mt-2 border-t border-slate-200/80 text-xs text-slate-600">
+                            Nguồn: {m.source === "gemini" ? "Gemini AI" : "CSDL Khu phố 3"}
+                          </div>
+                        )}
                       </div>
                     )}
                   </div>
@@ -200,65 +349,75 @@ export default function AiAssistant() {
 
             {isLoading && (
               <div className="flex gap-3 max-w-[85%] mr-auto items-end">
-                <div className="p-2.5 rounded-full shrink-0 bg-emerald-600/15 border border-emerald-500/20 text-emerald-400 flex items-center justify-center w-8 h-8">
-                  <Bot size={14} className="animate-spin" />
+                <div className="w-8 h-8 rounded-full bg-slate-100 border border-slate-200 text-emerald-800 flex items-center justify-center">
+                  <Bot size={14} aria-hidden="true" />
                 </div>
-                <div className="p-4 rounded-2xl border border-slate-800 bg-slate-900 text-slate-400 rounded-bl-none text-xs flex items-center gap-1.5 shadow-sm">
-                  <span className="w-2 h-2 rounded-full bg-emerald-500 animate-bounce" style={{ animationDelay: "0ms" }}></span>
-                  <span className="w-2 h-2 rounded-full bg-emerald-500 animate-bounce" style={{ animationDelay: "150ms" }}></span>
-                  <span className="w-2 h-2 rounded-full bg-emerald-500 animate-bounce" style={{ animationDelay: "300ms" }}></span>
-                  <span className="ml-1 font-medium font-sans">Trợ lý AI đang soạn câu trả lời...</span>
+                <div className="px-4 py-3 rounded-xl border border-slate-200 bg-slate-50 text-slate-700 text-xs font-medium">
+                  Đang tra cứu thông tin Khu phố 3...
                 </div>
               </div>
             )}
           </div>
 
-          {/* Form input and submit */}
-          <div className="p-4 bg-slate-950 border-t border-slate-800">
-            <form 
+          {/* Form Input */}
+          <div className="p-3.5 bg-slate-50 border-t border-slate-200">
+            <form
               onSubmit={(e) => {
                 e.preventDefault();
                 handleSend(input);
               }}
-              className="flex gap-2.5"
+              className="flex items-center gap-2"
             >
-              <input 
+              <label htmlFor="ai-assistant-question-input" className="sr-only">
+                Nhập câu hỏi gửi Trợ lý Khu phố 3
+              </label>
+              <input
                 id="ai-assistant-question-input"
                 name="aiQuestion"
-                type="text" 
-                placeholder="Nhập câu hỏi của bạn tại đây (ví dụ: Làm sao đăng ký tạm trú)..."
+                type="text"
+                placeholder="Nhập câu hỏi (ví dụ: Tạm trú sắp hết hạn, số dư Quỹ, Tổ 1–14)..."
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && e.nativeEvent.isComposing) {
+                    e.preventDefault();
+                  }
+                }}
                 disabled={isLoading}
-                className="flex-1 bg-slate-900 border border-slate-800 text-slate-200 text-sm px-4 py-2.5 rounded-xl focus:outline-none focus:border-emerald-500 disabled:opacity-50"
+                className="flex-1 h-11 md:h-10 bg-white border border-slate-300 text-slate-900 text-sm px-3.5 rounded-lg placeholder:text-slate-500 focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-500/20 disabled:opacity-60"
               />
-              <button 
+              <Button
                 type="submit"
+                variant="emerald"
+                size="form"
                 disabled={isLoading || !input.trim()}
-                className="bg-emerald-600 hover:bg-emerald-500 disabled:bg-slate-800 text-white p-2.5 rounded-xl transition-all cursor-pointer shadow-md disabled:cursor-not-allowed"
+                leftIcon={<Send size={16} />}
               >
-                <Send size={18} />
-              </button>
+                Gửi
+              </Button>
             </form>
           </div>
-        </div>
+        </section>
 
-        {/* Right FAQ panel */}
-        <div className="lg:col-span-1 space-y-4">
-          <div className="bg-white rounded-xl border border-slate-100 shadow-sm p-4 space-y-3.5">
-            <div className="flex items-center gap-2 border-b border-slate-50 pb-2">
-              <HelpCircle size={16} className="text-emerald-600" />
-              <h3 className="font-bold text-slate-800 text-xs uppercase tracking-wider">Gợi ý Câu Hỏi Thường Gặp</h3>
+        {/* Right FAQ Panel */}
+        <aside className="lg:col-span-1 space-y-4">
+          <div className="bg-white rounded-xl border border-slate-200 p-4 space-y-3">
+            <div className="flex items-center gap-2 border-b border-slate-200 pb-2.5">
+              <HelpCircle size={16} className="text-emerald-700" aria-hidden="true" />
+              <h2 className="font-bold text-slate-900 text-xs uppercase tracking-wider">
+                Câu hỏi gợi ý
+              </h2>
             </div>
-            
+
             <div className="flex flex-col gap-2">
               {sampleQuestions.map((q, i) => (
                 <button
-                  key={i}
+                  key={q}
                   id={`faq-${i}`}
+                  type="button"
                   onClick={() => handleSend(q)}
                   disabled={isLoading}
-                  className="w-full text-left p-3 rounded-lg border border-slate-100 hover:bg-slate-50 hover:border-emerald-500/30 transition-all text-xs font-semibold text-slate-700 leading-relaxed cursor-pointer"
+                  className="w-full text-left p-3 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 hover:border-emerald-600 transition-colors text-xs font-semibold text-slate-800 leading-relaxed cursor-pointer disabled:opacity-60"
                 >
                   {q}
                 </button>
@@ -266,16 +425,36 @@ export default function AiAssistant() {
             </div>
           </div>
 
-          <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 flex gap-3 text-xs leading-relaxed text-amber-900">
-            <AlertCircle size={18} className="text-amber-600 shrink-0 mt-0.5" />
+          <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 flex gap-3 text-xs leading-relaxed text-amber-950">
+            <AlertCircle size={18} className="text-amber-700 shrink-0 mt-0.5" aria-hidden="true" />
             <div>
-              <span className="font-bold block text-amber-950">Chế độ đồng bộ Dân cư</span>
-              <span>Trợ lý AI được tích hợp trực tiếp dữ liệu nhân tịch nội bộ. Mọi thông tin phản hồi đều tuân thủ chặt chẽ theo Luật Cư Trú mới nhất.</span>
+              <span className="font-bold block">Đồng bộ dữ liệu KP3</span>
+              <span>
+                Câu trả lời tham chiếu trực tiếp số liệu nhân khẩu, phản ánh 1022, nhiệm vụ và Quỹ khu phố hiện hành.
+              </span>
             </div>
           </div>
-        </div>
-
+        </aside>
       </div>
+
+      <ConfirmModal
+        isOpen={showClearConfirm}
+        onClose={() => setShowClearConfirm(false)}
+        onConfirm={() => {
+          setMessages([
+            {
+              role: "assistant",
+              content: "Hội thoại đã được làm mới. Anh/chị cần tra cứu thêm nội dung gì về Khu phố 3?",
+              source: "kp3-local",
+            },
+          ]);
+          setShowClearConfirm(false);
+        }}
+        title="Làm mới lịch sử trò chuyện"
+        description="Bạn có muốn xóa các tin nhắn hiện tại để bắt đầu phiên hỏi đáp mới?"
+        confirmLabel="Làm mới"
+        variant="primary"
+      />
     </div>
   );
 }

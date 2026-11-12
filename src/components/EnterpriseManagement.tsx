@@ -56,6 +56,10 @@ import { DetailRow, DetailGrid } from "./common/DetailRow";
 import { formatVNNumber } from "../utils/numberFormat";
 import PageHeader from "./common/PageHeader";
 import StatCard from "./common/StatCard";
+import { ReportSelect } from "./reports/ReportSelect";
+import { ConfirmModal, InlineNotice } from "./ui/ConfirmModal";
+import { Modal } from "./ui/Modal";
+import { KP3_TO_LIST, extractToDanPho, formatShortRecordId } from "../utils/kp3Utils";
 
 interface EnterpriseManagementProps {
   businesses: Business[];
@@ -161,11 +165,11 @@ export default function EnterpriseManagement({
   const [showAddModal, setShowAddModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [showChangeLogModal, setShowChangeLogModal] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   // GIS Coordinate Pinning & Navigation Modal States
   const [gisPinModalEnterprise, setGisPinModalEnterprise] = useState<Business | null>(null);
   const [gisPinInput, setGisPinInput] = useState("");
-  const [gisPinToast, setGisPinToast] = useState<string | null>(null);
 
   const handleDirections = (ent: Business) => {
     let coords = ent.coordinates;
@@ -202,7 +206,7 @@ export default function EnterpriseManagement({
     if (!gisPinModalEnterprise) return;
     const finalCoord = gisPinInput.trim();
     if (!finalCoord) {
-      alert("Vui lòng nhập hoặc lấy tọa độ GIS!");
+      showToast("Vui lòng nhập hoặc lấy tọa độ GIS!", "warning");
       return;
     }
 
@@ -225,8 +229,7 @@ export default function EnterpriseManagement({
         navigateRoute: true
       });
     } else {
-      setGisPinToast(`Đã đồng bộ tọa độ ${updated.name} lên bản đồ GIS!`);
-      setTimeout(() => setGisPinToast(null), 3500);
+      showToast(`Đã đồng bộ tọa độ ${updated.name} lên bản đồ GIS!`, "success");
     }
   };
 
@@ -235,6 +238,7 @@ export default function EnterpriseManagement({
   const [typeFilter, setTypeFilter] = useState<string>("Tất cả");
   const [scaleFilter, setScaleFilter] = useState<string>("Tất cả");
   const [streetFilter, setStreetFilter] = useState<string>("Tất cả");
+  const [toFilter, setToFilter] = useState<string>("Tất cả");
   const [statusFilter, setStatusFilter] = useState<string>("Tất cả");
   const [viewMode, setViewMode] = useState<"card" | "table">("card");
   const [currentPage, setCurrentPage] = useState(1);
@@ -434,6 +438,11 @@ export default function EnterpriseManagement({
         if (street !== streetFilter) return false;
       }
 
+      // To Dan Pho filter
+      if (toFilter !== "Tất cả") {
+        if (extractToDanPho(item.address) !== toFilter) return false;
+      }
+
       // Status filter
       if (statusFilter !== "Tất cả") {
         if (item.status !== statusFilter) return false;
@@ -441,12 +450,12 @@ export default function EnterpriseManagement({
 
       return true;
     });
-  }, [enterprises, searchTerm, typeFilter, scaleFilter, streetFilter, statusFilter]);
+  }, [enterprises, searchTerm, typeFilter, scaleFilter, streetFilter, toFilter, statusFilter]);
 
   // Reset page when filters change
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchTerm, typeFilter, scaleFilter, streetFilter, statusFilter]);
+  }, [searchTerm, typeFilter, scaleFilter, streetFilter, toFilter, statusFilter]);
 
   // Pagination
   const totalItems = filteredEnterprises.length;
@@ -542,13 +551,17 @@ export default function EnterpriseManagement({
   // Handle Delete Enterprise
   const handleDeleteEnterprise = () => {
     if (!selectedEnterprise) return;
-    if (confirm(`Bạn có chắc chắn muốn xóa hồ sơ doanh nghiệp "${selectedEnterprise.name}" khỏi hệ thống?`)) {
-      if (onUpdateBusinesses) {
-        onUpdateBusinesses(businesses.filter(b => b.id !== selectedEnterprise.id));
-      }
-      setShowDetailModal(false);
-      showToast("Đã xóa hồ sơ doanh nghiệp thành công", "success");
+    setShowDeleteConfirm(true);
+  };
+
+  const confirmDeleteEnterprise = () => {
+    if (!selectedEnterprise) return;
+    if (onUpdateBusinesses) {
+      onUpdateBusinesses(businesses.filter(b => b.id !== selectedEnterprise.id));
     }
+    setShowDeleteConfirm(false);
+    setShowDetailModal(false);
+    showToast("Đã xóa hồ sơ doanh nghiệp thành công", "success");
   };
 
   // Handle Add Enterprise
@@ -842,7 +855,7 @@ export default function EnterpriseManagement({
             <button
               type="button"
               onClick={() => setShowAddModal(true)}
-              className="flex items-center gap-2 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white px-4 py-2 rounded-xl font-bold text-xs sm:text-sm transition-all shadow-xs cursor-pointer"
+              className="flex items-center gap-2 min-h-[40px] bg-emerald-700 hover:bg-emerald-800 text-white px-4 py-2 rounded-xl font-bold text-xs sm:text-sm transition-colors cursor-pointer whitespace-nowrap"
             >
               <Plus size={16} /> Đăng ký Doanh nghiệp Mới
             </button>
@@ -850,21 +863,21 @@ export default function EnterpriseManagement({
         }
       />
 
-      {/* Main Subsystem Tabs - Compact & Collapsible */}
+      {/* Main Subsystem Tabs - Flat Hairline, responsive wrap */}
       {!isSubTabsHidden && (
-        <div className="flex items-center justify-between gap-2 bg-slate-100/90 p-1 rounded-xl border border-slate-200/90 shadow-2xs transition-all">
-          <div className="flex items-center gap-1 overflow-x-auto">
+        <div className="flex flex-wrap items-center justify-between gap-2 bg-slate-100/90 p-1.5 rounded-xl border border-slate-200 transition-all">
+          <div className="flex flex-wrap items-center gap-1.5 min-w-0">
             <button
               type="button"
               onClick={() => setActiveMainTab("list")}
-              className={`px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer whitespace-nowrap ${activeMainTab === "list"
-                  ? "bg-white text-indigo-900 shadow-2xs border border-slate-200/50"
-                  : "text-slate-600 hover:text-slate-900 hover:bg-white/60"
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer ${activeMainTab === "list"
+                  ? "bg-white text-indigo-800 border border-slate-200"
+                  : "text-slate-600 hover:text-slate-900 hover:bg-white/70"
                 }`}
             >
-              <Building2 size={14} className={activeMainTab === "list" ? "text-indigo-600" : "text-slate-400"} />
+              <Building2 size={14} className={activeMainTab === "list" ? "text-indigo-600" : "text-slate-500"} />
               <span>Danh mục Doanh nghiệp & Hồ sơ DNNVV</span>
-              <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-extrabold ${activeMainTab === "list" ? "bg-indigo-50 text-indigo-700" : "bg-slate-200 text-slate-600"
+              <span className={`text-xs px-2 py-0.5 rounded-full font-bold ${activeMainTab === "list" ? "bg-indigo-50 text-indigo-700 border border-indigo-200" : "bg-slate-200 text-slate-700"
                 }`}>
                 {formatVNNumber(enterprises.length)}
               </span>
@@ -873,14 +886,14 @@ export default function EnterpriseManagement({
             <button
               type="button"
               onClick={() => setActiveMainTab("economicReport")}
-              className={`px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer whitespace-nowrap ${activeMainTab === "economicReport"
-                  ? "bg-gradient-to-r from-indigo-600 to-blue-600 text-white shadow-2xs"
-                  : "text-slate-600 hover:text-slate-900 hover:bg-white/60"
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer ${activeMainTab === "economicReport"
+                  ? "bg-white text-indigo-800 border border-indigo-200"
+                  : "text-slate-600 hover:text-slate-900 hover:bg-white/70"
                 }`}
             >
-              <FileText size={14} className={activeMainTab === "economicReport" ? "text-white" : "text-slate-400"} />
+              <FileText size={14} className={activeMainTab === "economicReport" ? "text-indigo-600" : "text-slate-500"} />
               <span>Báo cáo Kinh tế Địa bàn & Biến động</span>
-              <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-extrabold ${activeMainTab === "economicReport" ? "bg-white/20 text-white" : "bg-slate-200 text-slate-600"
+              <span className={`text-xs px-2 py-0.5 rounded-full font-bold ${activeMainTab === "economicReport" ? "bg-indigo-50 text-indigo-700 border border-indigo-200" : "bg-slate-200 text-slate-700"
                 }`}>
                 Bí thư / Trưởng KP
               </span>
@@ -891,10 +904,10 @@ export default function EnterpriseManagement({
           <button
             type="button"
             onClick={toggleSubTabs}
-            className="flex items-center gap-1 text-[11px] font-semibold text-slate-500 hover:text-slate-800 px-2.5 py-1 rounded-lg hover:bg-white/80 transition-all cursor-pointer shrink-0"
+            className="min-h-[36px] flex items-center gap-1 text-xs font-semibold text-slate-600 hover:text-slate-900 px-2.5 py-1.5 rounded-lg hover:bg-white/80 transition-colors cursor-pointer shrink-0 whitespace-nowrap"
             title="Ẩn thanh tab này để mở rộng không gian làm việc"
           >
-            <EyeOff size={13} className="text-slate-400" />
+            <EyeOff size={13} className="text-slate-500" />
             <span className="hidden sm:inline">Ẩn thanh này</span>
           </button>
         </div>
@@ -1006,73 +1019,87 @@ export default function EnterpriseManagement({
             </div>
 
             {/* Filter pills */}
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-2 border-t border-slate-100 text-xs">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-2.5 pt-2.5 border-t border-slate-100 text-xs">
               <div>
-                <label htmlFor="enterprise-type-filter" className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">Loại hình DN</label>
-                <select
-                  id="enterprise-type-filter"
-                  name="enterpriseTypeFilter"
+                <label className="text-xs font-semibold text-slate-600 block mb-1">Loại hình DN</label>
+                <ReportSelect
+                  aria-label="Loại hình DN"
                   value={typeFilter}
-                  onChange={(e) => setTypeFilter(e.target.value)}
-                  className="w-full px-2.5 py-1.5 border border-slate-200 rounded-lg bg-white text-slate-700 font-medium focus:outline-none focus:border-indigo-500 text-xs"
-                >
-                  <option value="Tất cả">Tất cả loại hình</option>
-                  <option value="Công ty TNHH">Công ty TNHH</option>
-                  <option value="Công ty Cổ phần">Công ty Cổ phần</option>
-                  <option value="Doanh nghiệp tư nhân">Doanh nghiệp tư nhân</option>
-                  <option value="Cơ sở kinh doanh khác">Cơ sở khác</option>
-                </select>
+                  onChange={(nextVal) => setTypeFilter(nextVal)}
+                  options={[
+                    { value: "Tất cả", label: "Tất cả loại hình" },
+                    { value: "Công ty TNHH", label: "Công ty TNHH" },
+                    { value: "Công ty Cổ phần", label: "Công ty Cổ phần" },
+                    { value: "Doanh nghiệp tư nhân", label: "Doanh nghiệp tư nhân" },
+                    { value: "Cơ sở kinh doanh khác", label: "Cơ sở khác" },
+                  ]}
+                  className="w-full"
+                />
               </div>
 
               <div>
-                <label htmlFor="enterprise-scale-filter" className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">Quy mô lao động (NĐ 80)</label>
-                <select
-                  id="enterprise-scale-filter"
-                  name="enterpriseScaleFilter"
+                <label className="text-xs font-semibold text-slate-600 block mb-1">Quy mô lao động (NĐ 80)</label>
+                <ReportSelect
+                  aria-label="Quy mô lao động (NĐ 80)"
                   value={scaleFilter}
-                  onChange={(e) => setScaleFilter(e.target.value)}
-                  className="w-full px-2.5 py-1.5 border border-slate-200 rounded-lg bg-white text-slate-700 font-medium focus:outline-none focus:border-indigo-500 text-xs"
-                >
-                  <option value="Tất cả">Tất cả quy mô</option>
-                  <option value="Siêu nhỏ (< 5 LĐ)">Siêu nhỏ (&lt; 5 LĐ)</option>
-                  <option value="Nhỏ (5 - 20 LĐ)">Nhỏ (5 - 20 LĐ)</option>
-                  <option value="Vừa (20 - 50 LĐ)">Vừa (20 - 50 LĐ)</option>
-                  <option value="Lớn (> 50 LĐ)">Lớn (&gt; 50 LĐ)</option>
-                </select>
+                  onChange={(nextVal) => setScaleFilter(nextVal)}
+                  options={[
+                    { value: "Tất cả", label: "Tất cả quy mô" },
+                    { value: "Siêu nhỏ (< 5 LĐ)", label: "Siêu nhỏ (< 5 LĐ)" },
+                    { value: "Nhỏ (5 - 20 LĐ)", label: "Nhỏ (5 - 20 LĐ)" },
+                    { value: "Vừa (20 - 50 LĐ)", label: "Vừa (20 - 50 LĐ)" },
+                    { value: "Lớn (> 50 LĐ)", label: "Lớn (> 50 LĐ)" },
+                  ]}
+                  className="w-full"
+                />
               </div>
 
               <div>
-                <label htmlFor="enterprise-street-filter" className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">Tuyến đường</label>
-                <select
-                  id="enterprise-street-filter"
-                  name="enterpriseStreetFilter"
+                <label className="text-xs font-semibold text-slate-600 block mb-1">Tuyến đường</label>
+                <ReportSelect
+                  aria-label="Tuyến đường"
                   value={streetFilter}
-                  onChange={(e) => setStreetFilter(e.target.value)}
-                  className="w-full px-2.5 py-1.5 border border-slate-200 rounded-lg bg-white text-slate-700 font-medium focus:outline-none focus:border-indigo-500 text-xs"
-                >
-                  <option value="Tất cả">Tất cả tuyến đường</option>
-                  <option value="Mặt tiền Lương Định Của">Mặt tiền Lương Định Của</option>
-                  <option value="Hẻm 42 Lương Định Của">Hẻm 42 Lương Định Của</option>
-                  <option value="Hẻm 18 Lương Định Của">Hẻm 18 Lương Định Của</option>
-                  <option value="Khu dân cư nội bộ KP3">KDC nội bộ KP3</option>
-                </select>
+                  onChange={(nextVal) => setStreetFilter(nextVal)}
+                  options={[
+                    { value: "Tất cả", label: "Tất cả tuyến đường" },
+                    { value: "Mặt tiền Lương Định Của", label: "Mặt tiền Lương Định Của" },
+                    { value: "Hẻm 42 Lương Định Của", label: "Hẻm 42 Lương Định Của" },
+                    { value: "Hẻm 18 Lương Định Của", label: "Hẻm 18 Lương Định Của" },
+                    { value: "Khu dân cư nội bộ KP3", label: "KDC nội bộ KP3" },
+                  ]}
+                  className="w-full"
+                />
               </div>
 
               <div>
-                <label htmlFor="enterprise-status-filter" className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">Trạng thái</label>
-                <select
-                  id="enterprise-status-filter"
-                  name="enterpriseStatusFilter"
+                <label className="text-xs font-semibold text-slate-600 block mb-1">Tổ dân phố (KP3)</label>
+                <ReportSelect
+                  aria-label="Tổ dân phố KP3"
+                  value={toFilter}
+                  onChange={(nextVal) => setToFilter(nextVal)}
+                  options={[
+                    { value: "Tất cả", label: "Tất cả 14 Tổ KP3" },
+                    ...KP3_TO_LIST.map((to) => ({ value: to, label: to })),
+                  ]}
+                  className="w-full"
+                />
+              </div>
+
+              <div>
+                <label className="text-xs font-semibold text-slate-600 block mb-1">Trạng thái</label>
+                <ReportSelect
+                  aria-label="Trạng thái"
                   value={statusFilter}
-                  onChange={(e) => setStatusFilter(e.target.value)}
-                  className="w-full px-2.5 py-1.5 border border-slate-200 rounded-lg bg-white text-slate-700 font-medium focus:outline-none focus:border-indigo-500 text-xs"
-                >
-                  <option value="Tất cả">Tất cả trạng thái</option>
-                  <option value="Đang hoạt động">Đang hoạt động</option>
-                  <option value="Chờ duyệt">Chờ duyệt</option>
-                  <option value="Tạm ngưng">Tạm ngưng</option>
-                  <option value="Chuyển địa điểm">Chuyển địa điểm</option>
-                </select>
+                  onChange={(nextVal) => setStatusFilter(nextVal)}
+                  options={[
+                    { value: "Tất cả", label: "Tất cả trạng thái" },
+                    { value: "Đang hoạt động", label: "Đang hoạt động" },
+                    { value: "Chờ duyệt", label: "Chờ duyệt" },
+                    { value: "Tạm ngưng", label: "Tạm ngưng" },
+                    { value: "Chuyển địa điểm", label: "Chuyển địa điểm" },
+                  ]}
+                  className="w-full"
+                />
               </div>
             </div>
           </div>
@@ -1103,7 +1130,7 @@ export default function EnterpriseManagement({
             </div>
           ) : viewMode === "card" ? (
             /* Card Grid View */
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4 gap-4">
               {paginatedEnterprises.map((ent) => {
                 const scale = getEnterpriseScaleLabel(ent);
                 const foreigners = ent.foreignWorkersCount || (ent.foreignWorkers?.length || 0);
@@ -1112,47 +1139,46 @@ export default function EnterpriseManagement({
                   <div
                     key={ent.id}
                     onClick={() => handleOpenDetailModal(ent)}
-                    className="bg-white rounded-2xl border border-slate-200/90 shadow-2xs hover:shadow-md hover:border-indigo-300 transition-all duration-200 flex flex-col justify-between overflow-hidden cursor-pointer group"
+                    className="bg-white rounded-2xl border border-slate-200 hover:border-indigo-300 transition-colors flex flex-col justify-between cursor-pointer group"
                   >
                     <div className="p-3.5 space-y-3">
                       {/* 1. Header with Badges: Loại hình & Trạng thái */}
-                      <div className="flex items-center justify-between gap-2">
-                        <span className="text-[10.5px] font-bold px-2.5 py-0.5 rounded-full border bg-indigo-50 text-indigo-800 border-indigo-200/80 flex items-center gap-1.5 shadow-2xs shrink-0 truncate max-w-[65%]">
+                      <div className="flex flex-wrap items-center justify-between gap-1.5 min-w-0">
+                        <span className="text-xs font-bold px-2.5 py-0.5 rounded-full border bg-indigo-50 text-indigo-800 border-indigo-200 flex items-center gap-1.5 min-w-0 max-w-full">
                           <Building2 size={12} className="text-indigo-600 shrink-0" />
                           <span className="truncate">{ent.businessType || "Công ty TNHH"}</span>
                         </span>
-                        <span className={`text-[10.5px] font-bold px-2.5 py-0.5 rounded-full border flex items-center gap-1.5 shrink-0 whitespace-nowrap ${ent.status === "Đang hoạt động" ? "bg-emerald-50 text-emerald-800 border-emerald-200" :
+                        <span className={`text-xs font-bold px-2.5 py-0.5 rounded-full border flex items-center gap-1.5 shrink-0 ${ent.status === "Đang hoạt động" ? "bg-emerald-50 text-emerald-800 border-emerald-200" :
                             ent.status === "Chờ duyệt" ? "bg-amber-50 text-amber-800 border-amber-200" :
                               "bg-rose-50 text-rose-800 border-rose-200"
                           }`}>
-                          <span className={`w-1.5 h-1.5 rounded-full ${ent.status === "Đang hoạt động" ? "bg-emerald-500 animate-pulse" : ent.status === "Tạm ngưng" ? "bg-rose-500" : "bg-amber-500"}`} />
+                          <span className={`w-1.5 h-1.5 rounded-full ${ent.status === "Đang hoạt động" ? "bg-emerald-500" : ent.status === "Tạm ngưng" ? "bg-rose-500" : "bg-amber-500"}`} />
                           <span>{ent.status}</span>
                         </span>
                       </div>
 
-                      {/* 2. Image Thumbnail (Hiển thị hình ảnh tương tự cơ sở kinh doanh) */}
-                      <div className="relative h-32 rounded-xl overflow-hidden bg-slate-100 border border-slate-200/70 shadow-inner">
+                      {/* 2. Image Thumbnail */}
+                      <div className="relative h-32 rounded-xl overflow-hidden bg-slate-100 border border-slate-200">
                         <img
                           src={getEnterpriseImage(ent)}
                           alt={ent.name}
-                          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                          className="w-full h-full object-cover"
                           onError={(e) => {
                             (e.target as HTMLImageElement).src = "https://images.unsplash.com/photo-1497366216548-37526070297c?w=500";
                           }}
                         />
-                        <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-black/15 pointer-events-none" />
 
                         {/* Mã doanh nghiệp đặt góc trên phải ảnh */}
                         <div className="absolute top-2 right-2">
-                          <span className="text-[10px] font-mono font-semibold px-2 py-0.5 rounded-md bg-black/60 text-white backdrop-blur-xs shadow-xs border border-white/20">
+                          <span className="text-xs font-mono font-semibold px-2 py-0.5 rounded-md bg-white/95 text-slate-800 border border-slate-200">
                             {ent.internalCode || `DN-KP3-${ent.id}`}
                           </span>
                         </div>
 
                         {/* Quy mô doanh nghiệp ở góc dưới trái ảnh */}
                         <div className="absolute bottom-2 left-2">
-                          <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-indigo-700/90 text-white backdrop-blur-xs flex items-center gap-1 shadow-xs">
-                            <Briefcase size={11} /> {scale}
+                          <span className="text-xs font-bold px-2 py-0.5 rounded-md bg-white/95 text-indigo-800 border border-indigo-200 flex items-center gap-1">
+                            <Briefcase size={11} className="text-indigo-600" /> {scale}
                           </span>
                         </div>
                       </div>
@@ -1163,40 +1189,46 @@ export default function EnterpriseManagement({
                           {ent.name}
                         </h3>
                         {/* MST & Scale */}
-                        <div className="flex items-center justify-between text-[11px] pb-2 border-b border-slate-100">
-                          <span className="text-slate-500 font-mono">
+                        <div className="flex flex-wrap items-center justify-between gap-1 text-xs pb-2 border-b border-slate-100">
+                          <span className="text-slate-600 font-mono">
                             MST: <strong className="text-slate-800">{ent.taxCode || "Đang xác minh"}</strong>
                           </span>
-                          <span className="font-semibold text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded-full text-[10px]">
-                            {scale}
-                          </span>
+                          {extractToDanPho(ent.address) ? (
+                            <span className="font-semibold text-slate-700 bg-slate-100 px-2 py-0.5 rounded-full text-xs border border-slate-200">
+                              {extractToDanPho(ent.address)}
+                            </span>
+                          ) : (
+                            <span className="font-semibold text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded-full text-xs">
+                              {scale}
+                            </span>
+                          )}
                         </div>
 
                         {/* Representatives */}
-                        <div className="space-y-1 text-slate-600">
-                          <div className="flex items-center gap-1.5 truncate">
-                            <User size={13} className="text-slate-400 shrink-0" />
+                        <div className="space-y-1 text-slate-600 text-xs">
+                          <div className="flex items-center gap-1.5 min-w-0">
+                            <User size={13} className="text-slate-500 shrink-0" />
                             <span className="truncate">ĐDPL: <strong className="text-slate-800">{ent.legalRepresentative || ent.owner}</strong></span>
                           </div>
-                          <div className="flex items-center gap-1.5 truncate text-[11px]">
-                            <Phone size={13} className="text-slate-400 shrink-0" />
+                          <div className="flex items-center gap-1.5 min-w-0">
+                            <Phone size={13} className="text-slate-500 shrink-0" />
                             <span className="font-mono text-slate-700">{ent.legalRepPhone || ent.phone}</span>
                           </div>
-                          <div className="flex items-center gap-1.5 truncate text-[11px]">
-                            <MapPin size={13} className="text-slate-400 shrink-0" />
-                            <span className="truncate text-slate-500">{ent.address}</span>
+                          <div className="flex items-center gap-1.5 min-w-0">
+                            <MapPin size={13} className="text-slate-500 shrink-0" />
+                            <span className="truncate text-slate-600">{ent.address}</span>
                           </div>
                         </div>
 
                         {/* Foreigner and Support badges */}
                         <div className="flex flex-wrap gap-1 pt-1">
                           {foreigners > 0 && (
-                            <span className="text-[10px] font-bold text-rose-700 bg-rose-50 px-2 py-0.5 rounded-full border border-rose-200 flex items-center gap-1">
+                            <span className="text-xs font-bold text-rose-700 bg-rose-50 px-2 py-0.5 rounded-full border border-rose-200 flex items-center gap-1">
                               <Globe size={11} /> {foreigners} LĐ nước ngoài
                             </span>
                           )}
                           {(ent.supportNeeds && ent.supportNeeds.length > 0) && (
-                            <span className="text-[10px] font-bold text-amber-700 bg-amber-50 px-2 py-0.5 rounded-full border border-amber-200 flex items-center gap-1">
+                            <span className="text-xs font-bold text-amber-800 bg-amber-50 px-2 py-0.5 rounded-full border border-amber-200 flex items-center gap-1">
                               <HelpCircle size={11} /> Có đề xuất hỗ trợ
                             </span>
                           )}
@@ -1205,33 +1237,34 @@ export default function EnterpriseManagement({
                     </div>
 
                     {/* Card Footer */}
-                    <div className="p-3 bg-slate-50/70 border-t border-slate-100 flex items-center justify-between text-xs" onClick={(e) => e.stopPropagation()}>
+                    <div className="p-3 bg-slate-50/70 border-t border-slate-100 flex items-center justify-between gap-2 text-xs" onClick={(e) => e.stopPropagation()}>
                       <div className="flex items-center gap-1.5">
                         <button
                           type="button"
                           onClick={() => handleDirections(ent)}
-                          className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-[11px] font-bold flex items-center gap-1 transition-all cursor-pointer shadow-xs"
+                          className="min-h-[36px] px-2.5 py-1.5 bg-emerald-700 hover:bg-emerald-800 text-white rounded-lg text-xs font-bold flex items-center gap-1 transition-colors cursor-pointer whitespace-nowrap"
                           title="Dẫn đường tới doanh nghiệp trên bản đồ GIS"
                         >
-                          <Navigation size={11} />
+                          <Navigation size={12} />
                           <span>Dẫn đường</span>
                         </button>
                         <button
                           type="button"
                           onClick={() => openPinModal(ent)}
-                          className={`p-1 rounded-lg text-[11px] font-semibold flex items-center gap-0.5 border ${ent.coordinates
+                          className={`min-h-[36px] min-w-[36px] justify-center p-1.5 rounded-lg text-xs font-semibold flex items-center gap-0.5 border cursor-pointer ${ent.coordinates
                               ? "bg-indigo-50 text-indigo-700 border-indigo-200 hover:bg-indigo-100"
-                              : "bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-100"
+                              : "bg-amber-50 text-amber-800 border-amber-200 hover:bg-amber-100"
                             }`}
+                          aria-label={ent.coordinates ? `Tọa độ GIS: ${ent.coordinates}` : "Ghim tọa độ GIS"}
                           title={ent.coordinates ? `Tọa độ GIS: ${ent.coordinates}` : "Ghim tọa độ GIS"}
                         >
-                          <MapPin size={11} />
+                          <MapPin size={12} />
                         </button>
                       </div>
                       <button
                         type="button"
                         onClick={() => handleOpenDetailModal(ent)}
-                        className="text-indigo-600 font-bold hover:translate-x-0.5 transition-transform flex items-center gap-1 text-[11px] cursor-pointer"
+                        className="min-h-[36px] px-1.5 text-indigo-700 font-bold hover:underline flex items-center gap-1 text-xs cursor-pointer whitespace-nowrap shrink-0"
                       >
                         Hồ sơ chi tiết <ChevronRight size={13} />
                       </button>
@@ -1246,7 +1279,7 @@ export default function EnterpriseManagement({
               <div className="overflow-x-auto">
                 <table className="w-full text-left border-collapse text-xs">
                   <thead>
-                    <tr className="bg-slate-50 border-b border-slate-200 text-slate-600 font-bold uppercase tracking-wider text-[10.5px]">
+                    <tr className="bg-slate-50 border-b border-slate-200 text-slate-700 font-bold uppercase tracking-wider text-xs">
                       <th className="py-3 px-4">Doanh nghiệp / Đơn vị</th>
                       <th className="py-3 px-3">Mã nội bộ & MST</th>
                       <th className="py-3 px-3">Loại hình & Quy mô</th>
@@ -1281,38 +1314,38 @@ export default function EnterpriseManagement({
                               </div>
                               <div className="min-w-0">
                                 <strong className="text-slate-900 block font-bold truncate max-w-xs text-xs hover:text-indigo-600 transition-colors">{ent.name}</strong>
-                                <span className="text-[10px] text-slate-500 block truncate">{ent.address}</span>
+                                <span className="text-xs text-slate-600 block truncate">{ent.address}</span>
                               </div>
                             </div>
                           </td>
                           <td className="py-3 px-3">
-                            <span className="font-mono text-[11px] font-bold text-slate-800 block">{ent.internalCode || `DN-KP3-${ent.id}`}</span>
-                            <span className="font-mono text-[10px] text-slate-400 block">MST: {ent.taxCode || "N/A"}</span>
+                            <span className="font-mono text-xs font-bold text-slate-800 block">{ent.internalCode || `DN-KP3-${ent.id}`}</span>
+                            <span className="font-mono text-xs text-slate-500 block">MST: {ent.taxCode || "N/A"}</span>
                           </td>
                           <td className="py-3 px-3">
                             <span className="font-bold text-indigo-900 block">{ent.businessType || "Công ty TNHH"}</span>
-                            <span className="text-[10px] text-slate-500 block">{getEnterpriseScaleLabel(ent)}</span>
+                            <span className="text-xs text-slate-600 block">{getEnterpriseScaleLabel(ent)}</span>
                           </td>
                           <td className="py-3 px-3">
                             <strong className="text-slate-800 block">{ent.legalRepresentative || ent.owner}</strong>
-                            <span className="font-mono text-[10px] text-slate-500 block">{ent.legalRepPhone || ent.phone}</span>
+                            <span className="font-mono text-xs text-slate-600 block">{ent.legalRepPhone || ent.phone}</span>
                           </td>
                           <td className="py-3 px-3">
                             <strong className="text-blue-950 block">{ent.focalPointName || ent.owner}</strong>
-                            <span className="font-mono text-[10px] text-blue-700 block">{ent.focalPointPhone || ent.phone}</span>
+                            <span className="font-mono text-xs text-blue-700 block">{ent.focalPointPhone || ent.phone}</span>
                           </td>
                           <td className="py-3 px-3">
                             <span className="font-bold text-slate-800 block">{ent.employeeCount || 1} LĐ</span>
                             {foreigners > 0 ? (
-                              <span className="text-[10px] text-rose-600 font-bold block">{foreigners} người NN</span>
+                              <span className="text-xs text-rose-700 font-bold block">{foreigners} người NN</span>
                             ) : (
-                              <span className="text-[10px] text-slate-400 block">0 người NN</span>
+                              <span className="text-xs text-slate-500 block">0 người NN</span>
                             )}
                           </td>
                           <td className="py-3 px-3">
-                            <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${ent.status === "Đang hoạt động" ? "bg-emerald-100 text-emerald-800" :
-                                ent.status === "Chờ duyệt" ? "bg-amber-100 text-amber-800" :
-                                  "bg-rose-100 text-rose-800"
+                            <span className={`text-xs font-bold px-2.5 py-0.5 rounded-full border ${ent.status === "Đang hoạt động" ? "bg-emerald-50 text-emerald-800 border-emerald-200" :
+                                ent.status === "Chờ duyệt" ? "bg-amber-50 text-amber-800 border-amber-200" :
+                                  "bg-rose-50 text-rose-800 border-rose-200"
                               }`}>
                               {ent.status}
                             </span>
@@ -1322,19 +1355,20 @@ export default function EnterpriseManagement({
                               <button
                                 type="button"
                                 onClick={() => handleDirections(ent)}
-                                className="px-2 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-bold text-[11px] flex items-center gap-1 transition-colors cursor-pointer shadow-xs"
+                                className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-bold text-xs flex items-center gap-1 transition-colors cursor-pointer"
                                 title="Chỉ đường tới doanh nghiệp trên bản đồ GIS"
                               >
-                                <Navigation size={11} />
+                                <Navigation size={12} />
                                 <span className="hidden sm:inline">Chỉ đường</span>
                               </button>
                               <button
                                 type="button"
                                 onClick={() => openPinModal(ent)}
-                                className={`p-1 rounded-lg text-[11px] font-semibold border ${ent.coordinates
+                                className={`p-1.5 rounded-lg text-xs font-semibold border cursor-pointer ${ent.coordinates
                                     ? "bg-indigo-50 text-indigo-700 border-indigo-200 hover:bg-indigo-100"
-                                    : "bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-100"
+                                    : "bg-amber-50 text-amber-800 border-amber-200 hover:bg-amber-100"
                                   }`}
+                                aria-label={ent.coordinates ? `Đã ghim: ${ent.coordinates}` : "Ghim tọa độ GIS"}
                                 title={ent.coordinates ? `Đã ghim: ${ent.coordinates}` : "Ghim tọa độ GIS"}
                               >
                                 <MapPin size={12} />
@@ -1342,7 +1376,7 @@ export default function EnterpriseManagement({
                               <button
                                 type="button"
                                 onClick={() => handleOpenDetailModal(ent)}
-                                className="px-2.5 py-1 bg-white hover:bg-indigo-50 text-indigo-700 border border-indigo-200 rounded-lg font-bold text-[11px] transition-colors cursor-pointer"
+                                className="px-2.5 py-1 bg-white hover:bg-indigo-50 text-indigo-700 border border-indigo-200 rounded-lg font-bold text-xs transition-colors cursor-pointer"
                               >
                                 Hồ sơ
                               </button>
@@ -1370,35 +1404,35 @@ export default function EnterpriseManagement({
       ) : (
         /* VIEW 2: BÁO CÁO KINH TẾ ĐỊA BÀN & BIẾN ĐỘNG DOANH NGHIỆP KP3 */
         <div id="enterprise-report-view" className="space-y-6">
-          {/* Executive Header Banner */}
-          <div className="bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 text-white p-6 rounded-2xl shadow-md border border-slate-800 space-y-4">
+          {/* Executive Header Banner - Flat Hairline Light */}
+          <div className="bg-white text-slate-900 p-5 sm:p-6 rounded-2xl border border-slate-200 space-y-4">
             <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
               <div className="space-y-1">
                 <div className="flex items-center gap-2">
-                  <span className="p-1.5 bg-indigo-500/20 text-indigo-400 rounded-lg">
-                    <FileText size={20} />
+                  <span className="p-2 bg-indigo-50 text-indigo-700 border border-indigo-200 rounded-xl">
+                    <FileText size={18} />
                   </span>
-                  <h2 className="text-xl sm:text-2xl font-black tracking-tight text-white">
+                  <h2 className="text-lg sm:text-xl font-bold tracking-tight text-slate-900">
                     Báo cáo Tình hình Hoạt động Kinh tế & Biến động Doanh nghiệp KP3
                   </h2>
                 </div>
-                <p className="text-xs sm:text-sm text-slate-300">
+                <p className="text-xs sm:text-sm text-slate-600">
                   Dành cho Cấp ủy Chi bộ, Trưởng khu phố và Cán bộ phụ trách địa bàn • Cập nhật: Tháng 10/2026
                 </p>
-                <div className="flex flex-wrap items-center gap-2 pt-1 text-[11px] text-slate-400">
-                  <span className="bg-indigo-500/20 text-indigo-300 px-2.5 py-0.5 rounded-full border border-indigo-400/30 font-semibold">
-                    ✓ Phục vụ công tác địa bàn KP3
+                <div className="flex flex-wrap items-center gap-2 pt-1 text-xs text-slate-600">
+                  <span className="bg-indigo-50 text-indigo-800 px-2.5 py-0.5 rounded-full border border-indigo-200 font-semibold">
+                    Phục vụ công tác địa bàn KP3
                   </span>
                   <span>•</span>
                   <span>Không thay thế hệ thống đăng ký doanh nghiệp, thuế hoặc lao động chuyên ngành</span>
                 </div>
               </div>
 
-              <div className="flex flex-wrap items-center gap-2.5 shrink-0">
+              <div className="flex flex-wrap items-center gap-2 shrink-0">
                 <button
                   type="button"
                   onClick={() => window.print()}
-                  className="flex items-center gap-1.5 bg-white/10 hover:bg-white/20 text-white px-3.5 py-2 rounded-xl text-xs sm:text-sm font-bold border border-white/20 transition-all cursor-pointer"
+                  className="flex items-center gap-1.5 bg-white hover:bg-slate-50 text-slate-700 px-3.5 py-2 rounded-xl text-xs sm:text-sm font-bold border border-slate-200 transition-colors cursor-pointer"
                   title="In báo cáo dạng A4 / PDF"
                 >
                   <Printer size={15} /> In Báo cáo
@@ -1406,7 +1440,7 @@ export default function EnterpriseManagement({
                 <button
                   type="button"
                   onClick={handleExportCSV}
-                  className="flex items-center gap-1.5 bg-indigo-600 hover:bg-indigo-700 text-white px-3.5 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all shadow-sm cursor-pointer"
+                  className="flex items-center gap-1.5 bg-indigo-600 hover:bg-indigo-700 text-white px-3.5 py-2 rounded-xl text-xs sm:text-sm font-bold transition-colors cursor-pointer"
                   title="Xuất file CSV báo cáo toàn diện"
                 >
                   <Download size={15} /> Xuất File Excel (CSV)
@@ -1414,7 +1448,7 @@ export default function EnterpriseManagement({
                 <button
                   type="button"
                   onClick={() => setActiveMainTab("list")}
-                  className="flex items-center gap-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 px-3.5 py-2 rounded-xl text-xs sm:text-sm font-semibold border border-slate-700 transition-all cursor-pointer"
+                  className="flex items-center gap-1.5 bg-slate-100 hover:bg-slate-200 text-slate-800 px-3.5 py-2 rounded-xl text-xs sm:text-sm font-semibold border border-slate-200 transition-colors cursor-pointer"
                 >
                   <List size={15} /> Danh mục doanh nghiệp
                 </button>
@@ -1422,43 +1456,43 @@ export default function EnterpriseManagement({
             </div>
 
             {/* Quick Metrics Bar */}
-            <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-6 gap-3 pt-3 border-t border-slate-800 text-xs">
-              <div className="bg-slate-800/60 p-3 rounded-xl border border-slate-700/60">
-                <span className="text-[10px] text-slate-400 block uppercase font-bold">Tổng doanh nghiệp</span>
-                <strong className="text-lg font-black text-white block mt-0.5">{enterprises.length}</strong>
-                <span className="text-[10px] text-emerald-400 font-semibold">100% có hồ sơ địa bàn</span>
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 pt-4 border-t border-slate-200 text-xs">
+              <div className="bg-slate-50 p-3 rounded-xl border border-slate-200">
+                <span className="text-xs text-slate-600 block font-semibold">Tổng doanh nghiệp</span>
+                <strong className="text-lg font-bold text-slate-900 block mt-0.5 tabular-nums">{enterprises.length}</strong>
+                <span className="text-xs text-emerald-700 font-semibold">100% có hồ sơ địa bàn</span>
               </div>
 
-              <div className="bg-slate-800/60 p-3 rounded-xl border border-indigo-500/40">
-                <span className="text-[10px] text-indigo-300 block uppercase font-bold">Công ty TNHH</span>
-                <strong className="text-lg font-black text-indigo-200 block mt-0.5">{tnhhCount}</strong>
-                <span className="text-[10px] text-indigo-300">{((tnhhCount / (enterprises.length || 1)) * 100).toFixed(0)}% cơ cấu</span>
+              <div className="bg-indigo-50/60 p-3 rounded-xl border border-indigo-200">
+                <span className="text-xs text-indigo-800 block font-semibold">Công ty TNHH</span>
+                <strong className="text-lg font-bold text-indigo-950 block mt-0.5 tabular-nums">{tnhhCount}</strong>
+                <span className="text-xs text-indigo-700">{((tnhhCount / (enterprises.length || 1)) * 100).toFixed(0)}% cơ cấu</span>
               </div>
 
-              <div className="bg-slate-800/60 p-3 rounded-xl border border-teal-500/40">
-                <span className="text-[10px] text-teal-300 block uppercase font-bold">Cổ phần & DNTN</span>
-                <strong className="text-lg font-black text-teal-200 block mt-0.5">{cpCount + dntnCount}</strong>
-                <span className="text-[10px] text-teal-300">đơn vị độc lập</span>
+              <div className="bg-teal-50/60 p-3 rounded-xl border border-teal-200">
+                <span className="text-xs text-teal-800 block font-semibold">Cổ phần & DNTN</span>
+                <strong className="text-lg font-bold text-teal-950 block mt-0.5 tabular-nums">{cpCount + dntnCount}</strong>
+                <span className="text-xs text-teal-700">đơn vị độc lập</span>
               </div>
 
-              <div className="bg-slate-800/60 p-3 rounded-xl border border-purple-500/40">
-                <span className="text-[10px] text-purple-300 block uppercase font-bold">Tổng lao động</span>
-                <strong className="text-lg font-black text-purple-200 block mt-0.5">{totalEmployees}</strong>
-                <span className="text-[10px] text-purple-300">{totalForeignWorkers} nhân sự nước ngoài</span>
+              <div className="bg-purple-50/60 p-3 rounded-xl border border-purple-200">
+                <span className="text-xs text-purple-800 block font-semibold">Tổng lao động</span>
+                <strong className="text-lg font-bold text-purple-950 block mt-0.5 tabular-nums">{totalEmployees}</strong>
+                <span className="text-xs text-purple-700">{totalForeignWorkers} nhân sự nước ngoài</span>
               </div>
 
-              <div className="bg-slate-800/60 p-3 rounded-xl border border-amber-500/40">
-                <span className="text-[10px] text-amber-300 block uppercase font-bold">Có đề xuất hỗ trợ</span>
-                <strong className="text-lg font-black text-amber-200 block mt-0.5">{totalSupportNeeds}</strong>
-                <span className="text-[10px] text-amber-300">đề xuất tự nguyện</span>
+              <div className="bg-amber-50/60 p-3 rounded-xl border border-amber-200">
+                <span className="text-xs text-amber-900 block font-semibold">Có đề xuất hỗ trợ</span>
+                <strong className="text-lg font-bold text-amber-950 block mt-0.5 tabular-nums">{totalSupportNeeds}</strong>
+                <span className="text-xs text-amber-800">đề xuất tự nguyện</span>
               </div>
 
-              <div className="bg-slate-800/60 p-3 rounded-xl border border-emerald-500/40">
-                <span className="text-[10px] text-emerald-300 block uppercase font-bold">Đang hoạt động</span>
-                <strong className="text-lg font-black text-emerald-200 block mt-0.5">
+              <div className="bg-emerald-50/60 p-3 rounded-xl border border-emerald-200">
+                <span className="text-xs text-emerald-800 block font-semibold">Đang hoạt động</span>
+                <strong className="text-lg font-bold text-emerald-950 block mt-0.5 tabular-nums">
                   {enterprises.filter(e => e.status === "Đang hoạt động").length}
                 </strong>
-                <span className="text-[10px] text-emerald-300">ổn định địa bàn</span>
+                <span className="text-xs text-emerald-700">ổn định địa bàn</span>
               </div>
             </div>
           </div>
@@ -1568,22 +1602,22 @@ export default function EnterpriseManagement({
           </div>
 
           {/* Section 2: Danh bạ Người đại diện & Đầu mối công vụ */}
-          <div className="bg-white rounded-2xl border border-slate-200/90 shadow-2xs overflow-hidden">
-            <div className="p-4 sm:p-5 bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 text-white flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
+            <div className="p-4 sm:p-5 bg-slate-50 border-b border-slate-200 text-slate-900 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <div className="flex items-center gap-3">
-                <div className="w-9 h-9 rounded-xl bg-blue-500/20 text-blue-300 flex items-center justify-center shrink-0 border border-blue-400/30">
+                <div className="w-9 h-9 rounded-xl bg-blue-50 text-blue-700 flex items-center justify-center shrink-0 border border-blue-200">
                   <UserCheck size={18} />
                 </div>
                 <div>
-                  <h3 className="text-sm sm:text-base font-black text-white">
+                  <h3 className="text-sm sm:text-base font-bold text-slate-900">
                     3. Danh bạ Người đại diện pháp luật & Đầu mối Liên hệ Phối hợp Công vụ
                   </h3>
-                  <p className="text-xs text-slate-300 mt-0.5">
+                  <p className="text-xs text-slate-600 mt-0.5">
                     Phục vụ Cấp ủy Chi bộ, Ban Điều hành KP3 khi tổ chức khảo sát, tuyên truyền, an ninh trật tự & phòng cháy chữa cháy
                   </p>
                 </div>
               </div>
-              <span className="text-xs font-bold bg-white/10 px-3 py-1 rounded-lg border border-white/20 self-start sm:self-auto">
+              <span className="text-xs font-bold bg-white text-slate-700 px-3 py-1 rounded-lg border border-slate-200 self-start sm:self-auto">
                 {enterprises.length} doanh nghiệp đầu mối
               </span>
             </div>
@@ -1591,7 +1625,7 @@ export default function EnterpriseManagement({
             <div className="overflow-x-auto">
               <table className="w-full text-left border-collapse text-xs">
                 <thead>
-                  <tr className="bg-slate-50 border-b border-slate-200 text-slate-600 font-bold uppercase tracking-wider text-[10.5px]">
+                  <tr className="bg-slate-50 border-b border-slate-200 text-slate-700 font-bold uppercase tracking-wider text-xs">
                     <th className="py-3 px-4">Tên Doanh nghiệp</th>
                     <th className="py-3 px-3">Mã nội bộ & MST</th>
                     <th className="py-3 px-3">Người đại diện pháp luật</th>
@@ -1852,41 +1886,48 @@ export default function EnterpriseManagement({
       )}
 
       {/* UNIFIED DETAIL MODAL: HỒ SƠ CHI TIẾT DOANH NGHIỆP (DNNVV) */}
-      {showDetailModal && selectedEnterprise && (
-        <div
-          className="fixed inset-0 bg-slate-950/60 backdrop-blur-xs flex items-center justify-center z-50 p-2 sm:p-4 animate-in fade-in duration-200"
-          onClick={() => setShowDetailModal(false)}
-        >
-          <div
-            onClick={(e) => e.stopPropagation()}
-            className="bg-white rounded-2xl shadow-2xl border border-slate-800/40 w-full max-w-4xl max-h-[92dvh] flex flex-col overflow-hidden animate-in zoom-in-95 duration-200 text-slate-800"
-          >
-            {/* Header Modal: Clean, Executive Government Portal Design */}
-            <div className="bg-gradient-to-r from-slate-50 via-white to-indigo-50/25 px-5 sm:px-6 py-5 border-b border-slate-200 relative shrink-0">
-              <button
-                type="button"
-                onClick={() => setShowDetailModal(false)}
-                className="absolute top-4 right-4 p-2 rounded-xl text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors cursor-pointer"
-                title="Đóng (Esc)"
-              >
-                <X size={18} />
-              </button>
+      {showDetailModal && selectedEnterprise && (() => {
+        const navList = filteredEnterprises.length > 0 ? filteredEnterprises : enterprises;
+        const currentIdx = navList.findIndex(item => item.id === selectedEnterprise.id);
+        const totalNav = navList.length;
+        const hasPrev = currentIdx > 0;
+        const hasNext = currentIdx >= 0 && currentIdx < totalNav - 1;
+        const shortEntId = formatShortRecordId(selectedEnterprise.internalCode || selectedEnterprise.id, "DN");
 
-              <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 pr-10">
-                {/* Enterprise Avatar / Photo with upload trigger (Tương tự cơ sở kinh doanh) */}
-                <div className="relative w-14 h-14 sm:w-16 sm:h-16 rounded-2xl border border-slate-200 shadow-2xs overflow-hidden shrink-0 group bg-slate-100">
+        return (
+          <Modal
+            isOpen={showDetailModal}
+            onClose={() => setShowDetailModal(false)}
+            size="4xl"
+            ariaLabel={`Hồ sơ chi tiết doanh nghiệp ${selectedEnterprise.name}`}
+            headerNavigation={
+              totalNav > 1 && currentIdx >= 0
+                ? {
+                    positionText: `Hồ sơ ${currentIdx + 1}/${totalNav}`,
+                    hasPrev,
+                    hasNext,
+                    onPrev: () => hasPrev && setSelectedEnterprise(navList[currentIdx - 1]),
+                    onNext: () => hasNext && setSelectedEnterprise(navList[currentIdx + 1]),
+                    prevLabel: "Doanh nghiệp trước",
+                    nextLabel: "Doanh nghiệp tiếp theo",
+                  }
+                : undefined
+            }
+            headerSlot={
+              <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3.5">
+                <div className="relative w-14 h-14 sm:w-16 sm:h-16 rounded-xl border border-slate-200 overflow-hidden shrink-0 group bg-slate-100">
                   <img
                     src={getEnterpriseImage(selectedEnterprise)}
                     alt={selectedEnterprise.name}
-                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                    className="w-full h-full object-cover"
                     referrerPolicy="no-referrer"
                     onError={(e) => {
                       (e.target as HTMLImageElement).src = "https://images.unsplash.com/photo-1497366216548-37526070297c?w=400";
                     }}
                   />
                   <label className="absolute inset-0 bg-slate-950/65 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center text-white cursor-pointer">
-                    <Camera size={16} className="text-white mb-0.5" />
-                    <span className="text-[10px] font-bold">Đổi ảnh</span>
+                    <Camera size={15} className="text-white mb-0.5" />
+                    <span className="text-[11px] font-semibold">Đổi ảnh</span>
                     <input
                       type="file"
                       accept="image/*"
@@ -1896,100 +1937,159 @@ export default function EnterpriseManagement({
                   </label>
                 </div>
 
-                {/* Metadata & Title */}
-                <div className="space-y-1.5 flex-1 min-w-0">
+                <div className="space-y-1 flex-1 min-w-0">
                   <div className="flex flex-wrap items-center gap-2">
-                    <span className="font-mono text-xs font-bold px-2.5 py-0.5 rounded-md bg-indigo-50 text-indigo-700 border border-indigo-200 shadow-2xs">
-                      {selectedEnterprise.internalCode || `DN-KP3-${selectedEnterprise.id}`}
+                    <span className="font-mono text-xs font-semibold px-2 py-0.5 rounded-md bg-slate-100 text-slate-700 border border-slate-200">
+                      MÃ: {shortEntId}
                     </span>
-                    <span className="text-xs font-bold px-2.5 py-0.5 rounded-md bg-slate-100 text-slate-700 border border-slate-200 flex items-center gap-1.5 shadow-2xs">
-                      <Briefcase size={13} className="text-indigo-600" />
+                    <span className="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-slate-100 text-slate-700 border border-slate-200 flex items-center gap-1">
+                      <Briefcase size={12} className="text-slate-600" />
                       <span>{selectedEnterprise.businessType || "Doanh nghiệp"} • {getEnterpriseScaleLabel(selectedEnterprise)}</span>
                     </span>
-                    <span className={`text-xs font-bold px-2.5 py-0.5 rounded-md border flex items-center gap-1.5 shadow-2xs ${selectedEnterprise.status === "Đang hoạt động"
+                    <span className={`text-xs font-semibold px-2.5 py-0.5 rounded-full border inline-flex items-center gap-1.5 ${
+                      selectedEnterprise.status === "Đang hoạt động"
                         ? "bg-emerald-50 text-emerald-800 border-emerald-200"
                         : selectedEnterprise.status === "Tạm ngưng"
                           ? "bg-rose-50 text-rose-800 border-rose-200"
                           : "bg-amber-50 text-amber-800 border-amber-200"
-                      }`}>
-                      <span className={`w-1.5 h-1.5 rounded-full ${selectedEnterprise.status === "Đang hoạt động"
-                          ? "bg-emerald-500 animate-pulse"
+                    }`}>
+                      <span className={`w-1.5 h-1.5 rounded-full ${
+                        selectedEnterprise.status === "Đang hoạt động"
+                          ? "bg-emerald-600"
                           : selectedEnterprise.status === "Tạm ngưng"
-                            ? "bg-rose-500"
-                            : "bg-amber-500"
-                        }`} />
+                            ? "bg-rose-600"
+                            : "bg-amber-600"
+                      }`} />
                       <span>{selectedEnterprise.status}</span>
                     </span>
                   </div>
 
-                  <h2 className="text-lg sm:text-xl font-extrabold text-slate-900 tracking-tight leading-snug break-words">
+                  <h2 className="text-base sm:text-lg font-bold text-slate-900 tracking-tight leading-snug break-words">
                     {selectedEnterprise.name}
                   </h2>
 
-                  {/* Address subtext & Maps button */}
-                  <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-slate-600 pt-0.5">
+                  <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-slate-600">
                     <span className="flex items-center gap-1 font-medium text-slate-700">
-                      <MapPin size={13} className="text-indigo-600 shrink-0" />
+                      <MapPin size={13} className="text-emerald-700 shrink-0" />
                       <span className="truncate max-w-md">{selectedEnterprise.address}</span>
                     </span>
-
                     {selectedEnterprise.coordinates && (
                       <a
                         href={`https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(selectedEnterprise.coordinates)}`}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="inline-flex items-center gap-1 text-[11px] text-slate-600 hover:text-slate-900 font-medium"
+                        className="inline-flex items-center gap-1 text-xs text-emerald-700 hover:text-emerald-900 font-semibold"
                       >
-                        <ExternalLink size={10} /> Google Maps
+                        <ExternalLink size={11} /> Google Maps
                       </a>
                     )}
                   </div>
                 </div>
               </div>
-            </div>
+            }
+            subHeader={
+              <div className="flex border-b border-slate-200 bg-white px-5 sm:px-6 gap-5 text-xs font-bold shrink-0 overflow-x-auto">
+                <button
+                  type="button"
+                  onClick={() => setEnterpriseModalTab("legal")}
+                  className={`py-2.5 transition-colors relative cursor-pointer flex items-center gap-1.5 shrink-0 ${
+                    enterpriseModalTab === "legal" ? "text-emerald-800" : "text-slate-600 hover:text-slate-900"
+                  }`}
+                >
+                  <Briefcase size={14} />
+                  <span>Hồ sơ pháp lý & Thuế</span>
+                  {enterpriseModalTab === "legal" && <div className="absolute bottom-0 left-0 w-full h-0.5 bg-emerald-700" />}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setEnterpriseModalTab("premises")}
+                  className={`py-2.5 transition-colors relative cursor-pointer flex items-center gap-1.5 shrink-0 ${
+                    enterpriseModalTab === "premises" ? "text-emerald-800" : "text-slate-600 hover:text-slate-900"
+                  }`}
+                >
+                  <MapPin size={14} />
+                  <span>Trụ sở & Mặt bằng KP3</span>
+                  {enterpriseModalTab === "premises" && <div className="absolute bottom-0 left-0 w-full h-0.5 bg-emerald-700" />}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setEnterpriseModalTab("personnel")}
+                  className={`py-2.5 transition-colors relative cursor-pointer flex items-center gap-1.5 shrink-0 ${
+                    enterpriseModalTab === "personnel" ? "text-emerald-800" : "text-slate-600 hover:text-slate-900"
+                  }`}
+                >
+                  <Users2 size={14} />
+                  <span>Người đại diện & Lao động</span>
+                  {enterpriseModalTab === "personnel" && <div className="absolute bottom-0 left-0 w-full h-0.5 bg-emerald-700" />}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setEnterpriseModalTab("history")}
+                  className={`py-2.5 transition-colors relative cursor-pointer flex items-center gap-1.5 shrink-0 ${
+                    enterpriseModalTab === "history" ? "text-emerald-800" : "text-slate-600 hover:text-slate-900"
+                  }`}
+                >
+                  <History size={14} />
+                  <span>Biến động địa bàn</span>
+                  {enterpriseModalTab === "history" && <div className="absolute bottom-0 left-0 w-full h-0.5 bg-emerald-700" />}
+                </button>
+              </div>
+            }
+            bodyClassName="p-4 sm:p-6 bg-slate-50/70 text-xs sm:text-sm space-y-4"
+            footer={
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div className="flex flex-wrap items-center gap-2">
+                  <div className="min-w-[190px]">
+                    <ReportSelect
+                      aria-label="Trạng thái hoạt động doanh nghiệp"
+                      value={selectedEnterprise.status}
+                      onChange={(nextVal) => handleChangeStatus(nextVal as any)}
+                      options={[
+                        { value: "Đang hoạt động", label: "Trạng thái: Đang hoạt động" },
+                        { value: "Chờ duyệt", label: "Trạng thái: Chờ duyệt" },
+                        { value: "Tạm ngưng", label: "Trạng thái: Tạm ngưng" },
+                        { value: "Chuyển địa điểm", label: "Trạng thái: Chuyển địa điểm" },
+                      ]}
+                    />
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => window.print()}
+                    className="min-h-9 px-3 py-1.5 border border-slate-200 bg-white hover:bg-slate-50 rounded-lg text-xs font-semibold text-slate-700 inline-flex items-center gap-1.5 transition-colors cursor-pointer"
+                  >
+                    <Printer size={13} /> In phiếu
+                  </button>
+                </div>
 
-            {/* Sub-tabs header */}
-            <div className="flex border-b border-slate-200 bg-white px-5 sm:px-6 gap-6 text-xs font-bold shrink-0 overflow-x-auto">
-              <button
-                onClick={() => setEnterpriseModalTab("legal")}
-                className={`py-3 transition-all relative cursor-pointer flex items-center gap-1.5 shrink-0 ${enterpriseModalTab === "legal" ? "text-indigo-700 font-extrabold" : "text-slate-500 hover:text-slate-800"
-                  }`}
-              >
-                <Briefcase size={15} />
-                <span>Hồ sơ pháp lý & Thuế</span>
-                {enterpriseModalTab === "legal" && <div className="absolute bottom-0 left-0 w-full h-0.5 bg-indigo-600"></div>}
-              </button>
-              <button
-                onClick={() => setEnterpriseModalTab("premises")}
-                className={`py-3 transition-all relative cursor-pointer flex items-center gap-1.5 shrink-0 ${enterpriseModalTab === "premises" ? "text-emerald-700 font-extrabold" : "text-slate-500 hover:text-slate-800"
-                  }`}
-              >
-                <MapPin size={15} />
-                <span>Trụ sở & Mặt bằng KP3</span>
-                {enterpriseModalTab === "premises" && <div className="absolute bottom-0 left-0 w-full h-0.5 bg-emerald-600"></div>}
-              </button>
-              <button
-                onClick={() => setEnterpriseModalTab("personnel")}
-                className={`py-3 transition-all relative cursor-pointer flex items-center gap-1.5 shrink-0 ${enterpriseModalTab === "personnel" ? "text-purple-700 font-extrabold" : "text-slate-500 hover:text-slate-800"
-                  }`}
-              >
-                <Users2 size={15} />
-                <span>Người đại diện & Lao động</span>
-                {enterpriseModalTab === "personnel" && <div className="absolute bottom-0 left-0 w-full h-0.5 bg-purple-600"></div>}
-              </button>
-              <button
-                onClick={() => setEnterpriseModalTab("history")}
-                className={`py-3 transition-all relative cursor-pointer flex items-center gap-1.5 shrink-0 ${enterpriseModalTab === "history" ? "text-slate-900 font-extrabold" : "text-slate-500 hover:text-slate-800"
-                  }`}
-              >
-                <History size={15} />
-                <span>Biến động địa bàn</span>
-                {enterpriseModalTab === "history" && <div className="absolute bottom-0 left-0 w-full h-0.5 bg-slate-900"></div>}
-              </button>
-            </div>
-
-            {/* Modal Body - Tabbed Content */}
-            <div className="p-4 sm:p-6 overflow-y-auto space-y-4 flex-1 bg-slate-50/70 text-xs sm:text-sm">
+                <div className="flex flex-wrap items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={handleDeleteEnterprise}
+                    className="min-h-9 px-3 py-1.5 border border-rose-200 text-rose-700 hover:bg-rose-50 rounded-lg text-xs font-semibold inline-flex items-center gap-1.5 transition-colors cursor-pointer"
+                  >
+                    <Trash2 size={13} /> Xóa hồ sơ
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setShowDetailModal(false)}
+                    className="min-h-9 px-3.5 py-1.5 border border-slate-200 bg-white hover:bg-slate-100 text-slate-700 rounded-lg text-xs font-semibold transition-colors cursor-pointer"
+                  >
+                    Đóng
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowDetailModal(false);
+                      handleOpenEditModal(selectedEnterprise);
+                    }}
+                    className="min-h-9 px-4 py-1.5 bg-emerald-700 hover:bg-emerald-800 text-white rounded-lg text-xs font-semibold inline-flex items-center gap-1.5 transition-colors cursor-pointer"
+                  >
+                    <Pencil size={13} /> Chỉnh sửa doanh nghiệp
+                  </button>
+                </div>
+              </div>
+            }
+          >
 
               {/* TAB 1: THÔNG TIN PHÁP LÝ & TỔ CHỨC */}
               {enterpriseModalTab === "legal" && (
@@ -2127,14 +2227,14 @@ export default function EnterpriseManagement({
                       );
                     })()}
 
-                    {/* GIS & Navigation Banner */}
-                    <div className="p-4 bg-slate-900 text-white rounded-xl border border-slate-800 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs">
+                    {/* GIS & Navigation Banner - Flat Hairline Light */}
+                    <div className="p-4 bg-slate-50 text-slate-900 rounded-xl border border-slate-200 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs">
                       <div className="space-y-1">
-                        <span className="text-[10px] uppercase font-bold text-slate-400 tracking-wider flex items-center gap-1.5">
-                          <Compass size={13} className="text-emerald-400" /> Tọa độ số GIS & Dẫn đường
+                        <span className="text-xs font-bold text-slate-600 flex items-center gap-1.5">
+                          <Compass size={14} className="text-emerald-600" /> Tọa độ số GIS & Dẫn đường
                         </span>
-                        <div className="font-mono text-xs text-slate-300">
-                          Tọa độ: <strong className="text-emerald-300 font-medium">{selectedEnterprise.coordinates || "Chưa thiết lập"}</strong>
+                        <div className="font-mono text-xs text-slate-700">
+                          Tọa độ: <strong className="text-emerald-700 font-semibold">{selectedEnterprise.coordinates || "Chưa thiết lập"}</strong>
                         </div>
                       </div>
 
@@ -2145,7 +2245,7 @@ export default function EnterpriseManagement({
                             handleDirections(selectedEnterprise);
                             setShowDetailModal(false);
                           }}
-                          className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg font-bold text-xs flex items-center gap-1.5 transition-all cursor-pointer"
+                          className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-bold text-xs flex items-center gap-1.5 transition-colors cursor-pointer"
                           title="Dẫn đường trực tiếp trên bản đồ số GIS Khu phố 3"
                         >
                           <Navigation size={13} />
@@ -2339,60 +2439,9 @@ export default function EnterpriseManagement({
                   </div>
                 </div>
               )}
-            </div>
-
-            {/* Modal Footer */}
-            <div className="p-4 sm:px-6 bg-white border-t border-slate-200 flex flex-wrap items-center justify-between gap-3 shrink-0">
-              <div className="flex items-center gap-2">
-                <select
-                  value={selectedEnterprise.status}
-                  onChange={(e) => handleChangeStatus(e.target.value as any)}
-                  className="px-3 py-1.5 border border-slate-300 rounded-xl text-xs font-bold bg-white text-slate-800 focus:outline-none focus:border-indigo-500"
-                >
-                  <option value="Đang hoạt động">Trạng thái: Đang hoạt động</option>
-                  <option value="Chờ duyệt">Trạng thái: Chờ duyệt</option>
-                  <option value="Tạm ngưng">Trạng thái: Tạm ngưng</option>
-                  <option value="Chuyển địa điểm">Trạng thái: Chuyển địa điểm</option>
-                </select>
-                <button
-                  type="button"
-                  onClick={() => window.print()}
-                  className="px-3 py-1.5 border border-slate-300 bg-white hover:bg-slate-50 rounded-xl text-xs font-bold text-slate-700 flex items-center gap-1.5 transition-colors cursor-pointer shadow-2xs"
-                >
-                  <Printer size={13} /> In phiếu hồ sơ
-                </button>
-              </div>
-
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={handleDeleteEnterprise}
-                  className="px-3 py-1.5 border border-rose-200 text-rose-600 hover:bg-rose-50 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer"
-                >
-                  <Trash2 size={13} /> Xóa hồ sơ
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setShowDetailModal(false);
-                    handleOpenEditModal(selectedEnterprise);
-                  }}
-                  className="px-4 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer shadow-2xs"
-                >
-                  <Pencil size={13} /> Sửa hồ sơ
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setShowDetailModal(false)}
-                  className="px-4 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition-colors cursor-pointer"
-                >
-                  Đóng
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
+          </Modal>
+        );
+      })()}
 
       {/* MODAL THÊM BIẾN ĐỘNG DOANH NGHIỆP */}
       {showChangeLogModal && selectedEnterprise && (
@@ -2420,24 +2469,26 @@ export default function EnterpriseManagement({
 
             <form onSubmit={handleSaveChangeLog} className="space-y-3 text-xs">
               <div>
-                <label className="text-[11px] font-bold text-slate-700 block mb-1">Loại biến động *</label>
-                <select
+                <label className="text-xs font-bold text-slate-700 block mb-1">Loại biến động *</label>
+                <ReportSelect
+                  aria-label="Loại biến động"
                   value={changeType}
-                  onChange={(e) => setChangeType(e.target.value as any)}
-                  className="w-full px-3 py-2 border border-slate-200 rounded-xl bg-white text-xs font-bold"
-                >
-                  <option value="Mở mới">Mở mới hoạt động tại địa chỉ</option>
-                  <option value="Chuyển địa điểm">Chuyển địa điểm trụ sở / văn phòng</option>
-                  <option value="Thay đổi ngành nghề">Thay đổi ngành nghề kinh doanh</option>
-                  <option value="Thay đổi người đại diện">Thay đổi người đại diện / pháp lý</option>
-                  <option value="Tạm ngừng">Tạm ngừng hoạt động</option>
-                  <option value="Hoạt động trở lại">Hoạt động trở lại</option>
-                  <option value="Khác">Biến động khác</option>
-                </select>
+                  onChange={(nextVal) => setChangeType(nextVal as any)}
+                  options={[
+                    { value: "Mở mới", label: "Mở mới hoạt động tại địa chỉ" },
+                    { value: "Chuyển địa điểm", label: "Chuyển địa điểm trụ sở / văn phòng" },
+                    { value: "Thay đổi ngành nghề", label: "Thay đổi ngành nghề kinh doanh" },
+                    { value: "Thay đổi người đại diện", label: "Thay đổi người đại diện / pháp lý" },
+                    { value: "Tạm ngừng", label: "Tạm ngừng hoạt động" },
+                    { value: "Hoạt động trở lại", label: "Hoạt động trở lại" },
+                    { value: "Khác", label: "Biến động khác" },
+                  ]}
+                  className="w-full"
+                />
               </div>
 
               <div>
-                <label className="text-[11px] font-bold text-slate-700 block mb-1">Ngày ghi nhận *</label>
+                <label className="text-xs font-bold text-slate-700 block mb-1">Ngày ghi nhận *</label>
                 <input
                   type="date"
                   value={changeDate}
@@ -2496,22 +2547,23 @@ export default function EnterpriseManagement({
         >
           <div
             onClick={(e) => e.stopPropagation()}
-            className="bg-white rounded-2xl shadow-2xl border border-slate-800/40 w-full max-w-3xl max-h-[92dvh] flex flex-col overflow-hidden animate-in zoom-in-95 duration-200 text-slate-800"
+            className="bg-white rounded-2xl shadow-xl border border-slate-200 w-full max-w-3xl max-h-[92dvh] flex flex-col overflow-hidden animate-in zoom-in-95 duration-200 text-slate-800"
           >
-            <div className="bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 p-4 sm:px-6 flex items-center justify-between text-white shrink-0 border-b border-slate-800">
+            <div className="bg-slate-50 p-4 sm:px-6 flex items-center justify-between text-slate-900 shrink-0 border-b border-slate-200">
               <div className="flex items-center gap-2.5">
-                <div className="p-2 bg-indigo-500/20 text-indigo-400 rounded-xl border border-indigo-500/30">
+                <div className="p-2 bg-indigo-50 text-indigo-700 rounded-xl border border-indigo-200">
                   <Plus size={18} />
                 </div>
                 <div>
-                  <h3 className="font-bold text-sm sm:text-base text-white">Đăng ký Doanh nghiệp Vừa & Nhỏ Mới</h3>
-                  <p className="text-[11px] text-indigo-200/80">Khu phố 3, Phường An Phú</p>
+                  <h3 className="font-bold text-sm sm:text-base text-slate-900">Đăng ký Doanh nghiệp Vừa & Nhỏ Mới</h3>
+                  <p className="text-xs text-slate-600">Khu phố 3, Phường An Phú</p>
                 </div>
               </div>
               <button
                 type="button"
                 onClick={() => setShowAddModal(false)}
-                className="text-slate-400 hover:text-white cursor-pointer"
+                aria-label="Đóng"
+                className="p-1.5 rounded-lg text-slate-500 hover:text-slate-800 hover:bg-slate-200/70 transition-colors cursor-pointer"
               >
                 <X size={20} />
               </button>
@@ -2595,33 +2647,37 @@ export default function EnterpriseManagement({
 
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                   <div>
-                    <label className="text-[11px] font-bold text-slate-700 block mb-1">Loại hình tổ chức *</label>
-                    <select
+                    <label className="text-xs font-bold text-slate-700 block mb-1">Loại hình tổ chức *</label>
+                    <ReportSelect
+                      aria-label="Loại hình tổ chức"
                       value={newBusinessType}
-                      onChange={(e) => setNewBusinessType(e.target.value as any)}
-                      className="w-full px-3 py-2 border border-slate-200 rounded-xl bg-white text-xs font-bold"
-                    >
-                      <option value="Công ty TNHH">Công ty TNHH</option>
-                      <option value="Công ty Cổ phần">Công ty Cổ phần</option>
-                      <option value="Doanh nghiệp tư nhân">Doanh nghiệp tư nhân</option>
-                      <option value="Cơ sở kinh doanh khác">Cơ sở khác</option>
-                    </select>
+                      onChange={(nextVal) => setNewBusinessType(nextVal as any)}
+                      options={[
+                        { value: "Công ty TNHH", label: "Công ty TNHH" },
+                        { value: "Công ty Cổ phần", label: "Công ty Cổ phần" },
+                        { value: "Doanh nghiệp tư nhân", label: "Doanh nghiệp tư nhân" },
+                        { value: "Cơ sở kinh doanh khác", label: "Cơ sở khác" },
+                      ]}
+                      className="w-full"
+                    />
                   </div>
                   <div>
-                    <label className="text-[11px] font-bold text-slate-700 block mb-1">Quy mô lao động (NĐ 80) *</label>
-                    <select
+                    <label className="text-xs font-bold text-slate-700 block mb-1">Quy mô lao động (NĐ 80) *</label>
+                    <ReportSelect
+                      aria-label="Quy mô lao động (NĐ 80)"
                       value={newEnterpriseScale}
-                      onChange={(e) => setNewEnterpriseScale(e.target.value as any)}
-                      className="w-full px-3 py-2 border border-slate-200 rounded-xl bg-white text-xs font-bold"
-                    >
-                      <option value="Siêu nhỏ (< 5 LĐ)">Siêu nhỏ (&lt; 5 LĐ)</option>
-                      <option value="Nhỏ (5 - 20 LĐ)">Nhỏ (5 - 20 LĐ)</option>
-                      <option value="Vừa (20 - 50 LĐ)">Vừa (20 - 50 LĐ)</option>
-                      <option value="Lớn (> 50 LĐ)">Lớn (&gt; 50 LĐ)</option>
-                    </select>
+                      onChange={(nextVal) => setNewEnterpriseScale(nextVal as any)}
+                      options={[
+                        { value: "Siêu nhỏ (< 5 LĐ)", label: "Siêu nhỏ (< 5 LĐ)" },
+                        { value: "Nhỏ (5 - 20 LĐ)", label: "Nhỏ (5 - 20 LĐ)" },
+                        { value: "Vừa (20 - 50 LĐ)", label: "Vừa (20 - 50 LĐ)" },
+                        { value: "Lớn (> 50 LĐ)", label: "Lớn (> 50 LĐ)" },
+                      ]}
+                      className="w-full"
+                    />
                   </div>
                   <div>
-                    <label className="text-[11px] font-bold text-slate-700 block mb-1">Ngành nghề chính *</label>
+                    <label className="text-xs font-bold text-slate-700 block mb-1">Ngành nghề chính *</label>
                     <input
                       type="text"
                       required
@@ -2641,7 +2697,7 @@ export default function EnterpriseManagement({
                 </h4>
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                   <div className="sm:col-span-2">
-                    <label className="text-[11px] font-bold text-slate-700 block mb-1">Địa chỉ trụ sở *</label>
+                    <label className="text-xs font-bold text-slate-700 block mb-1">Địa chỉ trụ sở *</label>
                     <input
                       type="text"
                       required
@@ -2652,36 +2708,40 @@ export default function EnterpriseManagement({
                     />
                   </div>
                   <div>
-                    <label className="text-[11px] font-bold text-slate-700 block mb-1">Tuyến đường *</label>
-                    <select
+                    <label className="text-xs font-bold text-slate-700 block mb-1">Tuyến đường *</label>
+                    <ReportSelect
+                      aria-label="Tuyến đường"
                       value={newStreetArea}
-                      onChange={(e) => setNewStreetArea(e.target.value)}
-                      className="w-full px-3 py-2 border border-slate-200 rounded-xl bg-white text-xs font-semibold"
-                    >
-                      <option value="Mặt tiền Lương Định Của">Mặt tiền Lương Định Của</option>
-                      <option value="Hẻm 42 Lương Định Của">Hẻm 42 Lương Định Của</option>
-                      <option value="Hẻm 18 Lương Định Của">Hẻm 18 Lương Định Của</option>
-                      <option value="Khu dân cư nội bộ KP3">KDC nội bộ KP3</option>
-                    </select>
+                      onChange={(nextVal) => setNewStreetArea(nextVal)}
+                      options={[
+                        { value: "Mặt tiền Lương Định Của", label: "Mặt tiền Lương Định Của" },
+                        { value: "Hẻm 42 Lương Định Của", label: "Hẻm 42 Lương Định Của" },
+                        { value: "Hẻm 18 Lương Định Của", label: "Hẻm 18 Lương Định Của" },
+                        { value: "Khu dân cư nội bộ KP3", label: "KDC nội bộ KP3" },
+                      ]}
+                      className="w-full"
+                    />
                   </div>
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                   <div>
-                    <label className="text-[11px] font-bold text-slate-700 block mb-1">Loại mặt bằng</label>
-                    <select
+                    <label className="text-xs font-bold text-slate-700 block mb-1">Loại mặt bằng</label>
+                    <ReportSelect
+                      aria-label="Loại mặt bằng"
                       value={newPremisesType}
-                      onChange={(e) => setNewPremisesType(e.target.value as any)}
-                      className="w-full px-3 py-2 border border-slate-200 rounded-xl bg-white text-xs font-medium"
-                    >
-                      <option value="Văn phòng">Văn phòng</option>
-                      <option value="Nhà phố">Nhà phố</option>
-                      <option value="Cửa hàng">Cửa hàng</option>
-                      <option value="Nhà xưởng">Nhà xưởng</option>
-                      <option value="Ki-ốt">Ki-ốt</option>
-                      <option value="Địa điểm thuê">Địa điểm thuê</option>
-                      <option value="Chung cư / Căn hộ">Chung cư / Căn hộ</option>
-                    </select>
+                      onChange={(nextVal) => setNewPremisesType(nextVal as any)}
+                      options={[
+                        { value: "Văn phòng", label: "Văn phòng" },
+                        { value: "Nhà phố", label: "Nhà phố" },
+                        { value: "Cửa hàng", label: "Cửa hàng" },
+                        { value: "Nhà xưởng", label: "Nhà xưởng" },
+                        { value: "Ki-ốt", label: "Ki-ốt" },
+                        { value: "Địa điểm thuê", label: "Địa điểm thuê" },
+                        { value: "Chung cư / Căn hộ", label: "Chung cư / Căn hộ" },
+                      ]}
+                      className="w-full"
+                    />
                   </div>
                   <div>
                     <label className="text-[11px] font-bold text-slate-700 block mb-1">Chủ sở hữu mặt bằng</label>
@@ -2902,22 +2962,23 @@ export default function EnterpriseManagement({
         >
           <div
             onClick={(e) => e.stopPropagation()}
-            className="bg-white rounded-2xl shadow-2xl border border-slate-800/40 w-full max-w-3xl max-h-[92dvh] flex flex-col overflow-hidden animate-in zoom-in-95 duration-200 text-slate-800"
+            className="bg-white rounded-2xl shadow-xl border border-slate-200 w-full max-w-3xl max-h-[92dvh] flex flex-col overflow-hidden animate-in zoom-in-95 duration-200 text-slate-800"
           >
-            <div className="bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 p-4 sm:px-6 flex items-center justify-between text-white shrink-0 border-b border-slate-800">
+            <div className="bg-slate-50 p-4 sm:px-6 flex items-center justify-between text-slate-900 shrink-0 border-b border-slate-200">
               <div className="flex items-center gap-2.5">
-                <div className="p-2 bg-indigo-500/20 text-indigo-400 rounded-xl border border-indigo-500/30">
+                <div className="p-2 bg-indigo-50 text-indigo-700 rounded-xl border border-indigo-200">
                   <Pencil size={18} />
                 </div>
                 <div>
-                  <h3 className="font-bold text-sm sm:text-base text-white">Chỉnh sửa Hồ sơ Doanh nghiệp</h3>
-                  <p className="text-[11px] text-indigo-200/80 truncate max-w-xs">{selectedEnterprise.name}</p>
+                  <h3 className="font-bold text-sm sm:text-base text-slate-900">Chỉnh sửa Hồ sơ Doanh nghiệp</h3>
+                  <p className="text-xs text-slate-600 truncate max-w-xs">{selectedEnterprise.name}</p>
                 </div>
               </div>
               <button
                 type="button"
                 onClick={() => setShowEditModal(false)}
-                className="text-slate-400 hover:text-white cursor-pointer"
+                aria-label="Đóng"
+                className="p-1.5 rounded-lg text-slate-500 hover:text-slate-800 hover:bg-slate-200/70 transition-colors cursor-pointer"
               >
                 <X size={20} />
               </button>
@@ -3007,30 +3068,34 @@ export default function EnterpriseManagement({
                     />
                   </div>
                   <div>
-                    <label className="text-[11px] font-bold text-slate-700 block mb-1">Loại hình tổ chức *</label>
-                    <select
+                    <label className="text-xs font-bold text-slate-700 block mb-1">Loại hình tổ chức *</label>
+                    <ReportSelect
+                      aria-label="Loại hình tổ chức"
                       value={editBusinessType}
-                      onChange={(e) => setEditBusinessType(e.target.value as any)}
-                      className="w-full px-3 py-2 border border-slate-200 rounded-xl bg-white text-xs font-bold"
-                    >
-                      <option value="Công ty TNHH">Công ty TNHH</option>
-                      <option value="Công ty Cổ phần">Công ty Cổ phần</option>
-                      <option value="Doanh nghiệp tư nhân">Doanh nghiệp tư nhân</option>
-                      <option value="Cơ sở kinh doanh khác">Cơ sở khác</option>
-                    </select>
+                      onChange={(nextVal) => setEditBusinessType(nextVal as any)}
+                      options={[
+                        { value: "Công ty TNHH", label: "Công ty TNHH" },
+                        { value: "Công ty Cổ phần", label: "Công ty Cổ phần" },
+                        { value: "Doanh nghiệp tư nhân", label: "Doanh nghiệp tư nhân" },
+                        { value: "Cơ sở kinh doanh khác", label: "Cơ sở khác" },
+                      ]}
+                      className="w-full"
+                    />
                   </div>
                   <div>
-                    <label className="text-[11px] font-bold text-slate-700 block mb-1">Quy mô lao động (NĐ 80) *</label>
-                    <select
+                    <label className="text-xs font-bold text-slate-700 block mb-1">Quy mô lao động (NĐ 80) *</label>
+                    <ReportSelect
+                      aria-label="Quy mô lao động (NĐ 80)"
                       value={editEnterpriseScale}
-                      onChange={(e) => setEditEnterpriseScale(e.target.value as any)}
-                      className="w-full px-3 py-2 border border-slate-200 rounded-xl bg-white text-xs font-bold"
-                    >
-                      <option value="Siêu nhỏ (< 5 LĐ)">Siêu nhỏ (&lt; 5 LĐ)</option>
-                      <option value="Nhỏ (5 - 20 LĐ)">Nhỏ (5 - 20 LĐ)</option>
-                      <option value="Vừa (20 - 50 LĐ)">Vừa (20 - 50 LĐ)</option>
-                      <option value="Lớn (> 50 LĐ)">Lớn (&gt; 50 LĐ)</option>
-                    </select>
+                      onChange={(nextVal) => setEditEnterpriseScale(nextVal as any)}
+                      options={[
+                        { value: "Siêu nhỏ (< 5 LĐ)", label: "Siêu nhỏ (< 5 LĐ)" },
+                        { value: "Nhỏ (5 - 20 LĐ)", label: "Nhỏ (5 - 20 LĐ)" },
+                        { value: "Vừa (20 - 50 LĐ)", label: "Vừa (20 - 50 LĐ)" },
+                        { value: "Lớn (> 50 LĐ)", label: "Lớn (> 50 LĐ)" },
+                      ]}
+                      className="w-full"
+                    />
                   </div>
                 </div>
               </div>
@@ -3042,7 +3107,7 @@ export default function EnterpriseManagement({
                 </h4>
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                   <div className="sm:col-span-2">
-                    <label className="text-[11px] font-bold text-slate-700 block mb-1">Địa chỉ trụ sở *</label>
+                    <label className="text-xs font-bold text-slate-700 block mb-1">Địa chỉ trụ sở *</label>
                     <input
                       type="text"
                       required
@@ -3052,36 +3117,40 @@ export default function EnterpriseManagement({
                     />
                   </div>
                   <div>
-                    <label className="text-[11px] font-bold text-slate-700 block mb-1">Tuyến đường *</label>
-                    <select
+                    <label className="text-xs font-bold text-slate-700 block mb-1">Tuyến đường *</label>
+                    <ReportSelect
+                      aria-label="Tuyến đường"
                       value={editStreetArea}
-                      onChange={(e) => setEditStreetArea(e.target.value)}
-                      className="w-full px-3 py-2 border border-slate-200 rounded-xl bg-white text-xs font-semibold"
-                    >
-                      <option value="Mặt tiền Lương Định Của">Mặt tiền Lương Định Của</option>
-                      <option value="Hẻm 42 Lương Định Của">Hẻm 42 Lương Định Của</option>
-                      <option value="Hẻm 18 Lương Định Của">Hẻm 18 Lương Định Của</option>
-                      <option value="Khu dân cư nội bộ KP3">KDC nội bộ KP3</option>
-                    </select>
+                      onChange={(nextVal) => setEditStreetArea(nextVal)}
+                      options={[
+                        { value: "Mặt tiền Lương Định Của", label: "Mặt tiền Lương Định Của" },
+                        { value: "Hẻm 42 Lương Định Của", label: "Hẻm 42 Lương Định Của" },
+                        { value: "Hẻm 18 Lương Định Của", label: "Hẻm 18 Lương Định Của" },
+                        { value: "Khu dân cư nội bộ KP3", label: "KDC nội bộ KP3" },
+                      ]}
+                      className="w-full"
+                    />
                   </div>
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                   <div>
-                    <label className="text-[11px] font-bold text-slate-700 block mb-1">Loại mặt bằng</label>
-                    <select
+                    <label className="text-xs font-bold text-slate-700 block mb-1">Loại mặt bằng</label>
+                    <ReportSelect
+                      aria-label="Loại mặt bằng"
                       value={editPremisesType}
-                      onChange={(e) => setEditPremisesType(e.target.value as any)}
-                      className="w-full px-3 py-2 border border-slate-200 rounded-xl bg-white text-xs font-medium"
-                    >
-                      <option value="Văn phòng">Văn phòng</option>
-                      <option value="Nhà phố">Nhà phố</option>
-                      <option value="Cửa hàng">Cửa hàng</option>
-                      <option value="Nhà xưởng">Nhà xưởng</option>
-                      <option value="Ki-ốt">Ki-ốt</option>
-                      <option value="Địa điểm thuê">Địa điểm thuê</option>
-                      <option value="Chung cư / Căn hộ">Chung cư / Căn hộ</option>
-                    </select>
+                      onChange={(nextVal) => setEditPremisesType(nextVal as any)}
+                      options={[
+                        { value: "Văn phòng", label: "Văn phòng" },
+                        { value: "Nhà phố", label: "Nhà phố" },
+                        { value: "Cửa hàng", label: "Cửa hàng" },
+                        { value: "Nhà xưởng", label: "Nhà xưởng" },
+                        { value: "Ki-ốt", label: "Ki-ốt" },
+                        { value: "Địa điểm thuê", label: "Địa điểm thuê" },
+                        { value: "Chung cư / Căn hộ", label: "Chung cư / Căn hộ" },
+                      ]}
+                      className="w-full"
+                    />
                   </div>
                   <div>
                     <label className="text-[11px] font-bold text-slate-700 block mb-1">Chủ sở hữu mặt bằng</label>
@@ -3290,47 +3359,45 @@ export default function EnterpriseManagement({
 
       {/* Toast Notification */}
       {toast && (
-        <div className="fixed top-4 right-4 z-[9999] animate-in fade-in slide-in-from-top-4 duration-300">
-          <div className={`px-4 py-3 rounded-xl shadow-lg border text-xs font-semibold flex items-center gap-2 ${toast.type === "success"
-              ? "bg-emerald-50 border-emerald-200 text-emerald-800"
-              : toast.type === "warning"
-                ? "bg-amber-50 border-amber-200 text-amber-850"
-                : "bg-rose-50 border-rose-200 text-rose-800"
-            }`}>
-            <span className={`w-2 h-2 rounded-full ${toast.type === "success" ? "bg-emerald-600" : toast.type === "warning" ? "bg-amber-600" : "bg-rose-600"
-              }`}></span>
-            {toast.message}
-          </div>
+        <div className="fixed top-4 right-4 z-[9999] max-w-sm animate-in fade-in slide-in-from-top-4 duration-300">
+          <InlineNotice
+            message={toast.message}
+            type={toast.type}
+            onDismiss={() => setToast(null)}
+          />
         </div>
       )}
 
-      {/* TOAST THÔNG BÁO ĐỒNG BỘ GIS DOANH NGHIỆP */}
-      {gisPinToast && (
-        <div className="fixed bottom-6 right-6 z-50 bg-slate-900 text-white px-4 py-3 rounded-2xl shadow-2xl border border-emerald-500/50 flex items-center gap-2.5 text-xs animate-in slide-in-from-bottom-5 duration-200">
-          <Check size={16} className="text-emerald-400 shrink-0" />
-          <span className="font-medium">{gisPinToast}</span>
-        </div>
-      )}
+      {/* Delete Confirmation Modal */}
+      <ConfirmModal
+        isOpen={showDeleteConfirm && Boolean(selectedEnterprise)}
+        onClose={() => setShowDeleteConfirm(false)}
+        onConfirm={confirmDeleteEnterprise}
+        title="Xác nhận xóa hồ sơ doanh nghiệp"
+        description={selectedEnterprise ? `Bạn có chắc chắn muốn xóa hồ sơ doanh nghiệp "${selectedEnterprise.name}" khỏi hệ thống?` : ""}
+        confirmLabel="Xóa hồ sơ"
+        variant="danger"
+      />
 
       {/* MODAL GHIM / ĐỒNG BỘ TỌA ĐỘ GIS DOANH NGHIỆP */}
       {gisPinModalEnterprise && (
         <div
-          className="fixed inset-0 bg-slate-950/70 backdrop-blur-xs flex items-center justify-center z-50 p-4 animate-in fade-in duration-200"
+          className="fixed inset-0 bg-slate-950/60 backdrop-blur-xs flex items-center justify-center z-50 p-4 animate-in fade-in duration-200"
           onClick={() => setGisPinModalEnterprise(null)}
         >
           <div
             onClick={(e) => e.stopPropagation()}
-            className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-lg overflow-hidden animate-in zoom-in-95 duration-200 text-slate-800"
+            className="bg-white rounded-2xl shadow-xl border border-slate-200 w-full max-w-lg overflow-hidden animate-in zoom-in-95 duration-200 text-slate-800"
           >
-            {/* Modal Header */}
-            <div className="bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 p-4 text-white flex justify-between items-center border-b border-indigo-700/50">
-              <div className="flex items-center gap-2.5">
-                <div className="p-2 bg-indigo-500/20 text-indigo-300 rounded-xl">
+            {/* Modal Header - Flat Hairline Light */}
+            <div className="bg-slate-50 p-4 text-slate-900 flex justify-between items-center border-b border-slate-200">
+              <div className="flex items-center gap-2.5 min-w-0">
+                <div className="p-2 bg-indigo-50 text-indigo-700 border border-indigo-200 rounded-xl shrink-0">
                   <MapPin size={18} />
                 </div>
-                <div>
-                  <h3 className="font-black text-sm text-white">Ghim & Đồng bộ Tọa độ GIS Doanh nghiệp</h3>
-                  <p className="text-[11px] text-indigo-200/90 font-mono">
+                <div className="min-w-0">
+                  <h3 className="font-bold text-sm text-slate-900">Ghim & Đồng bộ Tọa độ GIS Doanh nghiệp</h3>
+                  <p className="text-xs text-slate-600 font-mono truncate">
                     {gisPinModalEnterprise.name} ({gisPinModalEnterprise.internalCode || gisPinModalEnterprise.id})
                   </p>
                 </div>
@@ -3338,7 +3405,8 @@ export default function EnterpriseManagement({
               <button
                 type="button"
                 onClick={() => setGisPinModalEnterprise(null)}
-                className="p-1 hover:bg-white/10 rounded-lg text-slate-300 hover:text-white transition-colors cursor-pointer"
+                aria-label="Đóng"
+                className="p-1.5 hover:bg-slate-200/70 rounded-lg text-slate-500 hover:text-slate-800 transition-colors cursor-pointer shrink-0"
               >
                 <X size={18} />
               </button>
@@ -3346,15 +3414,15 @@ export default function EnterpriseManagement({
 
             {/* Modal Body */}
             <div className="p-5 space-y-4 text-xs">
-              <div className="bg-slate-50 p-3 rounded-xl border border-slate-200/80 space-y-1">
-                <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block">Trụ sở hoạt động:</span>
-                <p className="font-bold text-slate-800 text-xs sm:text-sm">{gisPinModalEnterprise.address}</p>
-                <span className="text-[11px] text-slate-500 block">Khu phố 3, Phường An Phú, TP. Hồ Chí Minh</span>
+              <div className="bg-slate-50 p-3 rounded-xl border border-slate-200 space-y-1">
+                <span className="text-xs text-slate-600 font-semibold block">Trụ sở hoạt động:</span>
+                <p className="font-bold text-slate-900 text-xs sm:text-sm">{gisPinModalEnterprise.address}</p>
+                <span className="text-xs text-slate-600 block">Khu phố 3, Phường An Phú, TP. Hồ Chí Minh</span>
               </div>
 
               {/* Coordinate Input */}
               <div className="space-y-1.5">
-                <div className="flex justify-between items-center">
+                <div className="flex justify-between items-center gap-2">
                   <label className="font-bold text-slate-700">Tọa độ GIS (Định dạng DMS hoặc Thập phân):</label>
                   <button
                     type="button"
@@ -3362,10 +3430,10 @@ export default function EnterpriseManagement({
                       const auto = generateDefaultCoordinatesForAddress(gisPinModalEnterprise.address, gisPinModalEnterprise.id);
                       setGisPinInput(auto.dms);
                     }}
-                    className="text-[11px] font-bold text-indigo-700 hover:text-indigo-800 hover:underline flex items-center gap-1 cursor-pointer"
+                    className="text-xs font-bold text-indigo-700 hover:text-indigo-800 hover:underline flex items-center gap-1 cursor-pointer shrink-0"
                     title="Tự động nhận diện tọa độ từ địa chỉ"
                   >
-                    <Sparkles size={12} className="text-indigo-600" /> Tự động nhận diện từ địa chỉ
+                    <Sparkles size={12} className="text-indigo-600" /> Tự động nhận diện
                   </button>
                 </div>
 
@@ -3383,15 +3451,15 @@ export default function EnterpriseManagement({
 
               {/* Presets for KP3 */}
               <div className="space-y-1.5">
-                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Gợi ý phân khu trục chính KP3:</span>
-                <div className="grid grid-cols-2 gap-1.5 text-[11px]">
+                <span className="text-xs font-semibold text-slate-600 block">Gợi ý phân khu trục chính KP3:</span>
+                <div className="grid grid-cols-2 gap-1.5 text-xs">
                   <button
                     type="button"
                     onClick={() => setGisPinInput('10°56\'13.2"N 106°44\'40.7"E')}
                     className="p-2 text-left bg-slate-50 hover:bg-indigo-50 hover:border-indigo-200 border border-slate-200 rounded-lg text-slate-700 transition-colors cursor-pointer"
                   >
                     <strong className="block text-slate-900">Mặt tiền Lương Định Của</strong>
-                    <span className="text-[10px] text-slate-500 font-mono">10.936997, 106.744645</span>
+                    <span className="text-xs text-slate-500 font-mono">10.936997, 106.744645</span>
                   </button>
                   <button
                     type="button"
@@ -3399,7 +3467,7 @@ export default function EnterpriseManagement({
                     className="p-2 text-left bg-slate-50 hover:bg-indigo-50 hover:border-indigo-200 border border-slate-200 rounded-lg text-slate-700 transition-colors cursor-pointer"
                   >
                     <strong className="block text-slate-900">Hẻm 42 Lương Định Của</strong>
-                    <span className="text-[10px] text-slate-500 font-mono">10.937800, 106.745500</span>
+                    <span className="text-xs text-slate-500 font-mono">10.937800, 106.745500</span>
                   </button>
                   <button
                     type="button"
@@ -3407,7 +3475,7 @@ export default function EnterpriseManagement({
                     className="p-2 text-left bg-slate-50 hover:bg-indigo-50 hover:border-indigo-200 border border-slate-200 rounded-lg text-slate-700 transition-colors cursor-pointer"
                   >
                     <strong className="block text-slate-900">Hẻm 18 Lương Định Của</strong>
-                    <span className="text-[10px] text-slate-500 font-mono">10.935800, 106.746800</span>
+                    <span className="text-xs text-slate-500 font-mono">10.935800, 106.746800</span>
                   </button>
                   <button
                     type="button"
@@ -3415,7 +3483,7 @@ export default function EnterpriseManagement({
                     className="p-2 text-left bg-slate-50 hover:bg-indigo-50 hover:border-indigo-200 border border-slate-200 rounded-lg text-slate-700 transition-colors cursor-pointer"
                   >
                     <strong className="block text-slate-900">Khu thương mại dịch vụ KP3</strong>
-                    <span className="text-[10px] text-slate-500 font-mono">10.937200, 106.743800</span>
+                    <span className="text-xs text-slate-500 font-mono">10.937200, 106.743800</span>
                   </button>
                 </div>
               </div>
@@ -3425,19 +3493,19 @@ export default function EnterpriseManagement({
                 const parsed = parseGisCoords(gisPinInput);
                 if (parsed) {
                   return (
-                    <div className="p-2.5 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-[11px] flex items-center justify-between">
+                    <div className="p-2.5 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs flex flex-wrap items-center justify-between gap-2">
                       <div className="flex items-center gap-1.5 font-bold">
                         <Check size={13} className="text-emerald-600" />
                         <span>Tọa độ hợp lệ: {parsed.lat.toFixed(6)}, {parsed.lng.toFixed(6)}</span>
                       </div>
-                      <span className="font-mono text-[10px] bg-emerald-100 px-2 py-0.5 rounded">
+                      <span className="font-mono text-xs bg-emerald-100 px-2 py-0.5 rounded">
                         {decimalToDMS(parsed.lat, parsed.lng)}
                       </span>
                     </div>
                   );
                 } else {
                   return (
-                    <div className="p-2.5 rounded-xl bg-amber-50 border border-amber-200 text-amber-800 text-[11px] flex items-center gap-1.5">
+                    <div className="p-2.5 rounded-xl bg-amber-50 border border-amber-200 text-amber-800 text-xs flex items-center gap-1.5">
                       <AlertTriangle size={13} className="text-amber-600 shrink-0" />
                       <span>Đang kiểm tra định dạng tọa độ. Vui lòng nhập đúng chuẩn hoặc bấm nút tự động nhận diện.</span>
                     </div>
@@ -3456,18 +3524,18 @@ export default function EnterpriseManagement({
                 Hủy bỏ
               </button>
 
-              <div className="flex items-center gap-2">
+              <div className="flex flex-wrap items-center gap-2">
                 <button
                   type="button"
                   onClick={() => handleSavePinCoordinates(false)}
-                  className="px-3.5 py-2 bg-slate-800 hover:bg-slate-900 text-white rounded-xl text-xs font-bold transition-colors cursor-pointer shadow-xs"
+                  className="px-3.5 py-2 bg-white border border-slate-300 hover:bg-slate-100 text-slate-800 rounded-xl text-xs font-bold transition-colors cursor-pointer"
                 >
                   Lưu & Đồng bộ GIS
                 </button>
                 <button
                   type="button"
                   onClick={() => handleSavePinCoordinates(true)}
-                  className="px-4 py-2 bg-gradient-to-tr from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-md transition-all cursor-pointer"
+                  className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer"
                 >
                   <Navigation size={13} />
                   <span>Lưu & Dẫn đường ngay</span>

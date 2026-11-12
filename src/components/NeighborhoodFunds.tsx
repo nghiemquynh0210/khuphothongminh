@@ -1,328 +1,432 @@
-import React, { useState, useEffect } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
-  Coins,
-  Search,
-  Filter,
-  Plus,
-  CheckCircle2,
-  XCircle,
-  DollarSign,
-  User,
-  Home,
-  FileSpreadsheet,
-  TrendingUp,
-  CreditCard,
-  Printer,
-  ArrowUpRight,
-  ArrowDownRight,
-  RefreshCw,
-  TrendingDown,
   Activity,
-  FileText,
-  Calendar,
-  X,
-  Check,
-  Building,
-  ChevronRight,
-  FileUp,
+  ArrowDownRight,
+  ArrowUpRight,
+  Coins,
+  FileSpreadsheet,
+  Filter,
+  FolderCog,
   LayoutGrid,
   List,
+  Plus,
+  Printer,
   QrCode,
-  Sparkles
+  RotateCcw,
+  Search,
+  ShieldCheck,
+  Trash2,
+  TrendingUp,
+  CheckCircle2,
+  Edit2,
 } from "lucide-react";
-import { FundContribution } from "../types";
+import {
+  Bar,
+  BarChart,
+  CartesianGrid,
+  Legend,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from "recharts";
+import {
+  FundCategory,
+  FundContribution,
+  FundExpenditure,
+  Household,
+} from "../types";
 import Pagination from "./Pagination";
 import { StatCard } from "./common/StatCard";
 import { PageHeader } from "./common/PageHeader";
+import { Button } from "./ui/Button";
+import { StatusBadge } from "./ui/StatusBadge";
+import { EmptyState } from "./ui/EmptyState";
+import { ConfirmModal } from "./ui/ConfirmModal";
 import { formatVNNumber } from "../utils/numberFormat";
 import VietQrModal from "./funds/VietQrModal";
 import HouseholdFundLookup from "./funds/HouseholdFundLookup";
+import FundCatalogManager from "./funds/FundCatalogManager";
+import {
+  AddContributionModal,
+  AddExpenditureModal,
+  DeleteExpenditureModal,
+  ReceiptPreviewData,
+  ReceiptPrintModal,
+} from "./funds/FundModals";
+import {
+  DEFAULT_FUND_CATEGORIES,
+  doesRecordMatchCategory,
+  exportFundsWorkbookXlsx,
+  findCategoryByFundName,
+  formatReceiptCode,
+  FUND_CATEGORIES_STORAGE_KEY,
+  FUND_EXPENDITURES_STORAGE_KEY,
+  inferPayerMeta,
+  mergeDiscoveredFundCategories,
+  MOCK_INITIAL_EXPENDITURES,
+  normalizeFundKey,
+} from "./funds/fundCatalog";
 
-// Kiểu dữ liệu cho Khoản Chi (Expenditure)
-interface Expenditure {
-  id: string;
-  fundName: "Quỹ Khuyến học" | "Quỹ Vì người nghèo" | "Quỹ Quốc phòng an ninh" | "Quỹ Phòng chống thiên tai" | "Quỹ Bảo trì hẻm";
-  title: string; // Nội dung chi rõ ràng
-  amount: number;
-  spentAt: string;
-  receiver: string; // Đơn vị/Người nhận thụ hưởng
-  evidence?: string; // Số hóa đơn/chứng từ kèm theo
-  approvedBy: string; // Người phê duyệt (ví dụ: Bí thư kiêm Trưởng KP Nguyễn Văn Hùng)
-}
+export type FundsSubTab = "thu" | "chi" | "danhmuc" | "baocao" | "qr_portal";
 
 interface NeighborhoodFundsProps {
   contributions: FundContribution[];
   onAddContribution: (newCont: FundContribution) => void;
-  onUpdateContributionStatus: (id: string, status: "Đã nộp" | "Chưa nộp", paidAt?: string) => void;
-  households?: any[];
-}
-
-// Hàm đọc số tiền thành chữ tiếng Việt cực kỳ chi tiết
-function docSoTiengViet(number: number): string {
-  if (number === 0) return "Không đồng";
-  const units = ["", "một", "hai", "ba", "bốn", "năm", "sáu", "bảy", "tám", "chín"];
-  const unitsTen = ["", "mười", "hai mươi", "ba mươi", "bốn mươi", "năm mươi", "sáu mươi", "bảy mươi", "tám mươi", "chín mươi"];
-
-  const readGroup3 = (num: number, showZeroUnit: boolean): string => {
-    let s = "";
-    const hundreds = Math.floor(num / 100);
-    const tens = Math.floor((num % 100) / 10);
-    const ones = num % 10;
-
-    if (hundreds > 0 || showZeroUnit) {
-      s += units[hundreds] + " trăm ";
-    }
-
-    if (tens > 0) {
-      s += unitsTen[tens] + " ";
-    } else if (hundreds > 0 && ones > 0) {
-      s += "lẻ ";
-    }
-
-    if (tens > 1 && ones === 1) {
-      s += "mốt";
-    } else if (tens > 0 && ones === 5) {
-      s += "lăm";
-    } else if (ones > 0) {
-      s += units[ones];
-    }
-    return s.trim();
-  };
-
-  let str = "";
-  let temp = number;
-  const groups = [];
-  while (temp > 0) {
-    groups.push(temp % 1000);
-    temp = Math.floor(temp / 1000);
-  }
-
-  const groupUnits = ["", "nghìn", "triệu", "tỷ", "nghìn tỷ", "triệu tỷ"];
-  for (let i = groups.length - 1; i >= 0; i--) {
-    const g = groups[i];
-    if (g > 0) {
-      const showZero = i < groups.length - 1;
-      str += readGroup3(g, showZero) + " " + groupUnits[i] + " ";
-    }
-  }
-
-  return str.trim().charAt(0).toUpperCase() + str.trim().slice(1) + " đồng chẵn";
+  onUpdateContribution?: (updatedCont: FundContribution) => void;
+  onDeleteContribution?: (id: string) => void;
+  onUpdateContributionStatus: (
+    id: string,
+    status: "Đã nộp" | "Chưa nộp",
+    paidAt?: string
+  ) => void;
+  households?: Household[];
+  expenditures?: FundExpenditure[];
+  onAddExpenditure?: (newExp: FundExpenditure) => void;
+  onUpdateExpenditure?: (updatedExp: FundExpenditure) => void;
+  onDeleteExpenditure?: (id: string) => void;
+  onSyncRenamedFund?: (oldNames: string[], newName: string) => void;
+  readOnly?: boolean;
 }
 
 export default function NeighborhoodFunds({
   contributions,
   onAddContribution,
+  onUpdateContribution,
+  onDeleteContribution,
   onUpdateContributionStatus,
-  households = []
+  households = [],
+  expenditures: controlledExpenditures,
+  onAddExpenditure,
+  onUpdateExpenditure,
+  onDeleteExpenditure,
+  onSyncRenamedFund,
+  readOnly = false,
 }: NeighborhoodFundsProps) {
-  // Sub-tabs: "thu" (Phiếu thu), "chi" (Phiếu chi), "baocao" (Tổng hợp báo cáo), "qr_portal" (Cổng tra cứu & VietQR)
-  const [activeSubTab, setActiveSubTab] = useState<"thu" | "chi" | "baocao" | "qr_portal">("thu");
-  const [activeVietQrContribution, setActiveVietQrContribution] = useState<FundContribution | null>(null);
+  const [activeSubTab, setActiveSubTab] = useState<FundsSubTab>(
+    readOnly ? "qr_portal" : "thu"
+  );
+  const [activeVietQrContribution, setActiveVietQrContribution] =
+    useState<FundContribution | null>(null);
 
-  // State quản lý danh sách các khoản chi (Expenditures)
-  const [expenditures, setExpenditures] = useState<Expenditure[]>([
-    {
-      id: "EXP001",
-      fundName: "Quỹ Khuyến học",
-      title: "Chi mua tập vở, dụng cụ học tập phát thưởng cho các học sinh đạt thành tích cao trong Lễ tổng kết hè",
-      amount: 2500000,
-      spentAt: "15/06/2026",
-      receiver: "Nhà sách Nguyễn Văn Cừ",
-      evidence: "HĐ-2026-045",
-      approvedBy: "Nguyễn Văn Hùng"
-    },
-    {
-      id: "EXP002",
-      fundName: "Quỹ Vì người nghèo",
-      title: "Chi hỗ trợ đột xuất viện phí cho hộ nghèo bà Trần Thị Lan điều trị bệnh tim",
-      amount: 3000000,
-      spentAt: "18/06/2026",
-      receiver: "Bà Trần Thị Lan (Hộ nghèo hẻm 42)",
-      evidence: "PT-0987-BV",
-      approvedBy: "Nguyễn Văn Hùng"
-    },
-    {
-      id: "EXP003",
-      fundName: "Quỹ Quốc phòng an ninh",
-      title: "Chi mua trang thiết bị tuần tra (đèn pin siêu sáng, công cụ hỗ trợ) cho lực lượng ANCS giữ gìn trật tự đêm",
-      amount: 1200000,
-      spentAt: "02/07/2026",
-      receiver: "Cửa hàng Thiết bị Bảo hộ An Bình",
-      evidence: "HĐ-1209",
-      approvedBy: "Lê Văn Sơn"
-    },
-    {
-      id: "EXP004",
-      fundName: "Quỹ Bảo trì hẻm",
-      title: "Chi mua xi măng, cát đá sửa chữa đoạn vỉa hè bị sụt lún trước đầu hẻm 42 An Phú",
-      amount: 1800000,
-      spentAt: "08/07/2026",
-      receiver: "Cửa hàng VLXD Hùng Cường",
-      evidence: "HĐ-6752",
-      approvedBy: "Nguyễn Văn Hùng"
-    },
-    {
-      id: "EXP005",
-      fundName: "Quỹ Phòng chống thiên tai",
-      title: "Chi hỗ trợ nhu yếu phẩm khẩn cấp cho hộ gia đình bị tốc mái do giông lốc lớn đêm 05/07",
-      amount: 1500000,
-      spentAt: "06/07/2026",
-      receiver: "Gia đình ông Trần Văn Thanh",
-      evidence: "BB-0607-KP",
-      approvedBy: "Nguyễn Văn Hùng"
+  // Stored dynamic Fund Categories
+  const [storedCategories, setStoredCategories] = useState<FundCategory[]>(() => {
+    try {
+      const saved = localStorage.getItem(FUND_CATEGORIES_STORAGE_KEY);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+    } catch {
+      // Fallback to defaults
     }
-  ]);
+    return DEFAULT_FUND_CATEGORIES;
+  });
 
-  // States for Adding Contribution (Thu)
+  // Uncontrolled local fallback Expenditures (used if parent doesn't supply controlled expenditures)
+  const [localExpenditures, setLocalExpenditures] = useState<FundExpenditure[]>(
+    () => {
+      try {
+        const saved = localStorage.getItem(FUND_EXPENDITURES_STORAGE_KEY);
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          if (Array.isArray(parsed)) return parsed;
+        }
+      } catch {
+        // Fallback to seed
+      }
+      return MOCK_INITIAL_EXPENDITURES;
+    }
+  );
+
+  const expenditures = controlledExpenditures ?? localExpenditures;
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(
+        FUND_CATEGORIES_STORAGE_KEY,
+        JSON.stringify(storedCategories)
+      );
+    } catch {
+      // Ignore storage quota issues
+    }
+  }, [storedCategories]);
+
+  useEffect(() => {
+    if (controlledExpenditures !== undefined) return;
+    try {
+      localStorage.setItem(
+        FUND_EXPENDITURES_STORAGE_KEY,
+        JSON.stringify(localExpenditures)
+      );
+    } catch {
+      // Ignore storage quota issues
+    }
+  }, [localExpenditures, controlledExpenditures]);
+
+  // Merge user-configured categories with any new fund names discovered from DB records
+  const categories = useMemo(
+    () =>
+      mergeDiscoveredFundCategories(storedCategories, contributions, expenditures),
+    [storedCategories, contributions, expenditures]
+  );
+
+  // Modals & notifications
   const [showAddThuModal, setShowAddThuModal] = useState(false);
+  const [editingContribution, setEditingContribution] =
+    useState<FundContribution | null>(null);
+  const [deleteContTarget, setDeleteContTarget] =
+    useState<FundContribution | null>(null);
+  const [showAddChiModal, setShowAddChiModal] = useState(false);
+  const [editingExpenditure, setEditingExpenditure] =
+    useState<FundExpenditure | null>(null);
+  const [createCategoryTrigger, setCreateCategoryTrigger] = useState(0);
+  const [deleteExpTarget, setDeleteExpTarget] =
+    useState<FundExpenditure | null>(null);
+  const [selectedReceipt, setSelectedReceipt] =
+    useState<ReceiptPreviewData | null>(null);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+
   const showToast = (msg: string) => {
     setToastMessage(msg);
-    setTimeout(() => setToastMessage(null), 3500);
+    window.setTimeout(() => setToastMessage(null), 3500);
   };
-  const [householdCode, setHouseholdCode] = useState("");
-  const [ownerName, setOwnerName] = useState("");
-  const [fundName, setFundName] = useState<FundContribution["fundName"]>("Quỹ Khuyến học");
-  const [amount, setAmount] = useState(150000);
-  const [payImmediately, setPayImmediately] = useState(true);
 
-  // States for Adding Expenditure (Chi)
-  const [showAddChiModal, setShowAddChiModal] = useState(false);
-  const [chiFundName, setChiFundName] = useState<Expenditure["fundName"]>("Quỹ Khuyến học");
-  const [chiTitle, setChiTitle] = useState("");
-  const [chiAmount, setChiAmount] = useState(500000);
-  const [chiSpentAt, setChiSpentAt] = useState("");
-  const [chiReceiver, setChiReceiver] = useState("");
-  const [chiEvidence, setChiEvidence] = useState("");
-  const [chiApprovedBy, setChiApprovedBy] = useState("Nguyễn Văn Hùng");
-
-  // States for Printing Receipt
-  const [selectedReceipt, setSelectedReceipt] = useState<{
-    type: "THU" | "CHI";
-    id: string;
-    date: string;
-    amount: number;
-    title: string;
-    subject: string; // Tên người nộp hoặc nhận
-    evidence?: string;
-    subDetail?: string; // Ví dụ: Mã hộ khẩu
-    fundName: string;
-    approvedBy?: string;
-  } | null>(null);
-
-  // Search & Filter state
+  // Filters & Pagination
   const [searchTerm, setSearchTerm] = useState("");
   const [fundFilter, setFundFilter] = useState("Tất cả");
   const [statusFilter, setStatusFilter] = useState("Tất cả");
-
   const [currentContributionsPage, setCurrentContributionsPage] = useState(1);
   const [currentExpendituresPage, setCurrentExpendituresPage] = useState(1);
-  const [viewMode, setViewMode] = useState<"table" | "card">("table");
-  const itemsPerPage = 8;
+  const [viewMode, setViewMode] = useState<"table" | "card">("card");
+  const itemsPerPage = 10;
+
+  // Horizontal tab scroll fade management (per modern-web-guidance tabs & scrollability hints)
+  const tabListRef = useRef<HTMLDivElement | null>(null);
+  const [tabFade, setTabFade] = useState<"none" | "r" | "l" | "lr">("none");
+
+  const updateTabFade = () => {
+    const el = tabListRef.current;
+    if (!el) return;
+    const maxScroll = el.scrollWidth - el.clientWidth;
+    if (maxScroll <= 4) {
+      setTabFade("none");
+      return;
+    }
+    const atStart = el.scrollLeft <= 4;
+    const atEnd = el.scrollLeft >= maxScroll - 4;
+    if (atStart) setTabFade("r");
+    else if (atEnd) setTabFade("l");
+    else setTabFade("lr");
+  };
 
   useEffect(() => {
-    if (window.innerWidth < 1024) {
-      setViewMode("card");
-    }
+    updateTabFade();
+    const ro = new ResizeObserver(updateTabFade);
+    if (tabListRef.current) ro.observe(tabListRef.current);
+    return () => ro.disconnect();
   }, []);
 
-  const handleSearchChange = (val: string) => {
-    setSearchTerm(val);
-    setCurrentContributionsPage(1);
-    setCurrentExpendituresPage(1);
+  const handleSelectTab = (
+    tab: FundsSubTab,
+    buttonEl?: HTMLButtonElement | null
+  ) => {
+    setActiveSubTab(tab);
+    buttonEl?.scrollIntoView({
+      block: "nearest",
+      inline: "nearest",
+      behavior: "smooth",
+    });
   };
 
-  const handleFundFilterChange = (val: string) => {
-    setFundFilter(val);
-    setCurrentContributionsPage(1);
-    setCurrentExpendituresPage(1);
+  // Category CRUD Handlers
+  const handleCreateCategory = (cat: FundCategory) => {
+    setStoredCategories((prev) => [cat, ...prev]);
+    showToast(`Đã tạo mới "${cat.name}" (${cat.code}).`);
   };
 
-  const handleStatusFilterChange = (val: string) => {
-    setStatusFilter(val);
-    setCurrentContributionsPage(1);
-    setCurrentExpendituresPage(1);
-  };
+  const handleUpdateCategory = (
+    prevName: string,
+    updated: FundCategory,
+    syncRecords: boolean
+  ) => {
+    setStoredCategories((prev) => {
+      const exists = prev.some((c) => c.id === updated.id);
+      if (exists) {
+        return prev.map((c) => (c.id === updated.id ? updated : c));
+      }
+      return [updated, ...prev];
+    });
 
-  // Xử lý thêm phiếu thu (Contribution)
-  const handleAddThuSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!householdCode || !ownerName || !amount) {
-      showToast("Vui lòng nhập đầy đủ mã hộ khẩu và tên chủ hộ!");
-      return;
+    if (syncRecords && normalizeFundKey(prevName) !== normalizeFundKey(updated.name)) {
+      if (onSyncRenamedFund) {
+        onSyncRenamedFund([prevName, ...(updated.aliases || [])], updated.name);
+      }
+      if (controlledExpenditures === undefined) {
+        setLocalExpenditures((prev) =>
+          prev.map((e) =>
+            normalizeFundKey(e.fundName) === normalizeFundKey(prevName)
+              ? { ...e, fundName: updated.name }
+              : e
+          )
+        );
+      }
     }
 
-    const todayStr = new Date().toLocaleDateString("vi-VN");
-
-    const newCont: FundContribution = {
-      id: "FD" + (contributions.length + 1).toString().padStart(3, "0"),
-      householdCode,
-      ownerName,
-      fundName,
-      amount: Number(amount),
-      status: payImmediately ? "Đã nộp" : "Chưa nộp",
-      paidAt: payImmediately ? todayStr : undefined
-    };
-
-    onAddContribution(newCont);
-    setShowAddThuModal(false);
-
-    // Reset Form
-    setHouseholdCode("");
-    setOwnerName("");
-    setAmount(150000);
-    setPayImmediately(true);
+    showToast(`Đã cập nhật thông tin "${updated.name}".`);
   };
 
-  // Xử lý thêm phiếu chi (Expenditure)
-  const handleAddChiSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!chiTitle || !chiAmount || !chiReceiver || !chiSpentAt) {
-      showToast("Vui lòng điền đầy đủ thông tin bắt buộc!");
+  const handleDeleteCategory = (
+    cat: FundCategory,
+    reassignToFundName?: string
+  ) => {
+    if (reassignToFundName && onSyncRenamedFund) {
+      onSyncRenamedFund([cat.name, ...(cat.aliases || [])], reassignToFundName);
+    }
+    if (reassignToFundName && controlledExpenditures === undefined) {
+      setLocalExpenditures((prev) =>
+        prev.map((e) =>
+          doesRecordMatchCategory(e.fundName, cat, categories)
+            ? { ...e, fundName: reassignToFundName }
+            : e
+        )
+      );
+    }
+    setStoredCategories((prev) => prev.filter((c) => c.id !== cat.id));
+    if (fundFilter === cat.name) setFundFilter("Tất cả");
+    showToast(
+      reassignToFundName
+        ? `Đã chuyển chứng từ sang "${reassignToFundName}" và xóa "${cat.name}".`
+        : `Đã xóa "${cat.name}" khỏi danh mục quỹ.`
+    );
+  };
+
+  const handleBatchGenerateReminders = (
+    category: FundCategory,
+    selectedHouseholds: Household[],
+    customAmount: number
+  ) => {
+    const existingKeys = new Set(
+      contributions
+        .filter((c) => doesRecordMatchCategory(c.fundName, category, categories))
+        .map((c) => c.householdCode)
+    );
+
+    let createdCount = 0;
+    selectedHouseholds.forEach((hh, idx) => {
+      if (existingKeys.has(hh.code)) return;
+      createdCount += 1;
+      const receiptCode = `${category.code}-${hh.code.replace(/[^A-Z0-9]/gi, "")}`;
+      onAddContribution({
+        id: `FD-${Date.now().toString().slice(-4)}-${idx}`,
+        receiptCode,
+        householdCode: hh.code,
+        ownerName: hh.ownerName,
+        payerType: "household",
+        fundName: category.name,
+        amount: customAmount,
+        status: "Chưa nộp",
+        paymentMethod: "VietQR",
+        note: `Đợt vận động ${category.name} năm 2026`,
+      });
+    });
+
+    if (createdCount > 0) {
+      showToast(
+        `Đã phát hành ${createdCount} phiếu nhắc thu cho "${category.name}".`
+      );
+      setFundFilter(category.name);
+      setStatusFilter("Chưa nộp");
+      setActiveSubTab("thu");
+    } else {
+      showToast("Các hộ được chọn đều đã có phiếu ở quỹ này.");
+    }
+  };
+
+  // Expenditure Handlers
+  const handleSaveThu = (saved: FundContribution) => {
+    if (editingContribution) {
+      if (onUpdateContribution) {
+        onUpdateContribution(saved);
+      } else {
+        onUpdateContributionStatus(saved.id, saved.status, saved.paidAt);
+      }
+      showToast(`Đã cập nhật phiếu thu ${saved.receiptCode || saved.id}.`);
+      setEditingContribution(null);
       return;
     }
-
-    const newExp: Expenditure = {
-      id: "EXP" + (expenditures.length + 1).toString().padStart(3, "0"),
-      fundName: chiFundName,
-      title: chiTitle,
-      amount: Number(chiAmount),
-      spentAt: chiSpentAt,
-      receiver: chiReceiver,
-      evidence: chiEvidence || "Không có",
-      approvedBy: chiApprovedBy
-    };
-
-    setExpenditures([newExp, ...expenditures]);
-    setShowAddChiModal(false);
-
-    // Reset Form
-    setChiTitle("");
-    setChiAmount(500000);
-    setChiSpentAt("");
-    setChiReceiver("");
-    setChiEvidence("");
+    onAddContribution(saved);
+    showToast(`Đã ghi nhận phiếu thu ${saved.receiptCode || saved.id}.`);
   };
 
-  // Xử lý In Biên Lai nhanh
+  const handleConfirmDeleteCont = () => {
+    if (!deleteContTarget) return;
+    const code = formatReceiptCode(
+      deleteContTarget.id,
+      deleteContTarget.receiptCode,
+      "BL"
+    );
+    if (onDeleteContribution) {
+      onDeleteContribution(deleteContTarget.id);
+    }
+    setDeleteContTarget(null);
+    showToast(`Đã xóa phiếu thu ${code}.`);
+  };
+
+  const handleSaveChi = (newExp: FundExpenditure) => {
+    if (editingExpenditure) {
+      if (onUpdateExpenditure) {
+        onUpdateExpenditure(newExp);
+      } else {
+        setLocalExpenditures((prev) =>
+          prev.map((item) => (item.id === newExp.id ? newExp : item))
+        );
+      }
+      showToast(`Đã cập nhật phiếu chi ${newExp.voucherCode || newExp.id}.`);
+      setEditingExpenditure(null);
+      return;
+    }
+    if (onAddExpenditure) {
+      onAddExpenditure(newExp);
+    } else {
+      setLocalExpenditures((prev) => [newExp, ...prev]);
+    }
+    showToast(`Đã lập phiếu chi ${newExp.voucherCode || newExp.id}.`);
+  };
+
+  const handleConfirmDeleteChi = (exp: FundExpenditure) => {
+    if (onDeleteExpenditure) {
+      onDeleteExpenditure(exp.id);
+    } else {
+      setLocalExpenditures((prev) => prev.filter((item) => item.id !== exp.id));
+    }
+    showToast(`Đã xóa phiếu chi ${formatReceiptCode(exp.id, exp.voucherCode, "PC")}.`);
+  };
+
+  // Print Receipt Preview
   const handleOpenReceipt = (type: "THU" | "CHI", item: any) => {
     if (type === "THU") {
+      const payer = inferPayerMeta(item);
       setSelectedReceipt({
         type: "THU",
         id: item.id,
+        receiptCode: item.receiptCode,
         date: item.paidAt || new Date().toLocaleDateString("vi-VN"),
         amount: item.amount,
-        title: `Đóng góp tự nguyện vào ${item.fundName} năm 2026`,
+        title:
+          item.note ||
+          `Đóng góp tự nguyện vào ${item.fundName} (Khu phố 3, Phường An Phú)`,
         subject: item.ownerName,
-        subDetail: `Mã hộ khẩu: ${item.householdCode}`,
-        evidence: "Biên lai thu quỹ tự quản",
+        subDetail: `${payer.label} (${payer.codeLabel})`,
+        evidence: "Biên lai thu quỹ cộng đồng điện tử",
         fundName: item.fundName,
-        approvedBy: "Nguyễn Văn Hùng"
+        approvedBy: "Nguyễn Văn Hùng",
       });
     } else {
       setSelectedReceipt({
         type: "CHI",
         id: item.id,
+        receiptCode: item.voucherCode,
         date: item.spentAt,
         amount: item.amount,
         title: item.title,
@@ -330,429 +434,715 @@ export default function NeighborhoodFunds({
         subDetail: `Người phê duyệt: ${item.approvedBy}`,
         evidence: item.evidence,
         fundName: item.fundName,
-        approvedBy: item.approvedBy
+        approvedBy: item.approvedBy,
       });
     }
   };
 
-  // Xử lý Xuất file Excel (Dưới dạng CSV có hỗ trợ hiển thị Tiếng Việt UTF-8 chuẩn trên MS Excel)
-  const handleExportToExcel = () => {
-    let csvContent = "\uFEFF"; // Byte Order Mark để sửa lỗi font tiếng Việt trên MS Excel
+  // KPI & Financial Aggregations
+  const paidContributions = useMemo(
+    () => contributions.filter((c) => c.status === "Đã nộp"),
+    [contributions]
+  );
+  const pendingContributions = useMemo(
+    () => contributions.filter((c) => c.status !== "Đã nộp"),
+    [contributions]
+  );
 
-    if (activeSubTab === "thu") {
-      csvContent += "DANH SÁCH PHIẾU THU & ĐÓNG GÓP QUỸ KHU PHỐ 3\n";
-      csvContent += "Mã Biên Lai,Mã Hộ Khẩu,Họ Tên Chủ Hộ,Quỹ Đóng Góp,Số Tiền (VNĐ),Ngày Nộp,Trạng Thái\n";
-      contributions.forEach(c => {
-        csvContent += `"${c.id}","${c.householdCode}","${c.ownerName}","${c.fundName}",${c.amount},"${c.paidAt || "Chưa nộp"}","${c.status}"\n`;
-      });
-    } else if (activeSubTab === "chi") {
-      csvContent += "DANH SÁCH CHI TIÊU HOẠT ĐỘNG QUỸ KHU PHỐ 3\n";
-      csvContent += "Mã Phiếu Chi,Quỹ Sử Dụng,Nội Dung Chi Tiêu,Số Tiền (VNĐ),Ngày Chi,Đơn Vị Thụ Hưởng,Chứng Từ,Người Duyệt\n";
-      expenditures.forEach(e => {
-        csvContent += `"${e.id}","${e.fundName}","${e.title}",${e.amount},"${e.spentAt}","${e.receiver}","${e.evidence || ""}","${e.approvedBy}"\n`;
-      });
-    } else {
-      csvContent += "BÁO CÁO TỔNG HỢP THU CHI QUỸ TỰ QUẢN KHU PHỐ 3\n";
-      csvContent += "Tên Quỹ,Tổng Thu (VNĐ),Tổng Chi (VNĐ),Tồn Quỹ Còn Lại (VNĐ)\n";
-      const fundsList = ["Quỹ Khuyến học", "Quỹ Vì người nghèo", "Quỹ Quốc phòng an ninh", "Quỹ Phòng chống thiên tai", "Quỹ Bảo trì hẻm"] as const;
-      fundsList.forEach(fund => {
-        const tThu = contributions.filter(c => c.fundName === fund && c.status === "Đã nộp").reduce((sum, c) => sum + c.amount, 0);
-        const tChi = expenditures.filter(e => e.fundName === fund).reduce((sum, e) => sum + e.amount, 0);
-        csvContent += `"${fund}",${tThu},${tChi},${tThu - tChi}\n`;
-      });
-    }
+  const payerBreakdown = useMemo(() => {
+    let householdCount = 0;
+    let orgCount = 0;
+    const seenHouseholds = new Set<string>();
 
-    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.setAttribute("href", url);
-    link.setAttribute("download", `BaoCao_TaiChinh_KP3_${activeSubTab}_2026.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-  };
+    paidContributions.forEach((c) => {
+      const meta = inferPayerMeta(c);
+      if (meta.isHousehold) {
+        if (!seenHouseholds.has(c.householdCode)) {
+          seenHouseholds.add(c.householdCode);
+          householdCount += 1;
+        }
+      } else {
+        orgCount += 1;
+      }
+    });
 
-  // Tính toán thống kê tổng quan
-  const totalRevenue = contributions
-    .filter(c => c.status === "Đã nộp")
-    .reduce((sum, c) => sum + c.amount, 0);
+    return { householdCount, orgCount };
+  }, [paidContributions]);
 
-  const totalExpense = expenditures
-    .reduce((sum, e) => sum + e.amount, 0);
+  const totalOpeningBalance = useMemo(
+    () => categories.reduce((sum, c) => sum + (c.openingBalance || 0), 0),
+    [categories]
+  );
+  const totalRevenue = useMemo(
+    () => paidContributions.reduce((sum, c) => sum + c.amount, 0),
+    [paidContributions]
+  );
+  const totalExpense = useMemo(
+    () => expenditures.reduce((sum, e) => sum + e.amount, 0),
+    [expenditures]
+  );
+  const balanceFund = totalOpeningBalance + totalRevenue - totalExpense;
 
-  const balanceFund = totalRevenue - totalExpense;
+  const totalAnnualTarget = useMemo(
+    () =>
+      categories
+        .filter((c) => c.status !== "Đã khóa sổ")
+        .reduce((sum, c) => sum + (c.annualTarget || 0), 0),
+    [categories]
+  );
 
-  const collectionRate = contributions.length > 0
-    ? Math.round((contributions.filter(c => c.status === "Đã nộp").length / contributions.length) * 100)
-    : 0;
+  const targetProgressPercent =
+    totalAnnualTarget > 0
+      ? Math.min(100, Math.round((totalRevenue / totalAnnualTarget) * 100))
+      : contributions.length > 0
+      ? Math.round((paidContributions.length / contributions.length) * 100)
+      : 0;
 
-  // Lọc danh sách Thu
-  const filteredContributions = contributions.filter(c => {
-    const matchesSearch = c.ownerName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      c.householdCode.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesFund = fundFilter === "Tất cả" || c.fundName === fundFilter;
-    const matchesStatus = statusFilter === "Tất cả" || c.status === statusFilter;
-    return matchesSearch && matchesFund && matchesStatus;
-  });
+  // Filtered Thu & Chi
+  const filteredContributions = useMemo(() => {
+    const q = searchTerm.trim().toLowerCase();
+    const matchedFilterCat =
+      fundFilter !== "Tất cả"
+        ? findCategoryByFundName(categories, fundFilter)
+        : undefined;
 
-  // Contributions Pagination Logic
+    return contributions.filter((c) => {
+      const shortId = formatReceiptCode(c.id, c.receiptCode, "BL").toLowerCase();
+      const matchesSearch =
+        !q ||
+        c.ownerName.toLowerCase().includes(q) ||
+        c.householdCode.toLowerCase().includes(q) ||
+        shortId.includes(q) ||
+        c.id.toLowerCase().includes(q) ||
+        c.fundName.toLowerCase().includes(q);
+
+      const matchesFund =
+        fundFilter === "Tất cả" ||
+        (matchedFilterCat
+          ? doesRecordMatchCategory(c.fundName, matchedFilterCat, categories)
+          : normalizeFundKey(c.fundName) === normalizeFundKey(fundFilter));
+
+      const matchesStatus =
+        statusFilter === "Tất cả" || c.status === statusFilter;
+
+      return matchesSearch && matchesFund && matchesStatus;
+    });
+  }, [contributions, searchTerm, fundFilter, statusFilter, categories]);
+
   const totalContributionsItems = filteredContributions.length;
-  const totalContributionsPages = Math.ceil(totalContributionsItems / itemsPerPage) || 1;
-  const activeContributionsPage = currentContributionsPage > totalContributionsPages ? totalContributionsPages : currentContributionsPage;
-  const startContributionsIndex = (activeContributionsPage - 1) * itemsPerPage;
-  const paginatedContributions = filteredContributions.slice(startContributionsIndex, startContributionsIndex + itemsPerPage);
+  const totalContributionsPages = Math.max(
+    1,
+    Math.ceil(totalContributionsItems / itemsPerPage)
+  );
+  const activeContributionsPage = Math.min(
+    currentContributionsPage,
+    totalContributionsPages
+  );
+  const paginatedContributions = filteredContributions.slice(
+    (activeContributionsPage - 1) * itemsPerPage,
+    activeContributionsPage * itemsPerPage
+  );
 
-  // Lọc danh sách Chi
-  const filteredExpenditures = expenditures.filter(e => {
-    const matchesSearch = e.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      e.receiver.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesFund = fundFilter === "Tất cả" || e.fundName === fundFilter;
-    return matchesSearch && matchesFund;
-  });
+  const filteredExpenditures = useMemo(() => {
+    const q = searchTerm.trim().toLowerCase();
+    const matchedFilterCat =
+      fundFilter !== "Tất cả"
+        ? findCategoryByFundName(categories, fundFilter)
+        : undefined;
 
-  // Expenditures Pagination Logic
+    return expenditures.filter((e) => {
+      const shortCode = formatReceiptCode(e.id, e.voucherCode, "PC").toLowerCase();
+      const matchesSearch =
+        !q ||
+        e.title.toLowerCase().includes(q) ||
+        e.receiver.toLowerCase().includes(q) ||
+        shortCode.includes(q) ||
+        (e.evidence || "").toLowerCase().includes(q);
+
+      const matchesFund =
+        fundFilter === "Tất cả" ||
+        (matchedFilterCat
+          ? doesRecordMatchCategory(e.fundName, matchedFilterCat, categories)
+          : normalizeFundKey(e.fundName) === normalizeFundKey(fundFilter));
+
+      return matchesSearch && matchesFund;
+    });
+  }, [expenditures, searchTerm, fundFilter, categories]);
+
   const totalExpendituresItems = filteredExpenditures.length;
-  const totalExpendituresPages = Math.ceil(totalExpendituresItems / itemsPerPage) || 1;
-  const activeExpendituresPage = currentExpendituresPage > totalExpendituresPages ? totalExpendituresPages : currentExpendituresPage;
-  const startExpendituresIndex = (activeExpendituresPage - 1) * itemsPerPage;
-  const paginatedExpenditures = filteredExpenditures.slice(startExpendituresIndex, startExpendituresIndex + itemsPerPage);
+  const totalExpendituresPages = Math.max(
+    1,
+    Math.ceil(totalExpendituresItems / itemsPerPage)
+  );
+  const activeExpendituresPage = Math.min(
+    currentExpendituresPage,
+    totalExpendituresPages
+  );
+  const paginatedExpenditures = filteredExpenditures.slice(
+    (activeExpendituresPage - 1) * itemsPerPage,
+    activeExpendituresPage * itemsPerPage
+  );
 
-  // Quỹ tự quản danh sách thống kê chi tiết từng loại quỹ
-  const listFundsStats = [
-    "Quỹ Khuyến học",
-    "Quỹ Vì người nghèo",
-    "Quỹ Quốc phòng an ninh",
-    "Quỹ Phòng chống thiên tai",
-    "Quỹ Bảo trì hẻm"
-  ].map(fund => {
-    const revenue = contributions
-      .filter(c => c.fundName === fund && c.status === "Đã nộp")
-      .reduce((sum, c) => sum + c.amount, 0);
-    const expense = expenditures
-      .filter(e => e.fundName === fund)
-      .reduce((sum, e) => sum + e.amount, 0);
-    return {
-      name: fund,
-      revenue,
-      expense,
-      balance: revenue - expense,
-      percent: revenue > 0 ? Math.min(100, Math.round((expense / revenue) * 100)) : 0
-    };
-  });
+  // Per-fund Balance Sheet & Chart Data
+  const listFundsStats = useMemo(() => {
+    return categories.map((cat) => {
+      const revenue = paidContributions
+        .filter((c) => doesRecordMatchCategory(c.fundName, cat, categories))
+        .reduce((sum, c) => sum + c.amount, 0);
+      const pending = pendingContributions
+        .filter((c) => doesRecordMatchCategory(c.fundName, cat, categories))
+        .reduce((sum, c) => sum + c.amount, 0);
+      const expense = expenditures
+        .filter((e) => doesRecordMatchCategory(e.fundName, cat, categories))
+        .reduce((sum, e) => sum + e.amount, 0);
+      const balance = (cat.openingBalance || 0) + revenue - expense;
+      const available = (cat.openingBalance || 0) + revenue;
+      const disbursementPercent =
+        available > 0 ? Math.min(100, Math.round((expense / available) * 100)) : 0;
+      const targetPercent =
+        cat.annualTarget > 0
+          ? Math.min(100, Math.round((revenue / cat.annualTarget) * 100))
+          : 0;
+
+      return {
+        category: cat,
+        shortLabel: cat.code,
+        name: cat.name,
+        openingBalance: cat.openingBalance || 0,
+        revenue,
+        pending,
+        expense,
+        balance,
+        disbursementPercent,
+        targetPercent,
+      };
+    });
+  }, [categories, paidContributions, pendingContributions, expenditures]);
+
+  const subTabsConfig: {
+    id: FundsSubTab;
+    label: string;
+    badge?: number;
+    icon: React.ReactNode;
+  }[] = [
+    {
+      id: "thu",
+      label: "Sổ Thu Quỹ",
+      badge: contributions.length,
+      icon: <ArrowUpRight size={15} className="text-emerald-600 shrink-0" />,
+    },
+    {
+      id: "chi",
+      label: "Sổ Chi Quyết Toán",
+      badge: expenditures.length,
+      icon: <ArrowDownRight size={15} className="text-rose-600 shrink-0" />,
+    },
+    {
+      id: "danhmuc",
+      label: "Danh Mục Quỹ",
+      badge: categories.length,
+      icon: <FolderCog size={15} className="text-[#073B72] shrink-0" />,
+    },
+    {
+      id: "baocao",
+      label: "Cân Đối & Biểu Đồ",
+      icon: <Activity size={15} className="text-[#073B72] shrink-0" />,
+    },
+    {
+      id: "qr_portal",
+      label: "Tra Cứu & VietQR",
+      icon: <QrCode size={15} className="text-emerald-600 shrink-0" />,
+    },
+  ];
+
+  const fadeClass =
+    tabFade === "r"
+      ? "evon-fade-r"
+      : tabFade === "l"
+      ? "evon-fade-l"
+      : tabFade === "lr"
+      ? "evon-fade-lr"
+      : "";
+
+  const resetFilters = () => {
+    setSearchTerm("");
+    setFundFilter("Tất cả");
+    setStatusFilter("Tất cả");
+    setCurrentContributionsPage(1);
+    setCurrentExpendituresPage(1);
+  };
 
   return (
-    <div id="neighborhood-funds-view" className="space-y-6 animate-in fade-in duration-200">
-      {/* Toast Notification */}
+    <div id="neighborhood-funds-view" className="space-y-6">
+      {/* Live Status Toast */}
       {toastMessage && (
-        <div className="fixed bottom-6 right-6 z-50 bg-slate-900 text-white border border-emerald-500/40 px-4 py-3 rounded-2xl shadow-2xl flex items-center gap-3 text-xs animate-in fade-in slide-in-from-bottom-2 duration-200">
-          <CheckCircle2 size={18} className="text-emerald-400 shrink-0" />
-          <span className="font-medium">{toastMessage}</span>
+        <div
+          role="status"
+          aria-live="polite"
+          className="fixed bottom-6 right-6 z-50 bg-slate-900 text-white border border-emerald-500/40 px-4 py-3 rounded-xl shadow-xl flex items-center gap-3 text-xs font-medium"
+        >
+          <CheckCircle2 size={17} className="text-emerald-400 shrink-0" />
+          <span>{toastMessage}</span>
         </div>
       )}
 
-      {/* Top Banner / Executive Master Header */}
+      {/* Executive Header */}
       <PageHeader
-        badgeIcon={<Coins size={14} className="text-emerald-600" />}
-        badgeText="KẾ TOÁN & TÀI CHÍNH MINH BẠCH • KHU PHỐ 3, PHƯỜNG AN PHÚ"
-        badgeSubtext="QUỸ CỘNG ĐỒNG"
+        badgeIcon={<Coins size={14} className="text-emerald-600 shrink-0" />}
+        badgeText="QUỸ KP3 • PHƯỜNG AN PHÚ"
+        badgeSubtext={readOnly ? "CHẾ ĐỘ CƯ DÂN" : `${categories.length} QUỸ`}
         title="Quản Lý Đóng Góp & Thu Chi Quỹ Khu Phố"
+        description={
+          readOnly
+            ? "Công khai minh bạch số liệu thu chi từng quỹ, hỗ trợ cư dân tra cứu và nộp quỹ bằng mã VietQR."
+            : "Quản trị danh mục quỹ linh hoạt, hạch toán thu–chi rõ nguồn đối tượng và đối soát VietQR."
+        }
         actions={
-          <div className="flex flex-wrap items-center gap-2.5 w-full sm:w-auto shrink-0">
-            <button
-              onClick={handleExportToExcel}
-              className="flex-1 sm:flex-none flex items-center justify-center gap-2 bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 px-3.5 py-2 rounded-xl font-bold text-xs sm:text-sm transition-all shadow-2xs cursor-pointer hover:shadow-xs"
+          <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto shrink-0">
+            <Button
+              variant="outline"
+              size="md"
+              className="hover:bg-slate-100"
+              leftIcon={<FileSpreadsheet size={15} className="text-emerald-600" />}
+              onClick={() => {
+                exportFundsWorkbookXlsx({
+                  categories,
+                  contributions,
+                  expenditures,
+                });
+                showToast("Đã xuất báo cáo tài chính Excel (.xlsx) gồm 4 sheet.");
+              }}
             >
-              <FileSpreadsheet size={15} className="text-emerald-600" /> Xuất file Excel (CSV)
-            </button>
-            
-            {activeSubTab === "thu" ? (
-              <button 
-                onClick={() => setShowAddThuModal(true)}
-                className="flex-1 sm:flex-none flex items-center justify-center gap-2 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white px-4 py-2 rounded-xl font-bold text-xs sm:text-sm transition-all shadow-xs cursor-pointer"
-              >
-                <Plus size={15} /> Ghi nhận Phiếu Thu
-              </button>
-            ) : activeSubTab === "chi" ? (
-              <button 
-                onClick={() => setShowAddChiModal(true)}
-                className="flex-1 sm:flex-none flex items-center justify-center gap-2 bg-gradient-to-r from-rose-600 to-rose-700 hover:opacity-90 text-white px-4 py-2 rounded-xl font-bold text-xs sm:text-sm transition-all shadow-xs cursor-pointer"
-              >
-                <Plus size={15} /> Tạo Phiếu Chi quỹ
-              </button>
-            ) : null}
+              Xuất Excel (.xlsx)
+            </Button>
+
+            {!readOnly && (
+              <>
+                {activeSubTab === "chi" ? (
+                  <Button
+                    variant="destructive"
+                    size="md"
+                    leftIcon={<Plus size={15} />}
+                    onClick={() => setShowAddChiModal(true)}
+                  >
+                    Tạo Phiếu Chi
+                  </Button>
+                ) : activeSubTab === "danhmuc" ? (
+                  <Button
+                    variant="primary"
+                    size="md"
+                    leftIcon={<Plus size={15} />}
+                    onClick={() => setCreateCategoryTrigger((n) => n + 1)}
+                  >
+                    Thêm loại Quỹ
+                  </Button>
+                ) : (
+                  <Button
+                    variant="emerald"
+                    size="md"
+                    leftIcon={<Plus size={15} />}
+                    onClick={() => setShowAddThuModal(true)}
+                  >
+                    Ghi nhận Phiếu Thu
+                  </Button>
+                )}
+              </>
+            )}
           </div>
         }
       />
 
-      {/* Financial Overview Statistics Tiles - Standardized StatCard Component */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+      {/* Read-only notice banner when Citizen visits */}
+      {readOnly && (
+        <div className="bg-blue-50 border border-blue-200 rounded-xl px-4 py-3 flex items-center gap-2.5 text-xs text-[#073B72] font-medium">
+          <ShieldCheck size={16} className="shrink-0" />
+          <span>
+            Bạn đang xem bảng công khai tài chính cộng đồng với vai trò <strong>Cư dân</strong>. Các thao tác chỉnh sửa sổ thu–chi hoặc danh mục quỹ chỉ hiển thị trên Cổng Cán bộ.
+          </span>
+        </div>
+      )}
+
+      {/* 4 KPI Summary Cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3.5 sm:gap-4">
         <StatCard
-          label="Tồn quỹ hiện tại"
+          label="Tồn quỹ thực tế"
           value={formatVNNumber(balanceFund)}
           badge="VNĐ"
           highlighted={true}
           icon={Coins}
           color={balanceFund >= 0 ? "emerald" : "rose"}
-          subtext={balanceFund >= 0 ? "An toàn ngân sách cộng đồng" : "Thâm hụt - Cần cân đối"}
-          subtextRight={balanceFund >= 0 ? "Thặng dư" : "Thâm hụt"}
+          subtext={
+            totalOpeningBalance !== 0
+              ? `Dư đầu kỳ ${formatVNNumber(totalOpeningBalance)}đ`
+              : balanceFund >= 0
+              ? "Quỹ đang thặng dư"
+              : "Chi vượt thu kỳ này"
+          }
+          subtextRight={balanceFund >= 0 ? "Thặng dư" : "Cần cân đối"}
         />
         <StatCard
-          label="Tổng thu nộp quỹ"
+          label="Tổng thu quỹ"
           value={formatVNNumber(totalRevenue)}
           badge="VNĐ"
           icon={ArrowUpRight}
           color="blue"
-          subtext={`Từ ${contributions.filter(c => c.status === "Đã nộp").length} hộ đã đóng góp`}
-          subtextRight="Đã vào quỹ"
+          subtext={`${payerBreakdown.householdCount} hộ • ${payerBreakdown.orgCount} ĐV`}
+          subtextRight={`${pendingContributions.length} chờ thu`}
         />
         <StatCard
-          label="Tổng chi hoạt động"
+          label="Tổng chi quỹ"
           value={formatVNNumber(totalExpense)}
           badge="VNĐ"
           icon={ArrowDownRight}
           color="rose"
-          subtext={`Đã quyết toán ${expenditures.length} mục chi`}
+          subtext={`${expenditures.length} phiếu đã lập`}
           subtextRight="Công khai"
         />
         <StatCard
-          label="Tỉ lệ hoàn thành thu"
-          value={collectionRate}
+          label="Tiến độ năm"
+          value={targetProgressPercent}
           badge="%"
           icon={TrendingUp}
           color="amber"
-          subtext={`${contributions.filter(c => c.status === "Đã nộp").length} / ${contributions.length} chỉ tiêu`}
-          subtextRight="Tiến độ nộp"
+          subtext={`${paidContributions.length}/${contributions.length} phiếu nộp`}
+          subtextRight={`Mục tiêu ${Math.round(totalAnnualTarget / 1_000_000)}tr`}
         />
       </div>
 
-      {/* Switch Sub-tabs */}
-      <div className="flex border-b border-slate-200 gap-8">
-        <button
-          onClick={() => setActiveSubTab("thu")}
-          className={`pb-3 text-sm font-semibold transition-all relative flex items-center gap-2 cursor-pointer
-            ${activeSubTab === "thu" ? "text-indigo-600 font-extrabold" : "text-slate-400 hover:text-slate-600"}
-          `}
+      {/* Single-Row Scrollable Tab Bar */}
+      <div className="border-b border-slate-200">
+        <div
+          ref={tabListRef}
+          onScroll={updateTabFade}
+          role="tablist"
+          aria-label="Phân hệ Quỹ Khu phố"
+          className={`flex items-center gap-4 sm:gap-6 overflow-x-auto evon-scroll scroll-px-4 sm:scroll-px-6 ${fadeClass}`}
         >
-          <ArrowUpRight size={16} className="text-emerald-500" /> Quản lý các Khoản Thu (Hộ nộp)
-          {activeSubTab === "thu" && (
-            <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-indigo-500 rounded-full" />
-          )}
-        </button>
-        <button
-          onClick={() => setActiveSubTab("chi")}
-          className={`pb-3 text-sm font-semibold transition-all relative flex items-center gap-2 cursor-pointer
-            ${activeSubTab === "chi" ? "text-indigo-600 font-extrabold" : "text-slate-400 hover:text-slate-600"}
-          `}
-        >
-          <ArrowDownRight size={16} className="text-rose-500" /> Quản lý các Khoản Chi (Quyết toán)
-          {activeSubTab === "chi" && (
-            <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-indigo-500 rounded-full" />
-          )}
-        </button>
-        <button
-          onClick={() => setActiveSubTab("baocao")}
-          className={`pb-3 text-sm font-semibold transition-all relative flex items-center gap-2 cursor-pointer
-            ${activeSubTab === "baocao" ? "text-indigo-600 font-extrabold" : "text-slate-400 hover:text-slate-600"}
-          `}
-        >
-          <Activity size={16} className="text-indigo-500" /> Báo cáo cân đối thu chi theo Quỹ
-          {activeSubTab === "baocao" && (
-            <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-indigo-500 rounded-full" />
-          )}
-        </button>
-        <button
-          id="btn-subtab-vietqr"
-          onClick={() => setActiveSubTab("qr_portal")}
-          className={`pb-3 text-sm font-semibold transition-all relative flex items-center gap-2 cursor-pointer
-            ${activeSubTab === "qr_portal" ? "text-emerald-600 font-black" : "text-slate-400 hover:text-slate-600"}
-          `}
-        >
-          <QrCode size={16} className="text-emerald-500" /> Cổng Tra Cứu & Đóng Quỹ VietQR
-          {activeSubTab === "qr_portal" && (
-            <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-emerald-500 rounded-full" />
-          )}
-        </button>
+          {subTabsConfig.map((tab) => {
+            const selected = activeSubTab === tab.id;
+            return (
+              <button
+                key={tab.id}
+                id={`btn-subtab-${tab.id}`}
+                type="button"
+                role="tab"
+                aria-selected={selected}
+                onClick={(e) => handleSelectTab(tab.id, e.currentTarget)}
+                className={`relative flex-none whitespace-nowrap pb-3 pt-1 text-sm transition-colors cursor-pointer flex items-center gap-2 ${
+                  selected
+                    ? "text-[#073B72] font-bold"
+                    : "text-slate-600 hover:text-slate-900 font-medium"
+                }`}
+              >
+                {tab.icon}
+                <span>{tab.label}</span>
+                {tab.badge !== undefined && (
+                  <span
+                    className={`px-1.5 py-0.5 rounded-md text-xs font-mono font-bold ${
+                      selected
+                        ? "bg-blue-50 text-[#073B72] border border-blue-200"
+                        : "bg-slate-100 text-slate-600 border border-slate-200"
+                    }`}
+                  >
+                    {tab.badge}
+                  </span>
+                )}
+                {selected && (
+                  <span
+                    aria-hidden="true"
+                    className="absolute inset-x-0 bottom-0 h-[2.5px] bg-[#073B72] rounded-full"
+                  />
+                )}
+              </button>
+            );
+          })}
+        </div>
       </div>
 
-      {/* SEARCH AND FILTERS (Only show on 'thu' and 'chi' tabs) */}
+      {/* Filter Bar for Sổ Thu & Sổ Chi */}
       {(activeSubTab === "thu" || activeSubTab === "chi") && (
-        <div className="bg-white p-4 rounded-xl border border-slate-100 shadow-sm flex flex-col md:flex-row gap-3">
-          <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
+        <search className="bg-white p-4 rounded-xl border border-slate-200 flex flex-col xl:flex-row xl:items-center gap-3">
+          <div className="relative flex-1 min-w-0">
+            <label htmlFor="funds-search-input" className="sr-only">
+              Tìm kiếm chứng từ quỹ
+            </label>
+            <Search
+              className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 pointer-events-none"
+              size={16}
+            />
             <input
               id="funds-search-input"
               name="fundsSearch"
-              aria-label="Tìm kiếm phiếu quỹ khu phố"
-              type="text"
-              placeholder={activeSubTab === "thu" ? "Tìm kiếm phiếu thu theo tên chủ hộ, mã hộ khẩu..." : "Tìm kiếm phiếu chi theo nội dung chi tiêu, người thụ hưởng..."}
+              type="search"
+              placeholder={
+                activeSubTab === "thu"
+                  ? "Tìm chủ hộ, mã HK, biên lai..."
+                  : "Tìm nội dung chi, người nhận..."
+              }
               value={searchTerm}
-              onChange={(e) => handleSearchChange(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 border border-slate-200 rounded-lg text-xs focus:outline-none focus:border-indigo-500 bg-white"
+              onChange={(e) => {
+                setSearchTerm(e.target.value);
+                setCurrentContributionsPage(1);
+                setCurrentExpendituresPage(1);
+              }}
+              className="w-full h-9 pl-9 pr-3 border border-slate-300 rounded-lg text-sm text-slate-900 placeholder:text-slate-500 focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-500/20 bg-white"
             />
           </div>
 
-          <div className="flex flex-wrap gap-3 items-center">
+          <div className="flex flex-wrap items-center gap-2.5">
             <div className="flex items-center gap-2">
-              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1"><Filter size={11} /> Loại quỹ:</span>
+              <label
+                htmlFor="funds-type-filter"
+                className="text-xs font-semibold text-slate-600 flex items-center gap-1 whitespace-nowrap"
+              >
+                <Filter size={13} /> Loại quỹ:
+              </label>
               <select
                 id="funds-type-filter"
                 name="fundFilter"
-                aria-label="Lọc theo loại quỹ khu phố"
                 value={fundFilter}
-                onChange={(e) => handleFundFilterChange(e.target.value)}
-                className="px-2.5 py-1.5 border border-slate-200 rounded-lg text-xs bg-white focus:outline-none focus:border-indigo-500"
+                onChange={(e) => {
+                  setFundFilter(e.target.value);
+                  setCurrentContributionsPage(1);
+                  setCurrentExpendituresPage(1);
+                }}
+                className="h-9 px-2.5 border border-slate-300 rounded-lg text-xs font-medium text-slate-800 bg-white focus:outline-none focus:border-emerald-600 max-w-[210px]"
               >
-                <option value="Tất cả">Tất cả các Quỹ</option>
-                <option value="Quỹ Khuyến học">Quỹ Khuyến học</option>
-                <option value="Quỹ Vì người nghèo">Quỹ Vì người nghèo</option>
-                <option value="Quỹ Quốc phòng an ninh">Quỹ Quốc phòng an ninh</option>
-                <option value="Quỹ Phòng chống thiên tai">Quỹ Phòng chống thiên tai</option>
-                <option value="Quỹ Bảo trì hẻm">Quỹ Bảo trì hẻm</option>
+                <option value="Tất cả">Tất cả ({categories.length} quỹ)</option>
+                {categories.map((cat) => (
+                  <option key={cat.id} value={cat.name}>
+                    {cat.name}
+                  </option>
+                ))}
               </select>
             </div>
 
             {activeSubTab === "thu" && (
               <div className="flex items-center gap-2">
-                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1"><Filter size={11} /> Trạng thái:</span>
+                <label
+                  htmlFor="funds-status-filter"
+                  className="text-xs font-semibold text-slate-600 whitespace-nowrap"
+                >
+                  Trạng thái:
+                </label>
                 <select
                   id="funds-status-filter"
                   name="statusFilter"
-                  aria-label="Lọc theo trạng thái đóng nộp"
                   value={statusFilter}
-                  onChange={(e) => handleStatusFilterChange(e.target.value)}
-                  className="px-2.5 py-1.5 border border-slate-200 rounded-lg text-xs bg-white focus:outline-none focus:border-indigo-500"
+                  onChange={(e) => {
+                    setStatusFilter(e.target.value);
+                    setCurrentContributionsPage(1);
+                  }}
+                  className="h-9 px-2.5 border border-slate-300 rounded-lg text-xs font-medium text-slate-800 bg-white focus:outline-none focus:border-emerald-600"
                 >
-                  <option value="Tất cả">Tất cả đóng nộp</option>
-                  <option value="Đã nộp">Đã nộp tiền</option>
-                  <option value="Chưa nộp">Chưa nộp tiền</option>
+                  <option value="Tất cả">Tất cả</option>
+                  <option value="Đã nộp">Đã nộp</option>
+                  <option value="Chưa nộp">Chưa nộp</option>
                 </select>
               </div>
             )}
 
-            {/* View switcher */}
-            <div className="flex items-center border border-slate-200 rounded-lg p-0.5 bg-slate-50 gap-0.5 shrink-0">
+            {(searchTerm || fundFilter !== "Tất cả" || statusFilter !== "Tất cả") && (
+              <button
+                type="button"
+                onClick={resetFilters}
+                className="h-9 px-2.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-100 text-xs font-semibold text-slate-700 flex items-center gap-1 cursor-pointer whitespace-nowrap"
+              >
+                <RotateCcw size={13} /> Xóa lọc
+              </button>
+            )}
+
+            {/* List / Card View Switcher */}
+            <div className="flex items-center border border-slate-200 rounded-lg p-0.5 bg-slate-100 gap-0.5 shrink-0">
               <button
                 type="button"
                 onClick={() => setViewMode("table")}
-                className={`p-1.5 rounded transition-all cursor-pointer ${viewMode === "table" ? "bg-white text-indigo-600 shadow-xs" : "text-slate-400 hover:text-slate-600"}`}
+                aria-label="Xem dạng Bảng"
+                className={`p-1.5 rounded-md transition-colors cursor-pointer ${
+                  viewMode === "table"
+                    ? "bg-white text-[#073B72] shadow-2xs"
+                    : "text-slate-600 hover:text-slate-900"
+                }`}
                 title="Xem dạng Bảng"
               >
-                <List size={14} />
+                <List size={15} />
               </button>
               <button
                 type="button"
                 onClick={() => setViewMode("card")}
-                className={`p-1.5 rounded transition-all cursor-pointer ${viewMode === "card" ? "bg-white text-indigo-600 shadow-xs" : "text-slate-400 hover:text-slate-600"}`}
+                aria-label="Xem dạng Thẻ"
+                className={`p-1.5 rounded-md transition-colors cursor-pointer ${
+                  viewMode === "card"
+                    ? "bg-white text-[#073B72] shadow-2xs"
+                    : "text-slate-600 hover:text-slate-900"
+                }`}
                 title="Xem dạng Thẻ"
               >
-                <LayoutGrid size={14} />
+                <LayoutGrid size={15} />
               </button>
             </div>
           </div>
-        </div>
+        </search>
       )}
 
-      {/* MAIN RENDER AREA */}
-
-      {/* VIEW: PHIẾU THU */}
+      {/* TAB 1: SỔ THU QUỸ */}
       {activeSubTab === "thu" && (
-        <div className="bg-white rounded-xl border border-slate-100 shadow-sm overflow-hidden animate-in fade-in duration-200">
+        <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
           {viewMode === "table" ? (
-            <div className="overflow-x-auto">
-              <table className="w-full text-left border-collapse text-xs">
-                <thead>
-                  <tr className="bg-slate-50 border-b border-slate-100 text-slate-400 font-bold uppercase tracking-wider text-[10px]">
-                    <th className="p-4">Biên lai ID</th>
-                    <th className="p-4">Hộ khẩu / Đại diện nộp</th>
-                    <th className="p-4">Danh mục Quỹ đóng góp</th>
-                    <th className="p-4">Số tiền thu</th>
-                    <th className="p-4">Ngày hoàn thành</th>
-                    <th className="p-4">Trạng thái</th>
-                    <th className="p-4 text-center">Hành động</th>
+            <div
+              role="region"
+              tabIndex={0}
+              aria-label="Bảng sổ chi tiết các khoản thu quỹ"
+              className="w-full overflow-x-auto"
+            >
+              <table className="w-full text-left border-collapse text-sm text-slate-800">
+                <thead className="sticky top-0 z-10 bg-slate-50 border-b border-slate-200 text-xs font-semibold text-slate-700 uppercase tracking-wider">
+                  <tr>
+                    <th className="px-3 xl:px-4 py-3 whitespace-nowrap">Biên lai</th>
+                    <th className="px-3 xl:px-4 py-3">Đối tượng đóng góp</th>
+                    <th className="px-3 xl:px-4 py-3">Loại quỹ</th>
+                    <th className="px-3 xl:px-4 py-3 whitespace-nowrap text-right">Số tiền</th>
+                    <th className="px-3 xl:px-4 py-3 whitespace-nowrap">Trạng thái & Ngày</th>
+                    <th className="px-3 xl:px-4 py-3 whitespace-nowrap text-right">Thao tác</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-50">
+                <tbody className="divide-y divide-slate-100">
                   {filteredContributions.length === 0 ? (
                     <tr>
-                      <td colSpan={7} className="p-8 text-center text-slate-400 text-xs">
-                        Không tìm thấy biên lai nộp tiền quỹ đóng góp nào phù hợp bộ lọc.
+                      <td colSpan={6} className="p-6">
+                        <EmptyState
+                          title="Chưa có phiếu thu phù hợp"
+                          description="Thử xóa bộ lọc hiện tại hoặc ghi nhận phiếu thu mới cho quỹ."
+                          actionText={!readOnly ? "Ghi nhận Phiếu Thu" : undefined}
+                          onAction={!readOnly ? () => setShowAddThuModal(true) : undefined}
+                        />
                       </td>
                     </tr>
                   ) : (
                     paginatedContributions.map((cont) => {
                       const isPaid = cont.status === "Đã nộp";
+                      const shortCode = formatReceiptCode(
+                        cont.id,
+                        cont.receiptCode,
+                        "BL"
+                      );
+                      const payer = inferPayerMeta(cont);
+
                       return (
-                        <tr key={cont.id} className="hover:bg-slate-50/50 transition-colors">
-                          <td className="p-4 font-mono font-bold text-slate-500">{cont.id}</td>
-                          <td className="p-4">
-                            <div className="flex items-center gap-2.5">
-                              <div className="w-7 h-7 rounded-full bg-slate-100 text-slate-600 flex items-center justify-center font-bold">
+                        <tr key={cont.id} className="bg-white">
+                          <td
+                            className="px-3 xl:px-4 py-3 font-mono text-xs font-semibold text-slate-700 whitespace-nowrap"
+                            title={`Mã hệ thống: ${cont.id}`}
+                          >
+                            {shortCode}
+                          </td>
+                          <td className="px-3 xl:px-4 py-3">
+                            <div className="flex items-center gap-2.5 min-w-0">
+                              <div className="w-8 h-8 rounded-full bg-slate-100 border border-slate-200 text-[#073B72] flex items-center justify-center font-bold text-xs shrink-0">
                                 {cont.ownerName.charAt(0)}
                               </div>
-                              <div>
-                                <span className="font-bold text-slate-800 block">{cont.ownerName}</span>
-                                <span className="text-[10px] text-slate-400 font-mono block">Mã HK: {cont.householdCode}</span>
+                              <div className="min-w-0">
+                                <span className="font-bold text-slate-900 text-sm block truncate max-w-[240px]">
+                                  {cont.ownerName}
+                                </span>
+                                <span className="text-xs text-slate-600 font-mono block">
+                                  {payer.codeLabel}
+                                </span>
                               </div>
                             </div>
                           </td>
-                          <td className="p-4">
-                            <span className="font-semibold text-slate-700 bg-indigo-50/50 text-indigo-800 px-2 py-0.5 rounded text-[10px]">
+                          <td className="px-3 xl:px-4 py-3">
+                            <span className="inline-flex items-center px-2.5 py-0.5 rounded-md text-xs font-semibold bg-blue-50 text-[#073B72] border border-blue-200 whitespace-nowrap">
                               {cont.fundName}
                             </span>
                           </td>
-                          <td className="p-4 font-bold text-slate-800 font-mono text-sm">
+                          <td className="px-3 xl:px-4 py-3 font-mono font-bold text-slate-900 text-sm text-right whitespace-nowrap tabular-nums">
                             {cont.amount.toLocaleString("vi-VN")}đ
                           </td>
-                          <td className="p-4 font-mono text-slate-500">
-                            {cont.paidAt || "—"}
+                          <td className="px-3 xl:px-4 py-3 whitespace-nowrap">
+                            <div className="flex flex-col items-start gap-1">
+                              <StatusBadge
+                                status={isPaid ? "completed" : "pending"}
+                                label={cont.status}
+                                size="sm"
+                              />
+                              <span className="text-xs font-mono text-slate-600">
+                                {cont.paidAt || "Chưa hoàn tất"}
+                              </span>
+                            </div>
                           </td>
-                          <td className="p-4">
-                            <span className={`inline-flex items-center gap-1 font-bold px-2 py-0.5 rounded-full border text-[10px]
-                              ${isPaid
-                                ? "bg-emerald-50 text-emerald-700 border-emerald-100"
-                                : "bg-rose-50 text-rose-600 border-rose-100"
-                              }
-                            `}>
-                              {isPaid ? <CheckCircle2 size={10} /> : <XCircle size={10} />}
-                              {cont.status}
-                            </span>
-                          </td>
-                          <td className="p-4 flex items-center justify-center gap-2">
-                            <button
-                              onClick={() => handleOpenReceipt("THU", cont)}
-                              className="flex items-center gap-1 text-[10px] bg-slate-50 hover:bg-slate-100 text-slate-600 px-2 py-1 rounded-md border border-slate-200 font-semibold cursor-pointer transition-colors"
-                              title="Xem và in biên lai"
-                            >
-                              <Printer size={12} /> In Biên Lai
-                            </button>
-
-                            {isPaid ? (
+                          <td className="px-3 xl:px-4 py-3 whitespace-nowrap text-right">
+                            <div className="inline-flex items-center justify-end gap-1.5">
                               <button
-                                onClick={() => onUpdateContributionStatus(cont.id, "Chưa nộp")}
-                                className="text-[10px] font-bold text-rose-600 hover:bg-rose-50 px-2 py-1 rounded-md transition-colors cursor-pointer"
+                                type="button"
+                                onClick={() => handleOpenReceipt("THU", cont)}
+                                className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-100 text-xs font-semibold text-slate-700 cursor-pointer transition-colors whitespace-nowrap"
+                                title="Xem và in biên lai"
                               >
-                                Hủy thu
+                                <Printer size={13} /> Biên lai
                               </button>
-                            ) : (
-                              <div className="flex items-center gap-1">
-                                <button
-                                  onClick={() => setActiveVietQrContribution(cont)}
-                                  className="text-[10px] font-bold text-white bg-emerald-600 hover:bg-emerald-500 px-2 py-1 rounded-md transition-colors cursor-pointer flex items-center gap-1 shadow-xs"
-                                  title="Mở mã VietQR nộp tiền tự động"
-                                >
-                                  <QrCode size={11} /> VietQR
-                                </button>
-                                <button
-                                  onClick={() => {
-                                    const todayStr = new Date().toLocaleDateString("vi-VN");
-                                    onUpdateContributionStatus(cont.id, "Đã nộp", todayStr);
-                                  }}
-                                  className="text-[10px] font-bold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 px-2 py-1 rounded-md transition-colors cursor-pointer"
-                                >
-                                  Thu tiền
-                                </button>
-                              </div>
-                            )}
+
+                              {!readOnly && (
+                                <>
+                                  {isPaid ? (
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        onUpdateContributionStatus(cont.id, "Chưa nộp");
+                                        showToast(`Đã chuyển ${shortCode} về trạng thái Chưa nộp.`);
+                                      }}
+                                      className="px-2.5 py-1.5 rounded-lg border border-rose-200 bg-rose-50 hover:bg-rose-100 text-xs font-semibold text-rose-700 cursor-pointer transition-colors whitespace-nowrap"
+                                    >
+                                      Hủy thu
+                                    </button>
+                                  ) : (
+                                    <>
+                                      <button
+                                        type="button"
+                                        onClick={() => setActiveVietQrContribution(cont)}
+                                        className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-[#073B72] hover:bg-[#06305d] text-white text-xs font-semibold cursor-pointer transition-colors whitespace-nowrap"
+                                      >
+                                        <QrCode size={13} /> VietQR
+                                      </button>
+                                      <button
+                                        type="button"
+                                        onClick={() => {
+                                          const todayStr = new Date().toLocaleDateString("vi-VN");
+                                          onUpdateContributionStatus(cont.id, "Đã nộp", todayStr);
+                                          showToast(`Đã xác nhận thu ${shortCode}.`);
+                                        }}
+                                        className="px-2.5 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold cursor-pointer transition-colors whitespace-nowrap"
+                                      >
+                                        Thu tiền
+                                      </button>
+                                    </>
+                                  )}
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setEditingContribution(cont);
+                                      setShowAddThuModal(true);
+                                    }}
+                                    className="p-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-100 text-slate-700 cursor-pointer"
+                                    title="Sửa phiếu thu"
+                                    aria-label={`Sửa phiếu thu ${shortCode}`}
+                                  >
+                                    <Edit2 size={14} />
+                                  </button>
+                                  {onDeleteContribution && (
+                                    <button
+                                      type="button"
+                                      onClick={() => setDeleteContTarget(cont)}
+                                      className="p-1.5 rounded-lg border border-rose-200 bg-rose-50 hover:bg-rose-100 text-rose-700 cursor-pointer"
+                                      title="Xóa phiếu thu"
+                                      aria-label={`Xóa phiếu thu ${shortCode}`}
+                                    >
+                                      <Trash2 size={14} />
+                                    </button>
+                                  )}
+                                </>
+                              )}
+                            </div>
                           </td>
                         </tr>
                       );
@@ -762,76 +1152,122 @@ export default function NeighborhoodFunds({
               </table>
             </div>
           ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 p-4 bg-slate-50/20 max-h-[550px] overflow-y-auto">
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 p-4 bg-slate-50">
               {filteredContributions.length === 0 ? (
-                <div className="p-8 text-center text-slate-400 text-xs col-span-full">
-                  Không tìm thấy biên lai nộp tiền quỹ đóng góp nào phù hợp bộ lọc.
+                <div className="col-span-full">
+                  <EmptyState
+                    title="Chưa có phiếu thu phù hợp"
+                    description="Thử xóa bộ lọc hiện tại hoặc ghi nhận phiếu thu mới."
+                  />
                 </div>
               ) : (
                 paginatedContributions.map((cont) => {
                   const isPaid = cont.status === "Đã nộp";
+                  const shortCode = formatReceiptCode(cont.id, cont.receiptCode, "BL");
+                  const payer = inferPayerMeta(cont);
+
                   return (
                     <div
                       key={cont.id}
-                      className="bg-white p-4 rounded-xl border border-slate-100 shadow-xs hover:shadow-md transition-all flex flex-col justify-between gap-3"
+                      className="bg-white p-4 rounded-xl border border-slate-200 flex flex-col justify-between gap-3"
                     >
                       <div className="flex justify-between items-start gap-2">
-                        <div>
-                          <span className="font-mono text-[10px] font-bold text-slate-400">ID: {cont.id}</span>
-                          <h4 className="font-bold text-slate-800 text-sm mt-0.5">{cont.ownerName}</h4>
-                          <p className="text-[10px] text-slate-400 font-mono mt-0.5">Mã HK: {cont.householdCode}</p>
+                        <div className="min-w-0">
+                          <span className="font-mono text-xs font-semibold text-slate-600 block">
+                            {shortCode}
+                          </span>
+                          <h4 className="font-bold text-slate-900 text-sm mt-0.5 truncate">
+                            {cont.ownerName}
+                          </h4>
+                          <p className="text-xs text-slate-600 font-mono mt-0.5">
+                            {payer.codeLabel}
+                          </p>
                         </div>
-                        <span className={`inline-flex items-center gap-1 font-bold px-2 py-0.5 rounded-full border text-[10px] shrink-0
-                          ${isPaid
-                            ? "bg-emerald-50 text-emerald-700 border-emerald-100"
-                            : "bg-rose-50 text-rose-600 border-rose-100"
-                          }
-                        `}>
-                          {isPaid ? <CheckCircle2 size={10} /> : <XCircle size={10} />}
-                          {cont.status}
+                        <StatusBadge
+                          status={isPaid ? "completed" : "pending"}
+                          label={cont.status}
+                          size="sm"
+                        />
+                      </div>
+
+                      <div className="pt-2.5 border-t border-slate-100 flex items-center justify-between gap-2">
+                        <span className="text-xs font-semibold text-[#073B72] bg-blue-50 border border-blue-200 px-2 py-0.5 rounded-md truncate">
+                          {cont.fundName}
+                        </span>
+                        <span className="font-bold text-slate-900 text-sm font-mono tabular-nums shrink-0">
+                          {cont.amount.toLocaleString("vi-VN")}đ
                         </span>
                       </div>
-                      <div className="pt-2 border-t border-slate-50 flex items-center justify-between gap-1 flex-wrap">
-                        <div>
-                          <span className="text-[10px] text-slate-400 block">Nội dung Quỹ</span>
-                          <span className="font-semibold text-indigo-700 text-xs bg-indigo-50 px-1.5 py-0.5 rounded">
-                            {cont.fundName}
-                          </span>
-                        </div>
-                        <div className="text-right">
-                          <span className="text-[10px] text-slate-400 block">Số tiền</span>
-                          <span className="font-bold text-slate-800 text-sm font-mono">
-                            {cont.amount.toLocaleString("vi-VN")}đ
-                          </span>
-                        </div>
-                      </div>
-                      <div className="pt-2 border-t border-slate-50 flex justify-between items-center gap-2">
-                        <span className="text-[10px] text-slate-400 font-mono">Ngày: {cont.paidAt || "—"}</span>
-                        <div className="flex gap-1.5 shrink-0">
+
+                      <div className="pt-2.5 border-t border-slate-100 flex justify-between items-center gap-2">
+                        <span className="text-xs text-slate-600 font-mono">
+                          {cont.paidAt || "Chờ nộp"}
+                        </span>
+                        <div className="flex items-center gap-1.5 shrink-0">
                           <button
+                            type="button"
                             onClick={() => handleOpenReceipt("THU", cont)}
-                            className="p-1.5 bg-slate-50 hover:bg-slate-100 text-slate-600 rounded-lg border border-slate-200 cursor-pointer transition-colors"
+                            className="p-1.5 bg-white hover:bg-slate-100 text-slate-700 rounded-lg border border-slate-200 cursor-pointer"
                             title="In biên lai"
+                            aria-label={`In biên lai ${shortCode}`}
                           >
-                            <Printer size={12} />
+                            <Printer size={14} />
                           </button>
-                          {isPaid ? (
-                            <button
-                              onClick={() => onUpdateContributionStatus(cont.id, "Chưa nộp")}
-                              className="text-[10px] font-bold text-rose-600 hover:bg-rose-50 px-2 py-1 rounded-md transition-colors cursor-pointer"
-                            >
-                              Hủy thu
-                            </button>
-                          ) : (
-                            <button
-                              onClick={() => {
-                                const todayStr = new Date().toLocaleDateString("vi-VN");
-                                onUpdateContributionStatus(cont.id, "Đã nộp", todayStr);
-                              }}
-                              className="text-[10px] font-bold text-emerald-600 bg-emerald-50 hover:bg-emerald-100 px-2 py-1 rounded-md transition-colors cursor-pointer"
-                            >
-                              Thu tiền
-                            </button>
+                          {!readOnly && (
+                            <>
+                              {isPaid ? (
+                                <button
+                                  type="button"
+                                  onClick={() => onUpdateContributionStatus(cont.id, "Chưa nộp")}
+                                  className="text-xs font-semibold text-rose-700 bg-rose-50 hover:bg-rose-100 border border-rose-200 px-2.5 py-1 rounded-lg cursor-pointer"
+                                >
+                                  Hủy thu
+                                </button>
+                              ) : (
+                                <>
+                                  <button
+                                    type="button"
+                                    onClick={() => setActiveVietQrContribution(cont)}
+                                    className="text-xs font-semibold text-white bg-[#073B72] hover:bg-[#06305d] px-2.5 py-1 rounded-lg cursor-pointer"
+                                  >
+                                    QR
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      const todayStr = new Date().toLocaleDateString("vi-VN");
+                                      onUpdateContributionStatus(cont.id, "Đã nộp", todayStr);
+                                    }}
+                                    className="text-xs font-semibold text-white bg-emerald-600 hover:bg-emerald-700 px-2.5 py-1 rounded-lg cursor-pointer"
+                                  >
+                                    Thu tiền
+                                  </button>
+                                </>
+                              )}
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setEditingContribution(cont);
+                                  setShowAddThuModal(true);
+                                }}
+                                className="p-1.5 bg-white hover:bg-slate-100 text-slate-700 rounded-lg border border-slate-200 cursor-pointer"
+                                title="Sửa phiếu thu"
+                                aria-label={`Sửa phiếu thu ${shortCode}`}
+                              >
+                                <Edit2 size={14} />
+                              </button>
+                              {onDeleteContribution && (
+                                <button
+                                  type="button"
+                                  onClick={() => setDeleteContTarget(cont)}
+                                  className="p-1.5 bg-rose-50 hover:bg-rose-100 text-rose-700 rounded-lg border border-rose-200 cursor-pointer"
+                                  title="Xóa phiếu thu"
+                                  aria-label={`Xóa phiếu thu ${shortCode}`}
+                                >
+                                  <Trash2 size={14} />
+                                </button>
+                              )}
+                            </>
                           )}
                         </div>
                       </div>
@@ -841,6 +1277,7 @@ export default function NeighborhoodFunds({
               )}
             </div>
           )}
+
           <Pagination
             id="contributions-pagination"
             currentPage={activeContributionsPage}
@@ -851,143 +1288,220 @@ export default function NeighborhoodFunds({
         </div>
       )}
 
-      {/* VIEW: PHIẾU CHI */}
+      {/* TAB 2: SỔ CHI QUYẾT TOÁN */}
       {activeSubTab === "chi" && (
-        <div className="bg-white rounded-xl border border-slate-100 shadow-sm overflow-hidden animate-in fade-in duration-200">
+        <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
           {viewMode === "table" ? (
-            <div className="overflow-x-auto">
-              <table className="w-full text-left border-collapse text-xs">
-                <thead>
-                  <tr className="bg-slate-50 border-b border-slate-100 text-slate-400 font-bold uppercase tracking-wider text-[10px]">
-                    <th className="p-4">Phiếu Chi ID</th>
-                    <th className="p-4">Nội Dung Chi Tiêu</th>
-                    <th className="p-4">Quỹ Trích Chi</th>
-                    <th className="p-4">Số Tiền Chi</th>
-                    <th className="p-4">Ngày Chi</th>
-                    <th className="p-4">Đơn Vị Thụ Hưởng</th>
-                    <th className="p-4 text-center">Hành Động</th>
+            <div
+              role="region"
+              tabIndex={0}
+              aria-label="Bảng sổ chi quyết toán các quỹ"
+              className="w-full overflow-x-auto"
+            >
+              <table className="w-full text-left border-collapse text-sm text-slate-800">
+                <thead className="sticky top-0 z-10 bg-slate-50 border-b border-slate-200 text-xs font-semibold text-slate-700 uppercase tracking-wider">
+                  <tr>
+                    <th className="px-3 xl:px-4 py-3 whitespace-nowrap">Phiếu chi</th>
+                    <th className="px-3 xl:px-4 py-3">Nội dung & Chứng từ</th>
+                    <th className="px-3 xl:px-4 py-3">Quỹ trích chi</th>
+                    <th className="px-3 xl:px-4 py-3 whitespace-nowrap text-right">Số tiền chi</th>
+                    <th className="px-3 xl:px-4 py-3">Đơn vị nhận & Ngày</th>
+                    <th className="px-3 xl:px-4 py-3 whitespace-nowrap text-right">Thao tác</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-50">
+                <tbody className="divide-y divide-slate-100">
                   {filteredExpenditures.length === 0 ? (
                     <tr>
-                      <td colSpan={7} className="p-8 text-center text-slate-400 text-xs">
-                        Không tìm thấy khoản chi tiêu quyết toán nào phù hợp bộ lọc.
+                      <td colSpan={6} className="p-6">
+                        <EmptyState
+                          title="Chưa có phiếu chi phù hợp"
+                          description="Các khoản chi công khai sẽ hiển thị tại đây khi Ban Điều Hành lập phiếu quyết toán."
+                          actionText={!readOnly ? "Tạo Phiếu Chi" : undefined}
+                          onAction={!readOnly ? () => setShowAddChiModal(true) : undefined}
+                        />
                       </td>
                     </tr>
                   ) : (
-                    paginatedExpenditures.map((exp) => (
-                      <tr key={exp.id} className="hover:bg-slate-50/50 transition-colors">
-                        <td className="p-4 font-mono font-bold text-slate-500">{exp.id}</td>
-                        <td className="p-4 font-medium text-slate-800 max-w-xs md:max-w-md">
-                          <div className="space-y-1">
-                            <p className="line-clamp-2 leading-relaxed">{exp.title}</p>
-                            <div className="flex items-center gap-2 text-[10px] text-slate-400">
-                              <span>Người duyệt: <strong>{exp.approvedBy}</strong></span>
-                              {exp.evidence && <span>• Chứng từ: <strong className="font-mono text-slate-500">{exp.evidence}</strong></span>}
+                    paginatedExpenditures.map((exp) => {
+                      const shortVoucher = formatReceiptCode(
+                        exp.id,
+                        exp.voucherCode,
+                        "PC"
+                      );
+                      return (
+                        <tr key={exp.id} className="bg-white">
+                          <td className="px-3 xl:px-4 py-3 font-mono text-xs font-semibold text-slate-700 whitespace-nowrap">
+                            {shortVoucher}
+                          </td>
+                          <td className="px-3 xl:px-4 py-3 max-w-md">
+                            <p className="font-semibold text-slate-900 line-clamp-2 leading-snug">
+                              {exp.title}
+                            </p>
+                            <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-slate-600 mt-1">
+                              <span>Duyệt: <strong>{exp.approvedBy}</strong></span>
+                              {exp.evidence && (
+                                <span className="font-mono">CT: <strong>{exp.evidence}</strong></span>
+                              )}
                             </div>
-                          </div>
-                        </td>
-                        <td className="p-4">
-                          <span className="font-semibold text-rose-800 bg-rose-50/50 px-2 py-0.5 rounded text-[10px]">
-                            {exp.fundName}
-                          </span>
-                        </td>
-                        <td className="p-4 font-bold text-rose-600 font-mono text-sm">
-                          -{exp.amount.toLocaleString("vi-VN")}đ
-                        </td>
-                        <td className="p-4 font-mono text-slate-500">{exp.spentAt}</td>
-                        <td className="p-4 text-slate-700 font-medium">{exp.receiver}</td>
-                        <td className="p-4 text-center">
-                          <div className="flex items-center justify-center gap-2">
-                            <button
-                              onClick={() => handleOpenReceipt("CHI", exp)}
-                              className="flex items-center gap-1 text-[10px] bg-slate-50 hover:bg-slate-100 text-slate-600 px-2 py-1 rounded-md border border-slate-200 font-semibold cursor-pointer transition-colors"
-                            >
-                              <Printer size={12} /> In Phiếu Chi
-                            </button>
-                            <button
-                              onClick={() => {
-                                if (window.confirm(`Bạn có chắc chắn muốn xóa phiếu chi "${exp.id}" không?`)) {
-                                  setExpenditures(expenditures.filter(e => e.id !== exp.id));
-                                }
-                              }}
-                              className="text-[10px] text-slate-400 hover:text-rose-600 p-1 rounded transition-colors cursor-pointer"
-                              title="Xóa phiếu chi"
-                            >
-                              Xóa
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    ))
+                          </td>
+                          <td className="px-3 xl:px-4 py-3">
+                            <span className="inline-flex items-center px-2.5 py-0.5 rounded-md text-xs font-semibold bg-rose-50 text-rose-800 border border-rose-200 whitespace-nowrap">
+                              {exp.fundName}
+                            </span>
+                          </td>
+                          <td className="px-3 xl:px-4 py-3 font-mono font-bold text-rose-700 text-sm text-right whitespace-nowrap tabular-nums">
+                            -{exp.amount.toLocaleString("vi-VN")}đ
+                          </td>
+                          <td className="px-3 xl:px-4 py-3">
+                            <span className="font-semibold text-slate-900 block">
+                              {exp.receiver}
+                            </span>
+                            <span className="text-xs font-mono text-slate-600">
+                              {exp.spentAt}
+                            </span>
+                          </td>
+                          <td className="px-3 xl:px-4 py-3 whitespace-nowrap text-right">
+                            <div className="inline-flex items-center justify-end gap-1.5">
+                              <button
+                                type="button"
+                                onClick={() => handleOpenReceipt("CHI", exp)}
+                                className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-100 text-xs font-semibold text-slate-700 cursor-pointer whitespace-nowrap"
+                              >
+                                <Printer size={13} /> Phiếu chi
+                              </button>
+                              {!readOnly && (
+                                <>
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setEditingExpenditure(exp);
+                                      setShowAddChiModal(true);
+                                    }}
+                                    className="p-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-100 text-slate-700 cursor-pointer"
+                                    title="Sửa phiếu chi"
+                                    aria-label={`Sửa phiếu chi ${shortVoucher}`}
+                                  >
+                                    <Edit2 size={14} />
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => setDeleteExpTarget(exp)}
+                                    className="p-1.5 rounded-lg border border-rose-200 bg-rose-50 hover:bg-rose-100 text-rose-700 cursor-pointer"
+                                    title="Xóa phiếu chi"
+                                    aria-label={`Xóa phiếu chi ${shortVoucher}`}
+                                  >
+                                    <Trash2 size={14} />
+                                  </button>
+                                </>
+                              )}
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })
                   )}
                 </tbody>
               </table>
             </div>
           ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 p-4 bg-slate-50/20 max-h-[550px] overflow-y-auto">
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 p-4 bg-slate-50">
               {filteredExpenditures.length === 0 ? (
-                <div className="p-8 text-center text-slate-400 text-xs col-span-full">
-                  Không tìm thấy khoản chi tiêu quyết toán nào phù hợp bộ lọc.
+                <div className="col-span-full">
+                  <EmptyState
+                    title="Chưa có phiếu chi phù hợp"
+                    description="Các khoản chi công khai sẽ hiển thị tại đây."
+                  />
                 </div>
               ) : (
-                paginatedExpenditures.map((exp) => (
-                  <div
-                    key={exp.id}
-                    className="bg-white p-4 rounded-xl border border-slate-100 shadow-xs hover:shadow-md transition-all flex flex-col justify-between gap-3"
-                  >
-                    <div>
-                      <div className="flex justify-between items-start gap-2">
-                        <span className="font-mono text-[10px] font-bold text-slate-400">ID: {exp.id}</span>
-                        <span className="font-semibold text-rose-800 bg-rose-50 px-2 py-0.5 rounded text-[10px] shrink-0">
-                          {exp.fundName}
-                        </span>
+                paginatedExpenditures.map((exp) => {
+                  const shortVoucher = formatReceiptCode(
+                    exp.id,
+                    exp.voucherCode,
+                    "PC"
+                  );
+                  return (
+                    <div
+                      key={exp.id}
+                      className="bg-white p-4 rounded-xl border border-slate-200 flex flex-col justify-between gap-3"
+                    >
+                      <div className="space-y-1.5">
+                        <div className="flex justify-between items-start gap-2">
+                          <span className="font-mono text-xs font-semibold text-slate-600">
+                            {shortVoucher}
+                          </span>
+                          <span className="text-xs font-semibold text-rose-800 bg-rose-50 border border-rose-200 px-2 py-0.5 rounded-md">
+                            {exp.fundName}
+                          </span>
+                        </div>
+                        <h4 className="font-bold text-slate-900 text-sm line-clamp-2 leading-snug">
+                          {exp.title}
+                        </h4>
+                        <p className="text-xs text-slate-600">
+                          Duyệt: <strong>{exp.approvedBy}</strong>
+                          {exp.evidence ? ` • CT: ${exp.evidence}` : ""}
+                        </p>
                       </div>
-                      <h4 className="font-bold text-slate-800 text-xs mt-1.5 line-clamp-2 leading-snug h-8">{exp.title}</h4>
-                      <p className="text-[10px] text-slate-400 font-medium mt-1">Người duyệt: <strong>{exp.approvedBy}</strong></p>
-                      {exp.evidence && <p className="text-[10px] text-slate-400 font-mono mt-0.5">Chứng từ: <strong>{exp.evidence}</strong></p>}
-                    </div>
-                    <div className="pt-2 border-t border-slate-50 flex items-center justify-between gap-1">
-                      <div>
-                        <span className="text-[10px] text-slate-400 block">Người thụ hưởng</span>
-                        <span className="text-xs text-slate-700 font-bold truncate max-w-[120px] block">{exp.receiver}</span>
-                      </div>
-                      <div className="text-right">
-                        <span className="text-[10px] text-rose-500 font-medium block">Số tiền chi</span>
-                        <span className="font-bold text-rose-600 text-sm font-mono">
+
+                      <div className="pt-2.5 border-t border-slate-100 flex items-center justify-between gap-2">
+                        <div className="min-w-0">
+                          <span className="text-xs text-slate-600 block">Thụ hưởng</span>
+                          <span className="text-xs font-bold text-slate-900 truncate block">
+                            {exp.receiver}
+                          </span>
+                        </div>
+                        <span className="font-mono font-bold text-rose-700 text-sm tabular-nums shrink-0">
                           -{exp.amount.toLocaleString("vi-VN")}đ
                         </span>
                       </div>
-                    </div>
-                    <div className="pt-2 border-t border-slate-50 flex justify-between items-center gap-2">
-                      <span className="text-[10px] text-slate-400 font-mono">Ngày: {exp.spentAt}</span>
-                      <div className="flex gap-1.5 shrink-0 items-center">
-                        <button
-                          onClick={() => handleOpenReceipt("CHI", exp)}
-                          className="p-1.5 bg-slate-50 hover:bg-slate-100 text-slate-600 rounded-lg border border-slate-200 cursor-pointer transition-colors"
-                          title="In phiếu chi"
-                        >
-                          <Printer size={12} />
-                        </button>
-                        <button
-                          onClick={() => {
-                            if (window.confirm(`Bạn có chắc chắn muốn xóa phiếu chi "${exp.id}" không?`)) {
-                              setExpenditures(expenditures.filter(e => e.id !== exp.id));
-                            }
-                          }}
-                          className="text-[10px] text-slate-400 hover:text-rose-600 p-1.5 rounded transition-colors cursor-pointer"
-                          title="Xóa phiếu chi"
-                        >
-                          Xóa
-                        </button>
+
+                      <div className="pt-2.5 border-t border-slate-100 flex justify-between items-center gap-2">
+                        <span className="text-xs text-slate-600 font-mono">
+                          {exp.spentAt}
+                        </span>
+                        <div className="flex items-center gap-1.5">
+                          <button
+                            type="button"
+                            onClick={() => handleOpenReceipt("CHI", exp)}
+                            className="p-1.5 bg-slate-50 hover:bg-slate-100 text-slate-700 rounded-lg border border-slate-200 cursor-pointer"
+                            title="In phiếu chi"
+                            aria-label={`In phiếu chi ${shortVoucher}`}
+                          >
+                            <Printer size={14} />
+                          </button>
+                          {!readOnly && (
+                            <>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setEditingExpenditure(exp);
+                                  setShowAddChiModal(true);
+                                }}
+                                className="p-1.5 bg-white hover:bg-slate-100 text-slate-700 rounded-lg border border-slate-200 cursor-pointer"
+                                title="Sửa phiếu chi"
+                                aria-label={`Sửa phiếu chi ${shortVoucher}`}
+                              >
+                                <Edit2 size={14} />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => setDeleteExpTarget(exp)}
+                                className="p-1.5 bg-rose-50 hover:bg-rose-100 text-rose-700 rounded-lg border border-rose-200 cursor-pointer"
+                                title="Xóa phiếu chi"
+                                aria-label={`Xóa phiếu chi ${shortVoucher}`}
+                              >
+                                <Trash2 size={14} />
+                              </button>
+                            </>
+                          )}
+                        </div>
                       </div>
                     </div>
-                  </div>
-                ))
+                  );
+                })
               )}
             </div>
           )}
+
           <Pagination
             id="expenditures-pagination"
             currentPage={activeExpendituresPage}
@@ -998,483 +1512,273 @@ export default function NeighborhoodFunds({
         </div>
       )}
 
-      {/* VIEW: BÁO CÁO CÂN ĐỐI TỔNG HỢP THEO QUỸ */}
+      {/* TAB 3: QUẢN LÝ DANH MỤC CÁC LOẠI QUỸ (MỞ RỘNG / SỬA / XÓA) */}
+      {activeSubTab === "danhmuc" && (
+        <FundCatalogManager
+          categories={categories}
+          contributions={contributions}
+          expenditures={expenditures}
+          households={households}
+          readOnly={readOnly}
+          externalCreateTrigger={createCategoryTrigger}
+          onCreateCategory={handleCreateCategory}
+          onUpdateCategory={handleUpdateCategory}
+          onDeleteCategory={handleDeleteCategory}
+          onBatchGenerateReminders={handleBatchGenerateReminders}
+          onNavigateToLedger={(fName, targetTab) => {
+            setFundFilter(fName);
+            setActiveSubTab(targetTab);
+          }}
+        />
+      )}
+
+      {/* TAB 4: BÁO CÁO CÂN ĐỐI THU CHI & BIỂU ĐỒ */}
       {activeSubTab === "baocao" && (
-        <div className="space-y-6 animate-in fade-in duration-200">
-          <div className="bg-white p-6 rounded-xl border border-slate-100 shadow-sm space-y-4">
-            <div className="flex justify-between items-center border-b border-slate-100 pb-3">
-              <h3 className="font-bold text-slate-800 text-sm">Bảng cân đối tài chính từng loại quỹ (Năm 2026)</h3>
-              <span className="text-[10px] font-mono font-bold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-full">Đã đối soát kế toán</span>
+        <div className="space-y-5">
+          {/* Bar Chart Comparison */}
+          <div className="bg-white p-5 sm:p-6 rounded-xl border border-slate-200 space-y-4">
+            <div className="flex flex-wrap items-center justify-between gap-2 pb-3 border-b border-slate-100">
+              <div>
+                <h3 className="font-bold text-slate-900 text-base">
+                  Biểu đồ Thu – Chi – Tồn theo Từng Quỹ (Năm 2026)
+                </h3>
+                <p className="text-xs text-slate-600 mt-0.5">
+                  Tổng hợp đầy đủ {categories.length} quỹ hiện hành trong danh mục KP3
+                </p>
+              </div>
+              <StatusBadge status="completed" label="Tự động đối soát" size="sm" />
             </div>
 
-            <div className="space-y-4">
-              {listFundsStats.map(stat => (
-                <div key={stat.name} className="p-4 rounded-xl border border-slate-50 bg-slate-50/20 space-y-3 hover:border-slate-100 transition-colors">
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                    <span className="font-bold text-slate-800 text-xs sm:text-sm">{stat.name}</span>
-                    <div className="flex gap-4 text-xs font-mono">
-                      <div className="text-left">
-                        <span className="text-[10px] text-slate-400 uppercase font-sans font-bold block">Tổng Thu</span>
-                        <span className="font-bold text-emerald-600">+{stat.revenue.toLocaleString("vi-VN")}đ</span>
-                      </div>
-                      <div className="text-left border-l border-slate-200 pl-3">
-                        <span className="text-[10px] text-slate-400 uppercase font-sans font-bold block">Tổng Chi</span>
-                        <span className="font-bold text-rose-500">-{stat.expense.toLocaleString("vi-VN")}đ</span>
-                      </div>
-                      <div className="text-left border-l border-slate-200 pl-3">
-                        <span className="text-[10px] text-slate-400 uppercase font-sans font-bold block">Còn Tồn</span>
-                        <span className={`font-bold ${stat.balance >= 0 ? "text-slate-800" : "text-red-500"}`}>
-                          {stat.balance.toLocaleString("vi-VN")}đ
-                        </span>
-                      </div>
-                    </div>
-                  </div>
+            <div className="h-72 w-full">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart
+                  data={listFundsStats}
+                  margin={{ top: 10, right: 16, left: 8, bottom: 4 }}
+                >
+                  <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+                  <XAxis
+                    dataKey="shortLabel"
+                    tick={{ fill: "#334155", fontSize: 12, fontWeight: 600 }}
+                  />
+                  <YAxis
+                    tickFormatter={(v) =>
+                      v >= 1_000_000 ? `${Math.round(v / 1_000_000)}tr` : String(v)
+                    }
+                    tick={{ fill: "#475569", fontSize: 11 }}
+                  />
+                  <Tooltip
+                    formatter={(val: any) =>
+                      `${Number(val || 0).toLocaleString("vi-VN")} VNĐ`
+                    }
+                    labelFormatter={(label) => {
+                      const found = listFundsStats.find(
+                        (s) => s.shortLabel === label
+                      );
+                      return found ? found.name : String(label);
+                    }}
+                  />
+                  <Legend wrapperStyle={{ fontSize: "12px" }} />
+                  <Bar
+                    dataKey="revenue"
+                    name="Thực thu"
+                    fill="#059669"
+                    radius={[4, 4, 0, 0]}
+                  />
+                  <Bar
+                    dataKey="expense"
+                    name="Đã chi"
+                    fill="#B4232D"
+                    radius={[4, 4, 0, 0]}
+                  />
+                  <Bar
+                    dataKey="balance"
+                    name="Tồn cuối"
+                    fill="#073B72"
+                    radius={[4, 4, 0, 0]}
+                  />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
 
-                  {/* Thanh biểu đồ lồng ghép */}
-                  <div className="space-y-1">
-                    <div className="flex justify-between text-[10px] text-slate-400 font-semibold">
-                      <span>Tỉ lệ giải ngân (Chi / Thu)</span>
-                      <span>{stat.percent}%</span>
-                    </div>
-                    <div className="w-full bg-slate-100 rounded-full h-2">
-                      <div
-                        className={`h-2 rounded-full transition-all duration-500 ${stat.percent > 90 ? "bg-red-500" :
-                          stat.percent > 60 ? "bg-amber-500" : "bg-indigo-600"
-                          }`}
-                        style={{ width: `${stat.percent}%` }}
-                      ></div>
-                    </div>
-                  </div>
-                </div>
-              ))}
+          {/* Balance Sheet Table */}
+          <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
+            <div className="px-5 py-4 border-b border-slate-200 flex flex-wrap items-center justify-between gap-2">
+              <h3 className="font-bold text-slate-900 text-sm">
+                Bảng Cân Đối Tài Chính Chi Tiết Từng Loại Quỹ
+              </h3>
+              <span className="text-xs font-mono font-semibold text-slate-600">
+                Đơn vị: VNĐ
+              </span>
+            </div>
+
+            <div
+              role="region"
+              tabIndex={0}
+              aria-label="Bảng cân đối tài chính từng quỹ"
+              className="w-full overflow-x-auto"
+            >
+              <table className="w-full text-left border-collapse text-sm">
+                <thead className="bg-slate-50 border-b border-slate-200 text-xs font-semibold text-slate-700 uppercase tracking-wider">
+                  <tr>
+                    <th className="px-4 py-3">Loại quỹ</th>
+                    <th className="px-4 py-3 text-right whitespace-nowrap">Đầu kỳ</th>
+                    <th className="px-4 py-3 text-right whitespace-nowrap">Thực thu</th>
+                    <th className="px-4 py-3 text-right whitespace-nowrap">Chờ thu</th>
+                    <th className="px-4 py-3 text-right whitespace-nowrap">Đã chi</th>
+                    <th className="px-4 py-3 text-right whitespace-nowrap">Tồn cuối</th>
+                    <th className="px-4 py-3 whitespace-nowrap">Tiến độ chỉ tiêu</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {listFundsStats.map((stat) => (
+                    <tr key={stat.category.id} className="bg-white">
+                      <td className="px-4 py-3">
+                        <div className="flex items-center gap-2">
+                          <span className="font-mono text-xs font-bold px-1.5 py-0.5 rounded bg-slate-100 border border-slate-200 text-slate-700">
+                            {stat.shortLabel}
+                          </span>
+                          <span className="font-bold text-slate-900">
+                            {stat.name}
+                          </span>
+                        </div>
+                      </td>
+                      <td className="px-4 py-3 text-right font-mono text-slate-700 tabular-nums whitespace-nowrap">
+                        {stat.openingBalance.toLocaleString("vi-VN")}đ
+                      </td>
+                      <td className="px-4 py-3 text-right font-mono font-bold text-emerald-700 tabular-nums whitespace-nowrap">
+                        +{stat.revenue.toLocaleString("vi-VN")}đ
+                      </td>
+                      <td className="px-4 py-3 text-right font-mono text-amber-800 tabular-nums whitespace-nowrap">
+                        {stat.pending.toLocaleString("vi-VN")}đ
+                      </td>
+                      <td className="px-4 py-3 text-right font-mono font-bold text-rose-700 tabular-nums whitespace-nowrap">
+                        -{stat.expense.toLocaleString("vi-VN")}đ
+                      </td>
+                      <td
+                        className={`px-4 py-3 text-right font-mono font-extrabold tabular-nums whitespace-nowrap ${
+                          stat.balance >= 0 ? "text-slate-900" : "text-rose-700"
+                        }`}
+                      >
+                        {stat.balance.toLocaleString("vi-VN")}đ
+                      </td>
+                      <td className="px-4 py-3 min-w-[160px]">
+                        <div className="flex items-center gap-2">
+                          <div className="flex-1 h-2 bg-slate-100 rounded-full overflow-hidden">
+                            <div
+                              className="h-full bg-emerald-600 rounded-full"
+                              style={{ width: `${stat.targetPercent}%` }}
+                            />
+                          </div>
+                          <span className="text-xs font-mono font-bold text-slate-700 w-9 text-right">
+                            {stat.targetPercent}%
+                          </span>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
           </div>
         </div>
       )}
 
-      {/* CỔNG TRA CỨU & ĐÓNG QUỸ VIETQR (DÀNH CHO TOÀN DÂN) */}
+      {/* TAB 5: CỔNG TRA CỨU & ĐÓNG QUỸ VIETQR */}
       {activeSubTab === "qr_portal" && (
         <HouseholdFundLookup
           contributions={contributions}
           households={households}
+          categories={categories}
+          readOnly={readOnly}
           onOpenReceipt={handleOpenReceipt}
           onUpdateContributionStatus={onUpdateContributionStatus}
         />
       )}
 
-      {/* MODAL 1: GHI NHẬN PHIẾU THU */}
-      {showAddThuModal && (
-        <div className="fixed inset-0 bg-slate-900/60 flex items-center justify-center z-50 p-4 backdrop-blur-sm animate-in fade-in duration-150">
-          <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-md overflow-hidden animate-in zoom-in-95 duration-150">
-            <div className="bg-gradient-to-r from-slate-50 via-white to-indigo-50/30 p-5 border-b border-slate-200 flex justify-between items-center">
-              <div>
-                <div className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded bg-indigo-50 text-indigo-700 text-[10px] font-bold uppercase mb-1">
-                  <Coins size={12} />
-                  <span>Phiếu Thu Tự Quản</span>
-                </div>
-                <h3 className="font-black text-slate-800 text-base">Ghi nhận biên lai nộp Quỹ mới</h3>
-                <p className="text-[11px] text-slate-500 mt-0.5 font-normal">Các quỹ thu trên tinh thần tự nguyện, công khai minh bạch</p>
-              </div>
-              <button
-                onClick={() => setShowAddThuModal(false)}
-                className="p-1.5 rounded-full text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors cursor-pointer"
-              >
-                <X size={18} />
-              </button>
-            </div>
+      {/* MODALS */}
+      {!readOnly && (
+        <>
+          <AddContributionModal
+            isOpen={showAddThuModal}
+            onClose={() => {
+              setShowAddThuModal(false);
+              setEditingContribution(null);
+            }}
+            categories={categories}
+            households={households}
+            defaultFundName={fundFilter !== "Tất cả" ? fundFilter : undefined}
+            editingItem={editingContribution}
+            onSubmit={handleSaveThu}
+          />
 
-            <form onSubmit={handleAddThuSubmit} className="p-5 space-y-4 text-xs">
+          <AddExpenditureModal
+            isOpen={showAddChiModal}
+            onClose={() => {
+              setShowAddChiModal(false);
+              setEditingExpenditure(null);
+            }}
+            categories={categories}
+            contributions={contributions}
+            expenditures={expenditures}
+            defaultFundName={fundFilter !== "Tất cả" ? fundFilter : undefined}
+            editingItem={editingExpenditure}
+            onSubmit={handleSaveChi}
+          />
 
-              <div className="space-y-1">
-                <label className="text-xs font-bold text-slate-600 block">Danh mục Quỹ thu nộp *</label>
-                <select
-                  value={fundName}
-                  onChange={(e: any) => setFundName(e.target.value)}
-                  className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:border-indigo-500 bg-white"
-                >
-                  <option value="Quỹ Khuyến học">Quỹ Khuyến học</option>
-                  <option value="Quỹ Vì người nghèo">Quỹ Vì người nghèo</option>
-                  <option value="Quỹ Quốc phòng an ninh">Quỹ Quốc phòng an ninh</option>
-                  <option value="Quỹ Phòng chống thiên tai">Quỹ Phòng chống thiên tai</option>
-                  <option value="Quỹ Bảo trì hẻm">Quỹ Bảo trì hẻm</option>
-                </select>
-              </div>
+          <DeleteExpenditureModal
+            expenditure={deleteExpTarget}
+            onClose={() => setDeleteExpTarget(null)}
+            onConfirmDelete={handleConfirmDeleteChi}
+          />
 
-              <div className="space-y-1">
-                <label className="text-xs font-bold text-slate-600 block">Chọn nhanh từ danh sách Sổ Hộ Khẩu</label>
-                <select
-                  onChange={(e) => {
-                    const code = e.target.value;
-                    if (!code) return;
-                    const hh = households.find(h => h.code === code);
-                    if (hh) {
-                      setHouseholdCode(hh.code);
-                      setOwnerName(hh.ownerName);
-                    }
-                  }}
-                  className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:border-indigo-500 bg-white"
-                >
-                  <option value="">-- Chọn Sổ hộ khẩu để tự động điền --</option>
-                  {households.map(hh => (
-                    <option key={hh.code} value={hh.code}>
-                      Hộ {hh.ownerName} ({hh.code}) - {hh.address}
-                    </option>
-                  ))}
-                </select>
-                <span className="text-[10px] text-slate-400 block mt-0.5">Tự động điền Mã hộ khẩu và tên chủ hộ đại diện đóng nộp</span>
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-1">
-                  <label className="text-xs font-bold text-slate-600 block">Mã hộ khẩu (Ví dụ: HK-301) *</label>
-                  <input
-                    type="text"
-                    required
-                    placeholder="HK-30x"
-                    value={householdCode}
-                    onChange={(e) => setHouseholdCode(e.target.value)}
-                    className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:border-indigo-500"
-                  />
-                </div>
-                <div className="space-y-1">
-                  <label className="text-xs font-bold text-slate-600 block">Tên đại diện đóng nộp *</label>
-                  <input
-                    type="text"
-                    required
-                    placeholder="Nguyễn Văn A"
-                    value={ownerName}
-                    onChange={(e) => setOwnerName(e.target.value)}
-                    className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:border-indigo-500"
-                  />
-                </div>
-              </div>
-
-              <div className="space-y-1">
-                <label className="text-xs font-bold text-slate-600 block">Số tiền đóng góp (đơn vị: VNĐ) *</label>
-                <input
-                  type="number"
-                  required
-                  value={amount}
-                  onChange={(e) => setAmount(Number(e.target.value))}
-                  className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:border-indigo-500 font-mono font-bold"
-                />
-              </div>
-
-              <div className="flex items-center gap-2 pt-1">
-                <input
-                  type="checkbox"
-                  id="payImmediately"
-                  checked={payImmediately}
-                  onChange={(e) => setPayImmediately(e.target.checked)}
-                  className="w-4 h-4 text-indigo-600 border-slate-300 rounded focus:ring-indigo-500 cursor-pointer"
-                />
-                <label htmlFor="payImmediately" className="text-xs font-semibold text-slate-700 cursor-pointer select-none">
-                  Hộ dân đã đóng tiền trực tiếp tại Nhà văn hóa
-                </label>
-              </div>
-
-              <div className="pt-4 border-t border-slate-100 flex justify-end gap-3 text-xs">
-                <button
-                  type="button"
-                  onClick={() => setShowAddThuModal(false)}
-                  className="px-4 py-2 border border-slate-200 rounded-lg text-slate-600 hover:bg-slate-50 transition-colors cursor-pointer"
-                >
-                  Hủy bỏ
-                </button>
-                <button
-                  type="submit"
-                  className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-lg transition-colors cursor-pointer"
-                >
-                  Ghi biên nhận thu
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
+          <ConfirmModal
+            isOpen={Boolean(deleteContTarget)}
+            onClose={() => setDeleteContTarget(null)}
+            onConfirm={handleConfirmDeleteCont}
+            title="Xác nhận xóa phiếu thu"
+            description={
+              deleteContTarget
+                ? `Bạn chắc chắn muốn xóa phiếu thu ${formatReceiptCode(
+                    deleteContTarget.id,
+                    deleteContTarget.receiptCode,
+                    "BL"
+                  )} của "${deleteContTarget.ownerName}" (${deleteContTarget.amount.toLocaleString(
+                    "vi-VN"
+                  )}đ)?`
+                : ""
+            }
+            confirmLabel="Xóa phiếu thu"
+            variant="danger"
+          />
+        </>
       )}
 
-      {/* MODAL 2: TẠO PHIẾU CHI */}
-      {showAddChiModal && (
-        <div className="fixed inset-0 bg-slate-900/60 flex items-center justify-center z-50 p-4 backdrop-blur-sm animate-in fade-in duration-150">
-          <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-md overflow-hidden animate-in zoom-in-95 duration-150">
-            <div className="bg-gradient-to-r from-slate-50 via-white to-rose-50/30 p-5 border-b border-slate-200 flex justify-between items-center">
-              <div>
-                <div className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded bg-rose-50 text-rose-700 text-[10px] font-bold uppercase mb-1">
-                  <ArrowDownRight size={12} />
-                  <span>Phiếu Chi Ngân Sách</span>
-                </div>
-                <h3 className="font-black text-slate-800 text-base">Lập phiếu Chi ngân sách Quỹ</h3>
-                <p className="text-[11px] text-slate-500 mt-0.5 font-normal">Ghi chép chứng từ chi tiêu, quyết toán công khai minh bạch</p>
-              </div>
-              <button
-                onClick={() => setShowAddChiModal(false)}
-                className="p-1.5 rounded-full text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors cursor-pointer"
-              >
-                <X size={18} />
-              </button>
-            </div>
+      <ReceiptPrintModal
+        receipt={selectedReceipt}
+        onClose={() => setSelectedReceipt(null)}
+      />
 
-            <form onSubmit={handleAddChiSubmit} className="p-5 space-y-4 text-xs">
-
-              <div className="space-y-1">
-                <label className="text-xs font-bold text-slate-600 block">Nguồn Quỹ trích chi *</label>
-                <select
-                  value={chiFundName}
-                  onChange={(e: any) => setChiFundName(e.target.value)}
-                  className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:border-indigo-500 bg-white"
-                >
-                  <option value="Quỹ Khuyến học">Quỹ Khuyến học</option>
-                  <option value="Quỹ Vì người nghèo">Quỹ Vì người nghèo</option>
-                  <option value="Quỹ Quốc phòng an ninh">Quỹ Quốc phòng an ninh</option>
-                  <option value="Quỹ Phòng chống thiên tai">Quỹ Phòng chống thiên tai</option>
-                  <option value="Quỹ Bảo trì hẻm">Quỹ Bảo trì hẻm</option>
-                </select>
-              </div>
-
-              <div className="space-y-1">
-                <label className="text-xs font-bold text-slate-600 block">Nội dung chi tiêu chi tiết *</label>
-                <textarea
-                  rows={2}
-                  required
-                  placeholder="Ví dụ: Chi hỗ trợ mua quà khuyến học học sinh giỏi, chi bồi dưỡng ANCS tuần tra..."
-                  value={chiTitle}
-                  onChange={(e) => setChiTitle(e.target.value)}
-                  className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs focus:outline-none focus:border-indigo-500"
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-1">
-                  <label className="text-xs font-bold text-slate-600 block">Số tiền trích chi (VNĐ) *</label>
-                  <input
-                    type="number"
-                    required
-                    value={chiAmount}
-                    onChange={(e) => setChiAmount(Number(e.target.value))}
-                    className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs focus:outline-none focus:border-indigo-500 font-mono font-bold"
-                  />
-                </div>
-                <div className="space-y-1">
-                  <label className="text-xs font-bold text-slate-600 block">Ngày thực hiện chi *</label>
-                  <input
-                    type="text"
-                    required
-                    placeholder="Ví dụ: 12/07/2026"
-                    value={chiSpentAt}
-                    onChange={(e) => setChiSpentAt(e.target.value)}
-                    className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs focus:outline-none"
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-1">
-                  <label className="text-xs font-bold text-slate-600 block">Đơn vị / Người thụ hưởng *</label>
-                  <input
-                    type="text"
-                    required
-                    placeholder="Nhà sách, cá nhân, đơn vị..."
-                    value={chiReceiver}
-                    onChange={(e) => setChiReceiver(e.target.value)}
-                    className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs focus:outline-none"
-                  />
-                </div>
-                <div className="space-y-1">
-                  <label className="text-xs font-bold text-slate-600 block">Kèm theo chứng từ / Hóa đơn số</label>
-                  <input
-                    type="text"
-                    placeholder="Ví dụ: HĐ-045, PT-302"
-                    value={chiEvidence}
-                    onChange={(e) => setChiEvidence(e.target.value)}
-                    className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs focus:outline-none font-mono"
-                  />
-                </div>
-              </div>
-
-              <div className="space-y-1">
-                <label className="text-xs font-bold text-slate-600 block">Người phê duyệt *</label>
-                <input
-                  type="text"
-                  required
-                  value={chiApprovedBy}
-                  onChange={(e) => setChiApprovedBy(e.target.value)}
-                  className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs focus:outline-none font-bold"
-                />
-              </div>
-
-              <div className="pt-4 border-t border-slate-100 flex justify-end gap-3 text-xs">
-                <button
-                  type="button"
-                  onClick={() => setShowAddChiModal(false)}
-                  className="px-4 py-2 border border-slate-200 rounded-lg text-slate-600 hover:bg-slate-50 transition-colors cursor-pointer font-semibold"
-                >
-                  Hủy bỏ
-                </button>
-                <button
-                  type="submit"
-                  className="px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white font-bold rounded-lg transition-colors cursor-pointer"
-                >
-                  Lập phiếu chi
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* MODAL 3: IN BIÊN LAI (PRINT RECEIPT) */}
-      {selectedReceipt && (
-        <div className="fixed inset-0 bg-slate-900/70 flex items-center justify-center z-50 p-4 backdrop-blur-sm animate-in fade-in duration-150">
-          <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-2xl overflow-hidden animate-in zoom-in-95 duration-150">
-
-            {/* Header Controls */}
-            <div className="bg-gradient-to-r from-slate-50 via-white to-indigo-50/30 p-4 border-b border-slate-200 flex justify-between items-center print:hidden">
-              <div className="flex items-center gap-2">
-                <Printer size={16} className="text-indigo-600" />
-                <span className="font-bold text-xs uppercase tracking-wider text-slate-800">Xem trước biên lai chứng từ điện tử</span>
-              </div>
-              <div className="flex items-center gap-2.5">
-                <button
-                  onClick={() => window.print()}
-                  className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold px-3 py-1.5 rounded-lg text-xs cursor-pointer flex items-center gap-1 transition-colors"
-                >
-                  <Printer size={12} /> In máy in / Lưu PDF
-                </button>
-                <button
-                  onClick={() => setSelectedReceipt(null)}
-                  className="p-1.5 rounded-full text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors cursor-pointer"
-                >
-                  <X size={18} />
-                </button>
-              </div>
-            </div>
-
-            {/* Receipt Printable Area */}
-            <div className="p-8 md:p-12 bg-white text-slate-800 font-sans border-8 border-slate-100 relative overflow-hidden print:border-0 print:p-0">
-
-              {/* Giả lập dấu mộc đỏ ở biên lai tài chính địa phương */}
-              <div className="absolute right-12 top-24 border-4 border-rose-500/30 text-rose-500/40 font-bold uppercase rounded-full w-24 h-24 flex items-center justify-center -rotate-12 text-[10px] pointer-events-none select-none text-center leading-none">
-                ĐÃ THU TIỀN<br />KP 3 AN PHÚ
-              </div>
-
-              {/* Header của Biên Lai Việt Nam */}
-              <div className="flex flex-col sm:flex-row justify-between items-start gap-4 pb-6 border-b-2 border-slate-200">
-                <div className="space-y-1">
-                  <span className="text-[10px] font-black uppercase tracking-wider text-slate-500 block">UBND PHƯỜNG AN PHÚ</span>
-                  <span className="text-xs font-black uppercase text-indigo-900 block flex items-center gap-1.5">
-                    <Building size={14} /> BAN ĐIỀU HÀNH KHU PHỐ 3
-                  </span>
-                  <span className="text-[10px] text-slate-400 block font-sans">Địa chỉ: Đường An Phú, Phường An Phú, Quận 2, TP.HCM</span>
-                </div>
-                <div className="text-right sm:text-right text-xs">
-                  <p className="font-mono text-slate-400 text-[10px]">Mẫu số: 01-TT/KP3</p>
-                  <p className="font-mono font-bold text-slate-800 text-[11px] mt-1">SỐ: {selectedReceipt.id}</p>
-                  <p className="text-[10px] text-slate-400 mt-0.5">Ngày lập: {selectedReceipt.date}</p>
-                </div>
-              </div>
-
-              {/* Title Phiếu */}
-              <div className="text-center py-6 space-y-1">
-                <h2 className="text-xl md:text-2xl font-black text-slate-900 tracking-tight uppercase">
-                  {selectedReceipt.type === "THU" ? "PHIẾU THU TIỀN" : "PHIẾU CHI TIỀN"}
-                </h2>
-                <p className="text-[11px] font-medium text-indigo-700 italic">({selectedReceipt.fundName})</p>
-              </div>
-
-              {/* Thông tin nội dung chi tiết biên lai */}
-              <div className="space-y-3.5 text-xs pb-8">
-                <div className="grid grid-cols-1 md:grid-cols-12 gap-1.5 border-b border-slate-100 pb-2">
-                  <span className="md:col-span-3 text-slate-500 font-medium">
-                    {selectedReceipt.type === "THU" ? "Họ tên người nộp:" : "Đơn vị/Người nhận tiền:"}
-                  </span>
-                  <strong className="md:col-span-9 text-slate-900 text-sm">{selectedReceipt.subject}</strong>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-12 gap-1.5 border-b border-slate-100 pb-2">
-                  <span className="md:col-span-3 text-slate-500 font-medium">Chi tiết đối tượng:</span>
-                  <span className="md:col-span-9 text-slate-800 font-mono font-bold">{selectedReceipt.subDetail}</span>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-12 gap-1.5 border-b border-slate-100 pb-2">
-                  <span className="md:col-span-3 text-slate-500 font-medium">Nội dung thu/chi:</span>
-                  <span className="md:col-span-9 text-slate-800 font-medium leading-relaxed">{selectedReceipt.title}</span>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-12 gap-1.5 border-b border-slate-100 pb-2">
-                  <span className="md:col-span-3 text-slate-500 font-medium">Số tiền quy đổi:</span>
-                  <strong className="md:col-span-9 text-slate-900 font-mono text-base">
-                    {selectedReceipt.amount.toLocaleString("vi-VN")} VNĐ
-                  </strong>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-12 gap-1.5 border-b border-slate-100 pb-2 italic">
-                  <span className="md:col-span-3 text-slate-500 font-medium">Bằng chữ:</span>
-                  <span className="md:col-span-9 text-slate-900 font-bold">{docSoTiengViet(selectedReceipt.amount)}</span>
-                </div>
-
-                {selectedReceipt.evidence && (
-                  <div className="grid grid-cols-1 md:grid-cols-12 gap-1.5">
-                    <span className="md:col-span-3 text-slate-500 font-medium">Kèm theo chứng từ:</span>
-                    <span className="md:col-span-9 text-slate-600 font-mono font-semibold">{selectedReceipt.evidence}</span>
-                  </div>
-                )}
-              </div>
-
-              {/* Phần chữ ký chân biên lai */}
-              <div className="grid grid-cols-3 gap-4 text-center text-[11px] pt-4 border-t-2 border-slate-200">
-                <div className="space-y-12">
-                  <span className="font-bold text-slate-800 uppercase block">NGƯỜI LẬP PHIẾU</span>
-                  <p className="text-slate-400 font-mono text-[10px]">(Ký, ghi rõ họ tên)</p>
-                  <strong className="block text-slate-800 pt-2">{selectedReceipt.approvedBy || "Đặng Thị Thảo"}</strong>
-                </div>
-                <div className="space-y-12">
-                  <span className="font-bold text-slate-800 uppercase block">THỦ QUỸ</span>
-                  <p className="text-slate-400 font-mono text-[10px]">(Ký, đóng dấu thu tiền)</p>
-                  <strong className="block text-slate-800 pt-2">Lê Thị Mai</strong>
-                </div>
-                <div className="space-y-12">
-                  <span className="font-bold text-slate-800 uppercase block">TRƯỞNG KHU PHỐ 3</span>
-                  <p className="text-slate-400 font-mono text-[10px]">(Phê duyệt quyết toán)</p>
-                  <strong className="block text-slate-800 pt-2">Nguyễn Văn Hùng</strong>
-                </div>
-              </div>
-
-              <div className="mt-8 pt-4 border-t border-slate-100 flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <img
-                    src={`https://api.qrserver.com/v1/create-qr-code/?size=80x80&data=${encodeURIComponent(`XAC THUC BIEN LAI KP3: ${selectedReceipt.id} - ${selectedReceipt.subject} - ${selectedReceipt.amount} VND`)}`}
-                    alt="Mã QR Xác Thực Biên Lai"
-                    className="w-16 h-16 border p-0.5 border-slate-200 rounded"
-                  />
-                  <div className="text-[10px] text-slate-500 font-mono text-left">
-                    <p className="font-bold text-slate-700">MÃ XÁC THỰC SỐ HOÁ KP3</p>
-                    <p>Tra cứu tại Cổng Cư dân số KP3</p>
-                    <p>Mã: {selectedReceipt.id}</p>
-                  </div>
-                </div>
-                <div className="text-right text-[10px] text-slate-400 font-mono">
-                  Cảm ơn sự đóng góp tự quản và đồng lòng của cư dân<br />để xây dựng Khu phố 3 văn minh, nghĩa tình!
-                </div>
-              </div>
-
-            </div>
-
-          </div>
-        </div>
-      )}
-
-      {/* MODAL 4: VIETQR STANDALONE CHO TỪNG DÒNG THU */}
       {activeVietQrContribution && (
         <VietQrModal
           contribution={activeVietQrContribution}
+          category={findCategoryByFundName(
+            categories,
+            activeVietQrContribution.fundName
+          )}
+          readOnly={readOnly}
           onClose={() => setActiveVietQrContribution(null)}
-          onConfirmPaid={(id) => {
-            const todayStr = new Date().toLocaleDateString("vi-VN");
-            onUpdateContributionStatus(id, "Đã nộp", todayStr);
-          }}
+          onConfirmPaid={
+            readOnly
+              ? undefined
+              : (id) => {
+                  const todayStr = new Date().toLocaleDateString("vi-VN");
+                  onUpdateContributionStatus(id, "Đã nộp", todayStr);
+                  showToast("Đã xác nhận chuyển khoản VietQR thành công.");
+                }
+          }
         />
       )}
-
     </div>
   );
 }

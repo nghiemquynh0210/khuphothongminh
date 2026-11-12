@@ -1,58 +1,75 @@
-import React, { useState, useMemo } from "react";
+import React, { useMemo, useState } from "react";
 import {
-  Users,
-  Home,
-  Briefcase,
-  MessageSquare,
-  TrendingUp,
-  PlusCircle,
-  ShieldAlert,
   Activity,
   ArrowUpRight,
   Bell,
-  Clock,
-  User,
-  Heart,
   Bot,
-  Map,
-  Coins,
-  Search,
-  CalendarDays,
-  CheckCircle2,
+  Briefcase,
   Building2,
-  Store,
-  Sparkles,
-  HelpCircle,
-  X,
-  ChevronRight,
-  FileText,
+  Camera,
+  Check,
+  CheckCircle2,
+  CheckSquare,
+  Clock,
+  Coins,
+  Copy,
   Download,
   Eye,
-  Copy,
-  Check,
-  Filter,
-  Globe
+  EyeOff,
+  FileText,
+  Globe,
+  Heart,
+  HelpCircle,
+  Home,
+  Map,
+  MessageSquare,
+  PlusCircle,
+  Search,
+  ShieldAlert,
+  Sparkles,
+  Store,
+  TrendingUp,
+  Users,
+  X,
 } from "lucide-react";
 import {
-  ResponsiveContainer,
-  BarChart,
   Bar,
+  BarChart,
+  CartesianGrid,
+  Cell,
+  Pie,
+  PieChart,
+  ResponsiveContainer,
+  Tooltip,
   XAxis,
   YAxis,
-  CartesianGrid,
-  Tooltip,
-  Legend,
-  PieChart,
-  Pie,
-  Cell
 } from "recharts";
-import { Resident, Household, Business, FieldReport, AdministrativeForm } from "../types";
+import {
+  AdministrativeForm,
+  Business,
+  FieldReport,
+  FundContribution,
+  FundExpenditure,
+  Household,
+  Resident,
+  TaskItem,
+} from "../types";
 import { initialAdministrativeForms } from "../mockForms";
 import {
   extractBirthYear,
-  getTemporaryResidenceExpiryStatus
+  getTemporaryResidenceExpiryStatus,
 } from "../utils/householdRecognitionUtils";
+import {
+  KP3_OFFICIAL_BASELINE,
+  computeKp3PopulationMetrics,
+  formatDecimalVN,
+  isEnterpriseRecord,
+  maskCccd,
+} from "../utils/kp3Utils";
 import { formatVNNumber } from "../utils/numberFormat";
+import { PageHeader } from "./common/PageHeader";
+import { StatCard } from "./common/StatCard";
+import { Button, InlineNotice, Modal } from "./ui";
 
 interface DashboardProps {
   residents: Resident[];
@@ -60,6 +77,10 @@ interface DashboardProps {
   businesses: Business[];
   reports: FieldReport[];
   forms?: AdministrativeForm[];
+  tasks?: TaskItem[];
+  fundContributions?: FundContribution[];
+  fundExpenditures?: FundExpenditure[];
+  welfareCount?: number;
   setActiveTab: (tab: any) => void;
   currentUser?: {
     username: string;
@@ -71,214 +92,183 @@ interface DashboardProps {
   } | null;
 }
 
+const CHART_COLORS = ["#047857", "#1d4ed8", "#d97706", "#b91c1c", "#6d28d9"];
+
 export default function Dashboard({
   residents,
   households,
   businesses,
   reports,
   forms = initialAdministrativeForms,
+  tasks = [],
+  fundContributions = [],
+  fundExpenditures = [],
+  welfareCount = 0,
   setActiveTab,
-  currentUser
+  currentUser,
 }: DashboardProps) {
-  // Consolidated single-pass demographics and business analytics (Memoized)
-  const {
-    totalResidentsCount,
-    maleCount,
-    femaleCount,
-    malePct,
-    femalePct,
-    thuongTruCount,
-    tamTruCount,
-    tamVangCount,
-    foreignCount,
-    childrenCount,
-    workingAgeCount,
-    elderlyCount,
-    expiringTamTruCount,
-    expiredTamTruCount,
-    totalHouseholdsCount,
-    avgPerHousehold,
-    totalEnterprisesCount,
-    totalEstablishmentsCount,
-    totalHostelsCount,
-    totalRoomsCount,
-    pendingReportsCount,
-    familyMembers,
-    myReports,
-    residencyChartData
-  } = useMemo(() => {
+  const isStaff = currentUser?.role === "canbo";
+
+  const metrics = useMemo(() => {
     const totalRes = (residents || []).length;
-    let mCount = 0;
-    let fCount = 0;
-    let ttCount = 0;
-    let tmCount = 0;
-    let tvCount = 0;
-    let forCount = 0;
-    let child = 0;
-    let work = 0;
-    let elder = 0;
-    let expiringTT = 0;
-    let expiredTT = 0;
+    let maleCount = 0;
+    let femaleCount = 0;
+    let thuongTruCount = 0;
+    let tamTruCount = 0;
+    let tamVangCount = 0;
+    let foreignCount = 0;
+    let childrenCount = 0;
+    let workingAgeCount = 0;
+    let elderlyCount = 0;
+    let expiringTamTruCount = 0;
+    let expiredTamTruCount = 0;
     const currentYear = 2026;
 
     for (let i = 0; i < totalRes; i++) {
       const r = residents[i];
-      if (r.gender === "Nam") mCount++;
-      else if (r.gender === "Nữ") fCount++;
+      if (r.gender === "Nam") maleCount++;
+      else if (r.gender === "Nữ") femaleCount++;
 
       const isForeign =
         (r.nationality && r.nationality !== "Việt Nam") ||
         Boolean(r.passportNumber) ||
         (r.cccd && (r.cccd.toLowerCase().includes("hộ chiếu") || r.cccd.toLowerCase().includes("passport"))) ||
-        (r.id && r.id.startsWith("R_FOR_"));
+        Boolean(r.id && r.id.startsWith("R_FOR_"));
 
-      if (isForeign) {
-        forCount++;
-      } else if (r.status === "Thường trú") {
-        ttCount++;
-      } else if (r.status === "Tạm trú") {
-        tmCount++;
-      } else if (r.status === "Tạm vắng") {
-        tvCount++;
-      }
+      if (isForeign) foreignCount++;
+      else if (r.status === "Thường trú") thuongTruCount++;
+      else if (r.status === "Tạm trú") tamTruCount++;
+      else if (r.status === "Tạm vắng") tamVangCount++;
 
       const by = extractBirthYear(r.birthDate);
       if (by > 1900 && by <= currentYear) {
         const age = currentYear - by;
-        if (age < 14) child++;
-        else if (age >= 60) elder++;
-        else work++;
+        if (age < 14) childrenCount++;
+        else if (age >= 60) elderlyCount++;
+        else workingAgeCount++;
       } else {
-        work++;
+        workingAgeCount++;
       }
 
       if (r.status === "Tạm trú" && r.temporaryExpDate) {
         const expStatus = getTemporaryResidenceExpiryStatus(r.temporaryExpDate);
-        if (expStatus.isWarning) expiringTT++;
-        else if (expStatus.isExpired) expiredTT++;
+        if (expStatus.isWarning) expiringTamTruCount++;
+        else if (expStatus.isExpired) expiredTamTruCount++;
       }
     }
 
-    const totalHouseholds = (households || []).length;
-    const avgHH = totalHouseholds > 0 ? (ttCount / totalHouseholds).toFixed(1) : "0";
+    const popMetrics = computeKp3PopulationMetrics(residents, households);
 
-    // Businesses breakdown
     let enterprisesCount = 0;
     let establishmentsCount = 0;
     let hostelsCount = 0;
     let roomsCount = 0;
 
-    (businesses || []).forEach(b => {
-      const isEnterprise =
-        b.businessType === "Công ty TNHH" ||
-        b.businessType === "Công ty Cổ phần" ||
-        b.businessType === "Doanh nghiệp tư nhân" ||
-        (b.name && (b.name.toLowerCase().includes("công ty") || b.name.toLowerCase().includes("tnhh") || b.name.toLowerCase().includes("cổ phần")));
-
-      if (isEnterprise) enterprisesCount++;
+    (businesses || []).forEach((b) => {
+      if (isEnterpriseRecord(b)) enterprisesCount++;
       else establishmentsCount++;
-
       if (b.isAccommodation) {
         hostelsCount++;
-        roomsCount += (b.soPhong || 0);
+        roomsCount += b.soPhong || 0;
       }
     });
 
-    const pendingReports = (reports || []).filter(r => r.status !== "Đã giải quyết").length;
+    const pendingReports = (reports || []).filter((r) => r.status !== "Đã giải quyết");
+    const openTasks = (tasks || []).filter((t) => t.status !== "Hoàn thành");
+    const urgentTasks = openTasks.filter((t) => t.priority === "Khẩn cấp");
 
-    const famMembers = currentUser?.role === "nguoidan" && currentUser.householdCode
-      ? (residents || []).filter(r => r.householdId === currentUser.householdCode)
-      : [];
+    const totalFundCollected = (fundContributions || [])
+      .filter((c) => c.status === "Đã nộp" || !c.status)
+      .reduce((sum, c) => sum + (Number(c.amount) || 0), 0);
+    const totalFundSpent = (fundExpenditures || []).reduce((sum, e) => sum + (Number(e.amount) || 0), 0);
+    const netFundBalance = totalFundCollected - totalFundSpent;
 
-    const citizenReports = currentUser?.role === "nguoidan"
-      ? (reports || []).filter(r => r.reporterName === currentUser.fullName || r.reporterPhone === currentUser.phone)
-      : [];
+    const myReports =
+      currentUser?.role === "nguoidan"
+        ? (reports || []).filter(
+            (r) => r.reporterName === currentUser.fullName || r.reporterPhone === currentUser.phone
+          )
+        : [];
 
-    const chartData = [
-      { name: "Thường trú", Số_lượng: ttCount, color: "#10b981" },
-      { name: "Tạm trú", Số_lượng: tmCount, color: "#f59e0b" },
-      { name: "Tạm vắng", Số_lượng: tvCount, color: "#64748b" },
-      { name: "Người nước ngoài", Số_lượng: forCount, color: "#9333ea" }
+    const residencyChartData = [
+      { name: "Thường trú", "Số lượng": thuongTruCount, color: "#047857" },
+      { name: "Tạm trú", "Số lượng": tamTruCount, color: "#d97706" },
+      { name: "Tạm vắng", "Số lượng": tamVangCount, color: "#475569" },
+      { name: "Người nước ngoài", "Số lượng": foreignCount, color: "#6d28d9" },
     ];
 
+    const categoryMap = (reports || []).reduce((acc, r) => {
+      acc[r.category] = (acc[r.category] || 0) + 1;
+      return acc;
+    }, {} as Record<string, number>);
+
+    const reportPieData = Object.entries(categoryMap).map(([name, value]) => ({
+      name,
+      value,
+    }));
+
     return {
-      totalResidentsCount: totalRes,
-      maleCount: mCount,
-      femaleCount: fCount,
-      malePct: totalRes > 0 ? ((mCount / totalRes) * 100).toFixed(1) : "0",
-      femalePct: totalRes > 0 ? ((fCount / totalRes) * 100).toFixed(1) : "0",
-      thuongTruCount: ttCount,
-      tamTruCount: tmCount,
-      tamVangCount: tvCount,
-      foreignCount: forCount,
-      childrenCount: child,
-      workingAgeCount: work,
-      elderlyCount: elder,
-      expiringTamTruCount: expiringTT,
-      expiredTamTruCount: expiredTT,
-      totalHouseholdsCount: totalHouseholds,
-      avgPerHousehold: avgHH,
-      totalEnterprisesCount: enterprisesCount,
-      totalEstablishmentsCount: establishmentsCount,
-      totalHostelsCount: hostelsCount,
-      totalRoomsCount: roomsCount,
-      pendingReportsCount: pendingReports,
-      familyMembers: famMembers,
-      myReports: citizenReports,
-      residencyChartData: chartData
+      totalRes,
+      maleCount,
+      femaleCount,
+      malePctLabel: totalRes > 0 ? formatDecimalVN((maleCount / totalRes) * 100, 1) : "0,0",
+      femalePctLabel: totalRes > 0 ? formatDecimalVN((femaleCount / totalRes) * 100, 1) : "0,0",
+      thuongTruCount,
+      tamTruCount,
+      tamVangCount,
+      foreignCount,
+      childrenCount,
+      workingAgeCount,
+      elderlyCount,
+      expiringTamTruCount,
+      expiredTamTruCount,
+      popMetrics,
+      enterprisesCount,
+      establishmentsCount,
+      hostelsCount,
+      roomsCount,
+      pendingReportsCount: pendingReports.length,
+      pendingReports,
+      openTasksCount: openTasks.length,
+      urgentTasksCount: urgentTasks.length,
+      netFundBalance,
+      myReports,
+      residencyChartData,
+      reportPieData,
     };
-  }, [residents, households, businesses, reports, currentUser]);
+  }, [residents, households, businesses, reports, tasks, fundContributions, fundExpenditures, currentUser]);
 
-  // Business type chart data
-  const businessTypeCounts = businesses.reduce((acc, b) => {
-    acc[b.type] = (acc[b.type] || 0) + 1;
-    return acc;
-  }, {} as Record<string, number>);
-
-  const businessChartData = Object.entries(businessTypeCounts).map(([name, value]) => ({
-    name,
-    "Cơ sở": value
-  }));
-
-  // Report Categories distribution
-  const reportCategoryCounts = reports.reduce((acc, r) => {
-    acc[r.category] = (acc[r.category] || 0) + 1;
-    return acc;
-  }, {} as Record<string, number>);
-
-  const COLORS = ["#10b981", "#3b82f6", "#ef4444", "#f59e0b", "#8b5cf6"];
-  const reportPieData = Object.entries(reportCategoryCounts).map(([name, value]) => ({
-    name,
-    value
-  }));
-
-  const handleAdminCardClick = (targetTab: string) => {
-    if (currentUser?.role === "canbo") {
-      setActiveTab(targetTab);
-    }
-  };
-
-  // Cán Bộ administrative household & resident lookup state
+  // Household Lookup State
   const [householdSearchQuery, setHouseholdSearchQuery] = useState("");
   const [searchedHousehold, setSearchedHousehold] = useState<Household | null>(null);
-  const [searchFeedback, setSearchFeedback] = useState<string>("");
+  const [searchFeedback, setSearchFeedback] = useState("");
+  const [showSensitivePii, setShowSensitivePii] = useState(false);
+
+  // Dashboard Forms Quick Browser
+  const [dashboardFormSearch, setDashboardFormSearch] = useState("");
+  const [dashboardFormCategory, setDashboardFormCategory] = useState("Tất cả");
+  const [showAllDashboardForms, setShowAllDashboardForms] = useState(false);
+  const [dashboardPreviewForm, setDashboardPreviewForm] = useState<AdministrativeForm | null>(null);
+  const [dashboardToast, setDashboardToast] = useState<string | null>(null);
+  const [copiedTemplate, setCopiedTemplate] = useState(false);
 
   const handleSearchHousehold = (query: string) => {
     const q = query.trim().toLowerCase();
     if (!q) {
-      setSearchFeedback("Vui lòng nhập Mã sổ hộ khẩu (VD: HK-301) hoặc số CCCD.");
+      setSearchFeedback("Vui lòng nhập Mã sổ hộ khẩu (VD: HK-301), tên chủ hộ hoặc số CCCD.");
       setSearchedHousehold(null);
       return;
     }
 
-    let foundH = households.find(h => h.code.toLowerCase() === q);
+    let foundH = households.find(
+      (h) => h.code.toLowerCase() === q || h.ownerName.toLowerCase().includes(q)
+    );
     if (!foundH) {
-      const foundRes = residents.find(r =>
-        r.cccd.toLowerCase().includes(q) ||
-        r.fullName.toLowerCase().includes(q)
+      const foundRes = residents.find(
+        (r) => r.cccd.toLowerCase().includes(q) || r.fullName.toLowerCase().includes(q)
       );
-      if (foundRes && foundRes.householdId) {
-        foundH = households.find(h => h.code === foundRes.householdId);
+      if (foundRes?.householdId) {
+        foundH = households.find((h) => h.code === foundRes.householdId);
       }
     }
 
@@ -287,44 +277,40 @@ export default function Dashboard({
       setSearchFeedback("");
     } else {
       setSearchedHousehold(null);
-      setSearchFeedback(`Không tìm thấy hồ sơ hộ khẩu cho từ khóa "${query}". Cán bộ vui lòng thử các mã mẫu như HK-301, HK-302, HK-303.`);
+      setSearchFeedback(
+        `Không tìm thấy hồ sơ hộ khẩu khớp "${query}". Vui lòng thử mã mẫu như ${households[0]?.code || "HK-301"}.`
+      );
     }
   };
 
-  const searchedMembers = searchedHousehold
-    ? (residents.filter(r => r.householdId === searchedHousehold.code).length > 0
-      ? residents.filter(r => r.householdId === searchedHousehold.code)
-      : searchedHousehold.members.map((m, idx) => ({
-        id: "M-" + idx,
-        fullName: m.name,
-        gender: "Nam" as const,
-        birthDate: "01/01/" + m.birthYear,
-        cccd: m.cccd || "Đang cập nhật",
-        phone: m.phone || "---",
-        status: (searchedHousehold.type === "Tạm trú" ? "Tạm trú" : "Thường trú") as any,
-        occupation: "Cư dân",
-        address: searchedHousehold.address,
-        householdId: searchedHousehold.code,
-        relationToOwner: m.relation,
-        avatar: "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150",
-        joinDate: "01/01/2020"
-      }))
-    )
-    : [];
-
-  // Interactive Administrative Forms on Dashboard
-  const [dashboardFormSearch, setDashboardFormSearch] = useState("");
-  const [dashboardFormCategory, setDashboardFormCategory] = useState("Tất cả");
-  const [showAllDashboardForms, setShowAllDashboardForms] = useState(false);
-  const [dashboardPreviewForm, setDashboardPreviewForm] = useState<AdministrativeForm | null>(null);
-  const [dashboardToast, setDashboardToast] = useState<string | null>(null);
-  const [copiedTemplate, setCopiedTemplate] = useState(false);
+  const searchedMembers = useMemo(() => {
+    if (!searchedHousehold) return [];
+    const direct = residents.filter((r) => r.householdId === searchedHousehold.code);
+    if (direct.length > 0) return direct;
+    return searchedHousehold.members.map((m, idx) => ({
+      id: `M-${idx}`,
+      fullName: m.name,
+      gender: "Nam" as const,
+      birthDate: `01/01/${m.birthYear}`,
+      cccd: m.cccd || "Đang cập nhật",
+      phone: m.phone || "---",
+      status: (searchedHousehold.type === "Tạm trú" ? "Tạm trú" : "Thường trú") as Resident["status"],
+      occupation: "Cư dân",
+      address: searchedHousehold.address,
+      householdId: searchedHousehold.code,
+      relationToOwner: m.relation,
+      avatar: "",
+      joinDate: "01/01/2020",
+    }));
+  }, [searchedHousehold, residents]);
 
   const handleQuickDownloadForm = (formId: string) => {
-    const form = forms.find(f => f.id === formId);
+    const form = forms.find((f) => f.id === formId);
     if (!form) return;
     const filename = `${form.code.replace(/[^a-zA-Z0-9]/g, "_")}_${form.title.replace(/[^a-zA-Z0-9]/g, "_")}.doc`;
-    const blob = new Blob([`\uFEFF` + form.templateContent], { type: "application/msword;charset=utf-8" });
+    const blob = new Blob([`\uFEFF${form.templateContent}`], {
+      type: "application/msword;charset=utf-8",
+    });
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.href = url;
@@ -333,9 +319,7 @@ export default function Dashboard({
     link.click();
     document.body.removeChild(link);
     URL.revokeObjectURL(url);
-
-    setDashboardToast(`Đã tải xuống biểu mẫu: "${form.code} - ${form.title}" (.DOC) thành công!`);
-    setTimeout(() => setDashboardToast(null), 3500);
+    setDashboardToast(`Đã tải biểu mẫu "${form.code} - ${form.title}" (.DOC).`);
   };
 
   const dashboardFormCategories = [
@@ -344,285 +328,173 @@ export default function Dashboard({
     "Địa chính & Nhà ở",
     "Hộ kinh doanh",
     "Hộ tịch & Tư pháp",
-    "An sinh xã hội"
+    "An sinh xã hội",
   ];
 
-  const filteredDashboardForms = forms.filter(f => {
-    const matchCat = dashboardFormCategory === "Tất cả" || f.category === dashboardFormCategory;
-    const matchSearch =
-      f.title.toLowerCase().includes(dashboardFormSearch.toLowerCase()) ||
-      f.code.toLowerCase().includes(dashboardFormSearch.toLowerCase()) ||
-      f.description.toLowerCase().includes(dashboardFormSearch.toLowerCase());
-    return matchCat && matchSearch;
-  });
+  const filteredDashboardForms = useMemo(() => {
+    const q = dashboardFormSearch.trim().toLowerCase();
+    return forms.filter((f) => {
+      const matchCat = dashboardFormCategory === "Tất cả" || f.category === dashboardFormCategory;
+      const matchSearch =
+        !q ||
+        f.title.toLowerCase().includes(q) ||
+        f.code.toLowerCase().includes(q) ||
+        f.description.toLowerCase().includes(q);
+      return matchCat && matchSearch;
+    });
+  }, [forms, dashboardFormCategory, dashboardFormSearch]);
 
-  const displayedDashboardForms = (dashboardFormSearch || showAllDashboardForms || dashboardFormCategory !== "Tất cả")
-    ? filteredDashboardForms
-    : filteredDashboardForms.slice(0, 4);
+  const displayedDashboardForms =
+    dashboardFormSearch || showAllDashboardForms || dashboardFormCategory !== "Tất cả"
+      ? filteredDashboardForms
+      : filteredDashboardForms.slice(0, 4);
 
-  if (currentUser?.role === "nguoidan") {
+  // ===================== CITIZEN PORTAL HOME =====================
+  if (!isStaff) {
+    const citizenServices = [
+      { id: "forms", title: "Biểu mẫu Hành chính", icon: FileText, tone: "emerald" },
+      { id: "reports", title: "Phản ánh Hiện trường 1022", icon: MessageSquare, tone: "indigo" },
+      { id: "gis", title: "Bản đồ Số KP3 (GIS)", icon: Map, tone: "sky" },
+      { id: "finance", title: "Quỹ Khu phố & VietQR", icon: Coins, tone: "amber" },
+      { id: "ai", title: "Hỏi đáp Trợ lý KP3", icon: Bot, tone: "indigo" },
+      { id: "welfare", title: "An sinh Xã hội", icon: Heart, tone: "rose" },
+      { id: "cultural", title: "Tin tức & Sinh hoạt KP3", icon: Bell, tone: "emerald" },
+      { id: "party", title: "Ban Điều hành & 14 Tổ", icon: Users, tone: "slate" },
+    ];
+
     return (
-      <div id="dashboard-view" className="space-y-6">
-        {/* Public Citizen Header Banner */}
-        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-gradient-to-r from-slate-50 via-white to-emerald-50/40 p-5 md:p-6 rounded-2xl border border-slate-200 shadow-2xs relative overflow-hidden">
-          <div className="space-y-1.5 max-w-2xl">
-            <div className="inline-flex items-center gap-2 px-2.5 py-1 rounded-md bg-emerald-50 border border-emerald-200 text-emerald-800 text-[11px] font-bold tracking-wide uppercase mb-1">
-              <Sparkles size={13} className="text-emerald-600" />
-              <span>Cổng Dịch Vụ Cư Dân Số • KP3 An Phú</span>
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
-              <span className="font-normal text-[11px] text-emerald-700">Truy cập mở 24/7</span>
-            </div>
-            <h1 className="text-xl md:text-2xl font-black text-slate-800 tracking-tight">
-              Xin chào Quý Cư dân Khu phố 3, An Phú!
-            </h1>
-          </div>
-
-          <div className="flex flex-col sm:flex-row md:flex-col items-start md:items-end gap-2 shrink-0">
-            <div className="flex items-center gap-2 bg-white px-3.5 py-1.5 rounded-xl text-xs font-mono font-medium border border-slate-200 shadow-2xs text-slate-600">
-              <Clock size={14} className="text-emerald-600" />
+      <div id="dashboard-view" className="space-y-5">
+        <PageHeader
+          badgeIcon={<Sparkles size={14} className="text-emerald-700" />}
+          badgeText="CỔNG DỊCH VỤ CƯ DÂN SỐ • KHU PHỐ 3, AN PHÚ"
+          badgeSubtext="PHỤC VỤ 24/7"
+          title="Xin chào Quý Cư dân Khu phố 3"
+          actions={
+            <div className="inline-flex items-center gap-2 bg-slate-50 px-3 py-2 rounded-lg border border-slate-200 text-xs font-mono text-slate-700">
+              <Clock size={14} className="text-emerald-700" aria-hidden="true" />
               <span>Hôm nay: {new Date().toLocaleDateString("vi-VN")}</span>
             </div>
-            <div className="text-[11px] text-slate-500 font-medium">
-              Phường An Phú, TP. Hồ Chí Minh
-            </div>
-          </div>
-        </div>
+          }
+        />
 
-        {/* Quick Highlights / Key Public Metrics */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-          <div className="bg-white p-4 rounded-2xl border border-slate-100 shadow-xs flex items-center gap-3.5">
-            <div className="w-11 h-11 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0">
-              <Users size={22} />
-            </div>
-            <div>
-              <span className="text-[11px] text-slate-400 font-medium block">Dân cư địa phương</span>
-              <span className="text-xl font-black text-slate-800">{totalResidentsCount.toLocaleString("vi-VN")}</span>
-              <span className="text-[10px] text-slate-500 block font-mono">Người dân</span>
-            </div>
-          </div>
+        {dashboardToast && (
+          <InlineNotice type="success" message={dashboardToast} onDismiss={() => setDashboardToast(null)} />
+        )}
 
-          <div className="bg-white p-4 rounded-2xl border border-slate-100 shadow-xs flex items-center gap-3.5">
-            <div className="w-11 h-11 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center shrink-0">
-              <Home size={22} />
-            </div>
-            <div>
-              <span className="text-[11px] text-slate-400 font-medium block">Hộ gia đình</span>
-              <span className="text-xl font-black text-slate-800">{totalHouseholdsCount.toLocaleString("vi-VN")}</span>
-              <span className="text-[10px] text-slate-500 block font-mono">Hộ cư trú</span>
-            </div>
-          </div>
-
-          <div className="bg-white p-4 rounded-2xl border border-slate-100 shadow-xs flex items-center gap-3.5">
-            <div className="w-11 h-11 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center shrink-0">
-              <Briefcase size={22} />
-            </div>
-            <div>
-              <span className="text-[11px] text-slate-400 font-medium block">Cơ sở kinh doanh & lưu trú</span>
-              <span className="text-xl font-black text-slate-800">{formatVNNumber(businesses.length)}</span>
-              <span className="text-[10px] text-slate-500 block font-mono">Doanh nghiệp & Hộ KD</span>
-            </div>
-          </div>
-
-          <div
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <StatCard
+            label="Dân số KP3 (14 Tổ)"
+            value={formatVNNumber(KP3_OFFICIAL_BASELINE.population)}
+            icon={Users}
+            color="emerald"
+            subtext="Quy mô toàn khu phố"
+            subtextRight={`${metrics.popMetrics.digitizedResidentsCount} hồ sơ số hóa`}
+          />
+          <StatCard
+            label="Số Hộ gia đình"
+            value={formatVNNumber(KP3_OFFICIAL_BASELINE.households)}
+            icon={Home}
+            color="indigo"
+            subtext="Sổ hộ khẩu điện tử"
+            subtextRight="14 Tổ dân phố"
+          />
+          <StatCard
+            label="Doanh nghiệp & Hộ KD"
+            value={formatVNNumber(KP3_OFFICIAL_BASELINE.activeBusinessesTotal)}
+            icon={Briefcase}
+            color="amber"
+            subtext="Cơ sở sản xuất & dịch vụ"
+            subtextRight={`${metrics.hostelsCount} nhà trọ`}
+          />
+          <StatCard
+            label="Kho biểu mẫu tải nhanh"
+            value={forms.length}
+            icon={FileText}
+            color="blue"
+            subtext="Word (.DOC) & In trực tiếp"
+            subtextRight="Mở biểu mẫu →"
             onClick={() => setActiveTab("forms")}
-            className="bg-white p-4 rounded-2xl border border-slate-100 hover:border-emerald-300 hover:shadow-md transition-all flex items-center gap-3.5 cursor-pointer group"
-          >
-            <div className="w-11 h-11 rounded-xl bg-teal-50 text-teal-600 group-hover:bg-emerald-600 group-hover:text-white transition-colors flex items-center justify-center shrink-0">
-              <FileText size={22} />
-            </div>
-            <div>
-              <span className="text-[11px] text-slate-400 font-medium block">Kho biểu mẫu tải về</span>
-              <span className="text-xl font-black text-slate-800">{forms.length}</span>
-              <span className="text-[10px] text-emerald-600 font-bold block font-mono">Word & In trực tuyến →</span>
-            </div>
-          </div>
+          />
         </div>
 
-        {/* 6 Essential Digital Services for Citizens */}
-        <div className="bg-white rounded-3xl border border-slate-100 p-6 shadow-xs space-y-4">
-          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 border-b border-slate-100 pb-3">
-            <div>
-              <h2 className="text-base font-extrabold text-slate-800">Dịch Vụ Cư Dân Số Trực Tuyến</h2>
-            </div>
-            <span className="text-[11px] font-bold text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-full border border-emerald-100">
-              Tiện ích trực tuyến
+        {/* Even 8-card Quick Services Grid */}
+        <section aria-labelledby="citizen-services-heading" className="bg-white rounded-xl border border-slate-200 p-5 space-y-4">
+          <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-200 pb-3">
+            <h2 id="citizen-services-heading" className="text-base font-bold text-slate-900">
+              Tiện ích Cư dân Trực tuyến (8 phân hệ)
+            </h2>
+            <span className="px-2.5 py-1 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-900 text-xs font-semibold">
+              Truy cập nhanh
             </span>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5">
-            {/* Service 1: Biểu mẫu hành chính */}
-            <button
-              onClick={() => setActiveTab("forms")}
-              className="p-4 rounded-2xl border border-emerald-200/80 bg-gradient-to-br from-emerald-50/60 to-teal-50/40 hover:border-emerald-500 transition-all text-left flex items-start gap-3.5 cursor-pointer group shadow-2xs interactive-card interactive-tap"
-            >
-              <div className="w-10 h-10 rounded-xl bg-emerald-600 text-white flex items-center justify-center shrink-0 group-hover:scale-110 transition-transform shadow-xs">
-                <FileText size={20} />
-              </div>
-              <div className="space-y-1 min-w-0 flex-1">
-                <div className="flex items-center justify-between">
-                  <h4 className="font-bold text-slate-900 text-sm group-hover:text-emerald-800 transition-colors">
-                    Tải Biểu Mẫu Hành Chính
-                  </h4>
-                  <ChevronRight size={14} className="text-emerald-600 transition-colors shrink-0" />
-                </div>
-              </div>
-            </button>
-
-            {/* Service 2 */}
-            <button
-              onClick={() => setActiveTab("reports")}
-              className="p-4 rounded-2xl border border-slate-100 bg-slate-50/40 hover:bg-emerald-50/30 hover:border-emerald-300 transition-all text-left flex items-start gap-3.5 cursor-pointer group interactive-card interactive-tap"
-            >
-              <div className="w-10 h-10 rounded-xl bg-emerald-100/80 text-emerald-700 flex items-center justify-center shrink-0 group-hover:scale-110 transition-transform">
-                <MessageSquare size={20} />
-              </div>
-              <div className="space-y-1 min-w-0 flex-1">
-                <div className="flex items-center justify-between">
-                  <h4 className="font-bold text-slate-800 text-sm group-hover:text-emerald-800 transition-colors">
-                    Gửi Phản Ánh Hiện Trường 1022
-                  </h4>
-                  <ChevronRight size={14} className="text-slate-400 group-hover:text-emerald-600 transition-colors shrink-0" />
-                </div>
-              </div>
-            </button>
-
-            {/* Service 3 */}
-            <button
-              onClick={() => setActiveTab("ai")}
-              className="p-4 rounded-2xl border border-slate-100 bg-slate-50/40 hover:bg-indigo-50/30 hover:border-indigo-300 transition-all text-left flex items-start gap-3.5 cursor-pointer group interactive-card interactive-tap"
-            >
-              <div className="w-10 h-10 rounded-xl bg-indigo-100/80 text-indigo-700 flex items-center justify-center shrink-0 group-hover:scale-110 transition-transform">
-                <Bot size={20} />
-              </div>
-              <div className="space-y-1 min-w-0 flex-1">
-                <div className="flex items-center justify-between">
-                  <h4 className="font-bold text-slate-800 text-sm group-hover:text-indigo-800 transition-colors">
-                    Hỏi Đáp Trợ Lý AI Khu Phố
-                  </h4>
-                  <ChevronRight size={14} className="text-slate-400 group-hover:text-indigo-600 transition-colors shrink-0" />
-                </div>
-              </div>
-            </button>
-
-            {/* Service 4 */}
-            <button
-              onClick={() => setActiveTab("gis")}
-              className="p-4 rounded-2xl border border-slate-100 bg-slate-50/40 hover:bg-teal-50/30 hover:border-teal-300 transition-all text-left flex items-start gap-3.5 cursor-pointer group interactive-card interactive-tap"
-            >
-              <div className="w-10 h-10 rounded-xl bg-teal-100/80 text-teal-700 flex items-center justify-center shrink-0 group-hover:scale-110 transition-transform">
-                <Map size={20} />
-              </div>
-              <div className="space-y-1 min-w-0 flex-1">
-                <div className="flex items-center justify-between">
-                  <h4 className="font-bold text-slate-800 text-sm group-hover:text-teal-800 transition-colors">
-                    Bản Đồ Số Không Gian GIS
-                  </h4>
-                  <ChevronRight size={14} className="text-slate-400 group-hover:text-teal-600 transition-colors shrink-0" />
-                </div>
-              </div>
-            </button>
-
-            {/* Service 5 */}
-            <button
-              onClick={() => setActiveTab("finance")}
-              className="p-4 rounded-2xl border border-slate-100 bg-slate-50/40 hover:bg-amber-50/30 hover:border-amber-300 transition-all text-left flex items-start gap-3.5 cursor-pointer group interactive-card interactive-tap"
-            >
-              <div className="w-10 h-10 rounded-xl bg-amber-100/80 text-amber-700 flex items-center justify-center shrink-0 group-hover:scale-110 transition-transform">
-                <Coins size={20} />
-              </div>
-              <div className="space-y-1 min-w-0 flex-1">
-                <div className="flex items-center justify-between">
-                  <h4 className="font-bold text-slate-800 text-sm group-hover:text-amber-800 transition-colors">
-                    Quỹ Tự Quản & Đóng Góp
-                  </h4>
-                  <ChevronRight size={14} className="text-slate-400 group-hover:text-amber-600 transition-colors shrink-0" />
-                </div>
-              </div>
-            </button>
-
-            {/* Service 6 */}
-            <button
-              onClick={() => setActiveTab("welfare")}
-              className="p-4 rounded-2xl border border-slate-100 bg-slate-50/40 hover:bg-rose-50/30 hover:border-rose-300 transition-all text-left flex items-start gap-3.5 cursor-pointer group interactive-card interactive-tap"
-            >
-              <div className="w-10 h-10 rounded-xl bg-rose-100/80 text-rose-700 flex items-center justify-center shrink-0 group-hover:scale-110 transition-transform">
-                <Heart size={20} />
-              </div>
-              <div className="space-y-1 min-w-0 flex-1">
-                <div className="flex items-center justify-between">
-                  <h4 className="font-bold text-slate-800 text-sm group-hover:text-rose-800 transition-colors">
-                    An Sinh Xã Hội & Trợ Cấp
-                  </h4>
-                  <ChevronRight size={14} className="text-slate-400 group-hover:text-rose-600 transition-colors shrink-0" />
-                </div>
-              </div>
-            </button>
-
-            {/* Service 7: Quản lý Chi hội */}
-            <button
-              onClick={() => setActiveTab("party")}
-              className="p-4 rounded-2xl border border-slate-100 bg-slate-50/40 hover:bg-emerald-50/30 hover:border-emerald-300 transition-all text-left flex items-start gap-3.5 cursor-pointer group interactive-card interactive-tap"
-            >
-              <div className="w-10 h-10 rounded-xl bg-emerald-100/80 text-emerald-700 flex items-center justify-center shrink-0 group-hover:scale-110 transition-transform">
-                <ShieldAlert size={20} />
-              </div>
-              <div className="space-y-1 min-w-0 flex-1">
-                <div className="flex items-center justify-between">
-                  <h4 className="font-bold text-slate-800 text-sm group-hover:text-emerald-800 transition-colors">
-                    Chi Hội & Đoàn Thể Cơ Sở
-                  </h4>
-                  <ChevronRight size={14} className="text-slate-400 group-hover:text-emerald-600 transition-colors shrink-0" />
-                </div>
-              </div>
-            </button>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+            {citizenServices.map((svc) => {
+              const IconComp = svc.icon;
+              return (
+                <button
+                  key={svc.id}
+                  type="button"
+                  onClick={() => setActiveTab(svc.id)}
+                  className="p-3.5 rounded-xl border border-slate-200 bg-white hover:border-emerald-600 hover:bg-slate-50 transition-colors text-left flex items-center justify-between gap-3 cursor-pointer"
+                >
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div className="w-10 h-10 rounded-lg bg-emerald-50 border border-emerald-100 text-emerald-800 flex items-center justify-center shrink-0">
+                      <IconComp size={18} aria-hidden="true" />
+                    </div>
+                    <span className="text-sm font-bold text-slate-900 leading-snug">{svc.title}</span>
+                  </div>
+                  <ArrowUpRight size={15} className="text-slate-500 shrink-0" aria-hidden="true" />
+                </button>
+              );
+            })}
           </div>
-        </div>
+        </section>
 
-        {/* FEATURED: Biểu Mẫu Trực Tuyến Tải Nhanh Cho Cán Bộ & Cư Dân */}
-        <div className="bg-white rounded-3xl border border-slate-100 p-6 shadow-xs space-y-4">
-          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 border-b border-slate-100 pb-3">
+        {/* Quick Administrative Forms Browser */}
+        <section aria-labelledby="citizen-forms-heading" className="bg-white rounded-xl border border-slate-200 p-5 space-y-4">
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 border-b border-slate-200 pb-3">
             <div>
-              <div className="flex items-center gap-2">
-                <FileText size={18} className="text-emerald-600" />
-                <h3 className="text-base font-extrabold text-slate-800 uppercase tracking-tight">
-                  Kho Biểu Mẫu Hành Chính Tải Trực Tiếp (Dành Cho Cán Bộ & Cư Dân)
-                </h3>
-              </div>
+              <h2 id="citizen-forms-heading" className="text-base font-bold text-slate-900 inline-flex items-center gap-2">
+                <FileText size={18} className="text-emerald-700" aria-hidden="true" />
+                Kho Biểu mẫu Hành chính Tải nhanh
+              </h2>
+              <p className="text-xs text-slate-600 mt-0.5">
+                Tìm kiếm mẫu đơn CT01, xác nhận cư trú, đăng ký HKD và tải về định dạng Word.
+              </p>
             </div>
-            <div className="flex items-center gap-2">
-              <button
-                onClick={() => setActiveTab("forms")}
-                className="text-xs font-bold text-emerald-700 hover:text-emerald-800 hover:underline flex items-center gap-1 cursor-pointer bg-emerald-50 px-3 py-1.5 rounded-xl border border-emerald-200/60"
-              >
-                <span>Mở toàn bộ kho {forms.length} biểu mẫu</span>
-                <ChevronRight size={14} />
-              </button>
-            </div>
+            <Button variant="secondary" size="sm" onClick={() => setActiveTab("forms")}>
+              Mở toàn bộ kho biểu mẫu
+            </Button>
           </div>
 
-          {/* Quick Search & Category Filter */}
-          <div className="flex flex-col md:flex-row gap-3 pt-1">
-            <div className="relative flex-1">
-              <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
+          <div className="flex flex-col md:flex-row gap-3 items-stretch md:items-center justify-between">
+            <div className="relative flex-1 max-w-md">
+              <label htmlFor="dashboard-form-search-input" className="sr-only">
+                Tìm kiếm biểu mẫu
+              </label>
+              <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 pointer-events-none" />
               <input
                 id="dashboard-form-search-input"
-                name="dashboardFormSearch"
-                type="text"
-                placeholder="Tìm nhanh biểu mẫu (ví dụ: cấp số nhà, CT01, hộ kinh doanh, sửa chữa, kết hôn)..."
+                type="search"
                 value={dashboardFormSearch}
                 onChange={(e) => setDashboardFormSearch(e.target.value)}
-                className="w-full pl-10 pr-4 py-2 border border-slate-200 rounded-xl text-xs focus:outline-none focus:border-emerald-500 bg-slate-50/50"
+                placeholder="Tìm mã hoặc tên biểu mẫu..."
+                className="w-full h-11 md:h-10 pl-9 pr-3 bg-white border border-slate-300 rounded-lg text-sm text-slate-900 placeholder:text-slate-500 focus:outline-none focus:border-emerald-600"
               />
             </div>
-            <div className="flex items-center gap-1.5 overflow-x-auto pb-1 text-xs shrink-0">
+
+            <div className="flex flex-wrap gap-1.5">
               {dashboardFormCategories.map((cat) => (
                 <button
                   key={cat}
+                  type="button"
                   onClick={() => setDashboardFormCategory(cat)}
-                  className={`px-2.5 py-1.5 rounded-lg text-[11px] font-medium transition-all whitespace-nowrap cursor-pointer ${dashboardFormCategory === cat
-                    ? "bg-emerald-600 text-white font-bold"
-                    : "bg-slate-100 hover:bg-slate-200/70 text-slate-600"
-                    }`}
+                  className={`px-3 py-1.5 rounded-lg border text-xs font-semibold cursor-pointer transition-colors ${
+                    dashboardFormCategory === cat
+                      ? "bg-emerald-700 text-white border-emerald-700"
+                      : "bg-white text-slate-700 border-slate-200 hover:bg-slate-50"
+                  }`}
                 >
                   {cat}
                 </button>
@@ -630,735 +502,543 @@ export default function Dashboard({
             </div>
           </div>
 
-          {/* Forms Grid */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5 pt-1">
-            {displayedDashboardForms.length === 0 ? (
-              <div className="col-span-full py-8 text-center bg-slate-50 rounded-2xl border border-dashed border-slate-200 space-y-2">
-                <FileText size={28} className="text-slate-300 mx-auto" />
-                <p className="text-xs text-slate-500 font-medium">Không tìm thấy biểu mẫu nào khớp với "{dashboardFormSearch}"</p>
-                <button
-                  onClick={() => {
-                    setDashboardFormSearch("");
-                    setDashboardFormCategory("Tất cả");
-                  }}
-                  className="text-xs text-emerald-600 font-bold hover:underline cursor-pointer"
-                >
-                  Xóa bộ lọc
-                </button>
-              </div>
-            ) : (
-              displayedDashboardForms.map((form) => (
-                <div
-                  key={form.id}
-                  className="p-4 rounded-2xl border border-slate-100 bg-slate-50/50 hover:bg-white hover:border-emerald-300 hover:shadow-md transition-all flex flex-col justify-between gap-3 group"
-                >
-                  <div className="space-y-2">
-                    <div className="flex items-center justify-between">
-                      <span className="px-2 py-0.5 rounded-md bg-emerald-100 text-emerald-800 font-mono font-bold text-[10px]">
-                        {form.code}
-                      </span>
-                      <span className="text-[10px] text-slate-400 font-mono">{form.fileFormat}</span>
-                    </div>
-                    <h4 className="font-bold text-slate-800 text-xs group-hover:text-emerald-700 transition-colors line-clamp-2">
-                      {form.title}
-                    </h4>
-                    <p className="text-[11px] text-slate-500 line-clamp-2 leading-relaxed">
-                      {form.description}
-                    </p>
-                    <div className="pt-1 flex items-center justify-between text-[10px] text-slate-400 font-medium">
-                      <span>{form.issuingBody.split("(")[0]}</span>
-                      <span className="text-emerald-600 font-semibold">{form.fee}</span>
-                    </div>
-                  </div>
-
-                  <div className="pt-2.5 border-t border-slate-100 flex items-center justify-between gap-2">
-                    <button
-                      onClick={() => setDashboardPreviewForm(form)}
-                      className="text-[11px] text-slate-500 hover:text-emerald-700 font-semibold cursor-pointer flex items-center gap-1"
-                      title="Xem trước nội dung mẫu đơn"
-                    >
-                      <Eye size={13} />
-                      <span>Xem trước</span>
-                    </button>
-
-                    <button
-                      onClick={() => handleQuickDownloadForm(form.id)}
-                      className="px-2.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-[11px] font-bold flex items-center gap-1.5 transition-colors cursor-pointer shadow-xs"
-                      title="Tải biểu mẫu Microsoft Word về máy"
-                    >
-                      <Download size={13} />
-                      <span>Tải .DOC</span>
-                    </button>
-                  </div>
-                </div>
-              ))
-            )}
-          </div>
-
-          {/* Expand / Collapse or View Full Forms Tab */}
-          {filteredDashboardForms.length > 4 && !dashboardFormSearch && (
-            <div className="pt-2 flex justify-center">
-              <button
-                onClick={() => setShowAllDashboardForms(!showAllDashboardForms)}
-                className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-semibold transition-colors cursor-pointer flex items-center gap-1.5"
-              >
-                <span>{showAllDashboardForms ? "Thu gọn (hiển thị 4 mẫu phổ biến)" : `Xem thêm ${filteredDashboardForms.length - 4} biểu mẫu khác`}</span>
-                <ChevronRight size={14} className={showAllDashboardForms ? "-rotate-90" : "rotate-90"} />
-              </button>
-            </div>
-          )}
-        </div>
-
-        {/* Community Field Reports Transparency (Phản ánh hiện trường 1022) */}
-        <div className="bg-white rounded-3xl border border-slate-100 p-6 shadow-xs space-y-4">
-          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 border-b border-slate-100 pb-3">
-            <div>
-              <div className="flex items-center gap-2">
-                <span className="w-2.5 h-2.5 rounded-full bg-indigo-500"></span>
-                <h3 className="text-base font-extrabold text-slate-800 uppercase tracking-tight">
-                  Phản Ánh Hiện Trường 1022 Khu Phố 3 Mới Nhất
-                </h3>
-              </div>
-              <p className="text-xs text-slate-500 mt-0.5">
-                Các kiến nghị của bà con về hạ tầng, vệ sinh môi trường, an ninh trật tự được giải quyết công khai
-              </p>
-            </div>
-            <button
-              onClick={() => setActiveTab("reports")}
-              className="flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs px-3.5 py-2 rounded-xl transition-colors cursor-pointer shadow-xs"
-            >
-              <PlusCircle size={15} /> Gửi Phản Ánh Mới
-            </button>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {reports.slice(0, 3).map((r) => (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            {displayedDashboardForms.map((form) => (
               <div
-                key={r.id}
-                onClick={() => setActiveTab("reports")}
-                className="p-4 border border-slate-100 rounded-2xl bg-slate-50/40 hover:bg-white hover:border-emerald-300 hover:shadow-md transition-all flex flex-col justify-between gap-3 cursor-pointer group"
+                key={form.id}
+                className="p-4 rounded-xl border border-slate-200 bg-white flex flex-col justify-between gap-3"
               >
-                <div className="space-y-2">
+                <div className="space-y-1">
                   <div className="flex items-center justify-between gap-2">
-                    <span className="text-[10px] font-bold text-indigo-700 bg-indigo-50 border border-indigo-100 px-2 py-0.5 rounded-md">
-                      {r.category}
+                    <span className="px-2 py-0.5 rounded bg-slate-100 text-slate-800 border border-slate-200 font-mono text-xs font-semibold">
+                      {form.code}
                     </span>
-                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full shrink-0
-                      ${r.status === "Đã giải quyết"
-                        ? "bg-emerald-100 text-emerald-800"
-                        : r.status === "Đang xử lý"
-                          ? "bg-amber-100 text-amber-800"
-                          : "bg-slate-200 text-slate-700"
-                      }
-                    `}>
-                      {r.status}
-                    </span>
+                    <span className="text-xs text-slate-600">{form.category}</span>
                   </div>
-
-                  <h5 className="font-bold text-slate-800 text-xs group-hover:text-emerald-700 transition-colors line-clamp-1">
-                    {r.title}
-                  </h5>
-                  <p className="text-[11px] text-slate-500 line-clamp-2 leading-relaxed">
-                    {r.description}
-                  </p>
+                  <h3 className="text-sm font-bold text-slate-900">{form.title}</h3>
+                  <p className="text-xs text-slate-600 line-clamp-2">{form.description}</p>
                 </div>
 
-                <div className="pt-2.5 border-t border-slate-100 flex items-center justify-between text-[10px] text-slate-400 font-mono">
-                  <span>📍 {r.location}</span>
-                  <span>{r.reportedAt}</span>
+                <div className="flex items-center gap-2 pt-2 border-t border-slate-100">
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    leftIcon={<Eye size={14} />}
+                    onClick={() => setDashboardPreviewForm(form)}
+                  >
+                    Xem mẫu
+                  </Button>
+                  <Button
+                    variant="emerald"
+                    size="sm"
+                    leftIcon={<Download size={14} />}
+                    onClick={() => handleQuickDownloadForm(form.id)}
+                  >
+                    Tải .DOC
+                  </Button>
                 </div>
               </div>
             ))}
           </div>
-        </div>
 
-        {/* Community Announcements Notice Board */}
-        <div className="bg-gradient-to-r from-slate-900 to-slate-800 text-white rounded-3xl p-6 shadow-md space-y-4">
-          <div className="flex justify-between items-center border-b border-white/10 pb-3">
-            <div className="flex items-center gap-2">
-              <Bell size={18} className="text-amber-400" />
-              <span className="font-bold text-sm uppercase tracking-wide text-white">
-                Bản Tin & Thông Báo Cư Dân Khu Phố 3
-              </span>
+          {filteredDashboardForms.length > 4 && !dashboardFormSearch && (
+            <div className="text-center">
+              <Button variant="ghost" size="sm" onClick={() => setShowAllDashboardForms((s) => !s)}>
+                {showAllDashboardForms
+                  ? "Thu gọn danh sách"
+                  : `Xem thêm ${filteredDashboardForms.length - 4} biểu mẫu khác`}
+              </Button>
             </div>
-            <span className="text-[10px] text-slate-400 font-mono">Ban Điều hành KP3</span>
+          )}
+        </section>
+
+        {/* Community Notices (Flat Hairline Light Theme) */}
+        <section aria-labelledby="citizen-notices-heading" className="bg-white rounded-xl border border-slate-200 p-5 space-y-4">
+          <div className="flex items-center justify-between border-b border-slate-200 pb-3">
+            <h2 id="citizen-notices-heading" className="text-base font-bold text-slate-900 inline-flex items-center gap-2">
+              <Bell size={18} className="text-amber-600" aria-hidden="true" />
+              Bản tin & Lưu ý Sinh hoạt Cộng đồng KP3
+            </h2>
+            <span className="text-xs font-mono text-slate-600">Ban Điều hành KP3</span>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs">
-            <div className="p-3.5 rounded-xl bg-white/5 border border-white/10 space-y-1.5">
-              <span className="text-[10px] font-bold text-emerald-400 uppercase tracking-wider block">Lịch Vệ Sinh</span>
-              <h5 className="font-bold text-white text-xs">Thu gom rác sinh hoạt hằng ngày</h5>
-              <p className="text-slate-300 text-[11px] leading-relaxed">
-                Đề nghị bà con để rác vào túi kín trước cửa nhà từ 19h00 - 21h00 hằng ngày để xe thu gom đúng giờ.
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+            <div className="p-4 rounded-xl bg-emerald-50/60 border border-emerald-200 space-y-1">
+              <span className="text-xs font-bold text-emerald-900 uppercase">Lịch vệ sinh</span>
+              <h3 className="text-sm font-bold text-slate-900">Thu gom rác sinh hoạt hằng ngày</h3>
+              <p className="text-xs text-slate-700 leading-relaxed">
+                Đề nghị các hộ dân buộc kín túi rác trước cửa từ 19h00 – 21h00 để đảm bảo mỹ quan 14 Tổ dân phố.
               </p>
             </div>
-
-            <div className="p-3.5 rounded-xl bg-white/5 border border-white/10 space-y-1.5">
-              <span className="text-[10px] font-bold text-amber-400 uppercase tracking-wider block">Y Tế & Tiêm Chủng</span>
-              <h5 className="font-bold text-white text-xs">Tiêm chủng mở rộng tại Trạm Y Tế</h5>
-              <p className="text-slate-300 text-[11px] leading-relaxed">
-                Sáng thứ Bảy tuần này tại Trạm Y tế Phường An Phú dành cho trẻ em dưới 5 tuổi và người cao tuổi.
+            <div className="p-4 rounded-xl bg-amber-50/60 border border-amber-200 space-y-1">
+              <span className="text-xs font-bold text-amber-900 uppercase">Y tế & tiêm chủng</span>
+              <h3 className="text-sm font-bold text-slate-900">Tiêm chủng mở rộng Trạm Y tế An Phú</h3>
+              <p className="text-xs text-slate-700 leading-relaxed">
+                Sáng thứ Bảy hằng tuần tiếp nhận khám sàng lọc định kỳ cho trẻ em dưới 5 tuổi và người cao tuổi.
               </p>
             </div>
-
-            <div className="p-3.5 rounded-xl bg-white/5 border border-white/10 space-y-1.5">
-              <span className="text-[10px] font-bold text-indigo-400 uppercase tracking-wider block">Chuyển Đổi Số</span>
-              <h5 className="font-bold text-white text-xs">Hỗ trợ kích hoạt định danh VNeID mức 2</h5>
-              <p className="text-slate-300 text-[11px] leading-relaxed">
-                Tổ công nghệ số cộng đồng trực hỗ trợ bà con vào các buổi tối thứ 3 và thứ 5 tại Văn phòng Khu phố 3.
+            <div className="p-4 rounded-xl bg-indigo-50/60 border border-indigo-200 space-y-1">
+              <span className="text-xs font-bold text-indigo-900 uppercase">Chuyển đổi số</span>
+              <h3 className="text-sm font-bold text-slate-900">Hỗ trợ VNeID mức 2 tại Văn phòng KP3</h3>
+              <p className="text-xs text-slate-700 leading-relaxed">
+                Tổ Công nghệ số cộng đồng trực hướng dẫn vào tối thứ Ba và thứ Năm hằng tuần.
               </p>
             </div>
           </div>
-        </div>
+        </section>
 
-        {/* Toast Notification */}
-        {dashboardToast && (
-          <div className="fixed bottom-6 right-6 z-50 bg-slate-900 text-white border border-emerald-500/40 px-4 py-3 rounded-2xl shadow-2xl flex items-center gap-3 text-xs animate-bounce">
-            <CheckCircle2 size={18} className="text-emerald-400 shrink-0" />
-            <span className="font-medium">{dashboardToast}</span>
-          </div>
-        )}
-
-        {/* Preview Modal on Dashboard */}
-        {dashboardPreviewForm && (
-          <div className="fixed inset-0 z-50 bg-slate-900/70 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto">
-            <div className="bg-white rounded-3xl max-w-2xl w-full max-h-[90vh] flex flex-col shadow-2xl border border-slate-100 overflow-hidden animate-in fade-in zoom-in-95 duration-200">
-              {/* Modal Header */}
-              <div className="p-5 border-b border-slate-100 bg-slate-50/70 flex justify-between items-center">
-                <div className="flex items-center gap-2.5">
-                  <span className="px-2 py-0.5 rounded bg-emerald-100 text-emerald-800 font-mono font-bold text-xs">
-                    {dashboardPreviewForm.code}
-                  </span>
-                  <h3 className="font-bold text-slate-800 text-sm md:text-base truncate max-w-md">
-                    {dashboardPreviewForm.title}
-                  </h3>
-                </div>
-                <button
-                  onClick={() => setDashboardPreviewForm(null)}
-                  className="p-1.5 text-slate-400 hover:text-slate-600 hover:bg-slate-200/60 rounded-lg transition-colors cursor-pointer"
-                >
-                  <X size={18} />
-                </button>
+        <Modal
+          isOpen={Boolean(dashboardPreviewForm)}
+          onClose={() => setDashboardPreviewForm(null)}
+          title={dashboardPreviewForm?.title || ""}
+          description={`Mã biểu mẫu: ${dashboardPreviewForm?.code || ""} • ${dashboardPreviewForm?.category || ""}`}
+          size="lg"
+          footer={
+            <div className="flex flex-wrap justify-between gap-2">
+              <Button
+                variant="secondary"
+                size="sm"
+                leftIcon={copiedTemplate ? <Check size={14} /> : <Copy size={14} />}
+                onClick={() => {
+                  if (!dashboardPreviewForm) return;
+                  navigator.clipboard.writeText(dashboardPreviewForm.templateContent);
+                  setCopiedTemplate(true);
+                  setTimeout(() => setCopiedTemplate(false), 2000);
+                }}
+              >
+                {copiedTemplate ? "Đã chép nội dung" : "Sao chép mẫu"}
+              </Button>
+              <div className="flex items-center gap-2">
+                {dashboardPreviewForm && (
+                  <Button
+                    variant="emerald"
+                    size="sm"
+                    leftIcon={<Download size={14} />}
+                    onClick={() => handleQuickDownloadForm(dashboardPreviewForm.id)}
+                  >
+                    Tải file Word (.DOC)
+                  </Button>
+                )}
+                <Button variant="secondary" size="sm" onClick={() => setDashboardPreviewForm(null)}>
+                  Đóng
+                </Button>
               </div>
-
-              {/* Modal Content */}
-              <div className="p-6 overflow-y-auto space-y-4 text-xs font-mono bg-slate-50/40">
-                <div className="p-3.5 bg-amber-50/80 border border-amber-200 rounded-2xl space-y-1.5 font-sans">
-                  <span className="font-bold text-amber-900 text-xs flex items-center gap-1.5">
-                    <CheckCircle2 size={14} className="text-amber-700" /> Hồ sơ kèm theo yêu cầu:
-                  </span>
-                  <ul className="list-disc list-inside text-[11px] text-amber-800 space-y-0.5">
-                    {dashboardPreviewForm.requiredDocuments.map((doc, idx) => (
-                      <li key={idx}>{doc}</li>
+            </div>
+          }
+        >
+          {dashboardPreviewForm && (
+            <div className="space-y-4">
+              {dashboardPreviewForm.requiredDocuments.length > 0 && (
+                <div className="p-3 rounded-lg bg-slate-50 border border-slate-200 text-xs text-slate-800 space-y-1">
+                  <div className="font-bold">Giấy tờ cần chuẩn bị:</div>
+                  <ul className="list-disc pl-5 space-y-0.5">
+                    {dashboardPreviewForm.requiredDocuments.map((doc) => (
+                      <li key={doc}>{doc}</li>
                     ))}
                   </ul>
                 </div>
-
-                <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-inner whitespace-pre-wrap text-slate-800 text-xs leading-relaxed max-h-96 overflow-y-auto font-mono">
-                  {dashboardPreviewForm.templateContent}
-                </div>
-              </div>
-
-              {/* Modal Footer */}
-              <div className="p-4 border-t border-slate-100 bg-white flex flex-wrap justify-between items-center gap-2">
-                <button
-                  onClick={() => {
-                    navigator.clipboard.writeText(dashboardPreviewForm.templateContent);
-                    setCopiedTemplate(true);
-                    setTimeout(() => setCopiedTemplate(false), 2000);
-                  }}
-                  className="px-3 py-2 text-slate-600 hover:bg-slate-100 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer"
-                >
-                  {copiedTemplate ? <Check size={14} className="text-emerald-600" /> : <Copy size={14} />}
-                  <span>{copiedTemplate ? "Đã sao chép nội dung" : "Sao chép nội dung"}</span>
-                </button>
-
-                <div className="flex items-center gap-2">
-                  <button
-                    onClick={() => {
-                      setDashboardPreviewForm(null);
-                      setActiveTab("forms");
-                    }}
-                    className="px-3.5 py-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded-xl text-xs font-bold transition-colors cursor-pointer"
-                  >
-                    Điền trực tuyến
-                  </button>
-                  <button
-                    onClick={() => {
-                      handleQuickDownloadForm(dashboardPreviewForm.id);
-                      setDashboardPreviewForm(null);
-                    }}
-                    className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition-all shadow-xs cursor-pointer flex items-center gap-1.5"
-                  >
-                    <Download size={14} /> Tải văn bản (.DOC)
-                  </button>
-                </div>
-              </div>
+              )}
+              <pre className="p-4 rounded-xl bg-slate-50 border border-slate-200 text-xs font-mono text-slate-900 whitespace-pre-wrap leading-relaxed max-h-[50vh] overflow-y-auto">
+                {dashboardPreviewForm.templateContent}
+              </pre>
             </div>
-          </div>
-        )}
+          )}
+        </Modal>
       </div>
     );
   }
 
+  // ===================== STAFF COMMAND DASHBOARD =====================
   return (
-    <div id="dashboard-view" className="space-y-6">
-      {/* Top Banner / Executive Master Header */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-gradient-to-r from-slate-50 via-white to-emerald-50/40 p-5 md:p-6 rounded-2xl border border-slate-200 shadow-2xs">
-        <div className="space-y-1">
-          <div className="inline-flex items-center gap-2 px-2.5 py-1 rounded-md bg-emerald-50 border border-emerald-200 text-emerald-800 text-[11px] font-bold tracking-wide uppercase">
-            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-            <span>Trung Tâm Điều Hành Số • KP3 An Phú</span>
+    <div id="dashboard-view" className="space-y-5">
+      <PageHeader
+        badgeIcon={<Activity size={14} className="text-emerald-700" />}
+        badgeText="TRUNG TÂM ĐIỀU HÀNH SỐ • KP3 PHƯỜNG AN PHÚ"
+        badgeSubtext="CSDL THỐNG NHẤT"
+        title="Bảng Điều Hành Khu Phố 3 (14 Tổ Dân Phố)"
+        actions={
+          <div className="inline-flex items-center gap-2 bg-slate-50 px-3 py-2 rounded-lg border border-slate-200 text-xs font-mono text-slate-700 shrink-0">
+            <Clock size={14} className="text-emerald-700" aria-hidden="true" />
+            <span>Hôm nay: {new Date().toLocaleDateString("vi-VN")}</span>
           </div>
-          <h1 className="text-xl md:text-2xl font-black text-slate-800 tracking-tight">
-            Khu phố 3, Phường An Phú, TP. Hồ Chí Minh
-          </h1>
-        </div>
-        <div className="flex items-center gap-2.5 bg-white px-3.5 py-2 rounded-xl border border-slate-200 shadow-2xs text-xs font-mono text-slate-600 shrink-0">
-          <Clock size={15} className="text-emerald-600" />
-          <span>Hôm nay: {new Date().toLocaleDateString("vi-VN")}</span>
-          <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping"></span>
-        </div>
-      </div>
+        }
+      />
 
-      {/* Metric Cards Row */}
+      {dashboardToast && (
+        <InlineNotice type="success" message={dashboardToast} onDismiss={() => setDashboardToast(null)} />
+      )}
+
+      {/* 5 Clickable Flat Hairline KPI Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
-        {/* Card 1 */}
-        <div
-          onClick={() => handleAdminCardClick("residents")}
-          className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-100 hover:border-emerald-500 hover:shadow-lg transition-all duration-300 cursor-pointer shadow-sm group interactive-card interactive-tap"
-        >
-          <div className="flex justify-between items-start">
-            <div className="space-y-1.5">
-              <span className="text-[11px] font-medium text-slate-500 uppercase tracking-wider block">Tổng số Dân cư</span>
-              <div className="flex items-baseline gap-1.5">
-                <span className="text-2xl sm:text-3xl font-bold text-slate-900">{totalResidentsCount.toLocaleString("vi-VN")}</span>
-                <span className="text-emerald-500 text-[10px] font-semibold flex items-center gap-0.5">
-                  CSDL <TrendingUp size={11} />
-                </span>
-              </div>
-            </div>
-            <div className="p-2.5 rounded-xl bg-emerald-50 text-emerald-600 group-hover:bg-emerald-500 group-hover:text-white transition-colors duration-300">
-              <Users size={22} />
-            </div>
-          </div>
-          <div className="mt-3 pt-2.5 border-t border-slate-50 flex justify-between text-[11px] text-slate-500">
-            <span>Nam: <strong className="text-slate-700">{maleCount.toLocaleString("vi-VN")}</strong> ({malePct}%)</span>
-            <span>Nữ: <strong className="text-slate-700">{femaleCount.toLocaleString("vi-VN")}</strong> ({femalePct}%)</span>
-          </div>
-        </div>
-
-        {/* Card 2 */}
-        <div
+        <StatCard
+          label="Nhân khẩu Khu phố 3"
+          value={formatVNNumber(metrics.popMetrics.officialPopulation)}
+          icon={Users}
+          color="emerald"
+          subtext={`Số hóa: ${formatVNNumber(metrics.popMetrics.digitizedResidentsCount)} (${metrics.malePctLabel}% Nam)`}
+          subtextRight={`${metrics.femalePctLabel}% Nữ`}
+          onClick={() => setActiveTab("residents")}
+        />
+        <StatCard
+          label="Sổ Hộ khẩu Điện tử"
+          value={formatVNNumber(metrics.popMetrics.officialHouseholds)}
+          icon={Home}
+          color="indigo"
+          subtext={`TB: ${metrics.popMetrics.avgPerDigitizedHouseholdLabel} người/hộ`}
+          subtextRight="14 Tổ dân phố"
           onClick={() => setActiveTab("households")}
-          className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-100 hover:border-emerald-500 hover:shadow-lg transition-all duration-300 cursor-pointer shadow-sm group interactive-card interactive-tap"
-        >
-          <div className="flex justify-between items-start">
-            <div className="space-y-1.5">
-              <span className="text-[11px] font-medium text-slate-500 uppercase tracking-wider block">Số Hộ khẩu</span>
-              <div className="flex items-baseline gap-1.5">
-                <span className="text-2xl sm:text-3xl font-bold text-slate-900">{totalHouseholdsCount.toLocaleString("vi-VN")}</span>
-                <span className="text-slate-400 text-[10px]">Điện tử</span>
-              </div>
-            </div>
-            <div className="p-2.5 rounded-xl bg-indigo-50 text-indigo-600 group-hover:bg-indigo-500 group-hover:text-white transition-colors duration-300">
-              <Home size={22} />
-            </div>
-          </div>
-          <div className="mt-3 pt-2.5 border-t border-slate-50 flex justify-between text-[11px] text-slate-500">
-            <span>TB: <strong className="text-slate-700">{avgPerHousehold}</strong> người/hộ</span>
-            <span>{formatVNNumber(totalHouseholdsCount)} hộ số hóa</span>
-          </div>
-        </div>
-
-        {/* Card 3: Doanh nghiệp (DNNVV) */}
-        <div
-          onClick={() => setActiveTab("enterprises")}
-          className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-100 hover:border-indigo-500 hover:shadow-lg transition-all duration-300 cursor-pointer shadow-sm group interactive-card interactive-tap"
-        >
-          <div className="flex justify-between items-start">
-            <div className="space-y-1.5">
-              <span className="text-[11px] font-medium text-indigo-600 uppercase tracking-wider block font-bold">Doanh nghiệp (DNNVV)</span>
-              <div className="flex items-baseline gap-1.5">
-                <span className="text-2xl sm:text-3xl font-bold text-slate-900">{formatVNNumber(totalEnterprisesCount)}</span>
-                <span className="text-indigo-500 text-[10px] font-semibold flex items-center gap-0.5">
-                  Độc lập <TrendingUp size={11} />
-                </span>
-              </div>
-            </div>
-            <div className="p-2.5 rounded-xl bg-indigo-50 text-indigo-700 group-hover:bg-indigo-600 group-hover:text-white transition-colors duration-300">
-              <Building2 size={22} />
-            </div>
-          </div>
-          <div className="mt-3 pt-2.5 border-t border-slate-50 flex justify-between text-[11px] text-slate-500">
-            <span>TNHH & Cổ phần</span>
-            <span>100% có MST</span>
-          </div>
-        </div>
-
-        {/* Card 4: Cơ sở Kinh doanh & Hộ cá thể */}
-        <div
+        />
+        <StatCard
+          label="Doanh nghiệp & Hộ KD"
+          value={`${formatVNNumber(metrics.enterprisesCount)} / ${formatVNNumber(metrics.establishmentsCount)}`}
+          icon={Building2}
+          color="blue"
+          subtext={`${formatVNNumber(metrics.hostelsCount)} nhà trọ`}
+          subtextRight={`${formatVNNumber(metrics.roomsCount)} phòng`}
           onClick={() => setActiveTab("businesses")}
-          className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-100 hover:border-amber-500 hover:shadow-lg transition-all duration-300 cursor-pointer shadow-sm group interactive-card interactive-tap"
-        >
-          <div className="flex justify-between items-start">
-            <div className="space-y-1.5">
-              <span className="text-[11px] font-medium text-slate-500 uppercase tracking-wider block">Cơ sở Kinh doanh</span>
-              <div className="flex items-baseline gap-1.5">
-                <span className="text-2xl sm:text-3xl font-bold text-slate-900">{formatVNNumber(totalEstablishmentsCount)}</span>
-                <span className="text-amber-600 text-[10px] font-semibold flex items-center gap-0.5">
-                  Tại chỗ
-                </span>
-              </div>
-            </div>
-            <div className="p-2.5 rounded-xl bg-amber-50 text-amber-600 group-hover:bg-amber-500 group-hover:text-white transition-colors duration-300">
-              <Store size={22} />
-            </div>
-          </div>
-          <div className="mt-3 pt-2.5 border-t border-slate-50 flex justify-between text-[11px] text-slate-500">
-            <span>{formatVNNumber(totalHostelsCount)} nhà trọ ({formatVNNumber(totalRoomsCount)} phòng)</span>
-            <span>{formatVNNumber(totalEstablishmentsCount - totalHostelsCount)} Hộ KD khác</span>
-          </div>
-        </div>
-
-        {/* Card 5: Phản ánh chưa xử lý */}
-        <div
+        />
+        <StatCard
+          label="Phản ánh 1022"
+          value={metrics.pendingReportsCount}
+          icon={MessageSquare}
+          color="rose"
+          subtext={`Mới: ${reports.filter((r) => r.status === "Đã tiếp nhận").length}`}
+          subtextRight={`Đang xử lý: ${reports.filter((r) => r.status === "Đang xử lý").length}`}
           onClick={() => setActiveTab("reports")}
-          className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-100 hover:border-rose-500 hover:shadow-lg transition-all duration-300 cursor-pointer shadow-sm group interactive-card interactive-tap"
-        >
-          <div className="flex justify-between items-start">
-            <div className="space-y-1.5">
-              <span className="text-[11px] font-medium text-slate-500 uppercase tracking-wider block">Phản ánh hiện trường</span>
-              <div className="flex items-baseline gap-1.5">
-                <span className="text-2xl sm:text-3xl font-bold text-rose-600">{formatVNNumber(pendingReportsCount)}</span>
-                <span className="text-rose-500 text-[10px] font-semibold animate-pulse">Cần xử lý</span>
-              </div>
-            </div>
-            <div className="p-2.5 rounded-xl bg-rose-50 text-rose-600 group-hover:bg-rose-500 group-hover:text-white transition-colors duration-300">
-              <MessageSquare size={22} />
-            </div>
-          </div>
-          <div className="mt-3 pt-2.5 border-t border-slate-50 flex justify-between text-[11px] text-slate-500">
-            <span>Mới: <strong className="text-rose-600">{reports.filter(r => r.status === "Đã tiếp nhận").length}</strong></span>
-            <span>Đang xử lý: <strong className="text-amber-600">{reports.filter(r => r.status === "Đang xử lý").length}</strong></span>
-          </div>
-        </div>
+        />
+        <StatCard
+          label="Nhiệm vụ & Tài chính"
+          value={`${metrics.openTasksCount} việc`}
+          icon={CheckSquare}
+          color="amber"
+          subtext={`Tồn quỹ: ${formatVNNumber(metrics.netFundBalance)}đ`}
+          subtextRight={`${welfareCount} hồ sơ an sinh`}
+          onClick={() => setActiveTab("tasks")}
+        />
       </div>
 
-      {/* Chart Row */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Left Demographics Chart (2/3 width) */}
-        <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm lg:col-span-2 space-y-4">
-          <div className="flex justify-between items-center">
+      {/* Charts Row (Fixed Explicit Container Heights!) */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
+        <section
+          aria-label="Phân bố cư trú Khu phố"
+          className="bg-white p-5 rounded-xl border border-slate-200 lg:col-span-2 space-y-4"
+        >
+          <div className="flex items-center justify-between gap-2">
             <div>
-              <h2 className="font-bold text-slate-900">Phân bố Cư trú Khu phố</h2>
-              <p className="text-xs text-slate-400 mt-0.5">Số liệu nhân khẩu phân loại theo tình trạng khai báo cư trú</p>
+              <h2 className="text-base font-bold text-slate-900">Phân bố Cư trú (Mẫu số hóa KP3)</h2>
+              <p className="text-xs text-slate-600 mt-0.5">
+                Phân loại {formatVNNumber(metrics.totalRes)} nhân khẩu số hóa theo tình trạng cư trú
+              </p>
             </div>
-            <span className="p-1.5 bg-slate-50 rounded text-slate-400 hover:text-slate-600 transition-colors cursor-pointer">
-              <Activity size={16} />
-            </span>
+            <Button variant="ghost" size="sm" onClick={() => setActiveTab("residents")}>
+              Xem chi tiết →
+            </Button>
           </div>
 
-          <div className="h-64">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart
-                data={residencyChartData}
-                margin={{ top: 10, right: 10, left: -20, bottom: 5 }}
-              >
-                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                <XAxis dataKey="name" stroke="#94a3b8" fontSize={11} tickLine={false} />
-                <YAxis stroke="#94a3b8" fontSize={11} tickLine={false} />
+          <div className="w-full h-[240px]">
+            <ResponsiveContainer width="100%" height={240}>
+              <BarChart data={metrics.residencyChartData} margin={{ top: 10, right: 16, left: -12, bottom: 5 }}>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
+                <XAxis dataKey="name" stroke="#475569" fontSize={12} tickLine={false} />
+                <YAxis stroke="#475569" fontSize={12} tickLine={false} />
                 <Tooltip
-                  cursor={{ fill: '#f8fafc' }}
-                  contentStyle={{ backgroundColor: '#0f172a', borderRadius: '8px', color: '#fff', border: 'none' }}
+                  cursor={{ fill: "#f8fafc" }}
+                  contentStyle={{
+                    backgroundColor: "#ffffff",
+                    borderColor: "#cbd5e1",
+                    borderRadius: "8px",
+                    color: "#0f172a",
+                    fontSize: "12px",
+                  }}
                 />
-                <Bar dataKey="Số_lượng" fill="#10b981" radius={[4, 4, 0, 0]} maxBarSize={50}>
-                  {residencyChartData.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={entry.color} />
+                <Bar dataKey="Số lượng" radius={[4, 4, 0, 0]} maxBarSize={52}>
+                  {metrics.residencyChartData.map((entry) => (
+                    <Cell key={entry.name} fill={entry.color} />
                   ))}
                 </Bar>
               </BarChart>
             </ResponsiveContainer>
           </div>
 
-          {/* Quick demographic status breakdown */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-2 border-t border-slate-100 text-xs">
-            <div className="flex items-center gap-2">
-              <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 shrink-0"></span>
-              <span className="text-slate-600">Thường trú: <strong>{thuongTruCount.toLocaleString("vi-VN")}</strong></span>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-3 border-t border-slate-200 text-xs text-slate-700">
+            <div>
+              Thường trú: <strong className="text-emerald-800">{formatVNNumber(metrics.thuongTruCount)}</strong>
             </div>
-            <div className="flex items-center gap-2">
-              <span className="w-2.5 h-2.5 rounded-full bg-amber-500 shrink-0"></span>
-              <span className="text-slate-600">Tạm trú: <strong>{tamTruCount.toLocaleString("vi-VN")}</strong></span>
+            <div>
+              Tạm trú: <strong className="text-amber-800">{formatVNNumber(metrics.tamTruCount)}</strong>
             </div>
-            <div className="flex items-center gap-2">
-              <span className="w-2.5 h-2.5 rounded-full bg-slate-500 shrink-0"></span>
-              <span className="text-slate-600">Tạm vắng: <strong>{tamVangCount.toLocaleString("vi-VN")}</strong></span>
+            <div>
+              Tạm vắng: <strong className="text-slate-900">{formatVNNumber(metrics.tamVangCount)}</strong>
             </div>
-            <div
-              onClick={() => setActiveTab("residents")}
-              className="flex items-center gap-1.5 cursor-pointer text-purple-700 hover:text-purple-900 font-semibold transition-colors"
-              title="Xem danh sách người cư trú nước ngoài tại Khu phố 3"
-            >
-              <Globe size={13} className="text-purple-600 shrink-0" />
-              <span>NNN: <strong>{formatVNNumber(foreignCount)}</strong> (Luật 47) →</span>
+            <div>
+              <button
+                type="button"
+                onClick={() => setActiveTab("residents")}
+                className="min-h-[36px] font-semibold text-indigo-800 hover:underline cursor-pointer inline-flex items-center gap-1 py-1"
+              >
+                <Globe size={13} aria-hidden="true" />
+                NNN: {formatVNNumber(metrics.foreignCount)} (Luật 47) →
+              </button>
             </div>
           </div>
-        </div>
+        </section>
 
-        {/* Right Category Distribution (1/3 width) */}
-        <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm space-y-4">
+        <section
+          aria-label="Phân loại Phản ánh Hiện trường"
+          className="bg-white p-5 rounded-xl border border-slate-200 space-y-4"
+        >
           <div>
-            <h2 className="font-bold text-slate-900">Danh mục Phản ánh</h2>
-            <p className="text-xs text-slate-400 mt-0.5">Tỷ lệ rải rác các phản ánh hiện trường đã gửi</p>
+            <h2 className="text-base font-bold text-slate-900">Nhóm Phản ánh 1022</h2>
+            <p className="text-xs text-slate-600 mt-0.5">Tổng số {formatVNNumber(reports.length)} hồ sơ đã tiếp nhận</p>
           </div>
 
-          <div className="h-48 flex items-center justify-center">
-            <ResponsiveContainer width="100%" height="100%">
-              <PieChart>
-                <Pie
-                  data={reportPieData}
-                  cx="50%"
-                  cy="50%"
-                  innerRadius={60}
-                  outerRadius={80}
-                  paddingAngle={5}
-                  dataKey="value"
-                >
-                  {reportPieData.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                  ))}
-                </Pie>
-                <Tooltip contentStyle={{ backgroundColor: '#0f172a', borderRadius: '8px', color: '#fff', border: 'none' }} />
-              </PieChart>
-            </ResponsiveContainer>
+          <div className="w-full h-[200px]">
+            {metrics.reportPieData.length > 0 ? (
+              <ResponsiveContainer width="100%" height={200}>
+                <PieChart>
+                  <Pie
+                    data={metrics.reportPieData}
+                    cx="50%"
+                    cy="50%"
+                    innerRadius={52}
+                    outerRadius={76}
+                    paddingAngle={4}
+                    dataKey="value"
+                  >
+                    {metrics.reportPieData.map((entry, idx) => (
+                      <Cell key={entry.name} fill={CHART_COLORS[idx % CHART_COLORS.length]} />
+                    ))}
+                  </Pie>
+                  <Tooltip
+                    contentStyle={{
+                      backgroundColor: "#ffffff",
+                      borderColor: "#cbd5e1",
+                      borderRadius: "8px",
+                      color: "#0f172a",
+                      fontSize: "12px",
+                    }}
+                  />
+                </PieChart>
+              </ResponsiveContainer>
+            ) : (
+              <div className="h-full flex items-center justify-center text-xs text-slate-600">
+                Chưa có dữ liệu phản ánh.
+              </div>
+            )}
           </div>
 
-          <div className="grid grid-cols-2 gap-2 text-xs">
-            {reportPieData.map((item, index) => (
-              <div key={item.name} className="flex items-center gap-1.5 min-w-0">
-                <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: COLORS[index % COLORS.length] }}></span>
-                <span className="text-slate-500 truncate" title={item.name}>{item.name} ({item.value})</span>
+          <div className="grid grid-cols-1 gap-1.5 text-xs pt-2 border-t border-slate-200">
+            {metrics.reportPieData.map((item, idx) => (
+              <div key={item.name} className="flex items-center justify-between gap-2 text-slate-800">
+                <div className="flex items-center gap-2 min-w-0">
+                  <span
+                    className="w-2.5 h-2.5 rounded-full shrink-0"
+                    style={{ backgroundColor: CHART_COLORS[idx % CHART_COLORS.length] }}
+                  />
+                  <span className="truncate">{item.name}</span>
+                </div>
+                <strong className="font-mono">{item.value}</strong>
               </div>
             ))}
           </div>
-        </div>
+        </section>
       </div>
 
-      {/* Quản Lý Dân Cư & Cảnh Báo Điều Hành KP3 */}
-      <div className="bg-gradient-to-br from-slate-900 via-slate-800 to-emerald-950 rounded-3xl p-6 text-white shadow-md space-y-4">
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 border-b border-white/10 pb-3">
-          <div className="space-y-0.5">
-            <div className="flex items-center gap-2">
-              <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse"></span>
-              <h3 className="text-base font-extrabold uppercase tracking-tight text-white flex items-center gap-2">
-                <ShieldAlert size={18} className="text-emerald-400" />
-                Quản Lý Dân Cư & Cảnh Báo Điều Hành KP3
-              </h3>
-            </div>
-          </div>
+      {/* Real-time Actionable Alerts Strip (Flat Hairline Light Cards) */}
+      <section aria-labelledby="ops-alerts-heading" className="bg-white rounded-xl border border-slate-200 p-5 space-y-4">
+        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-200 pb-3">
           <div className="flex items-center gap-2">
-            <span className="px-3 py-1 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-400/30 text-xs font-semibold">
-              ✓ CSDL Số Hóa 100%
-            </span>
+            <ShieldAlert size={18} className="text-emerald-700" aria-hidden="true" />
+            <h2 id="ops-alerts-heading" className="text-base font-bold text-slate-900">
+              Việc cần xử lý & Cảnh báo Điều hành hôm nay
+            </h2>
           </div>
+          <span className="px-2.5 py-0.5 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-900 text-xs font-semibold">
+            Đồng bộ liên phân hệ
+          </span>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 pt-1">
-          {/* Box 1: Cơ cấu độ tuổi */}
-          <div className="bg-white/5 border border-white/10 rounded-2xl p-4 backdrop-blur-sm space-y-2 hover:bg-white/10 transition-colors">
-            <div className="flex items-center justify-between text-xs text-emerald-300 font-bold">
-              <span>Cơ cấu Độ tuổi (Căn cước 2023)</span>
-              <Users size={16} />
-            </div>
-            <div className="space-y-1.5 text-xs text-slate-200">
-              <div className="flex justify-between items-center">
-                <span className="text-slate-400">Trẻ em (&lt;14 tuổi):</span>
-                <strong className="text-white font-mono">{childrenCount.toLocaleString("vi-VN")}</strong>
-              </div>
-              <div className="flex justify-between items-center">
-                <span className="text-slate-400">Độ tuổi lao động (14-59):</span>
-                <strong className="text-white font-mono">{workingAgeCount.toLocaleString("vi-VN")}</strong>
-              </div>
-              <div className="flex justify-between items-center">
-                <span className="text-slate-400">Người cao tuổi (≥60):</span>
-                <strong className="text-amber-300 font-mono">{elderlyCount.toLocaleString("vi-VN")}</strong>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
+          <div className="rounded-xl border border-slate-200 bg-slate-50/70 p-4 flex flex-col justify-between gap-3">
+            <div className="space-y-1.5">
+              <div className="text-xs font-bold text-emerald-900">Cơ cấu Độ tuổi (Căn cước)</div>
+              <div className="text-xs text-slate-700 space-y-1">
+                <div className="flex justify-between">
+                  <span>Dưới 14 tuổi:</span>
+                  <strong className="font-mono text-slate-900">{formatVNNumber(metrics.childrenCount)}</strong>
+                </div>
+                <div className="flex justify-between">
+                  <span>Lao động (14–59):</span>
+                  <strong className="font-mono text-slate-900">{formatVNNumber(metrics.workingAgeCount)}</strong>
+                </div>
+                <div className="flex justify-between">
+                  <span>Cao tuổi (≥ 60):</span>
+                  <strong className="font-mono text-amber-900">{formatVNNumber(metrics.elderlyCount)}</strong>
+                </div>
               </div>
             </div>
-            <div className="pt-2 border-t border-white/10 text-[10px] text-slate-400 flex justify-between items-center">
-              <span>Tổng: {totalResidentsCount.toLocaleString("vi-VN")} người</span>
-              <button
-                onClick={() => setActiveTab("residents")}
-                className="text-emerald-400 hover:text-emerald-300 font-bold transition-colors cursor-pointer"
-              >
-                Chi tiết →
-              </button>
-            </div>
+            <button
+              type="button"
+              onClick={() => setActiveTab("residents")}
+              className="min-h-[36px] inline-flex items-center text-left text-xs font-bold text-emerald-800 hover:underline cursor-pointer py-1"
+            >
+              Xem nhân khẩu →
+            </button>
           </div>
 
-          {/* Box 2: Cảnh báo Tạm trú */}
-          <div className="bg-white/5 border border-white/10 rounded-2xl p-4 backdrop-blur-sm space-y-2 hover:bg-white/10 transition-colors">
-            <div className="flex items-center justify-between text-xs text-amber-300 font-bold">
-              <span>Cảnh Báo Hạn Tạm Trú (Công an KV)</span>
-              <Clock size={16} />
-            </div>
-            <div className="space-y-1.5 text-xs text-slate-200">
-              <div className="flex justify-between items-center">
-                <span className="text-slate-400">Sắp hết hạn (≤30 ngày):</span>
-                <span className={`px-2 py-0.5 rounded-md font-mono font-bold text-xs ${expiringTamTruCount > 0 ? "bg-amber-500/20 text-amber-300 border border-amber-400/30 animate-pulse" : "text-slate-300"}`}>
-                  {formatVNNumber(expiringTamTruCount)} người
-                </span>
-              </div>
-              <div className="flex justify-between items-center">
-                <span className="text-slate-400">Đã quá hạn tạm trú:</span>
-                <span className={`px-2 py-0.5 rounded-md font-mono font-bold text-xs ${expiredTamTruCount > 0 ? "bg-rose-500/20 text-rose-300 border border-rose-400/30" : "text-slate-300"}`}>
-                  {formatVNNumber(expiredTamTruCount)} người
-                </span>
-              </div>
-              <div className="flex justify-between items-center">
-                <span className="text-slate-400">Hồ sơ tạm trú an toàn:</span>
-                <strong className="text-emerald-300 font-mono">{formatVNNumber(Math.max(0, tamTruCount - expiringTamTruCount - expiredTamTruCount))}</strong>
+          <div className="rounded-xl border border-amber-200 bg-amber-50/50 p-4 flex flex-col justify-between gap-3">
+            <div className="space-y-1.5">
+              <div className="text-xs font-bold text-amber-950">Cảnh báo Hạn Tạm trú</div>
+              <div className="text-xs text-slate-800 space-y-1">
+                <div className="flex justify-between">
+                  <span>Sắp hết hạn (≤ 30 ngày):</span>
+                  <strong className="font-mono text-amber-900">{formatVNNumber(metrics.expiringTamTruCount)}</strong>
+                </div>
+                <div className="flex justify-between">
+                  <span>Đã quá hạn tạm trú:</span>
+                  <strong className="font-mono text-rose-800">{formatVNNumber(metrics.expiredTamTruCount)}</strong>
+                </div>
+                <div className="flex justify-between">
+                  <span>Tạm trú còn hạn:</span>
+                  <strong className="font-mono text-emerald-800">
+                    {formatVNNumber(Math.max(0, metrics.tamTruCount - metrics.expiringTamTruCount - metrics.expiredTamTruCount))}
+                  </strong>
+                </div>
               </div>
             </div>
-            <div className="pt-2 border-t border-white/10 text-[10px] text-slate-400 flex justify-between items-center">
-              <span>{formatVNNumber(tamTruCount)} hồ sơ tạm trú</span>
-              <button
-                onClick={() => setActiveTab("residents")}
-                className="text-amber-400 hover:text-amber-300 font-bold transition-colors cursor-pointer"
-              >
-                Lọc cảnh báo →
-              </button>
-            </div>
+            <button
+              type="button"
+              onClick={() => setActiveTab("residents")}
+              className="min-h-[36px] inline-flex items-center text-left text-xs font-bold text-amber-950 hover:underline cursor-pointer py-1"
+            >
+              Lọc danh sách hết hạn →
+            </button>
           </div>
 
-          {/* Box 3: Mạng lưới Cơ sở Lưu Trú */}
-          <div className="bg-white/5 border border-white/10 rounded-2xl p-4 backdrop-blur-sm space-y-2 hover:bg-white/10 transition-colors">
-            <div className="flex items-center justify-between text-xs text-sky-300 font-bold">
-              <span>Nhà Trọ & Cơ Sở Lưu Trú</span>
-              <Store size={16} />
-            </div>
-            <div className="space-y-1.5 text-xs text-slate-200">
-              <div className="flex justify-between items-center">
-                <span className="text-slate-400">Số cơ sở trọ số hóa:</span>
-                <strong className="text-white font-mono">{formatVNNumber(totalHostelsCount)} cơ sở</strong>
-              </div>
-              <div className="flex justify-between items-center">
-                <span className="text-slate-400">Tổng quy mô phòng:</span>
-                <strong className="text-sky-300 font-mono">{formatVNNumber(totalRoomsCount)} phòng</strong>
-              </div>
-              <div className="flex justify-between items-center">
-                <span className="text-slate-400">Khách tạm trú thực tế:</span>
-                <strong className="text-emerald-300 font-mono">{formatVNNumber(tamTruCount)} người</strong>
+          <div className="rounded-xl border border-indigo-200 bg-indigo-50/40 p-4 flex flex-col justify-between gap-3">
+            <div className="space-y-1.5">
+              <div className="text-xs font-bold text-indigo-950">Nhiệm vụ & Lịch công tác</div>
+              <div className="text-xs text-slate-800 space-y-1">
+                <div className="flex justify-between">
+                  <span>Việc đang triển khai:</span>
+                  <strong className="font-mono text-indigo-900">{formatVNNumber(metrics.openTasksCount)}</strong>
+                </div>
+                <div className="flex justify-between">
+                  <span>Việc ưu tiên khẩn cấp:</span>
+                  <strong className="font-mono text-rose-800">{formatVNNumber(metrics.urgentTasksCount)}</strong>
+                </div>
+                <div className="flex justify-between">
+                  <span>Phản ánh 1022 mở:</span>
+                  <strong className="font-mono text-slate-900">{formatVNNumber(metrics.pendingReportsCount)}</strong>
+                </div>
               </div>
             </div>
-            <div className="pt-2 border-t border-white/10 text-[10px] text-slate-400 flex justify-between items-center">
-              <span>Đã liên kết CSDL cư dân</span>
-              <button
-                onClick={() => setActiveTab("businesses")}
-                className="text-sky-400 hover:text-sky-300 font-bold transition-colors cursor-pointer"
-              >
-                Xem cơ sở →
-              </button>
-            </div>
+            <button
+              type="button"
+              onClick={() => setActiveTab("tasks")}
+              className="min-h-[36px] inline-flex items-center text-left text-xs font-bold text-indigo-900 hover:underline cursor-pointer py-1"
+            >
+              Mở bảng phân công →
+            </button>
           </div>
 
-          {/* Box 4: Sổ hộ khẩu điện tử */}
-          <div className="bg-white/5 border border-white/10 rounded-2xl p-4 backdrop-blur-sm space-y-2 hover:bg-white/10 transition-colors">
-            <div className="flex items-center justify-between text-xs text-indigo-300 font-bold">
-              <span>Sổ Hộ Khẩu & Thường Trú</span>
-              <Home size={16} />
-            </div>
-            <div className="space-y-1.5 text-xs text-slate-200">
-              <div className="flex justify-between items-center">
-                <span className="text-slate-400">Tổng số Sổ hộ khẩu:</span>
-                <strong className="text-white font-mono">{formatVNNumber(totalHouseholdsCount)} hộ (HK-xxx)</strong>
-              </div>
-              <div className="flex justify-between items-center">
-                <span className="text-slate-400">Nhân khẩu thường trú:</span>
-                <strong className="text-indigo-300 font-mono">{formatVNNumber(thuongTruCount)} người</strong>
-              </div>
-              <div className="flex justify-between items-center">
-                <span className="text-slate-400">Nhận diện gia phả:</span>
-                <strong className="text-emerald-300 font-mono">100% tự động</strong>
+          <div className="rounded-xl border border-slate-200 bg-slate-50/70 p-4 flex flex-col justify-between gap-3">
+            <div className="space-y-1.5">
+              <div className="text-xs font-bold text-slate-900">Nhà trọ & Quỹ Khu phố</div>
+              <div className="text-xs text-slate-700 space-y-1">
+                <div className="flex justify-between">
+                  <span>Nhà trọ số hóa:</span>
+                  <strong className="font-mono text-slate-900">{formatVNNumber(metrics.hostelsCount)} cơ sở</strong>
+                </div>
+                <div className="flex justify-between">
+                  <span>Tổng phòng trọ:</span>
+                  <strong className="font-mono text-slate-900">{formatVNNumber(metrics.roomsCount)} phòng</strong>
+                </div>
+                <div className="flex justify-between">
+                  <span>Tồn Quỹ Khu phố:</span>
+                  <strong className="font-mono text-emerald-800">{formatVNNumber(metrics.netFundBalance)}đ</strong>
+                </div>
               </div>
             </div>
-            <div className="pt-2 border-t border-white/10 text-[10px] text-slate-400 flex justify-between items-center">
-              <span>TB {avgPerHousehold} người/hộ</span>
-              <button
-                onClick={() => setActiveTab("households")}
-                className="text-indigo-400 hover:text-indigo-300 font-bold transition-colors cursor-pointer"
-              >
-                Xem Sổ HK →
-              </button>
-            </div>
+            <button
+              type="button"
+              onClick={() => setActiveTab("finance")}
+              className="min-h-[36px] inline-flex items-center text-left text-xs font-bold text-emerald-800 hover:underline cursor-pointer py-1"
+            >
+              Quản lý Quỹ VietQR →
+            </button>
           </div>
         </div>
-      </div>
+      </section>
 
-      {/* Officer Household Lookup Tool (Restricted strictly to Cán bộ) */}
-      <div className="bg-white rounded-3xl border border-slate-100 p-6 shadow-xs space-y-5">
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 border-b border-slate-100 pb-3">
+      {/* Officer Household Lookup with PII Toggle */}
+      <section aria-labelledby="officer-hk-lookup" className="bg-white rounded-xl border border-slate-200 p-5 space-y-4">
+        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-200 pb-3">
           <div>
-            <div className="flex items-center gap-2">
-              <span className="w-2.5 h-2.5 rounded-full bg-emerald-500"></span>
-              <h3 className="text-base font-extrabold text-slate-800 uppercase tracking-tight">
-                Nghiệp Vụ Cán Bộ: Tra Cứu Sổ Hộ Khẩu & Nhân Khẩu Cư Trú
-              </h3>
-              <span className="px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-700 border border-indigo-200 text-[10px] font-bold">
-                Chỉ Cán Bộ
-              </span>
-            </div>
-            <p className="text-xs text-slate-500 mt-0.5">
-              Tra cứu nhanh hồ sơ nhân khẩu và sổ hộ khẩu phục vụ công tác đối soát hành chính và xác minh cư trú
+            <h2 id="officer-hk-lookup" className="text-base font-bold text-slate-900">
+              Tra cứu Nhanh Sổ Hộ Khẩu & Nhân Khẩu
+            </h2>
+            <p className="text-xs text-slate-600 mt-0.5">
+              Tra theo Mã hộ khẩu (HK-301), tên chủ hộ hoặc số CCCD. Mặc định ẩn bớt 4 số giữa CCCD.
             </p>
           </div>
-          {searchedHousehold && (
-            <button
-              onClick={() => {
-                setSearchedHousehold(null);
-                setHouseholdSearchQuery("");
-                setSearchFeedback("");
-              }}
-              className="text-xs text-slate-500 hover:text-rose-600 flex items-center gap-1 font-semibold cursor-pointer"
+
+          <div className="flex items-center gap-2">
+            <Button
+              variant="secondary"
+              size="sm"
+              leftIcon={showSensitivePii ? <EyeOff size={14} /> : <Eye size={14} />}
+              onClick={() => setShowSensitivePii((s) => !s)}
             >
-              <X size={14} /> Đóng kết quả tra cứu
-            </button>
-          )}
+              {showSensitivePii ? "Che CCCD" : "Hiện đầy đủ CCCD"}
+            </Button>
+            {searchedHousehold && (
+              <Button
+                variant="ghost"
+                size="sm"
+                leftIcon={<X size={14} />}
+                onClick={() => {
+                  setSearchedHousehold(null);
+                  setHouseholdSearchQuery("");
+                  setSearchFeedback("");
+                }}
+              >
+                Đóng kết quả
+              </Button>
+            )}
+          </div>
         </div>
 
-        {/* Search Bar Input */}
-        <div className="space-y-3">
-          <form
-            onSubmit={(e) => {
-              e.preventDefault();
-              handleSearchHousehold(householdSearchQuery);
-            }}
-            className="flex flex-col sm:flex-row gap-2.5"
-          >
-            <div className="relative flex-1">
-              <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" size={17} />
-              <input
-                id="dashboard-household-search-input"
-                name="householdSearchQuery"
-                type="text"
-                placeholder="Nhập Mã hộ khẩu (ví dụ: HK-001) hoặc số CCCD cán bộ cần kiểm tra..."
-                value={householdSearchQuery}
-                onChange={(e) => setHouseholdSearchQuery(e.target.value)}
-                className="w-full pl-10 pr-4 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-emerald-500 bg-white"
-              />
-            </div>
-            <button
-              type="submit"
-              className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-5 py-2.5 rounded-xl text-sm transition-colors cursor-pointer shrink-0 flex items-center justify-center gap-2 shadow-xs"
-            >
-              <Search size={16} />
-              Tra cứu hồ sơ
-            </button>
-          </form>
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            handleSearchHousehold(householdSearchQuery);
+          }}
+          className="flex flex-col sm:flex-row gap-2.5"
+        >
+          <div className="relative flex-1">
+            <label htmlFor="dashboard-household-search-input" className="sr-only">
+              Nhập mã hộ khẩu, tên chủ hộ hoặc CCCD
+            </label>
+            <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500 pointer-events-none" />
+            <input
+              id="dashboard-household-search-input"
+              name="householdSearchQuery"
+              type="search"
+              placeholder="Nhập Mã hộ khẩu (VD: HK-301), Tên chủ hộ hoặc CCCD..."
+              value={householdSearchQuery}
+              onChange={(e) => setHouseholdSearchQuery(e.target.value)}
+              className="w-full h-11 md:h-10 pl-10 pr-4 bg-white border border-slate-300 rounded-lg text-sm text-slate-900 placeholder:text-slate-500 focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-500/20"
+            />
+          </div>
+          <Button type="submit" variant="emerald" size="form" leftIcon={<Search size={15} />}>
+            Tra cứu hồ sơ
+          </Button>
+        </form>
 
-          {/* Quick Sample Chips */}
-          <div className="flex flex-wrap items-center gap-2 text-xs">
-            <span className="text-slate-400 font-medium text-[11px]">Hộ khẩu mẫu trên địa bàn:</span>
+        <div className="space-y-1.5 text-xs">
+          <span className="text-slate-600 font-medium block">Mẫu tra nhanh:</span>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2">
             {households.slice(0, 4).map((h) => (
               <button
                 key={h.code}
@@ -1367,115 +1047,73 @@ export default function Dashboard({
                   setHouseholdSearchQuery(h.code);
                   handleSearchHousehold(h.code);
                 }}
-                className={`px-2.5 py-1 rounded-lg border text-xs font-mono font-semibold transition-all cursor-pointer ${searchedHousehold?.code === h.code
-                  ? "bg-emerald-600 text-white border-emerald-600 shadow-xs"
-                  : "bg-slate-50 text-slate-700 border-slate-200 hover:border-emerald-400 hover:bg-emerald-50/40"
-                  }`}
+                className={`min-h-[36px] px-2.5 py-1.5 rounded-lg border font-mono font-semibold text-left truncate cursor-pointer transition-colors ${
+                  searchedHousehold?.code === h.code
+                    ? "bg-emerald-700 text-white border-emerald-700"
+                    : "bg-slate-50 text-slate-800 border-slate-200 hover:border-emerald-600"
+                }`}
               >
                 {h.code} ({h.ownerName})
               </button>
             ))}
           </div>
-
-          {searchFeedback && (
-            <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl text-xs text-amber-800 flex items-center gap-2">
-              <HelpCircle size={15} className="shrink-0 text-amber-600" />
-              <span>{searchFeedback}</span>
-            </div>
-          )}
         </div>
 
-        {/* Searched Household Result Card */}
+        {searchFeedback && (
+          <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg text-xs text-amber-950 flex items-center gap-2">
+            <HelpCircle size={15} className="shrink-0 text-amber-700" />
+            <span>{searchFeedback}</span>
+          </div>
+        )}
+
         {searchedHousehold && (
           <div className="space-y-4 pt-2">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div className="md:col-span-2 bg-gradient-to-br from-slate-900 via-slate-800 to-emerald-950 text-white rounded-2xl p-6 shadow-md space-y-3">
-                <div className="flex justify-between items-start gap-4">
-                  <div>
-                    <span className="text-[10px] font-bold text-emerald-400 uppercase tracking-widest block font-mono">
-                      SỔ HỘ KHẨU ĐIỆN TỬ (CƠ SỞ DỮ LIỆU ĐỊA PHƯƠNG)
-                    </span>
-                    <h4 className="text-2xl font-black font-mono tracking-wider mt-0.5 text-white">
-                      {searchedHousehold.code}
-                    </h4>
-                    <p className="text-slate-300 text-xs mt-1">
-                      Chủ hộ: <strong className="text-white text-sm font-bold">{searchedHousehold.ownerName}</strong>
-                    </p>
-                    <p className="text-slate-300 text-xs mt-0.5">
-                      Địa chỉ: {searchedHousehold.address}
-                    </p>
-                  </div>
-                  <span className="px-3 py-1 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-400/30 text-xs font-bold shrink-0">
-                    {searchedHousehold.type}
-                  </span>
+            <div className="p-4 rounded-xl border border-slate-200 bg-slate-50 flex flex-col sm:flex-row justify-between gap-3">
+              <div className="space-y-1">
+                <div className="text-xs font-mono font-bold text-emerald-800 uppercase">
+                  Sổ Hộ khẩu Điện tử • {searchedHousehold.code}
                 </div>
-
-                <div className="pt-3 border-t border-white/10 flex flex-wrap gap-4 text-xs text-slate-300">
-                  <div>
-                    <span className="text-slate-400 block text-[10px]">Tọa độ GIS:</span>
-                    <span className="font-mono text-emerald-300 text-[11px]">{searchedHousehold.coordinates || "Đang định vị"}</span>
-                  </div>
-                  <div>
-                    <span className="text-slate-400 block text-[10px]">Tổng số nhân khẩu:</span>
-                    <span className="font-bold text-white text-xs">{searchedMembers.length} thành viên</span>
-                  </div>
-                </div>
+                <h3 className="text-base font-bold text-slate-900">
+                  Chủ hộ: {searchedHousehold.ownerName}
+                </h3>
+                <p className="text-xs text-slate-700">{searchedHousehold.address}</p>
               </div>
-
-              <div className="bg-emerald-50/60 border border-emerald-100 rounded-2xl p-5 flex flex-col justify-between">
-                <div className="space-y-1.5">
-                  <span className="text-[10px] font-bold text-emerald-800 uppercase tracking-wider block">
-                    QUẢN LÝ DÂN CƯ
-                  </span>
-                  <h5 className="font-bold text-slate-800 text-sm">Hồ sơ Cư trú Hợp lệ</h5>
-                  <p className="text-xs text-slate-600 leading-relaxed">
-                    Dữ liệu được cập nhật từ hồ sơ đăng ký thường trú / tạm trú và sổ hộ khẩu điện tử Khu phố 3.
-                  </p>
-                </div>
-                <div className="pt-3 mt-3 border-t border-emerald-100/80 flex items-center justify-between">
-                  <button
-                    onClick={() => setActiveTab("households")}
-                    className="text-xs font-bold text-emerald-700 hover:underline cursor-pointer"
-                  >
-                    Xem chi tiết tại Quản lý Hộ khẩu →
-                  </button>
-                </div>
+              <div className="flex flex-col items-start sm:items-end justify-between gap-2 text-xs">
+                <span className="px-2.5 py-1 rounded-full bg-white border border-slate-200 text-slate-800 font-semibold">
+                  {searchedHousehold.type} • {searchedMembers.length} nhân khẩu
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setActiveTab("households")}
+                  className="font-bold text-emerald-800 hover:underline cursor-pointer"
+                >
+                  Mở chi tiết trong Quản lý Hộ khẩu →
+                </button>
               </div>
             </div>
 
-            {/* Members Table */}
-            <div className="border border-slate-200 rounded-2xl overflow-hidden">
-              <div className="p-3.5 bg-slate-50 border-b border-slate-200 flex justify-between items-center">
-                <span className="font-bold text-slate-700 text-xs uppercase tracking-wide">
-                  Danh sách nhân khẩu đăng ký trong hộ ({searchedMembers.length} người)
-                </span>
-                <span className="text-[10px] font-mono text-slate-500 bg-white px-2 py-0.5 rounded border border-slate-200">
-                  Mã HK: {searchedHousehold.code}
-                </span>
-              </div>
+            <div className="border border-slate-200 rounded-xl overflow-hidden">
               <div className="overflow-x-auto">
                 <table className="w-full text-left border-collapse text-xs">
                   <thead>
-                    <tr className="border-b border-slate-100 text-slate-400 uppercase tracking-wider font-bold text-[10px] bg-white">
+                    <tr className="bg-slate-50 text-slate-700 border-b border-slate-200 font-bold uppercase tracking-wider">
                       <th className="py-2.5 px-4">Họ và tên</th>
-                      <th className="py-2.5 px-4">Quan hệ với chủ hộ</th>
-                      <th className="py-2.5 px-4">Ngày / Năm sinh</th>
+                      <th className="py-2.5 px-4">Quan hệ</th>
+                      <th className="py-2.5 px-4">Ngày sinh</th>
                       <th className="py-2.5 px-4">Số CCCD</th>
                       <th className="py-2.5 px-4">Nghề nghiệp</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100 bg-white">
                     {searchedMembers.map((member, idx) => (
-                      <tr key={member.id || idx} className="hover:bg-slate-50/70 transition-colors">
-                        <td className="py-3 px-4 font-bold text-slate-800">{member.fullName}</td>
-                        <td className="py-3 px-4 font-semibold text-emerald-800">
-                          <span className="bg-emerald-50 px-2 py-0.5 rounded text-[11px]">
-                            {member.relationToOwner}
-                          </span>
+                      <tr key={member.id || idx} className="hover:bg-slate-50">
+                        <td className="py-2.5 px-4 font-bold text-slate-900">{member.fullName}</td>
+                        <td className="py-2.5 px-4 font-semibold text-emerald-900">{member.relationToOwner}</td>
+                        <td className="py-2.5 px-4 text-slate-700 font-mono">{member.birthDate}</td>
+                        <td className="py-2.5 px-4 text-slate-800 font-mono">
+                          {maskCccd(member.cccd, showSensitivePii)}
                         </td>
-                        <td className="py-3 px-4 text-slate-500 font-mono">{member.birthDate}</td>
-                        <td className="py-3 px-4 text-slate-600 font-mono font-medium">{member.cccd}</td>
-                        <td className="py-3 px-4 text-slate-600">{member.occupation}</td>
+                        <td className="py-2.5 px-4 text-slate-700">{member.occupation}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -1484,144 +1122,127 @@ export default function Dashboard({
             </div>
           </div>
         )}
-      </div>
+      </section>
 
-      {/* Bottom Section: Recent Reflections and Bento Shortcuts */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Recent Reflections List (2/3 width) */}
-        <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm lg:col-span-2 space-y-4">
-          <div className="flex justify-between items-center border-b border-slate-50 pb-3">
+      {/* Bottom Row: Recent Field Reflections + Flat Hairline Quick Links */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
+        <section
+          aria-labelledby="recent-reports-heading"
+          className="bg-white p-5 rounded-xl border border-slate-200 lg:col-span-2 space-y-3.5"
+        >
+          <div className="flex items-center justify-between border-b border-slate-200 pb-3">
             <div>
-              <h2 className="font-bold text-slate-900">Báo cáo Phản ánh Mới nhận</h2>
-              <p className="text-xs text-slate-400 mt-0.5">Theo dõi thời gian thực phản hồi từ công dân</p>
+              <h2 id="recent-reports-heading" className="text-base font-bold text-slate-900">
+                Phản ánh Hiện trường 1022 Mới nhất
+              </h2>
+              <p className="text-xs text-slate-600 mt-0.5">Nhấn vào từng hồ sơ để xử lý hoặc trao đổi với cư dân</p>
             </div>
-            <button
-              onClick={() => setActiveTab("reports")}
-              className="text-xs font-semibold text-emerald-600 hover:text-emerald-700 flex items-center gap-1 cursor-pointer"
-            >
-              Xem tất cả <ArrowUpRight size={14} />
-            </button>
+            <Button variant="ghost" size="sm" onClick={() => setActiveTab("reports")}>
+              Xem tất cả →
+            </Button>
           </div>
 
-          <div className="space-y-3">
-            {reports.slice(0, 3).map((report) => {
-              const statusColors = {
-                "Đã tiếp nhận": "bg-blue-50 text-blue-600 border-blue-100",
-                "Đang xử lý": "bg-amber-50 text-amber-600 border-amber-100",
-                "Đã giải quyết": "bg-emerald-50 text-emerald-600 border-emerald-100"
-              };
-              return (
-                <div
-                  key={report.id}
-                  onClick={() => setActiveTab("reports")}
-                  className="p-4 rounded-xl border border-slate-50 hover:border-slate-100 hover:bg-slate-50/50 transition-all cursor-pointer flex justify-between items-center"
-                >
-                  <div className="space-y-1 min-w-0">
-                    <div className="flex items-center gap-2">
-                      <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-slate-100 text-slate-500">{report.category}</span>
-                      <span className="text-slate-400 text-[10px]">{report.reportedAt}</span>
-                    </div>
-                    <h3 className="font-semibold text-slate-800 text-sm truncate">{report.title}</h3>
-                    <p className="text-xs text-slate-400 truncate">{report.location}</p>
+          <div className="space-y-2.5">
+            {reports.slice(0, 3).map((report) => (
+              <button
+                key={report.id}
+                type="button"
+                onClick={() => setActiveTab("reports")}
+                className="w-full text-left p-3.5 rounded-xl border border-slate-200 hover:border-emerald-600 hover:bg-slate-50/70 transition-colors flex flex-col sm:flex-row sm:items-center justify-between gap-2 cursor-pointer"
+              >
+                <div className="space-y-1 min-w-0">
+                  <div className="flex flex-wrap items-center gap-2 text-xs">
+                    <span className="px-2 py-0.5 rounded bg-slate-100 text-slate-800 border border-slate-200 font-semibold">
+                      {report.category}
+                    </span>
+                    <span className="text-slate-600 font-mono">{report.reportedAt}</span>
                   </div>
-                  <span className={`text-xs px-2.5 py-1 rounded-full border shrink-0 font-medium ${statusColors[report.status]}`}>
-                    {report.status}
-                  </span>
+                  <div className="text-sm font-bold text-slate-900 truncate">{report.title}</div>
+                  <div className="text-xs text-slate-600 truncate">{report.location}</div>
                 </div>
+                <span
+                  className={`px-2.5 py-1 rounded-full border text-xs font-semibold shrink-0 ${
+                    report.status === "Đã giải quyết"
+                      ? "bg-emerald-50 text-emerald-900 border-emerald-200"
+                      : report.status === "Đang xử lý"
+                      ? "bg-amber-50 text-amber-900 border-amber-200"
+                      : "bg-blue-50 text-blue-900 border-blue-200"
+                  }`}
+                >
+                  {report.status}
+                </span>
+              </button>
+            ))}
+          </div>
+        </section>
+
+        <section
+          aria-labelledby="quick-links-heading"
+          className="bg-white p-5 rounded-xl border border-slate-200 space-y-3"
+        >
+          <div className="border-b border-slate-200 pb-3">
+            <h2 id="quick-links-heading" className="text-base font-bold text-slate-900">
+              Liên kết Điều hành Nhanh
+            </h2>
+            <p className="text-xs text-slate-600 mt-0.5">Chuyển nhanh tới các phân hệ nghiệp vụ</p>
+          </div>
+
+          <div className="grid grid-cols-1 gap-2">
+            {[
+              {
+                tab: "residents",
+                title: "Đăng ký & Tra cứu Cư dân",
+                desc: "Thường trú, Tạm trú & Cảnh báo hết hạn",
+                icon: PlusCircle,
+              },
+              {
+                tab: "gis",
+                title: "Bản đồ GIS & Camera An ninh KP3",
+                desc: "Xem vị trí hộ dân, tuyến đường & điểm nóng",
+                icon: Camera,
+              },
+              {
+                tab: "tasks",
+                title: "Giao việc & Lịch Công tác",
+                desc: "Kanban, Lịch họp & Báo cáo định kỳ",
+                icon: CheckSquare,
+              },
+              {
+                tab: "forms",
+                title: "Kho Biểu mẫu Hành chính",
+                desc: "Tải đơn CT01, xác nhận cư trú & HKD",
+                icon: FileText,
+              },
+              {
+                tab: "party",
+                title: "Chi bộ, Chi hội & Tổ trưởng",
+                desc: "Sinh hoạt Chi bộ, Đảng viên 213 & Đa vai trò",
+                icon: TrendingUp,
+              },
+            ].map((item) => {
+              const IconComp = item.icon;
+              return (
+                <button
+                  key={item.tab}
+                  type="button"
+                  onClick={() => setActiveTab(item.tab)}
+                  className="w-full p-3 rounded-xl border border-slate-200 bg-white hover:border-emerald-600 hover:bg-slate-50 transition-colors flex items-center justify-between gap-3 text-left cursor-pointer"
+                >
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div className="w-9 h-9 rounded-lg bg-emerald-50 border border-emerald-100 text-emerald-800 flex items-center justify-center shrink-0">
+                      <IconComp size={16} aria-hidden="true" />
+                    </div>
+                    <div className="min-w-0">
+                      <div className="text-sm font-bold text-slate-900 truncate">{item.title}</div>
+                      <div className="text-xs text-slate-600 truncate">{item.desc}</div>
+                    </div>
+                  </div>
+                  <ArrowUpRight size={15} className="text-slate-500 shrink-0" aria-hidden="true" />
+                </button>
               );
             })}
           </div>
-        </div>
-
-        {/* Bento Quick Actions (1/3 width) */}
-        <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm space-y-4">
-          <div>
-            <h2 className="font-bold text-slate-900">Liên kết Nhanh</h2>
-            <p className="text-xs text-slate-400 mt-0.5">Các chức năng khẩn cấp và thường dùng</p>
-          </div>
-
-          <div className="grid grid-cols-1 gap-2.5">
-            <button
-              onClick={() => setActiveTab("residents")}
-              className="w-full flex items-center justify-between p-3.5 rounded-xl bg-gradient-to-r from-emerald-500/10 to-emerald-600/5 text-emerald-900 hover:from-emerald-500/15 border border-emerald-500/20 text-left transition-all group cursor-pointer"
-            >
-              <div className="flex items-center gap-3">
-                <div className="p-2 bg-white rounded-lg text-emerald-600 shadow-sm shrink-0">
-                  <PlusCircle size={16} />
-                </div>
-                <div>
-                  <span className="text-sm font-semibold block">Đăng ký Cư dân</span>
-                  <span className="text-[10px] text-slate-500">Khai báo tạm trú/tạm vắng mới</span>
-                </div>
-              </div>
-              <ArrowUpRight size={16} className="text-emerald-500 transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
-            </button>
-
-            <button
-              onClick={() => setActiveTab("ai")}
-              className="w-full flex items-center justify-between p-3.5 rounded-xl bg-gradient-to-r from-indigo-500/10 to-indigo-600/5 text-indigo-900 hover:from-indigo-500/15 border border-indigo-500/20 text-left transition-all group cursor-pointer"
-            >
-              <div className="flex items-center gap-3">
-                <div className="p-2 bg-white rounded-lg text-indigo-600 shadow-sm shrink-0">
-                  <Bell size={16} />
-                </div>
-                <div>
-                  <span className="text-sm font-semibold block">Trợ lý Hỏi đáp</span>
-                  <span className="text-[10px] text-slate-500">Đặt câu hỏi quy trình và văn bản</span>
-                </div>
-              </div>
-              <ArrowUpRight size={16} className="text-indigo-500 transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
-            </button>
-
-            <button
-              onClick={() => setActiveTab("forms")}
-              className="w-full flex items-center justify-between p-3.5 rounded-xl bg-gradient-to-r from-teal-500/10 to-teal-600/5 text-teal-900 hover:from-teal-500/15 border border-teal-500/20 text-left transition-all group cursor-pointer"
-            >
-              <div className="flex items-center gap-3">
-                <div className="p-2 bg-white rounded-lg text-teal-600 shadow-sm shrink-0">
-                  <FileText size={16} />
-                </div>
-                <div>
-                  <span className="text-sm font-semibold block">Kho Biểu mẫu Hành chính</span>
-                  <span className="text-[10px] text-slate-500">Tải đơn cấp số nhà, CT01, HKD cá thể</span>
-                </div>
-              </div>
-              <ArrowUpRight size={16} className="text-teal-500 transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
-            </button>
-
-            <button
-              onClick={() => setActiveTab("gis")}
-              className="w-full flex items-center justify-between p-3.5 rounded-xl bg-gradient-to-r from-slate-500/10 to-slate-600/5 text-slate-900 hover:from-slate-500/15 border border-slate-300/20 text-left transition-all group cursor-pointer"
-            >
-              <div className="flex items-center gap-3">
-                <div className="p-2 bg-white rounded-lg text-slate-600 shadow-sm shrink-0">
-                  <Activity size={16} />
-                </div>
-                <div>
-                  <span className="text-sm font-semibold block">Camera Giám sát</span>
-                  <span className="text-[10px] text-slate-500">Giám sát các mắt camera an ninh LIVE</span>
-                </div>
-              </div>
-              <ArrowUpRight size={16} className="text-slate-500 transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
-            </button>
-
-            <button
-              onClick={() => setActiveTab("party")}
-              className="w-full flex items-center justify-between p-3.5 rounded-xl bg-gradient-to-r from-emerald-600/10 to-teal-600/5 text-emerald-950 hover:from-emerald-600/15 border border-emerald-600/20 text-left transition-all group cursor-pointer"
-            >
-              <div className="flex items-center gap-3">
-                <div className="p-2 bg-white rounded-lg text-emerald-700 shadow-sm shrink-0">
-                  <ShieldAlert size={16} />
-                </div>
-                <div>
-                  <span className="text-sm font-semibold block">Quản lý Chi hội & Đoàn thể</span>
-                  <span className="text-[10px] text-slate-500">Chi bộ, Ban điều hành, Đa vai trò cư dân</span>
-                </div>
-              </div>
-              <ArrowUpRight size={16} className="text-emerald-600 transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
-            </button>
-          </div>
-        </div>
+        </section>
       </div>
     </div>
   );

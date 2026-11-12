@@ -34,40 +34,47 @@ export default function CitizenFormsSection({
 
   return (
     <section id="forms" tabIndex={-1} className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-12 scroll-mt-24 outline-none">
-      <div className="bg-white rounded-3xl border border-slate-200 p-5 sm:p-8 shadow-sm space-y-5">
+      <div className="bg-white rounded-2xl border border-slate-200 p-5 sm:p-8 space-y-5">
         <SectionHeader
           icon={<FileText size={20} />}
           title="Kho biểu mẫu"
           action={
-            <button onClick={() => onNavigateToTab("forms")} className={btnGhost}>
+            <button type="button" onClick={() => onNavigateToTab("forms")} className={btnGhost}>
               Mở trang biểu mẫu đầy đủ <ChevronRight size={16} aria-hidden="true" />
             </button>
           }
         />
 
-        <div className="flex flex-col md:flex-row gap-3">
-          <div className="relative md:w-80">
+        <div className="flex flex-col gap-3">
+          <div className="relative md:max-w-sm">
             <label htmlFor="form-search" className="sr-only">
               Tìm biểu mẫu
             </label>
-            <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" aria-hidden="true" />
+            <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-600" aria-hidden="true" />
             <input
               id="form-search"
               type="search"
+              enterKeyHint="search"
+              autoCorrect="off"
+              autoCapitalize="none"
+              spellCheck={false}
               value={formQuery}
               onChange={e => setFormQuery(e.target.value)}
               placeholder="Tìm theo tên hoặc mã…"
               className={`${inputCls} pl-9`}
             />
           </div>
-          <div className="flex gap-2 overflow-x-auto pb-1" role="group" aria-label="Lọc theo nhóm thủ tục">
-            {FORM_CATEGORIES.map(c => (
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:flex lg:flex-wrap gap-2" role="group" aria-label="Lọc theo nhóm thủ tục">
+            {FORM_CATEGORIES.map((c, idx) => (
               <button
                 key={c}
+                type="button"
                 onClick={() => setFormCategory(c)}
                 aria-pressed={formCategory === c}
-                className={`min-h-11 px-3 rounded-xl text-sm font-semibold whitespace-nowrap cursor-pointer ${
-                  formCategory === c ? "bg-gov-navy text-white" : "bg-gov-light text-slate-700 hover:bg-slate-200"
+                className={`min-h-[44px] px-3 py-2 rounded-xl text-xs sm:text-sm font-semibold cursor-pointer border transition-colors text-center ${
+                  idx === 0 ? "col-span-2 sm:col-span-1" : ""
+                } ${
+                  formCategory === c ? "bg-gov-navy text-white border-gov-navy" : "bg-gov-light text-slate-700 border-slate-200 hover:bg-slate-200"
                 }`}
               >
                 {c}
@@ -82,7 +89,7 @@ export default function CitizenFormsSection({
             title="Không có biểu mẫu phù hợp"
             description="Thử từ khóa khác hoặc chọn nhóm “Tất cả”."
             action={
-              <button onClick={() => { setFormQuery(""); setFormCategory("Tất cả"); }} className={btnGhost}>
+              <button type="button" onClick={() => { setFormQuery(""); setFormCategory("Tất cả"); }} className={btnGhost}>
                 Xoá bộ lọc
               </button>
             }
@@ -92,7 +99,7 @@ export default function CitizenFormsSection({
             {filteredForms.map(f => (
               <li
                 key={f.id}
-                className="p-4 rounded-2xl border border-slate-200 hover:border-gov-blue hover:shadow-md transition-all flex flex-col justify-between gap-3"
+                className="p-4 rounded-2xl border border-slate-200 hover:border-gov-blue transition-colors flex flex-col justify-between gap-3"
               >
                 <div className="space-y-2">
                   <div className="flex items-center justify-between gap-2 text-xs">
@@ -110,10 +117,10 @@ export default function CitizenFormsSection({
                   </p>
                 </div>
                 <div className="flex gap-2 pt-2 border-t border-slate-100">
-                  <button onClick={() => setPreviewForm(f)} className={`${btnGhost} flex-1`}>
+                  <button onClick={() => setPreviewForm(f)} className={`${btnGhost} flex-1 whitespace-nowrap`}>
                     <Eye size={16} aria-hidden="true" /> Hướng dẫn
                   </button>
-                  <button onClick={() => handleDownloadForm(f)} className={`${btnPrimary} flex-1`}>
+                  <button onClick={() => handleDownloadForm(f)} className={`${btnPrimary} flex-1 whitespace-nowrap`}>
                     <Download size={16} aria-hidden="true" /> Tải về
                   </button>
                 </div>

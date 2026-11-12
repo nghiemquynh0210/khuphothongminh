@@ -1672,86 +1672,215 @@ export const initialBusinesses: Business[] = [
 export const initialReports: FieldReport[] = [
   {
     id: "REP000",
-    title: "Đề nghị kiểm tra nắp hố ga trước số 42 Lương Định Của",
+    title: "Nắp hố ga bị kênh vênh trước số 42 Lương Định Của",
     category: "Hạ tầng đô thị",
+    priority: "Khẩn cấp",
+    slaHours: 4,
+    slaDeadline: "2026-11-12T12:30:00.000Z",
+    assignedUnit: "Ban Điều hành KP3",
+    assignedOfficer: "Lê Văn Sơn",
     reporterName: "Nguyễn Thị Mai",
     reporterPhone: "0918765432",
-    reportedAt: "04/10/2026 09:15",
+    reportedAt: "12/11/2026 07:15",
     location: "Trước số 42 Lương Định Của",
+    alleyGroup: "Đường Lương Định Của (Mặt tiền)",
     coordinates: { x: 48, y: 38 },
-    description: "Nắp hố ga bị kênh vênh sau đợt mưa lớn hôm qua, xe máy đi qua dễ bị trượt bánh.",
+    lat: 10.9372,
+    lng: 106.7448,
+    description: "Nắp hố ga bị kênh vênh sau đợt mưa lớn tối qua, xe máy đi qua dễ bị trượt bánh vào giờ cao điểm.",
     status: "Đang xử lý",
     timeline: [
-      { time: "04/10/2026 09:15", title: "Gửi phản ánh", description: "Cư dân Nguyễn Thị Mai gửi phản ánh qua ứng dụng Khu phố số.", actor: "Nguyễn Thị Mai (Cư dân)" },
-      { time: "04/10/2026 10:00", title: "Cán bộ tiếp nhận", description: "Tổ tự quản đã xuống cắm biển cảnh báo và liên hệ đơn vị cấp thoát nước đến sửa chữa.", actor: "Lê Văn Sơn (Cán bộ Phường)" }
+      { time: "12/11/2026 07:15", title: "Gửi phản ánh", description: "Cư dân Nguyễn Thị Mai gửi phản ánh kèm 2 ảnh hiện trường.", actor: "Nguyễn Thị Mai (Cư dân)" },
+      { time: "12/11/2026 07:50", title: "Cán bộ tiếp nhận & Rào cảnh báo", description: "Tổ tự quản đã đặt cọc tiêu cảnh báo tạm và liên hệ Đội Thoát nước xuống thay nắp.", actor: "Lê Văn Sơn (Phó Bí thư KP3)" }
     ],
-    beforeImage: "https://images.unsplash.com/photo-1590674899484-d5640e854abe?w=300"
+    beforeImage: "https://images.unsplash.com/photo-1590674899484-d5640e854abe?w=600",
+    beforeImages: [
+      "https://images.unsplash.com/photo-1590674899484-d5640e854abe?w=600",
+      "https://images.unsplash.com/photo-1515162816999-a0c47dc192f7?w=600"
+    ],
+    messages: [
+      {
+        id: "MSG-000-1",
+        senderRole: "canbo",
+        senderName: "Lê Văn Sơn",
+        senderTitle: "Phó Bí thư KP3",
+        content: "Chào chị Mai, tổ tự quản đã nhận tin. Nhờ chị xác nhận thêm nắp cống nằm sát lề phải hướng về ngã tư hay trước cổng số 42 ạ?",
+        createdAt: "12/11/2026 07:32",
+        isInternal: false
+      },
+      {
+        id: "MSG-000-2",
+        senderRole: "citizen",
+        senderName: "Nguyễn Thị Mai",
+        senderTitle: "Cư dân",
+        content: "Dạ ngay sát mép vỉa hè phía bên phải trước cửa hàng tạp hóa số 42 luôn anh Sơn, em gửi thêm góc chụp gần.",
+        images: ["https://images.unsplash.com/photo-1515162816999-a0c47dc192f7?w=600"],
+        createdAt: "12/11/2026 07:40",
+        isInternal: false
+      },
+      {
+        id: "MSG-000-3",
+        senderRole: "canbo",
+        senderName: "Lê Văn Sơn",
+        senderTitle: "Phó Bí thư KP3",
+        content: "Đã đặt 2 cọc tiêu phản quang. Đội kỹ thuật phường báo 11h30 sẽ mang nắp gang mới tới thay.",
+        createdAt: "12/11/2026 07:55",
+        isInternal: true
+      }
+    ]
   },
   {
     id: "REP001",
     title: "Tập kết rác sai quy định tại đầu hẻm 42",
     category: "Rác thải",
+    priority: "Bình thường",
+    slaHours: 72,
+    assignedUnit: "Tổ Vệ sinh & Môi trường KP3",
+    assignedOfficer: "Bà Lê Thị Mai",
     reporterName: "Nguyễn Hoàng Nam",
     reporterPhone: "0932456789",
-    reportedAt: "10/07/2026 08:30",
-    location: "Trước hẻm 42 Lương Định Của",
+    reportedAt: "10/11/2026 08:30",
+    resolvedAt: "10/11/2026 14:00",
+    location: "Đầu hẻm 42 Lương Định Của",
+    alleyGroup: "Hẻm 42 Lương Định Của",
     coordinates: { x: 45, y: 35 },
-    description: "Có đống rác lớn tự phát chắn gần lối ra vào hẻm, gây mùi hôi thối và mất mỹ quan đô thị.",
+    lat: 10.9375,
+    lng: 106.7441,
+    description: "Có đống rác sinh hoạt và xà bần tự phát chắn gần lối ra vào hẻm 42, gây mùi hôi và cản trở xe cứu hỏa.",
     status: "Đã giải quyết",
     timeline: [
-      { time: "10/07/2026 08:30", title: "Gửi phản ánh", description: "Người dân gửi phản ánh đính kèm hình ảnh lên hệ thống.", actor: "Nguyễn Hoàng Nam (Cư dân)" },
-      { time: "10/07/2026 09:15", title: "Xác minh & Phân công", description: "Tổ tự quản khu phố xác minh, chuyển giao Công ty Môi trường đô thị dọn dẹp.", actor: "Bà Lê Thị Mai (Trưởng KP3)" },
-      { time: "10/07/2026 14:00", title: "Xử lý hoàn tất", description: "Rác đã được dọn sạch hoàn toàn, khu vực được xịt khử khuẩn.", actor: "Đội Vệ Sinh Môi Trường Quận" }
+      { time: "10/11/2026 08:30", title: "Gửi phản ánh", description: "Người dân gửi phản ánh đính kèm hình ảnh lên hệ thống 1022 KP3.", actor: "Nguyễn Hoàng Nam (Cư dân)" },
+      { time: "10/11/2026 09:15", title: "Xác minh & Điều phối", description: "Tổ Vệ sinh KP3 kiểm tra thực địa, phối hợp Công ty Môi trường Đô thị tăng cường xe ép.", actor: "Bà Lê Thị Mai (Trưởng KP3)" },
+      { time: "10/11/2026 14:00", title: "Xử lý hoàn tất", description: "Đống rác đã được thu gom sạch sẽ, xịt khử mùi và cắm bảng cấm đổ rác.", actor: "Tổ Vệ sinh & Môi trường KP3" }
     ],
-    beforeImage: "https://images.unsplash.com/photo-1611284446314-60a58ac0deb9?w=300",
-    afterImage: "https://images.unsplash.com/photo-1506744038136-46273834b3fb?w=300"
+    beforeImage: "https://images.unsplash.com/photo-1611284446314-60a58ac0deb9?w=600",
+    beforeImages: ["https://images.unsplash.com/photo-1611284446314-60a58ac0deb9?w=600"],
+    afterImage: "https://images.unsplash.com/photo-1449824913935-59a10b8d2000?w=600",
+    afterImages: ["https://images.unsplash.com/photo-1449824913935-59a10b8d2000?w=600"],
+    messages: [
+      {
+        id: "MSG-001-1",
+        senderRole: "canbo",
+        senderName: "Bà Lê Thị Mai",
+        senderTitle: "Trưởng KP3",
+        content: "Cảm ơn anh Nam. Đội vệ sinh đã thu dọn xong mặt bằng đầu hẻm 42 và rửa đường sạch sẽ, gửi anh ảnh nghiệm thu.",
+        images: ["https://images.unsplash.com/photo-1449824913935-59a10b8d2000?w=600"],
+        createdAt: "10/11/2026 14:05",
+        isInternal: false
+      },
+      {
+        id: "MSG-001-2",
+        senderRole: "citizen",
+        senderName: "Nguyễn Hoàng Nam",
+        senderTitle: "Cư dân",
+        content: "Rất sạch sẽ và nhanh gọn, cảm ơn Ban Điều hành Khu phố 3 nhiều!",
+        createdAt: "10/11/2026 15:10",
+        isInternal: false
+      }
+    ],
+    citizenFeedback: {
+      rating: 5,
+      comment: "Xử lý rất nhanh trong ngày, đầu hẻm đã thông thoáng sạch sẽ.",
+      satisfied: true,
+      submittedAt: "10/11/2026 15:12"
+    }
   },
   {
     id: "REP002",
-    title: "Cửa hàng lấn chiếm vỉa hè Lương Định Của",
+    title: "Cửa hàng lấn chiếm vỉa hè số 82 Lương Định Của",
     category: "Lấn chiếm lòng đường",
+    priority: "Bình thường",
+    slaHours: 72,
+    slaDeadline: "2026-11-14T15:45:00.000Z",
+    assignedUnit: "Đội Trật tự Đô thị Phường",
+    assignedOfficer: "Lê Văn Sơn",
     reporterName: "Trần Văn Phú",
     reporterPhone: "0908887766",
-    reportedAt: "11/07/2026 15:45",
+    reportedAt: "11/11/2026 15:45",
     location: "Số 82 Lương Định Của",
+    alleyGroup: "Đường Lương Định Của (Mặt tiền)",
     coordinates: { x: 60, y: 50 },
-    description: "Cửa hàng vật liệu xây dựng để hàng hóa tràn ra toàn bộ vỉa hè, người đi bộ phải đi xuống lòng đường rất nguy hiểm.",
+    lat: 10.9365,
+    lng: 106.7453,
+    description: "Cửa hàng vật liệu xây dựng tập kết gạch cát tràn hết phần vỉa hè, người đi bộ phải đi xuống lòng đường rất nguy hiểm.",
     status: "Đang xử lý",
     timeline: [
-      { time: "11/07/2026 15:45", title: "Gửi phản ánh", description: "Hệ thống ghi nhận phản ánh lấn chiếm vỉa hè hành lang an toàn.", actor: "Trần Văn Phú (Cư dân)" },
-      { time: "12/07/2026 08:00", title: "Tiếp nhận & Kiểm tra", description: "Cán bộ trật tự đô thị phường phối hợp tổ tự quản KP3 xuống làm việc.", actor: "Lê Văn Sơn (Cán bộ Phường)" }
+      { time: "11/11/2026 15:45", title: "Gửi phản ánh", description: "Hệ thống ghi nhận phản ánh lấn chiếm vỉa hè hành lang an toàn.", actor: "Trần Văn Phú (Cư dân)" },
+      { time: "12/11/2026 08:15", title: "Kiểm tra & Nhắc nhở", description: "Tổ Trật tự đô thị phường phối hợp KP3 xuống lập biên bản cam kết thu dọn trong sáng nay.", actor: "Lê Văn Sơn (Cán bộ KP3)" }
     ],
-    beforeImage: "https://images.unsplash.com/photo-1590674899484-d5640e854abe?w=300"
-  },
-  {
-    id: "REP003",
-    title: "Karaoke tiếng ồn quá giờ quy định trong hẻm",
-    category: "Tiếng ồn",
-    reporterName: "Lê Thị Mai",
-    reporterPhone: "0987654321",
-    reportedAt: "11/07/2026 23:15",
-    location: "Nhà số 42/18 Lương Định Của",
-    coordinates: { x: 30, y: 70 },
-    description: "Hộ gia đình hát karaoke loa kẹo kéo âm lượng cực lớn sau 23h đêm, làm ảnh hưởng giấc ngủ trẻ em và người già xung quanh.",
-    status: "Đã tiếp nhận",
-    timeline: [
-      { time: "11/07/2026 23:15", title: "Gửi phản ánh khẩn cấp", description: "Hệ thống tiếp nhận báo cáo về tiếng ồn ban đêm.", actor: "Lê Thị Mai (Cư dân)" }
+    beforeImage: "https://images.unsplash.com/photo-1504307651254-35680f356dfd?w=600",
+    beforeImages: ["https://images.unsplash.com/photo-1504307651254-35680f356dfd?w=600"],
+    messages: [
+      {
+        id: "MSG-002-1",
+        senderRole: "canbo",
+        senderName: "Lê Văn Sơn",
+        senderTitle: "Ban Điều hành KP3",
+        content: "Chủ hộ kinh doanh số 82 đã ký cam kết di dời vật liệu vào bên trong trước 16h hôm nay. Tổ sẽ kiểm tra lại lần 2.",
+        createdAt: "12/11/2026 08:20",
+        isInternal: false
+      }
     ]
   },
   {
+    id: "REP003",
+    title: "Karaoke tiếng ồn quá giờ quy định trong hẻm 42/18",
+    category: "Tiếng ồn",
+    priority: "Cao",
+    slaHours: 24,
+    slaDeadline: "2026-11-12T06:00:00.000Z",
+    assignedUnit: "Tổ ANTT cơ sở KP3",
+    assignedOfficer: "Phạm Minh Tuấn",
+    reporterName: "Lê Thị Mai",
+    reporterPhone: "0987654321",
+    reportedAt: "11/11/2026 22:30",
+    location: "Nhà số 42/18 Lương Định Của",
+    alleyGroup: "Hẻm 42/18 Lương Định Của",
+    coordinates: { x: 30, y: 70 },
+    lat: 10.9361,
+    lng: 106.7435,
+    description: "Hộ gia đình hát karaoke loa kẹo kéo âm lượng lớn sau 22h30 đêm, làm ảnh hưởng giấc ngủ trẻ em và người cao tuổi.",
+    status: "Đã tiếp nhận",
+    timeline: [
+      { time: "11/11/2026 22:30", title: "Gửi phản ánh", description: "Hệ thống tiếp nhận phản ánh tiếng ồn khu dân cư về đêm.", actor: "Lê Thị Mai (Cư dân)" }
+    ],
+    messages: []
+  },
+  {
     id: "REP004",
-    title: "Bóng đèn chiếu sáng hẻm 42 bị hỏng",
+    title: "Bóng đèn chiếu sáng trụ 42/8 tắt hẳn gây tối hẻm",
     category: "Hạ tầng đô thị",
+    priority: "Cao",
+    slaHours: 24,
+    slaDeadline: "2026-11-13T10:00:00.000Z",
+    assignedUnit: "Đội Thoát nước & Chiếu sáng",
+    assignedOfficer: "Nguyễn Văn Hùng",
     reporterName: "Nguyễn Văn Hùng",
     reporterPhone: "0903829112",
-    reportedAt: "12/07/2026 10:00",
-    location: "Trụ điện số 42/8",
+    reportedAt: "11/11/2026 18:00",
+    location: "Trụ điện số 42/8 Hẻm 42",
+    alleyGroup: "Hẻm 42 Lương Định Của",
     coordinates: { x: 50, y: 25 },
-    description: "Bóng đèn cao áp chiếu sáng lối hẻm bị chập chờn rồi tắt hẳn 2 ngày nay, hẻm tối dễ phát sinh trộm cắp.",
+    lat: 10.9378,
+    lng: 106.7445,
+    description: "Bóng đèn cao áp chiếu sáng lối hẻm 42 bị chập chờn rồi tắt hẳn 2 ngày nay, đoạn giao cắt tối dễ phát sinh trộm cắp.",
     status: "Đang xử lý",
     timeline: [
-      { time: "12/07/2026 10:00", title: "Phát hiện & Báo cáo", description: "Trưởng ban tự quản báo cáo hỏng hóc hạ tầng công cộng.", actor: "Nguyễn Văn Hùng (Bí thư)" },
-      { time: "12/07/2026 11:30", title: "Liên hệ Công ty Chiếu sáng", description: "Đã gửi yêu cầu thay thế bóng LED mới tới Công ty Chiếu sáng Công cộng TP.", actor: "Bà Lê Thị Mai (Trưởng KP)" }
+      { time: "11/11/2026 18:00", title: "Phát hiện & Báo cáo", description: "Ghi nhận sự cố mất đèn chiếu sáng công cộng tại trụ 42/8.", actor: "Nguyễn Văn Hùng (Bí thư)" },
+      { time: "12/11/2026 08:30", title: "Liên hệ Công ty Chiếu sáng", description: "Đã gửi mã trụ 42/8 kèm yêu cầu thay bóng LED tới Công ty Chiếu sáng Đô thị.", actor: "Bà Lê Thị Mai (Trưởng KP3)" }
+    ],
+    beforeImage: "https://images.unsplash.com/photo-1513828583688-c52646db42da?w=600",
+    beforeImages: ["https://images.unsplash.com/photo-1513828583688-c52646db42da?w=600"],
+    messages: [
+      {
+        id: "MSG-004-1",
+        senderRole: "canbo",
+        senderName: "Nguyễn Văn Hùng",
+        senderTitle: "Bí thư Chi bộ KP3",
+        content: "Đội bảo trì chiếu sáng đã nhận phiếu và hẹn kiểm tra thay bóng trong ca chiều nay.",
+        createdAt: "12/11/2026 08:35",
+        isInternal: true
+      }
     ]
   }
 ];

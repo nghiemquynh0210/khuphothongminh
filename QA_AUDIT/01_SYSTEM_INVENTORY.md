@@ -162,3 +162,4 @@ graph TD
 3. **Phát hiện cần khắc phục trong Phase 7 & 8:**
    - Cần hoàn thiện test environment cho Vitest với Node 24 để bộ kiểm thử tự động vận hành thông suốt mà không gặp lỗi khởi tạo worker context.
    - Tiếp tục kiểm tra toàn bộ 25 route trên trình duyệt thực tế qua Chrome MCP (Phase 2).
+

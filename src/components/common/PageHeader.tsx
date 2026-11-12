@@ -40,27 +40,27 @@ export function PageHeader({
 
   return (
     <div
-      className={`flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-gradient-to-r from-slate-50 via-white to-emerald-50/40 p-5 md:p-6 rounded-2xl border border-slate-200 shadow-2xs ${className}`}
+      className={`flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-white p-5 md:p-6 rounded-2xl border border-slate-200 ${className}`}
     >
       <div className="space-y-1.5 min-w-0">
         {badgeText && (
-          <div className="inline-flex items-center gap-2 px-2.5 py-1 rounded-md bg-emerald-50 border border-emerald-200 text-emerald-800 text-[11px] font-bold tracking-wide uppercase">
-            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+          <div className="inline-flex items-center flex-wrap gap-x-2 gap-y-0.5 px-2.5 py-1 rounded-md bg-emerald-50 border border-emerald-200 text-emerald-900 text-xs font-semibold tracking-wide uppercase leading-tight max-w-full">
+            <span className="w-2 h-2 shrink-0 rounded-full bg-emerald-600" aria-hidden="true"></span>
             {renderedBadgeIcon}
-            <span>{badgeText}</span>
+            <span className="leading-tight">{badgeText}</span>
             {badgeSubtext && (
               <>
-                <span className="text-emerald-300">•</span>
-                <span className="font-normal text-[11px] text-emerald-700">{badgeSubtext}</span>
+                <span className="text-emerald-800 shrink-0" aria-hidden="true">•</span>
+                <span className="font-normal text-xs text-emerald-800 leading-tight">{badgeSubtext}</span>
               </>
             )}
           </div>
         )}
-        <h1 className="text-xl md:text-2xl font-black text-slate-800 tracking-tight">
+        <h1 className="text-xl md:text-2xl font-bold text-slate-900 tracking-tight text-balance">
           {title}
         </h1>
         {description && (
-          <p className="text-xs text-slate-500 font-medium">{description}</p>
+          <p className="text-sm text-slate-600 font-normal leading-relaxed">{description}</p>
         )}
       </div>
 
@@ -68,10 +68,9 @@ export function PageHeader({
         {actions ? (
           actions
         ) : showDate ? (
-          <div className="flex items-center gap-2.5 bg-white px-3.5 py-2 rounded-xl border border-slate-200 shadow-2xs text-xs font-mono text-slate-600 shrink-0">
-            <Clock size={15} className="text-emerald-600" />
+          <div className="flex items-center gap-2 bg-slate-50 px-3.5 py-2 rounded-xl border border-slate-200 text-xs font-mono text-slate-700 shrink-0">
+            <Clock size={15} className="text-emerald-700" aria-hidden="true" />
             <span>Hôm nay: {new Date().toLocaleDateString("vi-VN")}</span>
-            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping"></span>
           </div>
         ) : null}
       </div>

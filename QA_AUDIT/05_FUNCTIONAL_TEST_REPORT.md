@@ -78,3 +78,4 @@ sequenceDiagram
 
 ## 4. KẾT LUẬN PHASE 5
 Toàn bộ các quy trình nghiệp vụ lõi của Khu phố 3 (Quản trị dân cư, An sinh xã hội, Khối chi hội đoàn thể, Tiếp nhận phản ánh, Quỹ cộng đồng) đều vận hành chính xác theo đúng quy định hành chính của chính quyền đô thị.
+

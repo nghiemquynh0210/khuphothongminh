@@ -42,13 +42,28 @@ import { CommunityEvent, LocalNews } from "../types";
 import Pagination from "./Pagination";
 import { StatCard } from "./common/StatCard";
 import { PageHeader } from "./common/PageHeader";
+import { ReportSelect } from "./reports/ReportSelect";
+import { ConfirmModal, InlineNotice } from "./ui/ConfirmModal";
+import { Modal } from "./ui/Modal";
+import { DetailRow, DetailGrid } from "./common/DetailRow";
 import { formatVNNumber } from "../utils/numberFormat";
-import { initialNewsList, initialCommunityEvents } from "../mockData";
+import { formatShortRecordId } from "../utils/kp3Utils";
+import { initialNewsList } from "../mockData";
+
+const EVENT_RSVP_KEY = "kp3_event_rsvp_v1";
+const CULTURAL_VENUES = [
+  "Nhà Văn hóa Khu phố 3 (Hội trường 80 chỗ)",
+  "Phòng Sinh hoạt Chi bộ KP3 (30 chỗ)",
+  "Sân Nhà Văn hóa Khu phố 3 (120 chỗ)",
+  "Điểm sinh hoạt Liên tổ 1–14"
+];
 
 interface CommunityEventsProps {
   events: CommunityEvent[];
   onAddEvent: (newEvent: CommunityEvent) => void;
   onUpdateEventStatus: (id: string, status: CommunityEvent["status"]) => void;
+  onUpdateEvent?: (updatedEvent: CommunityEvent) => void;
+  onDeleteEvent?: (eventId: string) => void;
   newsList?: LocalNews[];
   onAddNews?: (newNews: LocalNews) => void;
   onUpdateNews?: (updatedNews: LocalNews) => void;
@@ -112,6 +127,8 @@ export default function CommunityEvents({
   events, 
   onAddEvent, 
   onUpdateEventStatus,
+  onUpdateEvent,
+  onDeleteEvent,
   newsList: propNewsList,
   onAddNews,
   onUpdateNews,
@@ -145,12 +162,51 @@ export default function CommunityEvents({
   const [newNewsFileName, setNewNewsFileName] = useState("");
   const [newNewsIsPinned, setNewNewsIsPinned] = useState(false);
 
+  // Notice & Confirm states
+  const [notice, setNotice] = useState<{ message: string; type: "success" | "error" | "info" | "warning" } | null>(null);
+  const [confirmResetNews, setConfirmResetNews] = useState(false);
+  const [deleteNewsTarget, setDeleteNewsTarget] = useState<{ id: string; title: string } | null>(null);
+
+  // RSVP counter persisted locally per event id
+  const [eventRsvpMap, setEventRsvpMap] = useState<Record<string, { registered: boolean; extraCount: number }>>(() => {
+    try {
+      const saved = localStorage.getItem(EVENT_RSVP_KEY);
+      if (saved) return JSON.parse(saved);
+    } catch {}
+    return {};
+  });
+
+  const handleToggleRsvp = (evId: string, evTitle: string) => {
+    const current = eventRsvpMap[evId] || { registered: false, extraCount: 0 };
+    const nextRegistered = !current.registered;
+    const nextMap = {
+      ...eventRsvpMap,
+      [evId]: {
+        registered: nextRegistered,
+        extraCount: Math.max(0, current.extraCount + (nextRegistered ? 1 : -1))
+      }
+    };
+    setEventRsvpMap(nextMap);
+    try {
+      localStorage.setItem(EVENT_RSVP_KEY, JSON.stringify(nextMap));
+    } catch {}
+    setNotice({
+      message: nextRegistered
+        ? `Đã xác nhận đăng ký tham dự sự kiện "${evTitle}".`
+        : `Đã hủy đăng ký tham dự sự kiện "${evTitle}".`,
+      type: nextRegistered ? "success" : "info"
+    });
+  };
+
   // States for Events Calendar
   const [showEventModal, setShowEventModal] = useState(false);
+  const [editingEvent, setEditingEvent] = useState<CommunityEvent | null>(null);
+  const [selectedEventForModal, setSelectedEventForModal] = useState<CommunityEvent | null>(null);
+  const [deleteEventTarget, setDeleteEventTarget] = useState<{ id: string; title: string } | null>(null);
   const [title, setTitle] = useState("");
   const [organizer, setOrganizer] = useState("Ban Điều hành Khu phố 3");
   const [dateTime, setDateTime] = useState("");
-  const [location, setLocation] = useState("Nhà Văn hóa Khu phố 3");
+  const [location, setLocation] = useState(CULTURAL_VENUES[0]);
   const [expectedAttendees, setExpectedAttendees] = useState(50);
   const [description, setDescription] = useState("");
   const [eventImage, setEventImage] = useState(COVER_PRESETS[6].url);
@@ -309,8 +365,8 @@ export default function CommunityEvents({
   // Create or Update News
   const handleSaveNews = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newNewsTitle || !newNewsContent) {
-      alert("Vui lòng điền đầy đủ tiêu đề và nội dung bài viết!");
+    if (!newNewsTitle.trim() || !newNewsContent.trim()) {
+      setNotice({ message: "Vui lòng điền đầy đủ tiêu đề và nội dung bài viết!", type: "error" });
       return;
     }
 
@@ -337,6 +393,7 @@ export default function CommunityEvents({
       }
       setNewsList(prev => prev.map(n => n.id === updated.id ? updated : n));
       setEditingNews(null);
+      setNotice({ message: `Đã cập nhật bài viết "${updated.title}".`, type: "success" });
     } else {
       // Create new
       const newNews: LocalNews = {
@@ -359,6 +416,7 @@ export default function CommunityEvents({
         onAddNews(newNews);
       }
       setNewsList([newNews, ...newsList]);
+      setNotice({ message: `Đã phát hành bản tin "${newNews.title}".`, type: "success" });
     }
 
     setShowNewsModal(false);
@@ -391,15 +449,20 @@ export default function CommunityEvents({
   };
 
   const handleDeleteNewsItem = (id: string, title: string) => {
-    if (confirm(`Bạn có chắc chắn muốn xóa bài viết:\n"${title}"?`)) {
-      if (onDeleteNews) {
-        onDeleteNews(id);
-      }
-      setNewsList(prev => prev.filter(n => n.id !== id));
-      if (selectedNewsForModal?.id === id) {
-        setSelectedNewsForModal(null);
-      }
+    setDeleteNewsTarget({ id, title });
+  };
+
+  const executeDeleteNewsItem = () => {
+    if (!deleteNewsTarget) return;
+    if (onDeleteNews) {
+      onDeleteNews(deleteNewsTarget.id);
     }
+    setNewsList(prev => prev.filter(n => n.id !== deleteNewsTarget.id));
+    if (selectedNewsForModal?.id === deleteNewsTarget.id) {
+      setSelectedNewsForModal(null);
+    }
+    setNotice({ message: `Đã xóa bản tin "${deleteNewsTarget.title}".`, type: "info" });
+    setDeleteNewsTarget(null);
   };
 
   const handleTogglePin = (news: LocalNews) => {
@@ -411,13 +474,16 @@ export default function CommunityEvents({
   };
 
   const handleResetToSampleNews = () => {
-    if (confirm("Khôi phục danh sách bản tin mẫu chuẩn phong cách báo điện tử có kèm ảnh minh họa và công văn đính kèm?")) {
-      setNewsList(initialNewsList);
-      try {
-        localStorage.setItem("kp3_local_news", JSON.stringify(initialNewsList));
-      } catch {}
-      alert("Đã đồng bộ lại 6 bản tin mẫu có đầy đủ hình ảnh sinh động!");
-    }
+    setConfirmResetNews(true);
+  };
+
+  const executeResetToSampleNews = () => {
+    setNewsList(initialNewsList);
+    try {
+      localStorage.setItem("kp3_local_news", JSON.stringify(initialNewsList));
+    } catch {}
+    setConfirmResetNews(false);
+    setNotice({ message: "Đã đồng bộ lại danh sách bản tin mẫu đầy đủ hình ảnh minh họa.", type: "success" });
   };
 
   const handleCopyShareLink = (news: LocalNews) => {
@@ -427,33 +493,87 @@ export default function CommunityEvents({
     setTimeout(() => setCopiedLink(false), 2500);
   };
 
+  const resetEventForm = () => {
+    setEditingEvent(null);
+    setTitle("");
+    setOrganizer("Ban Điều hành Khu phố 3");
+    setDateTime("");
+    setLocation(CULTURAL_VENUES[0]);
+    setExpectedAttendees(50);
+    setDescription("");
+    setEventImage(COVER_PRESETS[6].url);
+  };
+
+  const handleOpenEditEvent = (ev: CommunityEvent) => {
+    setEditingEvent(ev);
+    setTitle(ev.title);
+    setOrganizer(ev.organizer);
+    setDateTime(ev.dateTime);
+    setLocation(ev.location);
+    setExpectedAttendees(ev.expectedAttendees || 50);
+    setDescription(ev.description);
+    setEventImage(ev.imageUrl || COVER_PRESETS[6].url);
+    setShowEventModal(true);
+  };
+
+  const executeDeleteEventItem = () => {
+    if (!deleteEventTarget) return;
+    if (onDeleteEvent) {
+      onDeleteEvent(deleteEventTarget.id);
+    }
+    if (selectedEventForModal?.id === deleteEventTarget.id) {
+      setSelectedEventForModal(null);
+    }
+    setNotice({ message: `Đã xóa sự kiện "${deleteEventTarget.title}".`, type: "info" });
+    setDeleteEventTarget(null);
+  };
+
   const handleAddEventSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!title || !dateTime || !description) {
-      alert("Vui lòng điền đầy đủ các thông tin bắt buộc!");
+    if (!title.trim() || !dateTime.trim() || !description.trim()) {
+      setNotice({ message: "Vui lòng điền đầy đủ tên sự kiện, thời gian và nội dung chương trình!", type: "error" });
+      return;
+    }
+
+    if (editingEvent) {
+      const updatedEvent: CommunityEvent = {
+        ...editingEvent,
+        title: title.trim(),
+        organizer: organizer.trim() || "Ban Điều hành Khu phố 3",
+        dateTime: dateTime.trim(),
+        location,
+        expectedAttendees: Number(expectedAttendees) || 50,
+        description: description.trim(),
+        imageUrl: eventImage
+      };
+      if (onUpdateEvent) {
+        onUpdateEvent(updatedEvent);
+      }
+      if (selectedEventForModal?.id === updatedEvent.id) {
+        setSelectedEventForModal(updatedEvent);
+      }
+      setShowEventModal(false);
+      resetEventForm();
+      setNotice({ message: `Đã cập nhật sự kiện "${updatedEvent.title}".`, type: "success" });
       return;
     }
 
     const newEvent: CommunityEvent = {
       id: "EV" + (events.length + 1).toString().padStart(3, "0"),
-      title,
-      organizer,
-      dateTime,
+      title: title.trim(),
+      organizer: organizer.trim() || "Ban Điều hành Khu phố 3",
+      dateTime: dateTime.trim(),
       location,
       status: "Sắp diễn ra",
       expectedAttendees: Number(expectedAttendees) || 50,
-      description,
+      description: description.trim(),
       imageUrl: eventImage
     };
 
     onAddEvent(newEvent);
     setShowEventModal(false);
-
-    // Reset event form
-    setTitle("");
-    setDateTime("");
-    setExpectedAttendees(50);
-    setDescription("");
+    resetEventForm();
+    setNotice({ message: `Đã lên lịch hoạt động "${newEvent.title}" tại ${newEvent.location}.`, type: "success" });
   };
 
   // Filter Logic
@@ -506,34 +626,45 @@ export default function CommunityEvents({
           <div className="flex flex-wrap items-center gap-2.5 shrink-0 w-full sm:w-auto">
             {activeSubTab === "news" ? (
               <>
-                <button 
+                <button
+                  type="button"
                   onClick={handleResetToSampleNews}
                   title="Đồng bộ danh sách bản tin mẫu có đầy đủ hình ảnh sinh động"
-                  className="px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl font-bold text-xs transition-all flex items-center gap-1.5 cursor-pointer border border-slate-200"
+                  className="px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl font-semibold text-xs transition-colors flex items-center gap-1.5 cursor-pointer border border-slate-200"
                 >
-                  <RotateCcw size={13} /> Dữ liệu ảnh mẫu
+                  <RotateCcw size={13} /> Dữ liệu mẫu
                 </button>
-                <button 
+                <button
+                  type="button"
                   onClick={() => {
                     resetNewsForm();
                     setShowNewsModal(true);
                   }}
-                  className="w-full sm:w-auto flex items-center justify-center gap-2 bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-700 hover:from-emerald-700 hover:to-teal-800 text-white px-4 py-2 rounded-xl font-bold text-xs sm:text-sm transition-all shadow-sm cursor-pointer"
+                  className="w-full sm:w-auto flex items-center justify-center gap-2 bg-emerald-700 hover:bg-emerald-800 text-white px-4 py-2 rounded-xl font-bold text-xs sm:text-sm transition-colors cursor-pointer"
                 >
-                  <Plus size={15} /> Đăng Bản Tin & Thông Báo Mới
+                  <Plus size={15} /> Đăng Bản Tin Mới
                 </button>
               </>
             ) : (
-              <button 
+              <button
+                type="button"
                 onClick={() => setShowEventModal(true)}
-                className="w-full sm:w-auto flex items-center justify-center gap-2 bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-700 hover:from-emerald-700 hover:to-teal-800 text-white px-4 py-2 rounded-xl font-bold text-xs sm:text-sm transition-all shadow-sm cursor-pointer"
+                className="w-full sm:w-auto flex items-center justify-center gap-2 bg-emerald-700 hover:bg-emerald-800 text-white px-4 py-2 rounded-xl font-bold text-xs sm:text-sm transition-colors cursor-pointer"
               >
-                <Plus size={15} /> Lên Lịch Hoạt Động & Mượn Hội Trường
+                <Plus size={15} /> Đặt Lịch &amp; Mượn Hội Trường
               </button>
             )}
           </div>
         }
       />
+
+      {notice && (
+        <InlineNotice
+          message={notice.message}
+          type={notice.type}
+          onDismiss={() => setNotice(null)}
+        />
+      )}
 
       {/* Stats Counter Cards - Standardized StatCard Component */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
@@ -577,11 +708,12 @@ export default function CommunityEvents({
       </div>
 
       {/* Switcher Navigation Tabs */}
-      <div className="flex border-b border-slate-200 gap-8">
+      <div className="flex flex-wrap border-b border-slate-200 gap-4 sm:gap-8">
         <button
+          type="button"
           onClick={() => setActiveSubTab("news")}
-          className={`pb-3 text-sm font-semibold transition-all relative flex items-center gap-2 cursor-pointer
-            ${activeSubTab === "news" ? "text-emerald-700 font-extrabold" : "text-slate-400 hover:text-slate-600"}
+          className={`pb-3 text-sm font-semibold transition-colors relative flex items-center gap-2 cursor-pointer
+            ${activeSubTab === "news" ? "text-emerald-700 font-bold" : "text-slate-600 hover:text-slate-900"}
           `}
         >
           <Newspaper size={18} /> Bản tin & Báo điện tử Khu phố
@@ -590,12 +722,13 @@ export default function CommunityEvents({
           )}
         </button>
         <button
+          type="button"
           onClick={() => setActiveSubTab("events")}
-          className={`pb-3 text-sm font-semibold transition-all relative flex items-center gap-2 cursor-pointer
-            ${activeSubTab === "events" ? "text-emerald-700 font-extrabold" : "text-slate-400 hover:text-slate-600"}
+          className={`pb-3 text-sm font-semibold transition-colors relative flex items-center gap-2 cursor-pointer
+            ${activeSubTab === "events" ? "text-emerald-700 font-bold" : "text-slate-600 hover:text-slate-900"}
           `}
         >
-          <CalendarDays size={18} /> Lịch sinh hoạt & Hoạt động Nhà Văn hóa
+          <CalendarDays size={18} /> Lịch sinh hoạt & Hội trường Nhà Văn hóa
           {activeSubTab === "events" && (
             <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-emerald-600 rounded-full" />
           )}
@@ -608,96 +741,97 @@ export default function CommunityEvents({
       {activeSubTab === "news" && (
         <div className="space-y-6">
 
-          {/* DẢI CẢNH BÁO KHẨN CẤP (BREAKING NEWS ALERT BANNER) */}
+          {/* DẢI CẢNH BÁO KHẨN CẤP (FLAT HAIRLINE ALERT BANNER) */}
           {urgentNews && (
-            <div className="bg-gradient-to-r from-rose-600 via-rose-700 to-red-700 text-white p-3.5 sm:p-4 rounded-2xl shadow-md flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 animate-in fade-in">
+            <div className="bg-rose-50 border border-rose-200 border-l-4 border-l-rose-600 text-slate-900 p-3.5 sm:p-4 rounded-xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
               <div className="flex items-center gap-3">
-                <div className="p-2.5 bg-white/20 rounded-xl backdrop-blur-xs shrink-0 flex items-center justify-center ring-2 ring-white/30">
-                  <BellRing size={20} className="animate-bounce" />
+                <div className="p-2.5 bg-rose-100 text-rose-700 rounded-xl border border-rose-200 shrink-0 flex items-center justify-center">
+                  <BellRing size={20} />
                 </div>
                 <div className="space-y-0.5">
-                  <div className="flex items-center gap-2">
-                    <span className="text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full bg-white text-rose-700 shadow-xs">
-                      🚨 THÔNG BÁO KHẨN CẤP
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="text-xs font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-rose-700 text-white">
+                      THÔNG BÁO KHẨN CẤP
                     </span>
-                    <span className="text-[11px] text-rose-100 font-mono font-medium">{urgentNews.date}</span>
+                    <span className="text-xs text-rose-800 font-mono font-medium">{urgentNews.date}</span>
                   </div>
-                  <p className="font-bold text-xs sm:text-sm line-clamp-1 text-white">
+                  <p className="font-bold text-xs sm:text-sm line-clamp-1 text-slate-900">
                     {urgentNews.title}
                   </p>
                 </div>
               </div>
-              <button 
+              <button
+                type="button"
                 onClick={() => setSelectedNewsForModal(urgentNews)}
-                className="shrink-0 text-xs font-bold bg-white hover:bg-rose-50 text-rose-700 px-4 py-2 rounded-xl shadow-xs transition-colors cursor-pointer flex items-center gap-1.5 w-full sm:w-auto justify-center"
+                className="shrink-0 text-xs font-bold bg-rose-700 hover:bg-rose-800 text-white px-4 py-2 rounded-xl transition-colors cursor-pointer flex items-center gap-1.5 w-full sm:w-auto justify-center"
               >
                 Xem chỉ đạo ngay <ChevronRight size={14} />
               </button>
             </div>
           )}
 
-          {/* KHỐI TIÊU ĐIỂM BÁO CHÍ (HERO SPOTLIGHT SECTION) */}
+          {/* KHỐI TIÊU ĐIỂM BÁO CHÍ (FLAT HAIRLINE SPOTLIGHT SECTION) */}
           {newsFilter === "Tất cả" && newsSearch === "" && heroNews && (
             <div className="space-y-3">
               <div className="flex items-center justify-between">
-                <span className="text-xs font-extrabold text-slate-800 uppercase tracking-wider flex items-center gap-2">
-                  <Sparkles size={14} className="text-amber-500" /> Tiêu Điểm Truyền Thông Khu Phố
+                <span className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-2">
+                  <Sparkles size={14} className="text-amber-600" /> Tiêu Điểm Truyền Thông Khu Phố
                 </span>
-                <span className="text-[11px] text-slate-400 font-medium">Cập nhật liên tục 24/7</span>
+                <span className="text-xs text-slate-600 font-medium">Cập nhật liên tục 24/7</span>
               </div>
 
               <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
-                {/* Tin Tiêu Điểm Lớn (Hero Card - 7 cột) */}
-                <div 
+                {/* Tin Tiêu Điểm Lớn (Hero Card - Flat Hairline, NO dark overlay over text) */}
+                <div
                   onClick={() => setSelectedNewsForModal(heroNews)}
-                  className="lg:col-span-7 group relative bg-slate-900 rounded-3xl overflow-hidden shadow-lg border border-slate-200 cursor-pointer min-h-[360px] sm:min-h-[420px] flex flex-col justify-end transition-all hover:shadow-2xl"
+                  className="lg:col-span-7 group bg-white rounded-2xl overflow-hidden border border-slate-200 cursor-pointer flex flex-col justify-between transition-colors hover:border-emerald-300"
                 >
-                  <img 
-                    src={getNewsImage(heroNews)} 
-                    alt={heroNews.title} 
-                    className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-700 ease-out brightness-[0.88]"
-                  />
-                  <div className="absolute inset-0 bg-gradient-to-t from-slate-950/95 via-slate-900/50 to-transparent" />
-                  
-                  {/* Top Badges */}
-                  <div className="absolute top-4 left-4 right-4 flex items-center justify-between z-10">
-                    <div className="flex items-center gap-2">
-                      <span className="px-3 py-1 rounded-full text-[11px] font-black uppercase tracking-wider bg-rose-600 text-white shadow-md flex items-center gap-1.5">
-                        <Flame size={12} className="animate-pulse" /> TIÊU ĐIỂM
-                      </span>
-                      <span className="px-2.5 py-1 rounded-full text-[10px] font-extrabold bg-black/40 backdrop-blur-md text-white border border-white/20">
-                        {heroNews.category}
+                  <div className="relative h-56 sm:h-64 w-full bg-slate-100 overflow-hidden shrink-0">
+                    <img
+                      src={getNewsImage(heroNews)}
+                      alt={heroNews.title}
+                      className="w-full h-full object-cover"
+                    />
+                    <div className="absolute top-3 left-3 right-3 flex flex-wrap items-center justify-between gap-2">
+                      <div className="flex items-center gap-2">
+                        <span className="px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider bg-rose-700 text-white flex items-center gap-1.5">
+                          <Flame size={12} /> TIÊU ĐIỂM
+                        </span>
+                        <span className="px-2.5 py-1 rounded-full text-xs font-bold bg-white text-slate-800 border border-slate-200">
+                          {heroNews.category}
+                        </span>
+                      </div>
+                      <span className="px-2.5 py-1 rounded-full text-xs font-bold bg-white text-slate-700 border border-slate-200 font-mono">
+                        {heroNews.date}
                       </span>
                     </div>
-                    <span className="px-2.5 py-1 rounded-full text-[10px] font-bold bg-white/20 backdrop-blur-md text-white border border-white/20 font-mono">
-                      {heroNews.date}
-                    </span>
                   </div>
 
-                  {/* Bottom Content */}
-                  <div className="relative z-10 p-5 sm:p-7 space-y-3">
-                    <h2 className="text-lg sm:text-2xl font-black text-white leading-snug drop-shadow-sm group-hover:text-teal-200 transition-colors line-clamp-2">
-                      {heroNews.title}
-                    </h2>
-                    
-                    <p className="text-slate-200 text-xs sm:text-sm line-clamp-2 sm:line-clamp-3 leading-relaxed font-normal text-slate-100/90">
-                      {getNewsSummary(heroNews)}
-                    </p>
+                  {/* Crisp White Flat Content Body */}
+                  <div className="p-5 sm:p-6 space-y-3 flex-1 flex flex-col justify-between bg-white">
+                    <div className="space-y-2">
+                      <h2 className="text-lg sm:text-xl font-bold text-slate-900 leading-snug group-hover:text-emerald-700 transition-colors line-clamp-2">
+                        {heroNews.title}
+                      </h2>
+                      <p className="text-slate-600 text-xs sm:text-sm line-clamp-2 sm:line-clamp-3 leading-relaxed">
+                        {getNewsSummary(heroNews)}
+                      </p>
+                    </div>
 
-                    <div className="pt-3 border-t border-white/15 flex flex-wrap items-center justify-between gap-3 text-xs text-white/80">
+                    <div className="pt-3 border-t border-slate-100 flex flex-wrap items-center justify-between gap-3 text-xs text-slate-600">
                       <div className="flex items-center gap-4">
-                        <span className="flex items-center gap-1.5 font-medium">
-                          <User size={13} className="text-teal-400" /> {heroNews.author}
+                        <span className="flex items-center gap-1.5 font-medium text-slate-700">
+                          <User size={13} className="text-emerald-700" /> {heroNews.author}
                         </span>
-                        <span className="flex items-center gap-1.5 font-mono text-[11px]">
-                          <Clock size={12} className="text-teal-400" /> {getNewsReadTime(heroNews)}
+                        <span className="flex items-center gap-1.5 font-mono text-xs text-slate-600">
+                          <Clock size={12} className="text-emerald-700" /> {getNewsReadTime(heroNews)}
                         </span>
-                        <span className="hidden sm:flex items-center gap-1.5 font-mono text-[11px]">
-                          <Eye size={12} className="text-teal-400" /> {getNewsViews(heroNews)} đọc
+                        <span className="hidden sm:flex items-center gap-1.5 font-mono text-xs text-slate-600">
+                          <Eye size={12} className="text-emerald-700" /> {getNewsViews(heroNews)} đọc
                         </span>
                       </div>
 
-                      <span className="inline-flex items-center gap-1 font-bold text-teal-300 group-hover:translate-x-1 transition-transform">
+                      <span className="inline-flex items-center gap-1 font-bold text-emerald-700 group-hover:underline">
                         Đọc toàn văn <ChevronRight size={14} />
                       </span>
                     </div>
@@ -719,30 +853,30 @@ export default function CommunityEvents({
                             <img 
                               src={getNewsImage(subNews)} 
                               alt={subNews.title}
-                              className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" 
+                              className="w-full h-full object-cover" 
                             />
-                            <span className="absolute bottom-1 right-1 px-1.5 py-0.5 rounded text-[9px] font-mono bg-black/60 text-white backdrop-blur-xs">
+                            <span className="absolute bottom-1 right-1 px-1.5 py-0.5 rounded text-xs font-mono bg-black/60 text-white backdrop-blur-xs">
                               {getNewsReadTime(subNews)}
                             </span>
                           </div>
 
                           <div className="flex-1 space-y-1.5 min-w-0">
                             <div className="flex items-center justify-between gap-1">
-                              <span className={`text-[9px] font-extrabold px-2 py-0.5 rounded-full border ${theme.pill}`}>
+                              <span className={`text-xs font-extrabold px-2 py-0.5 rounded-full border ${theme.pill}`}>
                                 {subNews.category}
                               </span>
-                              <span className="text-[10px] text-slate-400 font-mono">{subNews.date}</span>
+                              <span className="text-xs text-slate-600 font-mono">{subNews.date}</span>
                             </div>
                             <h4 className="font-bold text-slate-900 text-xs sm:text-sm line-clamp-2 leading-snug group-hover:text-emerald-700 transition-colors">
                               {subNews.title}
                             </h4>
-                            <p className="text-slate-500 text-[11px] line-clamp-1 leading-relaxed">
+                            <p className="text-slate-500 text-xs line-clamp-1 leading-relaxed">
                               {getNewsSummary(subNews)}
                             </p>
                           </div>
                         </div>
 
-                        <div className="mt-2 pt-2 border-t border-slate-100 flex items-center justify-between text-[11px] text-slate-400">
+                        <div className="mt-2 pt-2 border-t border-slate-100 flex items-center justify-between text-xs text-slate-600">
                           <span className="truncate max-w-[160px] font-medium text-slate-600">
                             {subNews.author}
                           </span>
@@ -764,7 +898,7 @@ export default function CommunityEvents({
               
               {/* Search Box */}
               <div className="relative flex-1">
-                <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
+                <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-600" size={16} />
                 <input 
                   id="news-search-input"
                   name="newsSearch"
@@ -777,7 +911,7 @@ export default function CommunityEvents({
                 {newsSearch && (
                   <button 
                     onClick={() => handleNewsSearchChange("")}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-600 hover:text-slate-600"
                   >
                     <X size={14} />
                   </button>
@@ -789,14 +923,14 @@ export default function CommunityEvents({
                 <button
                   onClick={() => setViewMode("grid")}
                   title="Chế độ Lưới Ảnh Lớn"
-                  className={`p-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${viewMode === "grid" ? "bg-white text-emerald-800 shadow-xs" : "text-slate-500 hover:text-slate-800"}`}
+                  className={`min-h-[36px] px-2.5 py-1.5 rounded-lg text-xs font-bold transition-colors flex items-center gap-1.5 cursor-pointer ${viewMode === "grid" ? "bg-white text-emerald-800 border border-slate-200" : "text-slate-700 hover:text-slate-900"}`}
                 >
                   <LayoutGrid size={15} /> <span className="hidden sm:inline">Lưới ảnh</span>
                 </button>
                 <button
                   onClick={() => setViewMode("list")}
                   title="Chế độ Danh Sách Báo"
-                  className={`p-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${viewMode === "list" ? "bg-white text-emerald-800 shadow-xs" : "text-slate-500 hover:text-slate-800"}`}
+                  className={`min-h-[36px] px-2.5 py-1.5 rounded-lg text-xs font-bold transition-colors flex items-center gap-1.5 cursor-pointer ${viewMode === "list" ? "bg-white text-emerald-800 border border-slate-200" : "text-slate-700 hover:text-slate-900"}`}
                 >
                   <List size={15} /> <span className="hidden sm:inline">Dòng báo</span>
                 </button>
@@ -804,10 +938,11 @@ export default function CommunityEvents({
             </div>
 
             {/* Category Filter Pills */}
-            <div className="flex flex-wrap items-center gap-1.5 pt-1 border-t border-slate-100">
-              <span className="text-[11px] font-bold text-slate-400 mr-1 flex items-center gap-1">
+            <div className="pt-2 border-t border-slate-100 space-y-1.5">
+              <span className="text-xs font-bold text-slate-600 inline-flex items-center gap-1">
                 <Tag size={12} /> Chuyên mục:
               </span>
+              <div className="grid grid-cols-2 sm:flex sm:flex-wrap items-center gap-1.5">
               {[
                 { name: "Tất cả", icon: Newspaper, count: activeNewsList.length },
                 { name: "Thông báo khẩn", icon: AlertTriangle, count: activeNewsList.filter(n => n.category === "Thông báo khẩn").length },
@@ -822,20 +957,23 @@ export default function CommunityEvents({
                   <button
                     key={cat.name}
                     onClick={() => handleNewsFilterChange(cat.name)}
-                    className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-all cursor-pointer flex items-center gap-1.5
+                    className={`min-h-[36px] px-3 py-1.5 rounded-xl text-xs font-semibold transition-colors cursor-pointer flex items-center justify-between sm:justify-start gap-1.5
                       ${isSelected 
-                        ? "bg-emerald-700 text-white shadow-xs font-bold" 
-                        : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                        ? "bg-emerald-700 text-white font-bold" 
+                        : "bg-slate-100 text-slate-700 hover:bg-slate-200"
                       }`}
                   >
-                    <IconComponent size={12} />
-                    <span>{cat.name}</span>
-                    <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-mono ${isSelected ? "bg-white/25 text-white" : "bg-slate-200 text-slate-600"}`}>
+                    <span className="inline-flex items-center gap-1.5">
+                      <IconComponent size={12} />
+                      <span>{cat.name}</span>
+                    </span>
+                    <span className={`text-xs px-1.5 py-0.5 rounded-full font-mono ${isSelected ? "bg-emerald-950/60 text-white" : "bg-slate-200 text-slate-700"}`}>
                       {cat.count}
                     </span>
                   </button>
                 );
               })}
+              </div>
             </div>
           </div>
 
@@ -845,16 +983,16 @@ export default function CommunityEvents({
               <span className="text-xs font-extrabold text-slate-600 uppercase tracking-wider">
                 {newsFilter === "Tất cả" ? "Tất Cả Bản Tin Cập Nhật" : `Chuyên mục: ${newsFilter}`} ({filteredNews.length})
               </span>
-              <span className="text-xs text-slate-400">
+              <span className="text-xs text-slate-600">
                 Trang {activeNewsPage} / {totalNewsPages}
               </span>
             </div>
 
             {filteredNews.length === 0 ? (
-              <div className="bg-white p-12 text-center text-slate-400 border border-slate-200 rounded-3xl shadow-xs space-y-3">
+              <div className="bg-white p-12 text-center text-slate-600 border border-slate-200 rounded-3xl shadow-xs space-y-3">
                 <Newspaper size={40} className="mx-auto text-slate-300" />
                 <p className="font-semibold text-sm text-slate-600">Không tìm thấy bản tin nào phù hợp</p>
-                <p className="text-xs text-slate-400">Vui lòng thử tìm kiếm bằng từ khóa khác hoặc chuyển sang chuyên mục "Tất cả".</p>
+                <p className="text-xs text-slate-600">Vui lòng thử tìm kiếm bằng từ khóa khác hoặc chuyển sang chuyên mục "Tất cả".</p>
                 <button 
                   onClick={() => {
                     setNewsSearch("");
@@ -884,17 +1022,17 @@ export default function CommunityEvents({
                           <img 
                             src={imageUrl} 
                             alt={news.title}
-                            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500 ease-out" 
+                            className="w-full h-full object-cover" 
                             loading="lazy"
                           />
                           
                           {/* Badge Category overlay */}
                           <div className="absolute top-3 left-3 flex items-center gap-1.5">
-                            <span className={`text-[10px] font-black px-2.5 py-0.5 rounded-full border shadow-xs backdrop-blur-md ${theme.pill} bg-white/90`}>
+                            <span className={`text-xs font-black px-2.5 py-0.5 rounded-full border shadow-xs backdrop-blur-md ${theme.pill} bg-white/90`}>
                               {news.category}
                             </span>
                             {news.isPinned && (
-                              <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-rose-600 text-white shadow-xs flex items-center gap-1">
+                              <span className="text-xs font-black px-2 py-0.5 rounded-full bg-rose-600 text-white shadow-xs flex items-center gap-1">
                                 <Pin size={10} /> Ghim
                               </span>
                             )}
@@ -902,7 +1040,7 @@ export default function CommunityEvents({
 
                           {/* Read time and views badge */}
                           <div className="absolute bottom-2 right-2 flex items-center gap-1.5">
-                            <span className="text-[10px] font-mono bg-black/60 backdrop-blur-xs text-white px-2 py-0.5 rounded-md flex items-center gap-1">
+                            <span className="text-xs font-mono bg-black/60 backdrop-blur-xs text-white px-2 py-0.5 rounded-md flex items-center gap-1">
                               <Clock size={10} /> {getNewsReadTime(news)}
                             </span>
                           </div>
@@ -910,12 +1048,12 @@ export default function CommunityEvents({
 
                         {/* Article Snippet Content */}
                         <div className="p-4 sm:p-5 space-y-2.5">
-                          <div className="flex items-center justify-between text-[11px] text-slate-400 font-mono">
+                          <div className="flex items-center justify-between text-xs text-slate-600 font-mono">
                             <span className="flex items-center gap-1">
-                              <CalendarDays size={12} className="text-slate-400" /> {news.date}
+                              <CalendarDays size={12} className="text-slate-600" /> {news.date}
                             </span>
                             <span className="flex items-center gap-1">
-                              <Eye size={12} className="text-slate-400" /> {getNewsViews(news)}
+                              <Eye size={12} className="text-slate-600" /> {getNewsViews(news)}
                             </span>
                           </div>
 
@@ -929,12 +1067,12 @@ export default function CommunityEvents({
 
                           {/* Attached File indicator */}
                           {news.attachedFile && (
-                            <div className="mt-2.5 px-3 py-1.5 rounded-xl bg-slate-50 border border-slate-200/80 flex items-center justify-between text-[11px] text-slate-600">
+                            <div className="mt-2.5 px-3 py-1.5 rounded-xl bg-slate-50 border border-slate-200/80 flex items-center justify-between text-xs text-slate-600">
                               <span className="flex items-center gap-1.5 truncate max-w-[200px] font-medium">
                                 <FileText size={13} className="text-rose-500 shrink-0" />
                                 <span className="truncate">{news.attachedFile.name}</span>
                               </span>
-                              <span className="text-[10px] font-mono text-slate-400 shrink-0">
+                              <span className="text-xs font-mono text-slate-600 shrink-0">
                                 {news.attachedFile.size}
                               </span>
                             </div>
@@ -945,22 +1083,22 @@ export default function CommunityEvents({
                       {/* Card Footer with Author and Actions */}
                       <div className="p-4 sm:px-5 sm:py-3.5 bg-slate-50/50 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500">
                         <div className="flex items-center gap-2 truncate max-w-[180px]">
-                          <div className="w-6 h-6 rounded-full bg-emerald-100 text-emerald-800 flex items-center justify-center font-bold text-[10px] shrink-0">
+                          <div className="w-6 h-6 rounded-full bg-emerald-100 text-emerald-800 flex items-center justify-center font-bold text-xs shrink-0">
                             {news.author.charAt(0)}
                           </div>
-                          <span className="truncate text-[11px] font-medium text-slate-700">
+                          <span className="truncate text-xs font-medium text-slate-700">
                             {news.author}
                           </span>
                         </div>
 
-                        <div className="flex items-center gap-2 shrink-0">
+                        <div className="flex items-center gap-1.5 shrink-0">
                           <button
                             onClick={(e) => {
                               e.stopPropagation();
                               handleOpenEditNews(news);
                             }}
                             title="Sửa bản tin"
-                            className="p-1 rounded-lg text-slate-400 hover:text-blue-600 hover:bg-blue-50 transition-colors cursor-pointer"
+                            className="min-h-[36px] min-w-[36px] inline-flex items-center justify-center p-1.5 rounded-lg text-slate-600 hover:text-blue-700 hover:bg-blue-50 border border-slate-200 transition-colors cursor-pointer"
                           >
                             <Edit3 size={13} />
                           </button>
@@ -970,11 +1108,11 @@ export default function CommunityEvents({
                               handleDeleteNewsItem(news.id, news.title);
                             }}
                             title="Xóa bản tin"
-                            className="p-1 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors cursor-pointer"
+                            className="min-h-[36px] min-w-[36px] inline-flex items-center justify-center p-1.5 rounded-lg text-slate-600 hover:text-rose-700 hover:bg-rose-50 border border-slate-200 transition-colors cursor-pointer"
                           >
                             <Trash2 size={13} />
                           </button>
-                          <span className="text-emerald-700 font-bold text-xs flex items-center gap-0.5 group-hover:translate-x-0.5 transition-transform ml-1">
+                          <span className="text-emerald-700 font-bold text-xs flex items-center gap-0.5 ml-1">
                             Đọc tiếp <ChevronRight size={13} />
                           </span>
                         </div>
@@ -1000,18 +1138,18 @@ export default function CommunityEvents({
                         <img 
                           src={imageUrl} 
                           alt={news.title}
-                          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" 
+                          className="w-full h-full object-cover" 
                         />
-                        <span className={`absolute top-2 left-2 text-[9px] font-black px-2 py-0.5 rounded-full border shadow-xs bg-white/95 ${theme.pill}`}>
+                        <span className={`absolute top-2 left-2 text-xs font-black px-2 py-0.5 rounded-full border shadow-xs bg-white/95 ${theme.pill}`}>
                           {news.category}
                         </span>
-                        <span className="absolute bottom-2 right-2 text-[10px] font-mono bg-black/60 text-white px-1.5 py-0.5 rounded">
+                        <span className="absolute bottom-2 right-2 text-xs font-mono bg-black/60 text-white px-1.5 py-0.5 rounded">
                           {getNewsReadTime(news)}
                         </span>
                       </div>
 
                       <div className="flex-1 space-y-2 min-w-0">
-                        <div className="flex items-center gap-3 text-xs text-slate-400 font-mono">
+                        <div className="flex items-center gap-3 text-xs text-slate-600 font-mono">
                           <span className="flex items-center gap-1 font-semibold text-slate-600">
                             <CalendarDays size={13} /> {news.date}
                           </span>
@@ -1039,7 +1177,7 @@ export default function CommunityEvents({
                             <User size={12} className="text-emerald-600" /> {news.author}
                           </span>
                           {news.attachedFile && (
-                            <span className="text-[11px] font-mono text-rose-600 flex items-center gap-1 bg-rose-50 px-2 py-0.5 rounded-md">
+                            <span className="text-xs font-mono text-rose-600 flex items-center gap-1 bg-rose-50 px-2 py-0.5 rounded-md">
                               <FileText size={11} /> {news.attachedFile.name}
                             </span>
                           )}
@@ -1088,15 +1226,15 @@ export default function CommunityEvents({
           
           {/* Quick Info Grid for Events */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <div className="bg-gradient-to-tr from-teal-700 to-emerald-800 text-white p-5 rounded-2xl shadow-sm space-y-4">
+            <div className="bg-white border border-slate-200 border-l-4 border-l-emerald-600 text-slate-900 p-5 rounded-2xl space-y-3">
               <div className="flex justify-between items-start">
-                <div className="p-2.5 rounded-xl bg-white/10 backdrop-blur-xs"><CalendarDays size={22} /></div>
-                <span className="text-[10px] bg-white/20 font-bold uppercase tracking-widest px-2.5 py-0.5 rounded-full">Sử dụng trụ sở</span>
+                <div className="p-2.5 rounded-xl bg-emerald-50 text-emerald-700 border border-emerald-200"><CalendarDays size={20} /></div>
+                <span className="text-xs bg-emerald-50 text-emerald-800 border border-emerald-200 font-bold uppercase tracking-wider px-2.5 py-0.5 rounded-full">Sử dụng trụ sở</span>
               </div>
               <div>
-                <span className="text-teal-200 text-[10px] font-bold uppercase tracking-wider block">Phòng hội họp Nhà Văn hóa</span>
-                <h3 className="text-base font-bold">Trụ sở sinh hoạt Khu phố 3</h3>
-                <p className="text-[11px] text-teal-100/80 mt-1 leading-relaxed">Luôn mở cửa phục vụ các chi hội đoàn thể họp định kỳ và tổ chức sinh hoạt kỹ năng cho con em hẻm nội khu.</p>
+                <span className="text-emerald-700 text-xs font-bold uppercase tracking-wider block">Phòng hội họp Nhà Văn hóa</span>
+                <h3 className="text-base font-bold text-slate-900 mt-0.5">Trụ sở sinh hoạt Khu phố 3</h3>
+                <p className="text-xs text-slate-600 mt-1 leading-relaxed">Luôn mở cửa phục vụ các chi hội đoàn thể họp định kỳ và tổ chức sinh hoạt cộng đồng.</p>
               </div>
             </div>
 
@@ -1106,9 +1244,9 @@ export default function CommunityEvents({
                 <span className="text-xs text-emerald-600 font-extrabold font-mono bg-emerald-50 px-2.5 py-0.5 rounded">Tích cực</span>
               </div>
               <div>
-                <span className="text-slate-400 text-[10px] font-bold uppercase tracking-wider block">Thống kê Sự kiện Năm nay</span>
+                <span className="text-slate-600 text-xs font-bold uppercase tracking-wider block">Thống kê Sự kiện Năm nay</span>
                 <h3 className="text-lg font-bold text-slate-800">{events.length} hoạt động phong trào</h3>
-                <p className="text-[11px] text-slate-500 mt-1">Nỗ lực đạt 100% chỉ tiêu phong trào văn nghệ và phong trào dân vận khéo phường giao phó.</p>
+                <p className="text-xs text-slate-500 mt-1">Nỗ lực đạt 100% chỉ tiêu phong trào văn nghệ và phong trào dân vận khéo phường giao phó.</p>
               </div>
             </div>
 
@@ -1118,26 +1256,77 @@ export default function CommunityEvents({
                 <span className="text-xs text-amber-600 font-extrabold bg-amber-50 px-2 py-0.5 rounded">Văn hóa</span>
               </div>
               <div>
-                <span className="text-slate-400 text-[10px] font-bold uppercase tracking-wider block">Chuẩn mực lối sống</span>
+                <span className="text-slate-600 text-xs font-bold uppercase tracking-wider block">Chuẩn mực lối sống</span>
                 <h3 className="text-base font-bold text-slate-800">Gia đình Văn hóa xuất sắc</h3>
-                <p className="text-[11px] text-slate-500 mt-1">Đạt tỷ lệ cao các hộ dân đăng ký thi đua lối sống văn minh đô thị.</p>
+                <p className="text-xs text-slate-500 mt-1">Đạt tỷ lệ cao các hộ dân đăng ký thi đua lối sống văn minh đô thị.</p>
               </div>
             </div>
           </div>
 
+          {/* Cultural Hall Venue Schedule Strip (Lịch đặt chỗ Nhà Văn hóa KP3) */}
+          <div className="bg-white rounded-2xl border border-slate-200 p-4 sm:p-5 space-y-3">
+            <div>
+              <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
+                <MapPin size={15} className="text-emerald-700" />
+                Lịch sử dụng &amp; Đặt phòng Nhà Văn hóa Khu phố 3
+              </h3>
+              <p className="text-xs text-slate-600 mt-0.5">
+                Theo dõi tình trạng đăng ký hội trường và chọn phòng để lên lịch mới nhanh chóng
+              </p>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+              {CULTURAL_VENUES.map((venue) => {
+                const venueShort = venue.split("(")[0].trim();
+                const bookedEvents = events.filter(
+                  (e) =>
+                    e.status !== "Đã kết thúc" &&
+                    e.status !== "Đã hủy" &&
+                    (e.location.toLowerCase().includes(venueShort.toLowerCase().slice(0, 12)) ||
+                      (venue === CULTURAL_VENUES[0] && e.location.toLowerCase().includes("nhà văn hóa")))
+                );
+                return (
+                  <div
+                    key={venue}
+                    className="p-3 rounded-xl border border-slate-200 bg-slate-50/70 flex flex-col justify-between gap-2.5"
+                  >
+                    <div>
+                      <span className="text-xs font-bold text-slate-900 leading-snug block">{venue}</span>
+                      <p className="text-xs text-slate-600 mt-1">
+                        {bookedEvents.length > 0
+                          ? `${bookedEvents.length} lịch sắp tới: ${bookedEvents[0].dateTime}`
+                          : "Trống lịch — Sẵn sàng đặt chỗ"}
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setLocation(venue);
+                        setShowEventModal(true);
+                      }}
+                      className="w-full py-1.5 px-2.5 bg-white hover:bg-emerald-50 border border-slate-200 hover:border-emerald-300 text-emerald-800 rounded-lg text-xs font-semibold transition-colors cursor-pointer text-center"
+                    >
+                      + Đặt phòng này
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
           {/* Event Filters */}
-          <div className="flex border-b border-slate-200 gap-6">
+          <div className="flex flex-wrap border-b border-slate-200 gap-4 sm:gap-6">
             {(["Tất cả", "Sắp diễn ra", "Đang diễn ra", "Đã kết thúc"] as const).map((tab) => (
               <button
                 key={tab}
+                type="button"
                 onClick={() => handleEventFilterChange(tab)}
-                className={`pb-3 text-xs font-semibold transition-all relative cursor-pointer
-                  ${eventFilter === tab ? "text-teal-700 font-bold" : "text-slate-400 hover:text-slate-600"}
+                className={`pb-3 text-xs font-semibold transition-colors relative cursor-pointer
+                  ${eventFilter === tab ? "text-emerald-700 font-bold" : "text-slate-600 hover:text-slate-900"}
                 `}
               >
                 {tab}
                 {eventFilter === tab && (
-                  <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-teal-600 rounded-full" />
+                  <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-emerald-600 rounded-full" />
                 )}
               </button>
             ))}
@@ -1146,110 +1335,171 @@ export default function CommunityEvents({
           {/* Event Cards Grid với Ảnh Minh Họa Sống Động */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {filteredEvents.length === 0 ? (
-              <div className="col-span-full bg-white rounded-3xl border border-slate-200 p-12 text-center text-xs text-slate-400">
+              <div className="col-span-full bg-white rounded-2xl border border-slate-200 p-12 text-center text-xs text-slate-600">
                 Không tìm thấy sự kiện hay hoạt động đoàn thể nào tương ứng bộ lọc.
               </div>
             ) : (
               paginatedEvents.map((ev) => {
                 const statusConfigs = {
                   "Sắp diễn ra": { text: "Sắp diễn ra", color: "bg-blue-50 text-blue-700 border-blue-200", icon: Clock },
-                  "Đang diễn ra": { text: "Đang diễn ra", color: "bg-amber-50 text-amber-700 border-amber-200 animate-pulse", icon: Sparkles },
+                  "Đang diễn ra": { text: "Đang diễn ra", color: "bg-amber-50 text-amber-800 border-amber-200", icon: Sparkles },
                   "Đã kết thúc": { text: "Đã hoàn thành", color: "bg-emerald-50 text-emerald-700 border-emerald-200", icon: CheckCircle2 },
-                  "Đã hủy": { text: "Đã hủy", color: "bg-rose-50 text-rose-500 border-rose-200", icon: AlertTriangle }
+                  "Đã hủy": { text: "Đã hủy", color: "bg-rose-50 text-rose-700 border-rose-200", icon: AlertTriangle }
                 };
 
                 const conf = statusConfigs[ev.status];
                 const StatusIcon = conf.icon;
-                const eventImg = (ev.imageUrl && !ev.imageUrl.includes("1555696958")) 
-                  ? ev.imageUrl 
+                const eventImg = (ev.imageUrl && !ev.imageUrl.includes("1555696958"))
+                  ? ev.imageUrl
                   : (ev.id === "EV001" ? COVER_PRESETS[6].url : ev.id === "EV002" ? COVER_PRESETS[4].url : COVER_PRESETS[5].url);
+                const rsvpInfo = eventRsvpMap[ev.id] || { registered: false, extraCount: 0 };
+                const totalAttendees = (ev.expectedAttendees || 0) + (rsvpInfo.extraCount || 0);
 
                 return (
-                  <div 
+                  <div
                     key={ev.id}
                     id={`event-card-${ev.id}`}
-                    className="group bg-white rounded-2xl border border-slate-200/80 shadow-xs hover:shadow-xl hover:border-teal-300 transition-all flex flex-col justify-between overflow-hidden"
+                    className="group bg-white rounded-2xl border border-slate-200 hover:border-emerald-300 transition-colors flex flex-col justify-between overflow-hidden"
                   >
                     <div>
                       {/* Event Cover Image */}
-                      <div className="relative aspect-video w-full overflow-hidden bg-slate-100">
-                        <img 
-                          src={eventImg} 
-                          alt={ev.title} 
-                          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                      <div
+                        className="relative aspect-video w-full overflow-hidden bg-slate-100 cursor-pointer"
+                        onClick={() => setSelectedEventForModal(ev)}
+                      >
+                        <img
+                          src={eventImg}
+                          alt={ev.title}
+                          className="w-full h-full object-cover"
                         />
                         <div className="absolute top-3 left-3">
-                          <span className={`text-[10px] font-extrabold px-2.5 py-1 rounded-full border shadow-xs backdrop-blur-md bg-white/95 flex items-center gap-1 ${conf.color}`}>
+                          <span className={`text-xs font-bold px-2.5 py-1 rounded-full border bg-white flex items-center gap-1 ${conf.color}`}>
                             <StatusIcon size={12} /> {conf.text}
                           </span>
                         </div>
-                        <span className="absolute bottom-2 right-2 text-[10px] text-white font-mono font-bold bg-black/60 px-2 py-0.5 rounded-md backdrop-blur-xs">
+                        <span className="absolute bottom-2 right-2 text-xs text-slate-900 font-mono font-bold bg-white/95 border border-slate-200 px-2 py-0.5 rounded-md">
                           {ev.id}
                         </span>
                       </div>
 
                       <div className="p-4 sm:p-5 space-y-3">
-                        <h3 className="font-bold text-slate-800 text-sm leading-snug line-clamp-2 group-hover:text-teal-700 transition-colors">
+                        <button
+                          type="button"
+                          onClick={() => setSelectedEventForModal(ev)}
+                          className="text-left font-bold text-slate-900 text-sm leading-snug line-clamp-2 group-hover:text-emerald-700 transition-colors cursor-pointer"
+                        >
                           {ev.title}
-                        </h3>
-                        <p className="text-slate-500 text-xs line-clamp-3 leading-relaxed">
+                        </button>
+                        <p className="text-slate-600 text-xs line-clamp-3 leading-relaxed">
                           {ev.description}
                         </p>
 
                         <div className="space-y-2 pt-3 border-t border-slate-100 text-xs">
-                          <div className="flex items-center gap-2 text-slate-600">
-                            <CalendarDays size={14} className="text-teal-600 shrink-0" />
-                            <span className="font-semibold font-mono text-[11px]">{ev.dateTime}</span>
+                          <div className="flex items-center gap-2 text-slate-700">
+                            <CalendarDays size={14} className="text-emerald-700 shrink-0" />
+                            <span className="font-semibold font-mono text-xs">{ev.dateTime}</span>
                           </div>
 
-                          <div className="flex items-center gap-2 text-slate-600">
-                            <MapPin size={14} className="text-rose-500 shrink-0" />
+                          <div className="flex items-center gap-2 text-slate-700">
+                            <MapPin size={14} className="text-rose-600 shrink-0" />
                             <span className="truncate">{ev.location}</span>
                           </div>
 
-                          <div className="flex items-center justify-between text-slate-400 pt-1">
-                            <span className="text-[10px] font-semibold truncate max-w-[150px] text-slate-700">
+                          <div className="flex items-center justify-between pt-1 gap-2">
+                            <span className="text-xs font-semibold truncate max-w-[160px] text-slate-700">
                               Tổ chức: {ev.organizer}
                             </span>
-                            <span className="text-[10px] font-bold bg-slate-100 text-slate-700 px-2 py-0.5 rounded-full flex items-center gap-1">
-                              <Users size={10} /> {ev.expectedAttendees} người
+                            <span className="text-xs font-bold bg-slate-100 text-slate-800 px-2.5 py-0.5 rounded-full flex items-center gap-1 shrink-0">
+                              <Users size={12} /> {totalAttendees} người
                             </span>
                           </div>
                         </div>
                       </div>
                     </div>
 
-                    {/* Operations */}
-                    <div className="p-3 bg-slate-50/70 border-t border-slate-100 flex gap-2">
-                      {ev.status === "Sắp diễn ra" && (
-                        <>
-                          <button
-                            onClick={() => onUpdateEventStatus(ev.id, "Đang diễn ra")}
-                            className="flex-1 text-[11px] font-bold py-1.5 px-2 bg-amber-50 hover:bg-amber-100 border border-amber-200 text-amber-700 rounded-lg transition-colors cursor-pointer text-center"
-                          >
-                            Bắt đầu ngay
-                          </button>
-                          <button
-                            onClick={() => onUpdateEventStatus(ev.id, "Đã kết thúc")}
-                            className="flex-1 text-[11px] font-bold py-1.5 px-2 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 text-emerald-700 rounded-lg transition-colors cursor-pointer text-center"
-                          >
-                            Hoàn tất sớm
-                          </button>
-                        </>
-                      )}
-                      {ev.status === "Đang diễn ra" && (
+                    {/* Operations & RSVP */}
+                    <div className="p-3 bg-slate-50 border-t border-slate-200 space-y-2">
+                      {ev.status !== "Đã kết thúc" && ev.status !== "Đã hủy" && (
                         <button
-                          onClick={() => onUpdateEventStatus(ev.id, "Đã kết thúc")}
-                          className="w-full text-[11px] font-bold py-1.5 px-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg transition-colors cursor-pointer text-center"
+                          type="button"
+                          onClick={() => handleToggleRsvp(ev.id, ev.title)}
+                          className={`w-full text-xs font-bold py-1.5 px-3 rounded-lg border transition-colors cursor-pointer flex items-center justify-center gap-1.5 ${
+                            rsvpInfo.registered
+                              ? "bg-emerald-700 border-emerald-700 text-white"
+                              : "bg-white hover:bg-emerald-50 border-slate-200 text-emerald-800"
+                          }`}
                         >
-                          Xác nhận Đã tổ chức xong
+                          <CheckCircle2 size={13} />
+                          {rsvpInfo.registered ? "Đã đăng ký tham dự (Bấm để hủy)" : "Đăng ký tham dự (RSVP)"}
                         </button>
                       )}
-                      {ev.status === "Đã kết thúc" && (
-                        <div className="w-full text-[11px] text-slate-400 text-center font-semibold py-1">
-                          ✓ Đã lưu trữ hồ sơ hoạt động
+                      <div className="flex gap-2">
+                        {ev.status === "Sắp diễn ra" && (
+                          <>
+                            <button
+                              type="button"
+                              onClick={() => onUpdateEventStatus(ev.id, "Đang diễn ra")}
+                              className="flex-1 text-xs font-bold py-1.5 px-2 bg-amber-50 hover:bg-amber-100 border border-amber-200 text-amber-800 rounded-lg transition-colors cursor-pointer text-center"
+                            >
+                              Bắt đầu ngay
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => onUpdateEventStatus(ev.id, "Đã kết thúc")}
+                              className="flex-1 text-xs font-bold py-1.5 px-2 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 text-emerald-800 rounded-lg transition-colors cursor-pointer text-center"
+                            >
+                              Hoàn tất sớm
+                            </button>
+                          </>
+                        )}
+                        {ev.status === "Đang diễn ra" && (
+                          <button
+                            type="button"
+                            onClick={() => onUpdateEventStatus(ev.id, "Đã kết thúc")}
+                            className="w-full text-xs font-bold py-1.5 px-2 bg-emerald-700 hover:bg-emerald-800 text-white rounded-lg transition-colors cursor-pointer text-center"
+                          >
+                            Xác nhận Đã tổ chức xong
+                          </button>
+                        )}
+                        {ev.status === "Đã kết thúc" && (
+                          <div className="w-full text-xs text-slate-600 text-center font-semibold py-1">
+                            ✓ Đã lưu trữ hồ sơ hoạt động
+                          </div>
+                        )}
+                      </div>
+                      <div className="flex items-center justify-between gap-1.5 pt-2 border-t border-slate-200/80">
+                        <button
+                          type="button"
+                          onClick={() => setSelectedEventForModal(ev)}
+                          className="px-2.5 py-1.5 bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 rounded-lg text-xs font-semibold inline-flex items-center gap-1 cursor-pointer"
+                        >
+                          <Eye size={13} /> Chi tiết
+                        </button>
+                        <div className="flex items-center gap-1">
+                          {onUpdateEvent && (
+                            <button
+                              type="button"
+                              onClick={() => handleOpenEditEvent(ev)}
+                              className="p-1.5 bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 rounded-lg cursor-pointer"
+                              title="Chỉnh sửa sự kiện"
+                              aria-label={`Chỉnh sửa sự kiện ${ev.title}`}
+                            >
+                              <Edit3 size={13} />
+                            </button>
+                          )}
+                          {onDeleteEvent && (
+                            <button
+                              type="button"
+                              onClick={() => setDeleteEventTarget({ id: ev.id, title: ev.title })}
+                              className="p-1.5 bg-white hover:bg-rose-50 text-rose-700 border border-rose-200 rounded-lg cursor-pointer"
+                              title="Xóa sự kiện"
+                              aria-label={`Xóa sự kiện ${ev.title}`}
+                            >
+                              <Trash2 size={13} />
+                            </button>
+                          )}
                         </div>
-                      )}
+                      </div>
                     </div>
                   </div>
                 );
@@ -1294,7 +1544,7 @@ export default function CommunityEvents({
                   setShowNewsModal(false);
                   resetNewsForm();
                 }}
-                className="p-1.5 rounded-full text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors cursor-pointer"
+                className="p-1.5 rounded-full text-slate-600 hover:text-slate-600 hover:bg-slate-100 transition-colors cursor-pointer"
               >
                 <X size={18} />
               </button>
@@ -1320,17 +1570,18 @@ export default function CommunityEvents({
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div className="space-y-1">
                   <label className="text-xs font-bold text-slate-700 block">Chuyên mục Bản tin</label>
-                  <select
+                  <ReportSelect
+                    aria-label="Chuyên mục Bản tin"
                     value={newNewsCategory}
-                    onChange={(e) => setNewNewsCategory(e.target.value as any)}
-                    className="w-full px-3 py-2.5 border border-slate-200 rounded-xl text-xs bg-white focus:outline-none focus:border-emerald-500 font-medium"
-                  >
-                    <option value="Hành chính">📋 Hành chính</option>
-                    <option value="Thông báo khẩn">🚨 Thông báo khẩn</option>
-                    <option value="Y tế & Đời sống">🏥 Y tế & Đời sống</option>
-                    <option value="Phong trào">🌿 Phong trào</option>
-                    <option value="An sinh xã hội">💖 An sinh xã hội</option>
-                  </select>
+                    onChange={(val) => setNewNewsCategory(val as LocalNews["category"])}
+                    options={[
+                      { value: "Hành chính", label: "Hành chính" },
+                      { value: "Thông báo khẩn", label: "Thông báo khẩn" },
+                      { value: "Y tế & Đời sống", label: "Y tế & Đời sống" },
+                      { value: "Phong trào", label: "Phong trào" },
+                      { value: "An sinh xã hội", label: "An sinh xã hội" }
+                    ]}
+                  />
                 </div>
 
                 <div className="space-y-1">
@@ -1379,7 +1630,7 @@ export default function CommunityEvents({
                   <span className="flex items-center gap-1.5">
                     <ImageIcon size={14} className="text-emerald-600" /> Chọn ảnh bìa minh họa sinh động:
                   </span>
-                  <span className="text-[11px] text-emerald-700 font-medium">Bấm vào ảnh mẫu để chọn nhanh</span>
+                  <span className="text-xs text-emerald-700 font-medium">Bấm vào ảnh mẫu để chọn nhanh</span>
                 </label>
 
                 {/* Preset image cards */}
@@ -1400,7 +1651,7 @@ export default function CommunityEvents({
                           />
                         </div>
                         <div className="p-1.5 bg-white text-center">
-                          <span className="text-[10px] font-bold text-slate-800 truncate block">
+                          <span className="text-xs font-bold text-slate-800 truncate block">
                             {preset.label}
                           </span>
                         </div>
@@ -1465,9 +1716,9 @@ export default function CommunityEvents({
                 >
                   Hủy bỏ
                 </button>
-                <button 
-                  type="submit" 
-                  className="px-5 py-2.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white font-bold rounded-xl transition-all shadow-sm cursor-pointer"
+                <button
+                  type="submit"
+                  className="px-5 py-2.5 bg-emerald-700 hover:bg-emerald-800 text-white font-bold rounded-xl transition-colors cursor-pointer"
                 >
                   {editingNews ? "Cập nhật bài viết" : "Phát hành bản tin ngay"}
                 </button>
@@ -1478,30 +1729,41 @@ export default function CommunityEvents({
       )}
 
       {/* ========================================================
-          MODAL 2: ADD EVENT / BOOKING (LÊN LỊCH SỰ KIỆN NHÀ VĂN HÓA)
+          MODAL 2: ADD / EDIT EVENT / BOOKING (LÊN LỊCH / SỬA SỰ KIỆN)
           ======================================================== */}
       {showEventModal && (
-        <div className="fixed inset-0 bg-slate-900/60 flex items-center justify-center z-50 p-4 backdrop-blur-sm animate-in fade-in duration-150">
-          <div className="bg-white rounded-3xl shadow-2xl border border-slate-200 w-full max-w-xl max-h-[90vh] overflow-hidden flex flex-col animate-in zoom-in-95 duration-150">
-            <div className="bg-gradient-to-r from-slate-50 via-white to-teal-50/50 p-5 border-b border-slate-200 flex justify-between items-center shrink-0">
-              <div className="flex items-center gap-3">
-                <div className="p-2.5 rounded-2xl bg-teal-100 text-teal-700">
-                  <CalendarDays size={20} />
-                </div>
-                <div>
-                  <h3 className="font-black text-base text-slate-800">Lên lịch hoạt động & Đặt chỗ Nhà văn hóa</h3>
-                  <p className="text-xs text-slate-500 font-normal">Quản lý không gian sinh hoạt cộng đồng, hội họp dân cư</p>
-                </div>
-              </div>
+        <Modal
+          isOpen={showEventModal}
+          onClose={() => {
+            setShowEventModal(false);
+            resetEventForm();
+          }}
+          title={editingEvent ? "Chỉnh sửa sự kiện cộng đồng" : "Lên lịch hoạt động & Đặt chỗ Nhà văn hóa"}
+          description="Quản lý không gian sinh hoạt cộng đồng, hội họp dân cư"
+          size="xl"
+          footer={
+            <div className="flex justify-end gap-2">
               <button 
-                onClick={() => setShowEventModal(false)}
-                className="p-1.5 rounded-full text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors cursor-pointer"
+                type="button" 
+                onClick={() => {
+                  setShowEventModal(false);
+                  resetEventForm();
+                }}
+                className="min-h-9 px-4 py-1.5 border border-slate-200 bg-white hover:bg-slate-100 rounded-lg text-xs font-semibold text-slate-700 transition-colors cursor-pointer"
               >
-                <X size={18} />
+                Hủy bỏ
+              </button>
+              <button 
+                type="submit" 
+                form="kp3-event-editor-form"
+                className="min-h-9 px-4 py-1.5 bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-semibold rounded-lg transition-colors cursor-pointer"
+              >
+                {editingEvent ? "Lưu cập nhật sự kiện" : "Đăng ký Đặt chỗ"}
               </button>
             </div>
-            
-            <form onSubmit={handleAddEventSubmit} className="p-5 sm:p-6 space-y-4 overflow-y-auto flex-1 text-xs">
+          }
+        >
+          <form id="kp3-event-editor-form" onSubmit={handleAddEventSubmit} className="space-y-4 text-xs">
               <div className="space-y-1">
                 <label className="text-xs font-semibold text-slate-700 block">Tên sự kiện / Hoạt động phong trào *</label>
                 <input 
@@ -1550,13 +1812,12 @@ export default function CommunityEvents({
                   />
                 </div>
                 <div className="space-y-1">
-                  <label className="text-xs font-semibold text-slate-700 block">Địa điểm mượn *</label>
-                  <input 
-                    type="text" 
-                    required
-                    value={location}
-                    onChange={(e) => setLocation(e.target.value)}
-                    className="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs focus:outline-none focus:border-teal-500"
+                  <label className="text-xs font-semibold text-slate-700 block">Địa điểm / Phòng Nhà Văn hóa *</label>
+                  <ReportSelect
+                    aria-label="Chọn phòng Nhà Văn hóa"
+                    value={CULTURAL_VENUES.includes(location) ? location : CULTURAL_VENUES[0]}
+                    onChange={(val) => setLocation(val)}
+                    options={CULTURAL_VENUES.map((v) => ({ value: v, label: v }))}
                   />
                 </div>
               </div>
@@ -1573,201 +1834,355 @@ export default function CommunityEvents({
                 />
               </div>
 
-              <div className="p-3 bg-amber-50 rounded-xl border border-amber-200 text-[11px] text-amber-800 flex gap-2">
+              <div className="p-3 bg-amber-50 rounded-xl border border-amber-200 text-xs text-amber-800 flex gap-2">
                 <AlertTriangle size={15} className="shrink-0 text-amber-600" />
                 <p><strong>Quy định sử dụng:</strong> Các tổ chức có trách nhiệm giữ gìn vệ sinh, tắt toàn bộ điều hòa, thiết bị điện trước khi bàn giao chìa khóa cho Tổ quản lý Nhà văn hóa.</p>
               </div>
-
-              <div className="pt-4 border-t border-slate-200 flex justify-end gap-3 text-sm">
-                <button 
-                  type="button" 
-                  onClick={() => setShowEventModal(false)}
-                  className="px-4 py-2 border border-slate-200 rounded-xl text-slate-600 hover:bg-slate-50 transition-colors cursor-pointer"
-                >
-                  Hủy bỏ
-                </button>
-                <button 
-                  type="submit" 
-                  className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl transition-all cursor-pointer"
-                >
-                  Đăng ký Đặt chỗ
-                </button>
-              </div>
             </form>
-          </div>
-        </div>
+        </Modal>
       )}
+
+      {/* ========================================================
+          MODAL 2B: VIEW EVENT DETAILS (XEM CHI TIẾT SỰ KIỆN KP3)
+          ======================================================== */}
+      {selectedEventForModal && (() => {
+        const navList = filteredEvents.length > 0 ? filteredEvents : events;
+        const currentIdx = navList.findIndex(e => e.id === selectedEventForModal.id);
+        const totalNav = navList.length;
+        const hasPrev = currentIdx > 0;
+        const hasNext = currentIdx >= 0 && currentIdx < totalNav - 1;
+        const shortEvId = formatShortRecordId(selectedEventForModal.id, "EV");
+        const rsvpInfo = eventRsvpMap[selectedEventForModal.id] || { registered: false, extraCount: 0 };
+        const totalAttendees = (selectedEventForModal.expectedAttendees || 0) + (rsvpInfo.extraCount || 0);
+        const eventImg = (selectedEventForModal.imageUrl && !selectedEventForModal.imageUrl.includes("1555696958"))
+          ? selectedEventForModal.imageUrl
+          : COVER_PRESETS[6].url;
+
+        return (
+          <Modal
+            isOpen={Boolean(selectedEventForModal)}
+            onClose={() => setSelectedEventForModal(null)}
+            size="2xl"
+            ariaLabel={`Chi tiết sự kiện ${selectedEventForModal.title}`}
+            headerNavigation={
+              totalNav > 1 && currentIdx >= 0
+                ? {
+                    positionText: `Sự kiện ${currentIdx + 1}/${totalNav}`,
+                    hasPrev,
+                    hasNext,
+                    onPrev: () => hasPrev && setSelectedEventForModal(navList[currentIdx - 1]),
+                    onNext: () => hasNext && setSelectedEventForModal(navList[currentIdx + 1]),
+                    prevLabel: "Sự kiện trước",
+                    nextLabel: "Sự kiện tiếp theo",
+                  }
+                : undefined
+            }
+            headerSlot={
+              <div className="space-y-1.5">
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="font-mono text-xs font-semibold px-2 py-0.5 rounded-md bg-slate-100 text-slate-700 border border-slate-200">
+                    MÃ: {shortEvId}
+                  </span>
+                  <span className="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200">
+                    {selectedEventForModal.status}
+                  </span>
+                </div>
+                <h2 className="text-base sm:text-lg font-bold text-slate-900 leading-snug">
+                  {selectedEventForModal.title}
+                </h2>
+              </div>
+            }
+            bodyClassName="p-4 sm:p-5 bg-slate-50/70 space-y-4 text-xs sm:text-sm"
+            footer={
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div className="flex flex-wrap items-center gap-2">
+                  {selectedEventForModal.status !== "Đã kết thúc" && selectedEventForModal.status !== "Đã hủy" && (
+                    <button
+                      type="button"
+                      onClick={() => handleToggleRsvp(selectedEventForModal.id, selectedEventForModal.title)}
+                      className={`min-h-9 px-3 py-1.5 rounded-lg border text-xs font-semibold inline-flex items-center gap-1.5 cursor-pointer ${
+                        rsvpInfo.registered
+                          ? "bg-emerald-50 border-emerald-200 text-emerald-800"
+                          : "bg-white hover:bg-slate-50 border-slate-200 text-slate-700"
+                      }`}
+                    >
+                      <CheckCircle2 size={14} />
+                      <span>{rsvpInfo.registered ? "Đã đăng ký tham dự" : "Đăng ký tham dự"}</span>
+                    </button>
+                  )}
+                </div>
+
+                <div className="flex flex-wrap items-center gap-2">
+                  {onDeleteEvent && (
+                    <button
+                      type="button"
+                      onClick={() => setDeleteEventTarget({ id: selectedEventForModal.id, title: selectedEventForModal.title })}
+                      className="min-h-9 px-3 py-1.5 border border-rose-200 text-rose-700 hover:bg-rose-50 rounded-lg text-xs font-semibold inline-flex items-center gap-1.5 cursor-pointer"
+                    >
+                      <Trash2 size={13} /> Xóa sự kiện
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => setSelectedEventForModal(null)}
+                    className="min-h-9 px-3.5 py-1.5 border border-slate-200 bg-white hover:bg-slate-100 text-slate-700 rounded-lg text-xs font-semibold cursor-pointer"
+                  >
+                    Đóng
+                  </button>
+                  {onUpdateEvent && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const target = selectedEventForModal;
+                        setSelectedEventForModal(null);
+                        handleOpenEditEvent(target);
+                      }}
+                      className="min-h-9 px-4 py-1.5 bg-emerald-700 hover:bg-emerald-800 text-white rounded-lg text-xs font-semibold inline-flex items-center gap-1.5 cursor-pointer"
+                    >
+                      <Edit3 size={13} /> Chỉnh sửa sự kiện
+                    </button>
+                  )}
+                </div>
+              </div>
+            }
+          >
+            <div className="rounded-xl overflow-hidden border border-slate-200 aspect-video bg-slate-100">
+              <img src={eventImg} alt={selectedEventForModal.title} className="w-full h-full object-cover" />
+            </div>
+
+            <div className="bg-white rounded-xl border border-slate-200 p-4 space-y-3">
+              <DetailGrid>
+                <DetailRow label="Thời gian tổ chức" value={selectedEventForModal.dateTime} isMono />
+                <DetailRow label="Đơn vị chủ trì" value={selectedEventForModal.organizer} />
+                <DetailRow label="Địa điểm tổ chức" value={selectedEventForModal.location} colSpan={2} />
+                <DetailRow label="Số lượng dự kiến" value={`${totalAttendees} người tham dự`} isNumeric />
+                <DetailRow label="Trạng thái" value={selectedEventForModal.status} />
+              </DetailGrid>
+            </div>
+
+            <div className="bg-white rounded-xl border border-slate-200 p-4 space-y-1.5">
+              <span className="text-xs font-bold text-slate-700 uppercase tracking-wider block">Nội dung chương trình</span>
+              <p className="text-xs sm:text-sm text-slate-800 leading-relaxed whitespace-pre-line">
+                {selectedEventForModal.description}
+              </p>
+            </div>
+          </Modal>
+        );
+      })()}
 
       {/* ========================================================
           MODAL 3: VIEW NEWS DETAILS (ĐỌC BÀI VIẾT BÁO ĐIỆN TỬ CHI TIẾT)
           ======================================================== */}
-      {selectedNewsForModal && (
-        <div className="fixed inset-0 bg-slate-950/75 flex items-center justify-center z-50 p-3 sm:p-4 backdrop-blur-sm animate-in fade-in duration-150">
-          <div className="bg-white rounded-3xl shadow-2xl border border-slate-200 w-full max-w-2xl sm:max-w-3xl max-h-[92vh] overflow-hidden flex flex-col animate-in zoom-in-95 duration-150">
-            
-            {/* Reader Header */}
-            <div className="bg-white px-5 sm:px-7 py-4 border-b border-slate-200 flex justify-between items-center shrink-0">
-              <div className="flex items-center gap-2 text-xs">
-                <span className={`font-black px-2.5 py-0.5 rounded-full border ${getCategoryTheme(selectedNewsForModal.category).pill}`}>
-                  {selectedNewsForModal.category}
-                </span>
-                <span className="text-slate-400">•</span>
-                <span className="font-mono text-slate-500 font-medium">Mã tin: {selectedNewsForModal.id}</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={() => handleCopyShareLink(selectedNewsForModal)}
-                  className="p-1.5 rounded-xl text-slate-500 hover:text-emerald-700 hover:bg-slate-100 transition-colors cursor-pointer flex items-center gap-1 text-xs"
-                  title="Sao chép liên kết chia sẻ"
-                >
-                  {copiedLink ? <Check size={16} className="text-emerald-600" /> : <Share2 size={16} />}
-                  <span className="hidden sm:inline">{copiedLink ? "Đã sao chép!" : "Chia sẻ"}</span>
-                </button>
-                <button
-                  onClick={() => window.print()}
-                  className="p-1.5 rounded-xl text-slate-500 hover:text-slate-800 hover:bg-slate-100 transition-colors cursor-pointer flex items-center gap-1 text-xs"
-                  title="In bản tin này"
-                >
-                  <Printer size={16} />
-                  <span className="hidden sm:inline">In tin</span>
-                </button>
-                <button 
-                  onClick={() => setSelectedNewsForModal(null)}
-                  className="p-1.5 rounded-full text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors cursor-pointer ml-1"
-                >
-                  <X size={20} />
-                </button>
-              </div>
-            </div>
+      {selectedNewsForModal && (() => {
+        const navList = filteredNews.length > 0 ? filteredNews : activeNewsList;
+        const currentIdx = navList.findIndex(n => n.id === selectedNewsForModal.id);
+        const totalNav = navList.length;
+        const hasPrev = currentIdx > 0;
+        const hasNext = currentIdx >= 0 && currentIdx < totalNav - 1;
+        const shortNewsId = formatShortRecordId(selectedNewsForModal.id, "TIN");
 
-            {/* Reader Article Body (Scrollable) */}
-            <div className="px-5 sm:px-8 py-6 space-y-5 overflow-y-auto flex-1">
-              
-              {/* Article Headline */}
-              <h1 className="text-xl sm:text-2xl font-black text-slate-900 leading-snug">
-                {selectedNewsForModal.title}
-              </h1>
-
-              {/* Author & Timestamp Bar */}
-              <div className="flex flex-wrap items-center justify-between gap-3 py-3 border-y border-slate-100 text-xs text-slate-500">
-                <div className="flex items-center gap-2.5">
-                  <div className="w-8 h-8 rounded-full bg-emerald-600 text-white font-black flex items-center justify-center text-xs shadow-xs">
-                    {selectedNewsForModal.author.charAt(0)}
-                  </div>
-                  <div>
-                    <span className="font-bold text-slate-900 block leading-tight">{selectedNewsForModal.author}</span>
-                    <span className="text-[11px] text-slate-400">Cơ quan / Ban hành truyền thông</span>
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-4 text-slate-400 font-mono text-[11px]">
-                  <span className="flex items-center gap-1">
-                    <CalendarDays size={13} className="text-slate-400" /> {selectedNewsForModal.date}
+        return (
+          <Modal
+            isOpen={Boolean(selectedNewsForModal)}
+            onClose={() => setSelectedNewsForModal(null)}
+            size="3xl"
+            ariaLabel={`Chi tiết bản tin ${selectedNewsForModal.title}`}
+            headerNavigation={
+              totalNav > 1 && currentIdx >= 0
+                ? {
+                    positionText: `Bản tin ${currentIdx + 1}/${totalNav}`,
+                    hasPrev,
+                    hasNext,
+                    onPrev: () => hasPrev && setSelectedNewsForModal(navList[currentIdx - 1]),
+                    onNext: () => hasNext && setSelectedNewsForModal(navList[currentIdx + 1]),
+                    prevLabel: "Bản tin trước",
+                    nextLabel: "Bản tin tiếp theo",
+                  }
+                : undefined
+            }
+            headerSlot={
+              <div className="space-y-1.5">
+                <div className="flex flex-wrap items-center gap-2 text-xs">
+                  <span className="font-mono text-xs font-semibold px-2 py-0.5 rounded-md bg-slate-100 text-slate-700 border border-slate-200">
+                    MÃ: {shortNewsId}
                   </span>
-                  <span className="flex items-center gap-1">
-                    <Clock size={13} className="text-slate-400" /> {getNewsReadTime(selectedNewsForModal)}
-                  </span>
-                  <span className="flex items-center gap-1">
-                    <Eye size={13} className="text-slate-400" /> {getNewsViews(selectedNewsForModal)} lượt đọc
+                  <span className={`font-semibold px-2.5 py-0.5 rounded-full border ${getCategoryTheme(selectedNewsForModal.category).pill}`}>
+                    {selectedNewsForModal.category}
                   </span>
                 </div>
+                <h1 className="text-base sm:text-xl font-bold text-slate-900 leading-snug">
+                  {selectedNewsForModal.title}
+                </h1>
               </div>
-
-              {/* Featured Cover Photo with Caption */}
-              <div className="rounded-2xl overflow-hidden border border-slate-200/80 shadow-sm space-y-2">
-                <div className="aspect-video w-full bg-slate-100">
-                  <img 
-                    src={getNewsImage(selectedNewsForModal)} 
-                    alt={selectedNewsForModal.title}
-                    className="w-full h-full object-cover" 
-                  />
-                </div>
-                <div className="px-4 py-2 bg-slate-50 text-[11px] text-slate-500 italic text-center border-t border-slate-100">
-                  Hình ảnh tư liệu hoạt động thực tế trên địa bàn Khu phố 3, Phường An Phú
-                </div>
-              </div>
-
-              {/* Lead Summary Sa-pô */}
-              <div className="p-4 rounded-2xl bg-emerald-50/70 border-l-4 border-emerald-600 text-xs sm:text-sm font-semibold text-emerald-950 leading-relaxed">
-                {getNewsSummary(selectedNewsForModal)}
-              </div>
-
-              {/* Full Article Text Content */}
-              <div className="text-slate-800 text-xs sm:text-sm leading-relaxed whitespace-pre-line space-y-3 font-normal">
-                {selectedNewsForModal.content}
-              </div>
-
-              {/* Image Gallery if present */}
-              {selectedNewsForModal.imageGallery && selectedNewsForModal.imageGallery.length > 0 && (
-                <div className="space-y-2 pt-3">
-                  <span className="text-xs font-bold text-slate-700 block">Thư viện hình ảnh hoạt động:</span>
-                  <div className="grid grid-cols-2 gap-3">
-                    {selectedNewsForModal.imageGallery.map((imgUrl, idx) => (
-                      <div key={idx} className="aspect-video rounded-xl overflow-hidden border border-slate-200">
-                        <img src={imgUrl} alt="Hoạt động" className="w-full h-full object-cover" />
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* Attached Official Document File */}
-              {selectedNewsForModal.attachedFile && (
-                <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                  <div className="flex items-center gap-3">
-                    <div className="p-3 bg-rose-100 text-rose-600 rounded-xl">
-                      <FileText size={22} />
-                    </div>
-                    <div>
-                      <span className="text-xs font-bold text-slate-800 block">
-                        {selectedNewsForModal.attachedFile.name}
-                      </span>
-                      <span className="text-[11px] text-slate-400 font-mono">
-                        Văn bản đính kèm có dấu đỏ • {selectedNewsForModal.attachedFile.size || "1.2 MB"}
-                      </span>
-                    </div>
-                  </div>
-                  <button 
-                    onClick={() => alert(`Đang tải tệp: ${selectedNewsForModal.attachedFile?.name}`)}
-                    className="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition-colors cursor-pointer flex items-center justify-center gap-1.5 self-start sm:self-auto"
+            }
+            bodyClassName="px-5 sm:px-7 py-5 space-y-5 text-xs sm:text-sm"
+            footer={
+              <div className="flex flex-wrap justify-between items-center gap-2">
+                <div className="flex flex-wrap items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => handleCopyShareLink(selectedNewsForModal)}
+                    className="min-h-9 px-3 py-1.5 rounded-lg border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 transition-colors cursor-pointer inline-flex items-center gap-1.5 text-xs font-semibold"
                   >
-                    <Download size={14} /> Tải văn bản
+                    {copiedLink ? <Check size={14} className="text-emerald-700" /> : <Share2 size={14} />}
+                    <span>{copiedLink ? "Đã sao chép!" : "Chia sẻ"}</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => window.print()}
+                    className="min-h-9 px-3 py-1.5 rounded-lg border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 transition-colors cursor-pointer inline-flex items-center gap-1.5 text-xs font-semibold"
+                  >
+                    <Printer size={14} />
+                    <span>In tin</span>
                   </button>
                 </div>
-              )}
 
-              {/* Editorial / Signature Note */}
-              <div className="pt-4 border-t border-slate-100 flex justify-end text-right">
-                <div>
-                  <span className="text-[11px] text-slate-400 italic block">Ban Biên tập Cổng thông tin Khu phố 3</span>
-                  <span className="text-xs font-bold text-slate-700">Trân trọng thông báo tới toàn thể bà con cư dân</span>
+                <div className="flex flex-wrap items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => handleDeleteNewsItem(selectedNewsForModal.id, selectedNewsForModal.title)}
+                    className="min-h-9 px-3 py-1.5 rounded-lg border border-rose-200 text-rose-700 hover:bg-rose-50 transition-colors inline-flex items-center gap-1.5 text-xs font-semibold cursor-pointer"
+                  >
+                    <Trash2 size={14} /> Xóa bài
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setSelectedNewsForModal(null)}
+                    className="min-h-9 px-3.5 py-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-100 text-slate-700 text-xs font-semibold transition-colors cursor-pointer"
+                  >
+                    Đóng
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const target = selectedNewsForModal;
+                      setSelectedNewsForModal(null);
+                      handleOpenEditNews(target);
+                    }}
+                    className="min-h-9 px-4 py-1.5 rounded-lg text-xs font-semibold bg-emerald-700 hover:bg-emerald-800 text-white transition-colors inline-flex items-center gap-1.5 cursor-pointer"
+                  >
+                    <Edit3 size={14} /> Chỉnh sửa bài viết
+                  </button>
                 </div>
+              </div>
+            }
+          >
+            {/* Structured Metadata Grid */}
+            <div className="bg-slate-50 rounded-xl border border-slate-200 p-3.5">
+              <DetailGrid>
+                <DetailRow label="Cơ quan / Tác giả" value={selectedNewsForModal.author} />
+                <DetailRow label="Ngày phát hành" value={selectedNewsForModal.date} isMono />
+                <DetailRow label="Thời gian đọc" value={getNewsReadTime(selectedNewsForModal)} />
+                <DetailRow label="Lượt tiếp cận" value={`${getNewsViews(selectedNewsForModal)} lượt đọc`} isNumeric />
+              </DetailGrid>
+            </div>
+
+            {/* Featured Cover Photo */}
+            <div className="rounded-xl overflow-hidden border border-slate-200">
+              <div className="aspect-video w-full bg-slate-100">
+                <img 
+                  src={getNewsImage(selectedNewsForModal)} 
+                  alt={selectedNewsForModal.title}
+                  className="w-full h-full object-cover" 
+                />
+              </div>
+              <div className="px-4 py-2 bg-slate-50 text-xs text-slate-600 italic text-center border-t border-slate-100">
+                Hình ảnh tư liệu hoạt động thực tế trên địa bàn Khu phố 3, Phường An Phú
               </div>
             </div>
 
-            {/* Reader Footer Actions */}
-            <div className="p-4 bg-slate-50 border-t border-slate-200 flex justify-between items-center shrink-0">
-              <button
-                onClick={() => {
-                  const target = selectedNewsForModal;
-                  setSelectedNewsForModal(null);
-                  handleOpenEditNews(target);
-                }}
-                className="px-3.5 py-2 rounded-xl text-xs font-semibold text-slate-700 hover:bg-slate-200 transition-colors flex items-center gap-1.5 cursor-pointer"
-              >
-                <Edit3 size={14} /> Chỉnh sửa bài này
-              </button>
-
-              <button
-                onClick={() => setSelectedNewsForModal(null)}
-                className="px-5 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold transition-all cursor-pointer shadow-xs"
-              >
-                Đóng bài viết
-              </button>
+            {/* Lead Summary */}
+            <div className="p-4 rounded-xl bg-emerald-50/70 border-l-4 border-emerald-700 text-xs sm:text-sm font-semibold text-emerald-950 leading-relaxed">
+              {getNewsSummary(selectedNewsForModal)}
             </div>
-          </div>
-        </div>
-      )}
+
+            {/* Full Article Text Content */}
+            <div className="text-slate-800 text-xs sm:text-sm leading-relaxed whitespace-pre-line space-y-3 font-normal">
+              {selectedNewsForModal.content}
+            </div>
+
+            {selectedNewsForModal.imageGallery && selectedNewsForModal.imageGallery.length > 0 && (
+              <div className="space-y-2 pt-3">
+                <span className="text-xs font-bold text-slate-700 block">Thư viện hình ảnh hoạt động:</span>
+                <div className="grid grid-cols-2 gap-3">
+                  {selectedNewsForModal.imageGallery.map((imgUrl, idx) => (
+                    <div key={idx} className="aspect-video rounded-xl overflow-hidden border border-slate-200">
+                      <img src={imgUrl} alt="Hoạt động" className="w-full h-full object-cover" />
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {selectedNewsForModal.attachedFile && (
+              <div className="p-4 rounded-xl bg-slate-50 border border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div className="flex items-center gap-3">
+                  <div className="p-2.5 bg-rose-50 text-rose-700 border border-rose-200 rounded-xl">
+                    <FileText size={20} />
+                  </div>
+                  <div>
+                    <span className="text-xs font-bold text-slate-900 block">
+                      {selectedNewsForModal.attachedFile.name}
+                    </span>
+                    <span className="text-xs text-slate-600 font-mono">
+                      Văn bản đính kèm • {selectedNewsForModal.attachedFile.size || "1.2 MB"}
+                    </span>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() =>
+                    setNotice({
+                      message: `Đang tải xuống công văn đính kèm: ${selectedNewsForModal.attachedFile?.name}`,
+                      type: "info"
+                    })
+                  }
+                  className="px-3.5 py-2 bg-emerald-700 hover:bg-emerald-800 text-white rounded-lg text-xs font-semibold transition-colors cursor-pointer inline-flex items-center justify-center gap-1.5 self-start sm:self-auto"
+                >
+                  <Download size={14} /> Tải văn bản
+                </button>
+              </div>
+            )}
+
+            <div className="pt-4 border-t border-slate-100 flex justify-end text-right">
+              <div>
+                <span className="text-xs text-slate-600 italic block">Ban Biên tập Cổng thông tin Khu phố 3</span>
+                <span className="text-xs font-bold text-slate-800">Trân trọng thông báo tới toàn thể bà con cư dân</span>
+              </div>
+            </div>
+          </Modal>
+        );
+      })()}
+
+      <ConfirmModal
+        isOpen={Boolean(deleteEventTarget)}
+        onClose={() => setDeleteEventTarget(null)}
+        onConfirm={executeDeleteEventItem}
+        title="Xác nhận xóa sự kiện"
+        description={`Bạn có chắc chắn muốn xóa sự kiện "${deleteEventTarget?.title || ""}" khỏi lịch sinh hoạt Khu phố 3?`}
+        confirmLabel="Xóa sự kiện"
+        variant="danger"
+      />
+
+      <ConfirmModal
+        isOpen={Boolean(deleteNewsTarget)}
+        onClose={() => setDeleteNewsTarget(null)}
+        onConfirm={executeDeleteNewsItem}
+        title="Xác nhận xóa bản tin"
+        description={`Bạn có chắc chắn muốn xóa bài viết "${deleteNewsTarget?.title || ""}" khỏi hệ thống thông báo Khu phố 3?`}
+        confirmLabel="Xóa bản tin"
+        variant="danger"
+      />
+
+      <ConfirmModal
+        isOpen={confirmResetNews}
+        onClose={() => setConfirmResetNews(false)}
+        onConfirm={executeResetToSampleNews}
+        title="Khôi phục bản tin mẫu"
+        description="Khôi phục danh sách 6 bản tin mẫu kèm hình ảnh minh họa và công văn đính kèm cho Khu phố 3?"
+        confirmLabel="Đồng bộ lại"
+        variant="warning"
+      />
 
     </div>
   );

@@ -81,49 +81,74 @@ export function StatCard({
     return null;
   }, [icon]);
 
-  return (
-    <div
-      onClick={onClick}
-      className={`astryx-card bg-white p-4 sm:p-5 rounded-2xl border transition-all duration-300 shadow-xs group interactive-card interactive-tap flex flex-col justify-between ${
-        highlighted 
-          ? "border-2 border-emerald-500 shadow-sm" 
-          : "border-slate-200/90 hover:border-emerald-500 hover:shadow-lg"
-      } ${onClick ? "cursor-pointer" : ""} ${className}`}
-      data-variant="default"
-      data-elevation="none"
-    >
-      {/* Top Header: Label, Big Number, Badge & Icon */}
-      <div className="flex justify-between items-start gap-2">
+  const baseClasses = `w-full text-left bg-white p-4 sm:p-5 rounded-2xl border transition-colors duration-150 group flex flex-col justify-between ${
+    highlighted
+      ? "border-emerald-600 bg-emerald-50/20"
+      : "border-slate-200 hover:border-slate-400"
+  } ${onClick ? "cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600" : ""} ${className}`;
+
+  const content = (
+    <>
+      <div className="flex justify-between items-start gap-2.5">
         <div className="space-y-1.5 min-w-0 flex-1">
-          <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider block truncate">
+          <span className="text-xs font-semibold text-slate-600 uppercase tracking-wide block leading-snug">
             {label}
           </span>
-          <div className="flex items-baseline flex-wrap gap-1.5">
-            <span className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight leading-none">
+          <div className="flex items-baseline flex-wrap gap-x-1.5 gap-y-0.5">
+            <span
+              className={`font-bold text-slate-900 tracking-tight leading-tight tabular-nums break-words ${
+                String(formattedValue ?? "").length >= 9
+                  ? "text-lg sm:text-xl"
+                  : "text-2xl sm:text-3xl"
+              }`}
+            >
               {formattedValue}
             </span>
             {badge && (
-              <span className="text-xs font-bold text-slate-500">
+              <span className="text-xs font-semibold text-slate-700 shrink-0">
                 {badge}
               </span>
             )}
           </div>
         </div>
 
-        <div className={`p-2.5 rounded-xl border shrink-0 transition-colors duration-300 ${iconColorStyles[color]}`}>
+        <div className={`p-2.5 rounded-xl border shrink-0 transition-colors duration-150 ${iconColorStyles[color]}`} aria-hidden="true">
           {renderedIcon}
         </div>
       </div>
 
-      {/* Bottom Footer: Subtext & Metadata split */}
       {hasFooter && (
-        <div className="mt-3 pt-2.5 border-t border-slate-100 flex justify-between items-center text-xs text-slate-500 gap-2">
-          <div className="truncate font-medium">{formattedSubtext}</div>
+        <div className="mt-3 pt-2.5 border-t border-slate-100 flex flex-wrap justify-between items-center text-xs text-slate-600 gap-x-2 gap-y-1">
+          <div className="font-medium leading-snug">{formattedSubtext}</div>
           {formattedSubtextRight && (
-            <div className="shrink-0 text-slate-400 font-medium">{formattedSubtextRight}</div>
+            <div className="shrink-0 text-slate-700 font-semibold">{formattedSubtextRight}</div>
           )}
         </div>
       )}
+    </>
+  );
+
+  if (onClick) {
+    return (
+      <button
+        type="button"
+        onClick={onClick}
+        className={baseClasses}
+        data-variant="default"
+        data-elevation="none"
+      >
+        {content}
+      </button>
+    );
+  }
+
+  return (
+    <div
+      className={baseClasses}
+      data-variant="default"
+      data-elevation="none"
+    >
+      {content}
     </div>
   );
 }

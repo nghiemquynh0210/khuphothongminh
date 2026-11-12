@@ -1,16 +1,16 @@
 import React, { useState, useEffect } from "react";
-import { 
-  FileText, 
-  Database, 
-  MapPin, 
-  ShieldCheck, 
-  CalendarDays, 
-  Bot, 
-  Copy, 
-  Check, 
-  ChevronRight, 
-  Table, 
-  Code, 
+import {
+  FileText,
+  Database,
+  MapPin,
+  ShieldCheck,
+  CalendarDays,
+  Bot,
+  Copy,
+  Check,
+  ChevronRight,
+  Table,
+  Code,
   Activity,
   DollarSign,
   TrendingUp,
@@ -36,6 +36,8 @@ import {
   RefreshCw,
   HelpCircle
 } from "lucide-react";
+import { ReportSelect } from "./reports/ReportSelect";
+import { ConfirmModal, InlineNotice } from "./ui/ConfirmModal";
 
 // Types for Data Dictionary
 interface ColumnDef {
@@ -682,6 +684,8 @@ export default function PlanArchitecture() {
   const [activePlanTab, setActivePlanTab] = useState<number>(0);
   const [activeArchTab, setActiveArchTab] = useState<string>("overall");
   const [activeRoadmapPhase, setActiveRoadmapPhase] = useState<number>(0);
+  const [confirmResetRoadmap, setConfirmResetRoadmap] = useState(false);
+  const [planNotice, setPlanNotice] = useState<{ message: string; type: "success" | "info" | "warning" } | null>(null);
 
   // Load statuses and checklists from localStorage, or set defaults (Forcing 100% completed as requested)
   const [phaseStatuses, setPhaseStatuses] = useState<Record<number, "completed" | "in_progress" | "not_started">>(() => {
@@ -736,26 +740,30 @@ export default function PlanArchitecture() {
   };
 
   const resetRoadmapProgress = () => {
-    if (window.confirm("Bạn có chắc chắn muốn thiết lập lại toàn bộ lộ trình triển khai về trạng thái Hoàn thành 100%?")) {
-      const defaults: Record<number, "completed" | "in_progress" | "not_started"> = {};
-      const checkDefaults: Record<string, boolean> = {};
-      for (let i = 1; i <= 21; i++) {
-        defaults[i] = "completed";
-      }
-      roadmapPhases.forEach(p => {
-        p.requirements.forEach((_, rIdx) => {
-          checkDefaults[`req-${p.id}-${rIdx}`] = true;
-        });
-        p.outputs.forEach((_, oIdx) => {
-          checkDefaults[`out-${p.id}-${oIdx}`] = true;
-        });
-        p.criteria.forEach((_, cIdx) => {
-          checkDefaults[`crit-${p.id}-${cIdx}`] = true;
-        });
-      });
-      setPhaseStatuses(defaults);
-      setPhaseChecklists(checkDefaults);
+    setConfirmResetRoadmap(true);
+  };
+
+  const executeResetRoadmapProgress = () => {
+    const defaults: Record<number, "completed" | "in_progress" | "not_started"> = {};
+    const checkDefaults: Record<string, boolean> = {};
+    for (let i = 1; i <= 21; i++) {
+      defaults[i] = "completed";
     }
+    roadmapPhases.forEach(p => {
+      p.requirements.forEach((_, rIdx) => {
+        checkDefaults[`req-${p.id}-${rIdx}`] = true;
+      });
+      p.outputs.forEach((_, oIdx) => {
+        checkDefaults[`out-${p.id}-${oIdx}`] = true;
+      });
+      p.criteria.forEach((_, cIdx) => {
+        checkDefaults[`crit-${p.id}-${cIdx}`] = true;
+      });
+    });
+    setPhaseStatuses(defaults);
+    setPhaseChecklists(checkDefaults);
+    setConfirmResetRoadmap(false);
+    setPlanNotice({ message: "Đã khôi phục toàn bộ 21 bước lộ trình về trạng thái Hoàn thành 100%.", type: "success" });
   };
 
   // Helper to resolve dynamically typed icons
@@ -1416,7 +1424,7 @@ Sau khi các **Tổ nhân dân tự quản kết thúc hoạt động** theo ch�
     });
     sql += colLines.join(",\n");
     sql += `\n);\n\n`;
-    
+
     // Add custom index suggestion for security & search
     if (t.name === "citizens") {
       sql += `-- Tối ưu hóa truy vấn tìm kiếm nhanh theo CCCD và Tên\n`;
@@ -1458,52 +1466,52 @@ Sau khi các **Tổ nhân dân tự quản kết thúc hoạt động** theo ch�
 
   return (
     <div id="plan-architecture-portal" className="space-y-6">
-      
-      {/* Dynamic Upper Banner */}
-      <div className="bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 border border-slate-800 text-white rounded-2xl p-6 shadow-xl relative overflow-hidden">
-        <div className="absolute top-0 right-0 w-64 h-64 bg-emerald-500/10 rounded-full blur-3xl pointer-events-none"></div>
-        <div className="absolute bottom-0 left-0 w-64 h-64 bg-indigo-500/10 rounded-full blur-3xl pointer-events-none"></div>
-        
-        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 relative z-10">
+
+      {/* Dynamic Upper Banner (Flat Hairline) */}
+      <div className="bg-white border border-slate-200 text-slate-900 rounded-2xl p-5 md:p-6">
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-5">
           <div>
-            <div className="flex items-center gap-2 bg-emerald-500/20 text-emerald-400 text-[10px] font-bold font-mono tracking-wider px-2.5 py-1 rounded-full w-fit mb-3 uppercase">
-              Cổng quy hoạch & kiến trúc số
+            <div className="inline-flex items-center gap-2 bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-bold font-mono tracking-wider px-2.5 py-1 rounded-full mb-2.5 uppercase">
+              Cổng quy hoạch &amp; kiến trúc số
             </div>
-            <h1 className="text-xl md:text-2xl font-extrabold tracking-tight">
-              Đề án & Kiến trúc Kỹ thuật "Khu phố thông minh"
+            <h1 className="text-xl md:text-2xl font-bold tracking-tight text-slate-900">
+              Đề án &amp; Kiến trúc Kỹ thuật "Khu phố thông minh"
             </h1>
           </div>
-          
+
           {/* Main Select Mode Toggle */}
-          <div className="flex flex-wrap bg-slate-950/80 p-1 rounded-xl border border-slate-800 w-full md:w-auto self-stretch md:self-auto shrink-0">
+          <div className="grid grid-cols-1 sm:grid-cols-3 md:flex bg-slate-100 p-1 rounded-xl border border-slate-200 w-full md:w-auto self-stretch md:self-auto shrink-0 gap-1">
             <button
+              type="button"
               onClick={() => setActiveMainSection("roadmap")}
-              className={`flex-1 md:flex-none flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+              className={`min-h-[44px] md:min-h-[38px] flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-lg text-xs font-bold transition-colors cursor-pointer whitespace-nowrap ${
                 activeMainSection === "roadmap"
-                  ? "bg-amber-600 text-white shadow-md shadow-amber-500/20"
-                  : "text-slate-400 hover:text-white hover:bg-slate-900/50"
+                  ? "bg-emerald-700 text-white"
+                  : "text-slate-700 hover:bg-white hover:text-slate-900"
               }`}
             >
               <Activity size={14} />
               Lộ trình Triển khai (21 Bước)
             </button>
             <button
+              type="button"
               onClick={() => setActiveMainSection("plan")}
-              className={`flex-1 md:flex-none flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+              className={`min-h-[44px] md:min-h-[38px] flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-lg text-xs font-bold transition-colors cursor-pointer whitespace-nowrap ${
                 activeMainSection === "plan"
-                  ? "bg-emerald-600 text-white shadow-md shadow-emerald-500/20"
-                  : "text-slate-400 hover:text-white hover:bg-slate-900/50"
+                  ? "bg-emerald-700 text-white"
+                  : "text-slate-700 hover:bg-white hover:text-slate-900"
               }`}
             >
               <FileText size={14} />
               Kế hoạch Đề án (10 Phần)
             </button>
             <button
+              type="button"
               onClick={() => setActiveMainSection("architecture")}
-              className={`flex-1 md:flex-none flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+              className={`min-h-[44px] md:min-h-[38px] flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-lg text-xs font-bold transition-colors cursor-pointer whitespace-nowrap ${
                 activeMainSection === "architecture"
-                  ? "bg-indigo-600 text-white shadow-md shadow-indigo-500/20"
-                  : "text-slate-400 hover:text-white hover:bg-slate-900/50"
+                  ? "bg-emerald-700 text-white"
+                  : "text-slate-700 hover:bg-white hover:text-slate-900"
               }`}
             >
               <Database size={14} />
@@ -1513,31 +1521,38 @@ Sau khi các **Tổ nhân dân tự quản kết thúc hoạt động** theo ch�
         </div>
       </div>
 
+      {planNotice && (
+        <InlineNotice
+          message={planNotice.message}
+          type={planNotice.type}
+          onDismiss={() => setPlanNotice(null)}
+        />
+      )}
+
       {/* RENDER PLAN VIEW (SECTION 1 TO 10) */}
       {activeMainSection === "plan" && (
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-          
+
           {/* Left Navigation Tree for Plan */}
           <div className="lg:col-span-4 bg-white border border-slate-200 rounded-xl p-4 shadow-sm space-y-1">
-            <div className="text-xs font-bold text-slate-400 tracking-wider font-mono uppercase px-2 pb-2 border-b border-slate-100 mb-3">
+            <div className="text-xs font-bold text-slate-600 tracking-wider font-mono uppercase px-2 pb-2 border-b border-slate-100 mb-3">
               Mục lục kế hoạch đề án
             </div>
             {planSections.map((sec, idx) => (
               <button
                 key={idx}
                 onClick={() => setActivePlanTab(idx)}
-                className={`w-full flex items-center justify-between text-left px-3 py-2.5 rounded-lg text-xs font-medium transition-all cursor-pointer ${
-                  activePlanTab === idx
-                    ? "bg-slate-100 text-slate-900 font-bold border-l-4 border-emerald-600"
-                    : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
-                }`}
+                className={`w-full flex items-center justify-between text-left px-3 py-2.5 rounded-lg text-xs font-medium transition-all cursor-pointer ${activePlanTab === idx
+                  ? "bg-slate-100 text-slate-900 font-bold border-l-4 border-emerald-600"
+                  : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
+                  }`}
               >
                 <span className="truncate">{sec.title}</span>
-                <ChevronRight size={14} className={activePlanTab === idx ? "text-emerald-600" : "text-slate-400"} />
+                <ChevronRight size={14} className={activePlanTab === idx ? "text-emerald-600" : "text-slate-600"} />
               </button>
             ))}
 
-            <div className="mt-4 pt-4 border-t border-slate-100 bg-emerald-50/40 rounded-xl p-3 text-[11px] text-emerald-800 space-y-1">
+            <div className="mt-4 pt-4 border-t border-slate-100 bg-emerald-50/40 rounded-xl p-3 text-xs text-emerald-800 space-y-1">
               <span className="font-bold flex items-center gap-1"><Info size={12} /> Thông tin lưu ý:</span>
               <p className="leading-relaxed">Kế hoạch tuân thủ đầy đủ thể thức văn bản hành chính Việt Nam và được phê duyệt thí điểm áp dụng thực tế trên địa bàn.</p>
             </div>
@@ -1549,10 +1564,10 @@ Sau khi các **Tổ nhân dân tự quản kết thúc hoạt động** theo ch�
             <div className="p-6 border-b border-slate-100 bg-slate-50/50 flex flex-col gap-2">
               <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center text-center sm:text-left gap-2">
                 <div>
-                  <span className="text-[10px] font-bold text-slate-500 uppercase font-mono">BẢN THẢO TRÌNH PHÊ DUYỆT</span>
+                  <span className="text-xs font-bold text-slate-500 uppercase font-mono">BẢN THẢO TRÌNH PHÊ DUYỆT</span>
                   <h3 className="text-lg font-bold text-slate-900">{planSections[activePlanTab].title.toUpperCase()}</h3>
                 </div>
-                <span className="text-[11px] font-mono bg-amber-50 text-amber-700 border border-amber-100 px-2 py-0.5 rounded-md font-bold">
+                <span className="text-xs font-mono bg-amber-50 text-amber-700 border border-amber-100 px-2 py-0.5 rounded-md font-bold">
                   Dự thảo Đề án KP3 - An Phú
                 </span>
               </div>
@@ -1599,19 +1614,20 @@ Sau khi các **Tổ nhân dân tự quản kết thúc hoạt động** theo ch�
       {/* RENDER SYSTEM ARCHITECTURE VIEW */}
       {activeMainSection === "architecture" && (
         <div className="space-y-6">
-          
+
           {/* Sub Navigation Bar for Architecture */}
-          <div className="flex bg-white p-2 rounded-xl border border-slate-200 overflow-x-auto gap-1">
+          <div className="flex flex-wrap bg-white p-2 rounded-xl border border-slate-200 gap-1.5">
             {architectureSections.map((sec) => {
               const Icon = sec.icon;
               return (
                 <button
                   key={sec.id}
+                  type="button"
                   onClick={() => setActiveArchTab(sec.id)}
-                  className={`flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-bold whitespace-nowrap transition-all cursor-pointer ${
+                  className={`flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-bold whitespace-nowrap transition-colors cursor-pointer ${
                     activeArchTab === sec.id
-                      ? "bg-slate-900 text-white"
-                      : "text-slate-600 hover:bg-slate-100"
+                      ? "bg-emerald-700 text-white"
+                      : "text-slate-700 hover:bg-slate-100"
                   }`}
                 >
                   <Icon size={14} />
@@ -1624,18 +1640,19 @@ Sau khi các **Tổ nhân dân tự quản kết thúc hoạt động** theo ch�
           {/* OVERALL ARCHITECTURE TAB */}
           {activeArchTab === "overall" && (
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-              <div className="lg:col-span-7 bg-white border border-slate-200 rounded-xl p-6 shadow-sm space-y-4">
+              <div className="lg:col-span-7 bg-white border border-slate-200 rounded-xl p-6 space-y-4">
                 <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
-                  <Activity size={18} className="text-indigo-600" />
+                  <Activity size={18} className="text-indigo-700" />
                   Mô hình dòng chảy dữ liệu kỹ thuật (Data Flow)
                 </h3>
-                <p className="text-xs text-slate-500 leading-relaxed">
-                  Hệ thống "Khu phố thông minh" được xây dựng theo mô hình dịch vụ phi máy chủ (Serverless Architecture) sử dụng NextJS, Express và Supabase, giúp đảm bảo khả năng mở rộng tối đa, vận hành trơn tru cho trên 12.000 dân cư.
+                <p className="text-xs text-slate-600 leading-relaxed">
+                  Hệ thống "Khu phố thông minh" được xây dựng theo mô hình dịch vụ phi máy chủ (Serverless Architecture) sử dụng Vite React, Express và Supabase, giúp đảm bảo khả năng mở rộng tối đa, vận hành trơn tru cho trên 12.000 dân cư.
                 </p>
 
                 {/* Simulated Mermaid rendering via Tailwind */}
-                <div className="bg-slate-950 p-4 rounded-xl border border-slate-800 text-slate-300 font-mono text-[11px] leading-relaxed space-y-2 overflow-x-auto relative">
-                  <button 
+                <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 text-slate-800 font-mono text-xs leading-relaxed space-y-2 overflow-x-auto relative">
+                  <button
+                    type="button"
                     onClick={() => handleCopy(`graph TD
     Client[Client App: React/Tailwind] -->|HTTPS/WS| APIGateway[API Gateway: Express Server]
     APIGateway -->|Bussiness Rules & JWT| Auth[Authentication Layer]
@@ -1643,12 +1660,12 @@ Sau khi các **Tổ nhân dân tự quản kết thúc hoạt động** theo ch�
     APIGateway -->|Document AI & Drafting| AI[Gemini 3.5 Flash API]
     APIGateway -->|Upload File| Storage[Supabase Cloud Storage]
     DB -->|Real-time Events| Dashboard[Dashboard Trực quan]`, "mermaid-overall")}
-                    className="absolute top-2 right-2 text-slate-400 hover:text-white bg-slate-900 p-1 rounded border border-slate-800"
+                    className="absolute top-2 right-2 text-slate-700 hover:text-slate-900 bg-white hover:bg-slate-100 p-1.5 rounded-lg border border-slate-200 cursor-pointer"
                     title="Sao chép sơ đồ Mermaid"
                   >
-                    {copiedText === "mermaid-overall" ? <Check size={12} className="text-emerald-400" /> : <Copy size={12} />}
+                    {copiedText === "mermaid-overall" ? <Check size={12} className="text-emerald-700" /> : <Copy size={12} />}
                   </button>
-                  <div className="text-emerald-400 font-bold mb-1">// Mermaid Sơ đồ Kiến trúc</div>
+                  <div className="text-emerald-800 font-bold mb-1">// Mermaid Sơ đồ Kiến trúc</div>
                   <div>graph TD</div>
                   <div className="pl-4">Client[Client App: React/Tailwind] --&gt;|HTTPS/WS| APIGateway[API Gateway: Express Server]</div>
                   <div className="pl-4">APIGateway --&gt;|Bussiness Rules &amp; JWT| Auth[Authentication Layer]</div>
@@ -1661,45 +1678,45 @@ Sau khi các **Tổ nhân dân tự quản kết thúc hoạt động** theo ch�
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="border border-slate-100 rounded-lg p-3 space-y-1">
                     <span className="font-bold text-xs text-slate-900 block">Frontend &amp; UI Client</span>
-                    <span className="text-[11px] text-slate-500 block leading-relaxed">Xây dựng trên nền tảng React và Tailwind CSS, tích hợp hoạt ảnh mượt mà từ thư viện Motion. Thiết kế responsive tối ưu trên cả điện thoại di động và máy tính bảng cán bộ.</span>
+                    <span className="text-xs text-slate-500 block leading-relaxed">Xây dựng trên nền tảng React và Tailwind CSS, tích hợp hoạt ảnh mượt mà từ thư viện Motion. Thiết kế responsive tối ưu trên cả điện thoại di động và máy tính bảng cán bộ.</span>
                   </div>
                   <div className="border border-slate-100 rounded-lg p-3 space-y-1">
                     <span className="font-bold text-xs text-indigo-700 block">Backend &amp; API Layer</span>
-                    <span className="text-[11px] text-slate-500 block leading-relaxed">Sử dụng Express kết hợp công cụ TSX chạy trực tiếp mã nguồn TypeScript. Đóng vai trò proxy bảo mật, giấu hoàn toàn API Key của Gemini và các khóa nhạy cảm khỏi trình duyệt.</span>
+                    <span className="text-xs text-slate-500 block leading-relaxed">Sử dụng Express kết hợp công cụ TSX chạy trực tiếp mã nguồn TypeScript. Đóng vai trò proxy bảo mật, giấu hoàn toàn API Key của Gemini và các khóa nhạy cảm khỏi trình duyệt.</span>
                   </div>
                 </div>
               </div>
 
               <div className="lg:col-span-5 space-y-6">
-                <div className="bg-gradient-to-br from-indigo-900 to-slate-900 border border-slate-800 text-white rounded-xl p-5 shadow-sm space-y-3">
-                  <h4 className="font-bold text-xs font-mono tracking-wider text-indigo-400 uppercase">Thông số kỹ thuật đề xuất</h4>
-                  <ul className="space-y-2 text-xs text-slate-300">
-                    <li className="flex justify-between border-b border-indigo-950 pb-1.5">
-                      <span className="text-slate-400">Database Engine:</span>
-                      <span className="font-mono font-bold text-emerald-400">PostgreSQL v16.x</span>
+                <div className="bg-white border border-slate-200 border-l-4 border-l-indigo-600 text-slate-900 rounded-xl p-5 space-y-3">
+                  <h4 className="font-bold text-xs font-mono tracking-wider text-indigo-800 uppercase">Thông số kỹ thuật đề xuất</h4>
+                  <ul className="space-y-2 text-xs text-slate-700">
+                    <li className="flex justify-between border-b border-slate-100 pb-1.5">
+                      <span className="text-slate-600">Database Engine:</span>
+                      <span className="font-mono font-bold text-emerald-700">PostgreSQL v16.x</span>
                     </li>
-                    <li className="flex justify-between border-b border-indigo-950 pb-1.5">
-                      <span className="text-slate-400">Spatial Ext:</span>
-                      <span className="font-mono font-bold text-emerald-400">PostGIS v3.4</span>
+                    <li className="flex justify-between border-b border-slate-100 pb-1.5">
+                      <span className="text-slate-600">Spatial Ext:</span>
+                      <span className="font-mono font-bold text-emerald-700">PostGIS v3.4</span>
                     </li>
-                    <li className="flex justify-between border-b border-indigo-950 pb-1.5">
-                      <span className="text-slate-400">Cloud Backend:</span>
-                      <span className="font-mono font-bold text-indigo-300">Supabase Suite</span>
+                    <li className="flex justify-between border-b border-slate-100 pb-1.5">
+                      <span className="text-slate-600">Cloud Backend:</span>
+                      <span className="font-mono font-bold text-indigo-700">Supabase Suite</span>
                     </li>
-                    <li className="flex justify-between border-b border-indigo-950 pb-1.5">
-                      <span className="text-slate-400">AI Platform:</span>
-                      <span className="font-mono font-bold text-indigo-300">Google GenAI SDK (Gemini)</span>
+                    <li className="flex justify-between border-b border-slate-100 pb-1.5">
+                      <span className="text-slate-600">AI Platform:</span>
+                      <span className="font-mono font-bold text-indigo-700">Google GenAI SDK (Gemini)</span>
                     </li>
                     <li className="flex justify-between">
-                      <span className="text-slate-400">Security Standard:</span>
-                      <span className="font-mono font-bold text-emerald-400">JWT + PostgreSQL RLS</span>
+                      <span className="text-slate-600">Security Standard:</span>
+                      <span className="font-mono font-bold text-emerald-700">JWT + PostgreSQL RLS</span>
                     </li>
                   </ul>
                 </div>
 
                 <div className="bg-white border border-slate-200 rounded-xl p-5 shadow-sm space-y-2">
                   <span className="font-bold text-xs text-slate-800 block">Danh sách API chính đề xuất</span>
-                  <div className="space-y-2 font-mono text-[10px]">
+                  <div className="space-y-2 font-mono text-xs">
                     <div className="flex items-center gap-1.5 justify-between bg-slate-50 p-1.5 rounded border border-slate-100">
                       <span className="text-emerald-700 bg-emerald-100 px-1 py-0.5 rounded font-bold">GET</span>
                       <span className="text-slate-600 truncate">/api/residents?status=TamTru</span>
@@ -1721,30 +1738,25 @@ Sau khi các **Tổ nhân dân tự quản kết thúc hoạt động** theo ch�
           {/* INTERACTIVE DATABASE DICTIONARY & SCHEMA TAB */}
           {activeArchTab === "database" && (
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-              
+
               {/* Left Selector: Domain Categories */}
-              <div className="lg:col-span-4 bg-white border border-slate-200 rounded-xl p-4 shadow-sm space-y-4">
+              <div className="lg:col-span-4 bg-white border border-slate-200 rounded-xl p-4 space-y-4">
                 <div>
-                  <label className="text-xs font-bold text-slate-500 uppercase tracking-wider block mb-1.5">
+                  <label className="text-xs font-bold text-slate-600 uppercase tracking-wider block mb-1.5">
                     1. Phân nhóm Dữ liệu
                   </label>
-                  <select
+                  <ReportSelect
+                    aria-label="Phân nhóm dữ liệu cơ sở dữ liệu"
                     value={selectedDbCategory}
-                    onChange={(e) => {
-                      setSelectedDbCategory(e.target.value);
-                      const cat = dbCategories.find(c => c.id === e.target.value);
+                    onChange={(val) => {
+                      setSelectedDbCategory(val);
+                      const cat = dbCategories.find(c => c.id === val);
                       if (cat && cat.tables.length > 0) {
                         setSelectedTable(cat.tables[0].name);
                       }
                     }}
-                    className="w-full bg-slate-50 border border-slate-200 text-slate-800 rounded-lg p-2 text-xs focus:ring-2 focus:ring-slate-900"
-                  >
-                    {dbCategories.map(cat => (
-                      <option key={cat.id} value={cat.id}>
-                        {cat.title}
-                      </option>
-                    ))}
-                  </select>
+                    options={dbCategories.map(cat => ({ value: cat.id, label: cat.title }))}
+                  />
                 </div>
 
                 <div>
@@ -1756,11 +1768,10 @@ Sau khi các **Tổ nhân dân tự quản kết thúc hoạt động** theo ch�
                       <button
                         key={t.name}
                         onClick={() => setSelectedTable(t.name)}
-                        className={`w-full flex items-center gap-2 px-2.5 py-2 rounded-md text-xs text-left transition-all cursor-pointer ${
-                          selectedTable === t.name
-                            ? "bg-indigo-50 text-indigo-700 font-bold border-l-3 border-indigo-600"
-                            : "text-slate-600 hover:bg-slate-50"
-                        }`}
+                        className={`w-full flex items-center gap-2 px-2.5 py-2 rounded-md text-xs text-left transition-all cursor-pointer ${selectedTable === t.name
+                          ? "bg-indigo-50 text-indigo-700 font-bold border-l-3 border-indigo-600"
+                          : "text-slate-600 hover:bg-slate-50"
+                          }`}
                       >
                         <Table size={13} className="shrink-0" />
                         <span className="truncate">{t.name}</span>
@@ -1769,7 +1780,7 @@ Sau khi các **Tổ nhân dân tự quản kết thúc hoạt động** theo ch�
                   </div>
                 </div>
 
-                <div className="bg-amber-50 border border-amber-100 rounded-lg p-3 text-[11px] text-amber-900 leading-relaxed space-y-1">
+                <div className="bg-amber-50 border border-amber-100 rounded-lg p-3 text-xs text-amber-900 leading-relaxed space-y-1">
                   <span className="font-bold flex items-center gap-1">💡 Thiết kế Database:</span>
                   <p>Mô hình hóa hoàn thiện 44 bảng dữ liệu, tất cả ID đều dùng chuẩn **UUID v4** để tăng tính bảo mật và chống trùng lặp dữ liệu khi kết xuất đồng bộ.</p>
                 </div>
@@ -1779,7 +1790,7 @@ Sau khi các **Tổ nhân dân tự quản kết thúc hoạt động** theo ch�
               <div className="lg:col-span-8 space-y-6">
                 {getSelectedTableDef() && (
                   <div className="bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden">
-                    
+
                     {/* Header Table Name */}
                     <div className="p-4 bg-slate-50 border-b border-slate-100 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
                       <div>
@@ -1790,15 +1801,16 @@ Sau khi các **Tổ nhân dân tự quản kết thúc hoạt động** theo ch�
                           {getSelectedTableDef()?.purpose}
                         </p>
                       </div>
-                      
+
                       <button
+                        type="button"
                         onClick={() => {
                           const def = getSelectedTableDef();
                           if (def) handleCopy(generateSqlForTable(def), `sql-${selectedTable}`);
                         }}
-                        className="flex items-center gap-1.5 bg-slate-900 hover:bg-slate-800 text-white text-[11px] font-bold px-2.5 py-1.5 rounded-lg transition-all cursor-pointer shrink-0"
+                        className="flex items-center gap-1.5 bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-bold px-3 py-1.5 rounded-lg transition-colors cursor-pointer shrink-0"
                       >
-                        {copiedText === `sql-${selectedTable}` ? <Check size={12} className="text-emerald-400" /> : <Copy size={12} />}
+                        {copiedText === `sql-${selectedTable}` ? <Check size={12} className="text-white" /> : <Copy size={12} />}
                         Sao chép SQL DDL
                       </button>
                     </div>
@@ -1806,7 +1818,7 @@ Sau khi các **Tổ nhân dân tự quản kết thúc hoạt động** theo ch�
                     {/* Dictionary Columns Grid */}
                     <div className="overflow-x-auto">
                       <table className="w-full text-left text-xs font-sans divide-y divide-slate-100">
-                        <thead className="bg-slate-100/50 text-slate-600 font-bold uppercase text-[10px] tracking-wider">
+                        <thead className="bg-slate-100/50 text-slate-600 font-bold uppercase text-xs tracking-wider">
                           <tr>
                             <th className="px-4 py-3">Tên cột</th>
                             <th className="px-4 py-3">Kiểu dữ liệu</th>
@@ -1819,18 +1831,18 @@ Sau khi các **Tổ nhân dân tự quản kết thúc hoạt động** theo ch�
                           {getSelectedTableDef()?.columns.map(col => (
                             <tr key={col.name} className="hover:bg-slate-50/50">
                               <td className="px-4 py-3 font-mono font-bold text-slate-950">{col.name}</td>
-                              <td className="px-4 py-3 font-mono text-slate-500 text-[11px]">{col.type}</td>
+                              <td className="px-4 py-3 font-mono text-slate-500 text-xs">{col.type}</td>
                               <td className="px-4 py-3">
                                 {col.constraints ? (
-                                  <span className="font-mono text-[10px] bg-red-50 text-red-700 border border-red-100 px-1 rounded-sm">
+                                  <span className="font-mono text-xs bg-red-50 text-red-700 border border-red-100 px-1 rounded-sm">
                                     {col.constraints}
                                   </span>
                                 ) : (
-                                  <span className="text-slate-400 font-mono text-[10px]">-</span>
+                                  <span className="text-slate-600 font-mono text-xs">-</span>
                                 )}
                               </td>
                               <td className="px-4 py-3 max-w-[200px] truncate-none whitespace-normal leading-relaxed text-slate-600">{col.description}</td>
-                              <td className="px-4 py-3 font-mono text-[11px] text-slate-500">{col.sample}</td>
+                              <td className="px-4 py-3 font-mono text-xs text-slate-500">{col.sample}</td>
                             </tr>
                           ))}
                         </tbody>
@@ -1838,12 +1850,12 @@ Sau khi các **Tổ nhân dân tự quản kết thúc hoạt động** theo ch�
                     </div>
 
                     {/* Interactive DDL Generator Preview */}
-                    <div className="border-t border-slate-100 p-4 bg-slate-950">
-                      <div className="flex items-center justify-between text-[11px] text-slate-400 mb-2 font-mono">
+                    <div className="border-t border-slate-200 p-4 bg-slate-50">
+                      <div className="flex items-center justify-between text-xs text-slate-600 mb-2 font-mono">
                         <span>// SQL DDL Generator Preview:</span>
-                        <span className="text-indigo-400">PostgreSQL Ready</span>
+                        <span className="text-emerald-700 font-semibold">PostgreSQL Ready</span>
                       </div>
-                      <pre className="font-mono text-[10px] text-slate-200 overflow-x-auto p-3 bg-slate-950 border border-slate-800 rounded-lg leading-relaxed max-h-[160px]">
+                      <pre className="font-mono text-xs text-slate-800 overflow-x-auto p-3 bg-white border border-slate-200 rounded-lg leading-relaxed max-h-[160px]">
                         {getSelectedTableDef() && generateSqlForTable(getSelectedTableDef()!)}
                       </pre>
                     </div>
@@ -1858,41 +1870,43 @@ Sau khi các **Tổ nhân dân tự quản kết thúc hoạt động** theo ch�
           {/* POSTGIS / GIS TAB */}
           {activeArchTab === "gis" && (
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-              <div className="lg:col-span-6 bg-white border border-slate-200 rounded-xl p-6 shadow-sm space-y-4">
+              <div className="lg:col-span-6 bg-white border border-slate-200 rounded-xl p-6 space-y-4">
                 <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
-                  <MapPin size={18} className="text-emerald-600" />
+                  <MapPin size={18} className="text-emerald-700" />
                   Mô hình lưu trữ không gian PostGIS
                 </h3>
-                <p className="text-xs text-slate-500 leading-relaxed">
+                <p className="text-xs text-slate-600 leading-relaxed">
                   Để vẽ ranh giới tổ dân phố và hiển thị bản đồ trực quan mật độ nhân khẩu, hệ thống tận dụng tối đa sức mạnh của tiện ích **PostGIS** của PostgreSQL, hỗ trợ các đối tượng hình học dạng điểm (Point) và đa giác (Polygon) theo chuẩn không gian WGS84 (SRID 4326).
                 </p>
 
-                <div className="bg-slate-950 p-4 rounded-xl border border-slate-800 text-slate-300 font-mono text-[10px] leading-relaxed relative max-h-[300px] overflow-y-auto">
-                  <button 
+                <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 text-slate-800 font-mono text-xs leading-relaxed relative max-h-[300px] overflow-y-auto">
+                  <button
+                    type="button"
                     onClick={() => handleCopy(gisSqlSchema, "gis-schema")}
-                    className="absolute top-2 right-2 text-slate-400 hover:text-white bg-slate-900 p-1 rounded border border-slate-800"
+                    className="absolute top-2 right-2 text-slate-700 hover:text-slate-900 bg-white hover:bg-slate-100 p-1.5 rounded-lg border border-slate-200 cursor-pointer"
                   >
-                    {copiedText === "gis-schema" ? <Check size={12} className="text-emerald-400" /> : <Copy size={12} />}
+                    {copiedText === "gis-schema" ? <Check size={12} className="text-emerald-700" /> : <Copy size={12} />}
                   </button>
                   <pre>{gisSqlSchema}</pre>
                 </div>
               </div>
 
-              <div className="lg:col-span-6 bg-white border border-slate-200 rounded-xl p-6 shadow-sm space-y-4">
+              <div className="lg:col-span-6 bg-white border border-slate-200 rounded-xl p-6 space-y-4">
                 <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
-                  <Code size={18} className="text-indigo-600" />
+                  <Code size={18} className="text-indigo-700" />
                   Các câu truy vấn không gian mẫu (Spatial Query)
                 </h3>
-                <p className="text-xs text-slate-500 leading-relaxed">
+                <p className="text-xs text-slate-600 leading-relaxed">
                   PostGIS hỗ trợ tính toán khoảng cách thực tế, kiểm tra điểm nằm trong đa giác và khoanh vùng camera giám sát xung quanh các khu nhà trọ hoặc điểm nóng ANTT vô cùng nhanh chóng:
                 </p>
 
-                <div className="bg-slate-950 p-4 rounded-xl border border-slate-800 text-slate-300 font-mono text-[10px] leading-relaxed relative max-h-[300px] overflow-y-auto">
-                  <button 
+                <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 text-slate-800 font-mono text-xs leading-relaxed relative max-h-[300px] overflow-y-auto">
+                  <button
+                    type="button"
                     onClick={() => handleCopy(gisQueryExample, "gis-query")}
-                    className="absolute top-2 right-2 text-slate-400 hover:text-white bg-slate-900 p-1 rounded border border-slate-800"
+                    className="absolute top-2 right-2 text-slate-700 hover:text-slate-900 bg-white hover:bg-slate-100 p-1.5 rounded-lg border border-slate-200 cursor-pointer"
                   >
-                    {copiedText === "gis-query" ? <Check size={12} className="text-emerald-400" /> : <Copy size={12} />}
+                    {copiedText === "gis-query" ? <Check size={12} className="text-emerald-700" /> : <Copy size={12} />}
                   </button>
                   <pre>{gisQueryExample}</pre>
                 </div>
@@ -1903,7 +1917,7 @@ Sau khi các **Tổ nhân dân tự quản kết thúc hoạt động** theo ch�
           {/* RBAC PERMISSIONS MATRIX TAB */}
           {activeArchTab === "rbac" && (
             <div className="space-y-6">
-              
+
               {/* Descriptions of Roles */}
               <div className="bg-white border border-slate-200 rounded-xl p-5 shadow-sm">
                 <h3 className="text-base font-bold text-slate-900 mb-3 flex items-center gap-1.5">
@@ -1918,7 +1932,7 @@ Sau khi các **Tổ nhân dân tự quản kết thúc hoạt động** theo ch�
                   {rbacRoles.map((role) => (
                     <div key={role.name} className="border border-slate-100 rounded-lg p-3 space-y-1 hover:bg-slate-50 transition-colors">
                       <span className="font-bold text-xs text-slate-900 block">{role.name}</span>
-                      <span className="text-[11px] text-slate-500 block leading-relaxed">{role.desc}</span>
+                      <span className="text-xs text-slate-500 block leading-relaxed">{role.desc}</span>
                     </div>
                   ))}
                 </div>
@@ -1931,7 +1945,7 @@ Sau khi các **Tổ nhân dân tự quản kết thúc hoạt động** theo ch�
                 </div>
                 <div className="overflow-x-auto">
                   <table className="w-full text-left text-xs font-sans divide-y divide-slate-100">
-                    <thead className="bg-slate-100/50 text-slate-600 font-bold uppercase text-[10px] tracking-wider">
+                    <thead className="bg-slate-100/50 text-slate-600 font-bold uppercase text-xs tracking-wider">
                       <tr>
                         <th className="px-4 py-3">Phân hệ Module</th>
                         <th className="px-4 py-3">Admin</th>
@@ -1947,13 +1961,13 @@ Sau khi các **Tổ nhân dân tự quản kết thúc hoạt động** theo ch�
                       {rbacMatrix.map((row) => (
                         <tr key={row.module} className="hover:bg-slate-50/50">
                           <td className="px-4 py-3 font-bold text-slate-900">{row.module}</td>
-                          <td className="px-4 py-3 font-mono text-[11px] text-emerald-600 font-bold">{row.admin}</td>
-                          <td className="px-4 py-3 font-mono text-[11px] text-slate-600">{row.bithu}</td>
-                          <td className="px-4 py-3 font-mono text-[11px] text-indigo-600 font-bold">{row.truongkp}</td>
-                          <td className="px-4 py-3 font-mono text-[11px] text-slate-600">{row.mattran}</td>
-                          <td className="px-4 py-3 font-mono text-[11px] text-slate-500">{row.doanthe}</td>
-                          <td className="px-4 py-3 font-mono text-[11px] text-rose-600 font-bold">{row.antt}</td>
-                          <td className="px-4 py-3 font-mono text-[11px] text-slate-500">{row.dan}</td>
+                          <td className="px-4 py-3 font-mono text-xs text-emerald-600 font-bold">{row.admin}</td>
+                          <td className="px-4 py-3 font-mono text-xs text-slate-600">{row.bithu}</td>
+                          <td className="px-4 py-3 font-mono text-xs text-indigo-600 font-bold">{row.truongkp}</td>
+                          <td className="px-4 py-3 font-mono text-xs text-slate-600">{row.mattran}</td>
+                          <td className="px-4 py-3 font-mono text-xs text-slate-500">{row.doanthe}</td>
+                          <td className="px-4 py-3 font-mono text-xs text-rose-600 font-bold">{row.antt}</td>
+                          <td className="px-4 py-3 font-mono text-xs text-slate-500">{row.dan}</td>
                         </tr>
                       ))}
                     </tbody>
@@ -1967,7 +1981,7 @@ Sau khi các **Tổ nhân dân tự quản kết thúc hoạt động** theo ch�
           {/* AI AGENT ARCHITECTURE TAB */}
           {activeArchTab === "ai" && (
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-              
+
               <div className="lg:col-span-7 bg-white border border-slate-200 rounded-xl p-6 shadow-sm space-y-4">
                 <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
                   <Bot size={18} className="text-indigo-600" />
@@ -1980,25 +1994,25 @@ Sau khi các **Tổ nhân dân tự quản kết thúc hoạt động** theo ch�
                 <div className="space-y-3">
                   <div className="border border-slate-100 rounded-lg p-3 hover:bg-slate-50 transition-all">
                     <span className="font-bold text-xs text-indigo-700 block">1. Trợ lý Bí thư (Soạn thảo & Hoạch định)</span>
-                    <span className="text-[11px] text-slate-500 block leading-relaxed mt-1">
+                    <span className="text-xs text-slate-500 block leading-relaxed mt-1">
                       Được huấn luyện các chỉ thị điều lệ Đảng, hỗ trợ Bí thư phác thảo dự thảo Nghị quyết chi bộ, soạn báo cáo chính trị và tóm tắt biên bản họp chỉ bộ nhanh chóng.
                     </span>
                   </div>
                   <div className="border border-slate-100 rounded-lg p-3 hover:bg-slate-50 transition-all">
                     <span className="font-bold text-xs text-emerald-700 block">2. Trợ lý Trưởng Khu phố (Hành chính & Quản lý)</span>
-                    <span className="text-[11px] text-slate-500 block leading-relaxed mt-1">
+                    <span className="text-xs text-slate-500 block leading-relaxed mt-1">
                       Được nạp dữ liệu thống kê dân số, biểu mẫu hành chính quốc gia. Hỗ trợ dự thảo các thông báo họp khu phố, thống kê biến động nhân khẩu và soạn thảo báo cáo gửi lên UBND Phường.
                     </span>
                   </div>
                   <div className="border border-slate-100 rounded-lg p-3 hover:bg-slate-50 transition-all">
                     <span className="font-bold text-xs text-purple-700 block">3. Trợ lý Mặt trận & An sinh (Xã hội & Đoàn thể)</span>
-                    <span className="text-[11px] text-slate-500 block leading-relaxed mt-1">
+                    <span className="text-xs text-slate-500 block leading-relaxed mt-1">
                       Hỗ trợ lập kế hoạch vận động quỹ nhân đạo, phân loại đề xuất hỗ trợ hộ nghèo, hộ cận nghèo đúng quy định, công bằng.
                     </span>
                   </div>
                   <div className="border border-slate-100 rounded-lg p-3 hover:bg-slate-50 transition-all">
                     <span className="font-bold text-xs text-rose-700 block">4. Trợ lý ANTT & Tin báo (Môi trường & An ninh)</span>
-                    <span className="text-[11px] text-slate-500 block leading-relaxed mt-1">
+                    <span className="text-xs text-slate-500 block leading-relaxed mt-1">
                       Tự động phân loại, lọc các phản ánh hiện trường do người dân gửi lên vào đúng nhóm chuyên trách xử lý (Đội trật tự đô thị, Cảnh sát khu vực, Công ty vệ sinh...).
                     </span>
                   </div>
@@ -2014,16 +2028,16 @@ Sau khi các **Tổ nhân dân tự quản kết thúc hoạt động** theo ch�
                   Tất cả các cuộc gọi mô hình AI đều được thực hiện từ máy chủ Express (`server.ts`) qua gói SDK `@google/genai` bảo mật, sử dụng khóa `process.env.GEMINI_API_KEY` ẩn.
                 </p>
 
-                <div className="bg-slate-950 p-4 rounded-xl border border-slate-800 text-slate-300 font-mono text-[10px] leading-relaxed relative overflow-x-auto">
-                  <div className="text-slate-500 mb-1">// server.ts - Trích đoạn cuộc gọi AI</div>
-                  <span className="text-indigo-400">import</span> {"{ GoogleGenAI }"} <span className="text-indigo-400">from</span> <span className="text-emerald-400">"@google/genai"</span>;
+                <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 text-slate-800 font-mono text-xs leading-relaxed relative overflow-x-auto">
+                  <div className="text-slate-600 mb-1">// server.ts - Trích đoạn cuộc gọi AI</div>
+                  <span className="text-indigo-700 font-semibold">import</span> {"{ GoogleGenAI }"} <span className="text-indigo-700 font-semibold">from</span> <span className="text-emerald-700">"@google/genai"</span>;
                   <br />
-                  <span className="text-indigo-400">const</span> ai = <span className="text-indigo-400">new</span> GoogleGenAI({"{"} apiKey: process.env.GEMINI_API_KEY {"}"});
+                  <span className="text-indigo-700 font-semibold">const</span> ai = <span className="text-indigo-700 font-semibold">new</span> GoogleGenAI({"{"} apiKey: process.env.GEMINI_API_KEY {"}"});
                   <br />
                   <br />
-                  <span className="text-indigo-400">const</span> response = <span className="text-indigo-400">await</span> ai.models.generateContent({"{"}
+                  <span className="text-indigo-700 font-semibold">const</span> response = <span className="text-indigo-700 font-semibold">await</span> ai.models.generateContent({"{"}
                   <br />
-                  &nbsp;&nbsp;model: <span className="text-emerald-400">"gemini-3.5-flash"</span>,
+                  &nbsp;&nbsp;model: <span className="text-emerald-700">"gemini-3.5-flash"</span>,
                   <br />
                   &nbsp;&nbsp;contents: messages,
                   <br />
@@ -2032,7 +2046,7 @@ Sau khi các **Tổ nhân dân tự quản kết thúc hoạt động** theo ch�
                   {"}"});
                 </div>
 
-                <div className="bg-indigo-50 border border-indigo-100 text-indigo-900 rounded-lg p-3 text-[11px] leading-relaxed">
+                <div className="bg-indigo-50 border border-indigo-100 text-indigo-900 rounded-lg p-3 text-xs leading-relaxed">
                   <span className="font-bold block">💡 Lợi ích Serverless:</span>
                   Không tốn tài nguyên GPU cục bộ, mô hình chạy tối ưu hóa trên điện toán đám mây Google Cloud với thời gian phản hồi chưa đầy 1 giây.
                 </div>
@@ -2055,15 +2069,15 @@ Sau khi các **Tổ nhân dân tự quản kết thúc hoạt động** theo ch�
 
                 <div className="space-y-3 text-xs text-slate-600">
                   <div className="flex gap-2.5 items-start">
-                    <span className="bg-indigo-50 text-indigo-700 text-[10px] font-bold px-2 py-0.5 rounded-full mt-0.5">Lớp 1</span>
+                    <span className="bg-indigo-50 text-indigo-700 text-xs font-bold px-2 py-0.5 rounded-full mt-0.5">Lớp 1</span>
                     <p><strong>Mã hóa đường truyền SSL/TLS:</strong> 100% dữ liệu đi từ trình duyệt của cư dân đến máy chủ được mã hóa bảo mật chống nghe lén HTTPS.</p>
                   </div>
                   <div className="flex gap-2.5 items-start">
-                    <span className="bg-indigo-50 text-indigo-700 text-[10px] font-bold px-2 py-0.5 rounded-full mt-0.5">Lớp 2</span>
+                    <span className="bg-indigo-50 text-indigo-700 text-xs font-bold px-2 py-0.5 rounded-full mt-0.5">Lớp 2</span>
                     <p><strong>Bảo mật danh tính JWT:</strong> Xác thực phiên làm việc thông qua token JWT ký số thời gian hết hạn 24 giờ, hỗ trợ Multi-Factor Authentication (MFA).</p>
                   </div>
                   <div className="flex gap-2.5 items-start">
-                    <span className="bg-indigo-50 text-indigo-700 text-[10px] font-bold px-2 py-0.5 rounded-full mt-0.5">Lớp 3</span>
+                    <span className="bg-indigo-50 text-indigo-700 text-xs font-bold px-2 py-0.5 rounded-full mt-0.5">Lớp 3</span>
                     <p><strong>Row Level Security (RLS):</strong> Chính sách bảo mật Postgres RLS chặn hoàn toàn việc can thiệp trái phép. Kể cả tin tặc bypass được API cũng không thể đọc dữ liệu hộ dân khác do DB kiểm tra UUID người dùng trực tiếp.</p>
                   </div>
                 </div>
@@ -2102,7 +2116,7 @@ Sau khi các **Tổ nhân dân tự quản kết thúc hoạt động** theo ch�
       {/* RENDER INTERACTIVE ROADMAP (21 PHASES) */}
       {activeMainSection === "roadmap" && (
         <div id="interactive-roadmap-section" className="space-y-6 animate-fade-in">
-          
+
           {/* Header Stats */}
           <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm">
             <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-6">
@@ -2128,28 +2142,28 @@ Sau khi các **Tổ nhân dân tự quản kết thúc hoạt động** theo ch�
             <div className="mt-6 pt-6 border-t border-slate-100 grid grid-cols-1 md:grid-cols-4 gap-6">
               <div className="md:col-span-1 space-y-2">
                 <div className="flex justify-between text-xs font-bold">
-                  <span className="text-slate-500">Tiến độ chung</span>
-                  <span className="text-amber-600">{progressPercent}% Hoàn thành</span>
+                  <span className="text-slate-600">Tiến độ chung</span>
+                  <span className="text-amber-800">{progressPercent}% Hoàn thành</span>
                 </div>
-                <div className="h-2.5 bg-slate-100 rounded-full overflow-hidden border border-slate-200/50">
-                  <div 
-                    className="h-full bg-gradient-to-r from-amber-500 to-emerald-500 transition-all duration-500" 
+                <div className="h-2.5 bg-slate-100 rounded-full overflow-hidden border border-slate-200/80">
+                  <div
+                    className="h-full bg-emerald-700 transition-colors"
                     style={{ width: `${progressPercent}%` }}
                   />
                 </div>
               </div>
               <div className="grid grid-cols-3 gap-2 md:col-span-3 text-center">
-                <div className="bg-emerald-50 border border-emerald-100 rounded-xl p-2.5">
-                  <div className="text-xs text-emerald-600 font-bold uppercase tracking-wider font-mono">Hoàn thành</div>
-                  <div className="text-xl font-black text-emerald-700">{completedCount} <span className="text-xs font-normal">bước</span></div>
+                <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-2.5">
+                  <div className="text-xs text-emerald-800 font-bold uppercase tracking-wider font-mono">Hoàn thành</div>
+                  <div className="text-xl font-black text-emerald-800">{completedCount} <span className="text-xs font-normal">bước</span></div>
                 </div>
-                <div className="bg-amber-50 border border-amber-100 rounded-xl p-2.5">
-                  <div className="text-xs text-amber-600 font-bold uppercase tracking-wider font-mono">Đang chạy (WIP)</div>
-                  <div className="text-xl font-black text-amber-700">{inProgressCount} <span className="text-xs font-normal">bước</span></div>
+                <div className="bg-amber-50 border border-amber-200 rounded-xl p-2.5">
+                  <div className="text-xs text-amber-800 font-bold uppercase tracking-wider font-mono">Đang chạy (WIP)</div>
+                  <div className="text-xl font-black text-amber-800">{inProgressCount} <span className="text-xs font-normal">bước</span></div>
                 </div>
                 <div className="bg-slate-50 border border-slate-200 rounded-xl p-2.5">
-                  <div className="text-xs text-slate-500 font-bold uppercase tracking-wider font-mono">Chưa bắt đầu</div>
-                  <div className="text-xl font-black text-slate-600">{notStartedCount} <span className="text-xs font-normal">bước</span></div>
+                  <div className="text-xs text-slate-600 font-bold uppercase tracking-wider font-mono">Chưa bắt đầu</div>
+                  <div className="text-xl font-black text-slate-700">{notStartedCount} <span className="text-xs font-normal">bước</span></div>
                 </div>
               </div>
             </div>
@@ -2157,12 +2171,12 @@ Sau khi các **Tổ nhân dân tự quản kết thúc hoạt động** theo ch�
 
           {/* Interactive Workspace */}
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-            
+
             {/* Timeline sidebar list */}
             <div className="lg:col-span-5 bg-white border border-slate-200 rounded-2xl p-4 shadow-sm h-[680px] flex flex-col">
               <div className="pb-3 border-b border-slate-100 mb-3 flex justify-between items-center shrink-0">
                 <span className="text-xs font-black text-slate-800 uppercase tracking-wider font-mono">Danh sách Giai đoạn (1 - 21)</span>
-                <span className="text-[10px] bg-slate-100 px-2 py-0.5 rounded text-slate-500 font-mono">Sắp xếp tuần tự</span>
+                <span className="text-xs bg-slate-100 px-2 py-0.5 rounded text-slate-700 font-mono">Sắp xếp tuần tự</span>
               </div>
               <div className="flex-1 overflow-y-auto space-y-1.5 pr-1 scrollbar-thin">
                 {roadmapPhases.map((phase, idx) => {
@@ -2171,26 +2185,27 @@ Sau khi các **Tổ nhân dân tự quản kết thúc hoạt động** theo ch�
                   return (
                     <button
                       key={phase.id}
+                      type="button"
                       onClick={() => setActiveRoadmapPhase(idx)}
-                      className={`w-full flex items-center justify-between p-3 rounded-xl border text-left transition-all cursor-pointer ${
-                        isActive 
-                          ? "bg-slate-900 border-slate-900 text-white shadow-md shadow-slate-900/10" 
-                          : "bg-slate-50 hover:bg-slate-100/80 border-slate-200 text-slate-700"
+                      className={`w-full flex items-center justify-between p-3 rounded-xl border text-left transition-colors cursor-pointer ${
+                        isActive
+                          ? "bg-emerald-50 border-emerald-300 text-slate-900"
+                          : "bg-white hover:bg-slate-50 border-slate-200 text-slate-700"
                       }`}
                     >
                       <div className="flex items-center gap-2.5 min-w-0">
-                        <div className={`w-7 h-7 rounded-lg flex items-center justify-center font-mono text-[10px] font-extrabold shrink-0 ${
-                          isActive 
-                            ? "bg-amber-500 text-slate-950" 
-                            : "bg-slate-200 text-slate-600"
+                        <div className={`w-7 h-7 rounded-lg flex items-center justify-center font-mono text-xs font-bold shrink-0 ${
+                          isActive
+                            ? "bg-emerald-700 text-white"
+                            : "bg-slate-100 text-slate-700 border border-slate-200"
                         }`}>
                           {phase.id < 10 ? `0${phase.id}` : phase.id}
                         </div>
                         <div className="min-w-0">
-                          <div className={`text-[10px] font-bold uppercase tracking-wider ${isActive ? "text-amber-400" : "text-slate-400"}`}>
+                          <div className={`text-xs font-bold uppercase tracking-wider ${isActive ? "text-emerald-800" : "text-slate-600"}`}>
                             {phase.title}
                           </div>
-                          <div className="text-xs font-bold truncate max-w-[210px]">
+                          <div className="text-xs font-bold truncate max-w-[210px] text-slate-900">
                             {phase.name}
                           </div>
                         </div>
@@ -2199,18 +2214,18 @@ Sau khi các **Tổ nhân dân tự quản kết thúc hoạt động** theo ch�
                       {/* Status indicator badge */}
                       <div className="shrink-0 pl-2">
                         {status === "completed" && (
-                          <span className="flex h-5 w-5 items-center justify-center rounded-full bg-emerald-100 text-emerald-600">
+                          <span className="flex h-5 w-5 items-center justify-center rounded-full bg-emerald-100 text-emerald-700">
                             <Check size={12} strokeWidth={3} />
                           </span>
                         )}
                         {status === "in_progress" && (
-                          <span className="flex h-5 w-5 items-center justify-center rounded-full bg-amber-100 text-amber-600 animate-pulse">
-                            <span className="h-2 w-2 rounded-full bg-amber-500" />
+                          <span className="flex h-5 w-5 items-center justify-center rounded-full bg-amber-100 text-amber-700">
+                            <span className="h-2 w-2 rounded-full bg-amber-600" />
                           </span>
                         )}
                         {status === "not_started" && (
-                          <span className="flex h-5 w-5 items-center justify-center rounded-full bg-slate-200 text-slate-400">
-                            <span className="h-1.5 w-1.5 rounded-full bg-slate-400" />
+                          <span className="flex h-5 w-5 items-center justify-center rounded-full bg-slate-200 text-slate-600">
+                            <span className="h-1.5 w-1.5 rounded-full bg-slate-500" />
                           </span>
                         )}
                       </div>
@@ -2227,7 +2242,7 @@ Sau khi các **Tổ nhân dân tự quản kết thúc hoạt động** theo ch�
                 if (!phase) return null;
                 const status = phaseStatuses[phase.id] || "not_started";
                 const extra = getPhaseExtraInfo(phase.id);
-                
+
                 // Calculate checked count in checklist
                 const totalChecks = phase.requirements.length + phase.outputs.length + phase.criteria.length;
                 let checkedCount = 0;
@@ -2247,7 +2262,7 @@ Sau khi các **Tổ nhân dân tự quản kết thúc hoạt động** theo ch�
                     {/* Header Details */}
                     <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 pb-4 border-b border-slate-100">
                       <div>
-                        <span className="text-[10px] bg-slate-100 border border-slate-200 text-slate-600 px-2 py-0.5 rounded font-mono font-bold uppercase tracking-wider block w-fit mb-1">
+                        <span className="text-xs bg-slate-100 border border-slate-200 text-slate-600 px-2 py-0.5 rounded font-mono font-bold uppercase tracking-wider block w-fit mb-1">
                           {phase.title}
                         </span>
                         <h3 className="text-base font-extrabold text-slate-900 flex items-center gap-2">
@@ -2257,33 +2272,33 @@ Sau khi các **Tổ nhân dân tự quản kết thúc hoạt động** theo ch�
                       </div>
 
                       {/* Interactive Status Selector */}
-                      <div className="flex bg-slate-100 p-1 rounded-xl border border-slate-200 items-center">
+                      <div className="flex bg-slate-100 p-1 rounded-xl border border-slate-200 items-center gap-1">
                         <button
                           onClick={() => handleStatusChange(phase.id, "not_started")}
-                          className={`px-2.5 py-1 rounded-lg text-[10px] font-extrabold transition-all cursor-pointer ${
+                          className={`min-h-[36px] px-3 py-1.5 rounded-lg text-xs font-extrabold transition-colors cursor-pointer whitespace-nowrap ${
                             status === "not_started"
-                              ? "bg-slate-300 text-slate-800 shadow"
-                              : "text-slate-500 hover:text-slate-800"
+                              ? "bg-slate-700 text-white"
+                              : "text-slate-600 hover:text-slate-900"
                           }`}
                         >
                           Chưa có
                         </button>
                         <button
                           onClick={() => handleStatusChange(phase.id, "in_progress")}
-                          className={`px-2.5 py-1 rounded-lg text-[10px] font-extrabold transition-all cursor-pointer ${
+                          className={`min-h-[36px] px-3 py-1.5 rounded-lg text-xs font-extrabold transition-colors cursor-pointer whitespace-nowrap ${
                             status === "in_progress"
-                              ? "bg-amber-500 text-white shadow"
-                              : "text-slate-500 hover:text-amber-600"
+                              ? "bg-amber-700 text-white"
+                              : "text-slate-600 hover:text-amber-800"
                           }`}
                         >
                           Đang chạy
                         </button>
                         <button
                           onClick={() => handleStatusChange(phase.id, "completed")}
-                          className={`px-2.5 py-1 rounded-lg text-[10px] font-extrabold transition-all cursor-pointer ${
+                          className={`min-h-[36px] px-3 py-1.5 rounded-lg text-xs font-extrabold transition-colors cursor-pointer whitespace-nowrap ${
                             status === "completed"
-                              ? "bg-emerald-600 text-white shadow"
-                              : "text-slate-500 hover:text-emerald-600"
+                              ? "bg-emerald-700 text-white"
+                              : "text-slate-600 hover:text-emerald-800"
                           }`}
                         >
                           Xong
@@ -2292,8 +2307,8 @@ Sau khi các **Tổ nhân dân tự quản kết thúc hoạt động** theo ch�
                     </div>
 
                     {/* Objective block */}
-                    <div className="bg-slate-50 border-l-4 border-amber-500 p-4 rounded-r-xl space-y-1">
-                      <div className="text-[10px] uppercase font-mono font-bold tracking-wider text-amber-600">Mục tiêu Giai đoạn</div>
+                    <div className="bg-slate-50 border-l-4 border-amber-600 p-4 rounded-r-xl space-y-1">
+                      <div className="text-xs uppercase font-mono font-bold tracking-wider text-amber-800">Mục tiêu Giai đoạn</div>
                       <p className="text-xs font-medium text-slate-800 leading-relaxed">
                         {phase.objective}
                       </p>
@@ -2306,17 +2321,17 @@ Sau khi các **Tổ nhân dân tự quản kết thúc hoạt động** theo ch�
                           <CheckCircle2 size={14} className="text-slate-500" />
                           Checklist Nghiệm thu ({checkedCount}/{totalChecks})
                         </h4>
-                        <span className="text-[10px] font-mono font-bold bg-amber-50 border border-amber-200 text-amber-700 px-2 py-0.5 rounded">
+                        <span className="text-xs font-mono font-bold bg-amber-50 border border-amber-200 text-amber-700 px-2 py-0.5 rounded">
                           Đạt {checklistPercent}%
                         </span>
                       </div>
 
                       {/* Section Checklist Items */}
                       <div className="space-y-4 bg-slate-50/50 border border-slate-100 rounded-xl p-4">
-                        
+
                         {/* Requirements */}
                         <div className="space-y-2">
-                          <div className="text-[10px] uppercase tracking-wider font-bold text-slate-400 font-mono">1. Nghiệp vụ & Thiết lập</div>
+                          <div className="text-xs uppercase tracking-wider font-bold text-slate-600 font-mono">1. Nghiệp vụ & Thiết lập</div>
                           <div className="space-y-1.5">
                             {phase.requirements.map((req, rIdx) => {
                               const key = `req-${phase.id}-${rIdx}`;
@@ -2327,14 +2342,13 @@ Sau khi các **Tổ nhân dân tự quản kết thúc hoạt động** theo ch�
                                   onClick={() => toggleChecklist(key)}
                                   className="w-full flex items-start gap-2.5 text-left p-2 rounded-lg hover:bg-slate-100/50 transition-colors text-xs cursor-pointer group"
                                 >
-                                  <div className={`mt-0.5 w-4.5 h-4.5 rounded border flex items-center justify-center shrink-0 transition-all ${
-                                    isChecked 
-                                      ? "bg-emerald-500 border-emerald-500 text-white" 
-                                      : "border-slate-300 group-hover:border-slate-400 bg-white"
-                                  }`}>
+                                  <div className={`mt-0.5 w-4.5 h-4.5 rounded border flex items-center justify-center shrink-0 transition-all ${isChecked
+                                    ? "bg-emerald-500 border-emerald-500 text-white"
+                                    : "border-slate-300 group-hover:border-slate-400 bg-white"
+                                    }`}>
                                     {isChecked && <Check size={11} strokeWidth={3} />}
                                   </div>
-                                  <span className={`leading-relaxed ${isChecked ? "text-slate-400 line-through" : "text-slate-700 font-medium"}`}>
+                                  <span className={`leading-relaxed ${isChecked ? "text-slate-600 line-through" : "text-slate-700 font-medium"}`}>
                                     {req}
                                   </span>
                                 </button>
@@ -2345,7 +2359,7 @@ Sau khi các **Tổ nhân dân tự quản kết thúc hoạt động** theo ch�
 
                         {/* Outputs */}
                         <div className="space-y-2 pt-2 border-t border-slate-100">
-                          <div className="text-[10px] uppercase tracking-wider font-bold text-slate-400 font-mono">2. Sản phẩm Đầu ra (Deliverables)</div>
+                          <div className="text-xs uppercase tracking-wider font-bold text-slate-600 font-mono">2. Sản phẩm Đầu ra (Deliverables)</div>
                           <div className="space-y-1.5">
                             {phase.outputs.map((out, oIdx) => {
                               const key = `out-${phase.id}-${oIdx}`;
@@ -2356,14 +2370,13 @@ Sau khi các **Tổ nhân dân tự quản kết thúc hoạt động** theo ch�
                                   onClick={() => toggleChecklist(key)}
                                   className="w-full flex items-start gap-2.5 text-left p-2 rounded-lg hover:bg-slate-100/50 transition-colors text-xs cursor-pointer group"
                                 >
-                                  <div className={`mt-0.5 w-4.5 h-4.5 rounded border flex items-center justify-center shrink-0 transition-all ${
-                                    isChecked 
-                                      ? "bg-emerald-500 border-emerald-500 text-white" 
-                                      : "border-slate-300 group-hover:border-slate-400 bg-white"
-                                  }`}>
+                                  <div className={`mt-0.5 w-4.5 h-4.5 rounded border flex items-center justify-center shrink-0 transition-all ${isChecked
+                                    ? "bg-emerald-500 border-emerald-500 text-white"
+                                    : "border-slate-300 group-hover:border-slate-400 bg-white"
+                                    }`}>
                                     {isChecked && <Check size={11} strokeWidth={3} />}
                                   </div>
-                                  <span className={`leading-relaxed ${isChecked ? "text-slate-400 line-through" : "text-slate-700 font-medium"}`}>
+                                  <span className={`leading-relaxed ${isChecked ? "text-slate-600 line-through" : "text-slate-700 font-medium"}`}>
                                     {out}
                                   </span>
                                 </button>
@@ -2374,7 +2387,7 @@ Sau khi các **Tổ nhân dân tự quản kết thúc hoạt động** theo ch�
 
                         {/* Criteria */}
                         <div className="space-y-2 pt-2 border-t border-slate-100">
-                          <div className="text-[10px] uppercase tracking-wider font-bold text-slate-400 font-mono">3. Tiêu chí Đạt (Definition of Done)</div>
+                          <div className="text-xs uppercase tracking-wider font-bold text-slate-600 font-mono">3. Tiêu chí Đạt (Definition of Done)</div>
                           <div className="space-y-1.5">
                             {phase.criteria.map((crit, cIdx) => {
                               const key = `crit-${phase.id}-${cIdx}`;
@@ -2385,14 +2398,13 @@ Sau khi các **Tổ nhân dân tự quản kết thúc hoạt động** theo ch�
                                   onClick={() => toggleChecklist(key)}
                                   className="w-full flex items-start gap-2.5 text-left p-2 rounded-lg hover:bg-slate-100/50 transition-colors text-xs cursor-pointer group"
                                 >
-                                  <div className={`mt-0.5 w-4.5 h-4.5 rounded border flex items-center justify-center shrink-0 transition-all ${
-                                    isChecked 
-                                      ? "bg-emerald-500 border-emerald-500 text-white" 
-                                      : "border-slate-300 group-hover:border-slate-400 bg-white"
-                                  }`}>
+                                  <div className={`mt-0.5 w-4.5 h-4.5 rounded border flex items-center justify-center shrink-0 transition-all ${isChecked
+                                    ? "bg-emerald-500 border-emerald-500 text-white"
+                                    : "border-slate-300 group-hover:border-slate-400 bg-white"
+                                    }`}>
                                     {isChecked && <Check size={11} strokeWidth={3} />}
                                   </div>
-                                  <span className={`leading-relaxed ${isChecked ? "text-slate-400 line-through" : "text-slate-700 font-medium"}`}>
+                                  <span className={`leading-relaxed ${isChecked ? "text-slate-600 line-through" : "text-slate-700 font-medium"}`}>
                                     {crit}
                                   </span>
                                 </button>
@@ -2437,20 +2449,21 @@ Sau khi các **Tổ nhân dân tự quản kết thúc hoạt động** theo ch�
                       </div>
                     </div>
 
-                    {/* Prompt Box */}
-                    <div className="bg-slate-950 border border-slate-800 rounded-xl p-4 space-y-3">
-                      <div className="flex justify-between items-center">
-                        <div className="flex items-center gap-1.5 text-xs font-black text-amber-400 uppercase tracking-wider font-mono">
-                          <Bot size={14} />
+                    {/* Prompt Box (Flat Hairline Light) */}
+                    <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-3">
+                      <div className="flex justify-between items-center gap-2">
+                        <div className="flex items-center gap-1.5 text-xs font-bold text-slate-800 uppercase tracking-wider font-mono">
+                          <Bot size={14} className="text-emerald-700" />
                           Prompt cho giai đoạn tiếp theo
                         </div>
                         <button
+                          type="button"
                           onClick={() => handleCopy(phase.prompt, `prompt-${phase.id}`)}
-                          className="flex items-center gap-1 bg-slate-900 border border-slate-800 hover:bg-slate-800 text-slate-300 hover:text-white px-2 py-1 rounded text-[10px] font-mono font-bold transition-all cursor-pointer"
+                          className="min-h-[36px] flex items-center gap-1 bg-white border border-slate-200 hover:bg-slate-100 text-slate-700 hover:text-slate-900 px-3 py-1.5 rounded text-xs font-mono font-bold transition-colors cursor-pointer whitespace-nowrap shrink-0"
                         >
                           {copiedText === `prompt-${phase.id}` ? (
                             <>
-                              <Check size={11} className="text-emerald-400" />
+                              <Check size={11} className="text-emerald-700" />
                               Đã sao chép!
                             </>
                           ) : (
@@ -2461,7 +2474,7 @@ Sau khi các **Tổ nhân dân tự quản kết thúc hoạt động** theo ch�
                           )}
                         </button>
                       </div>
-                      <div className="p-3 bg-slate-900/50 border border-slate-900 rounded-lg text-[11px] text-slate-300 font-mono leading-relaxed select-all max-h-24 overflow-y-auto">
+                      <div className="p-3 bg-white border border-slate-200 rounded-lg text-xs text-slate-700 font-mono leading-relaxed select-all max-h-24 overflow-y-auto">
                         {phase.prompt}
                       </div>
                     </div>
@@ -2478,27 +2491,37 @@ Sau khi các **Tổ nhân dân tự quản kết thúc hoạt động** theo ch�
 
       {/* FOOTER METRICS */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm text-center space-y-1">
-          <DollarSign size={20} className="text-emerald-600 mx-auto" />
-          <span className="text-[10px] font-mono uppercase text-slate-400 block font-bold">Kinh phí triển khai</span>
-          <span className="text-sm font-extrabold text-slate-900">~ 52 triệu VNĐ</span>
+        <div className="bg-white border border-slate-200 rounded-xl p-4 text-center space-y-1">
+          <DollarSign size={20} className="text-emerald-700 mx-auto" />
+          <span className="text-xs font-mono uppercase text-slate-600 block font-bold">Kinh phí triển khai</span>
+          <span className="text-sm font-bold text-slate-900">~ 52 triệu VNĐ</span>
         </div>
-        <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm text-center space-y-1">
-          <TrendingUp size={20} className="text-indigo-600 mx-auto" />
-          <span className="text-[10px] font-mono uppercase text-slate-400 block font-bold">Số lượng bảng dữ liệu</span>
-          <span className="text-sm font-extrabold text-slate-900">44 Bảng thiết kế</span>
+        <div className="bg-white border border-slate-200 rounded-xl p-4 text-center space-y-1">
+          <TrendingUp size={20} className="text-indigo-700 mx-auto" />
+          <span className="text-xs font-mono uppercase text-slate-600 block font-bold">Số lượng bảng dữ liệu</span>
+          <span className="text-sm font-bold text-slate-900">44 Bảng thiết kế</span>
         </div>
-        <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm text-center space-y-1">
-          <CalendarDays size={20} className="text-amber-600 mx-auto" />
-          <span className="text-[10px] font-mono uppercase text-slate-400 block font-bold">Thời gian triển khai</span>
-          <span className="text-sm font-extrabold text-slate-900">8 Tháng kế hoạch</span>
+        <div className="bg-white border border-slate-200 rounded-xl p-4 text-center space-y-1">
+          <CalendarDays size={20} className="text-amber-700 mx-auto" />
+          <span className="text-xs font-mono uppercase text-slate-600 block font-bold">Thời gian triển khai</span>
+          <span className="text-sm font-bold text-slate-900">8 Tháng kế hoạch</span>
         </div>
-        <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm text-center space-y-1">
-          <Bot size={20} className="text-purple-600 mx-auto" />
-          <span className="text-[10px] font-mono uppercase text-slate-400 block font-bold">Trí tuệ nhân tạo</span>
-          <span className="text-sm font-extrabold text-slate-900">4 AI Chuyên trách</span>
+        <div className="bg-white border border-slate-200 rounded-xl p-4 text-center space-y-1">
+          <Bot size={20} className="text-purple-700 mx-auto" />
+          <span className="text-xs font-mono uppercase text-slate-600 block font-bold">Trí tuệ nhân tạo</span>
+          <span className="text-sm font-bold text-slate-900">4 AI Chuyên trách</span>
         </div>
       </div>
+
+      <ConfirmModal
+        isOpen={confirmResetRoadmap}
+        onClose={() => setConfirmResetRoadmap(false)}
+        onConfirm={executeResetRoadmapProgress}
+        title="Khôi phục lộ trình triển khai"
+        description="Thiết lập lại toàn bộ 21 giai đoạn triển khai và danh sách kiểm tra về trạng thái Hoàn thành 100%?"
+        confirmLabel="Khôi phục 100%"
+        variant="warning"
+      />
 
     </div>
   );

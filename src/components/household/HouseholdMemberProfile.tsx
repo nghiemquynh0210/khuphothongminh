@@ -82,19 +82,19 @@ export default function HouseholdMemberProfile({ resident, relation, onClose }: 
               <Info size={12} /> Thông tin cá nhân cơ bản
             </div>
 
-            <div className="space-y-0.5">
-              <DetailRow label="Số CCCD" value={resident.cccd} isMono />
+            <dl className="@container space-y-0">
+              <DetailRow label="Số CCCD" value={resident.cccd} isMono copyValue={resident.cccd} />
               <DetailRow label="Ngày sinh" value={resident.birthDate} isMono />
               <DetailRow label="Giới tính" value={resident.gender} />
-              <DetailRow label="Số điện thoại" value={resident.phone || "Chưa đăng ký"} isMono />
+              <DetailRow label="Số điện thoại" value={resident.phone} isMono href={resident.phone ? `tel:${resident.phone}` : undefined} copyValue={resident.phone} />
               <DetailRow
                 label="Trạng thái cư trú"
                 value={
-                  <span className={`inline-block px-2 py-0.5 rounded font-bold text-[10px] ${
+                  <span className={`inline-block px-2 py-0.5 rounded font-bold text-xs ${
                     resident.status === "Thường trú" 
-                      ? "bg-emerald-100 text-emerald-800 border border-emerald-200" 
+                      ? "bg-emerald-50 text-emerald-800 border border-emerald-200" 
                       : resident.status === "Tạm trú"
-                      ? "bg-amber-100 text-amber-800 border border-amber-200"
+                      ? "bg-amber-50 text-amber-800 border border-amber-200"
                       : "bg-slate-100 text-slate-700 border border-slate-200"
                   }`}>
                     {resident.status}
@@ -102,17 +102,17 @@ export default function HouseholdMemberProfile({ resident, relation, onClose }: 
                 }
               />
               <DetailRow label="Nghề nghiệp" value={resident.occupation || "Tự do"} />
-            </div>
+            </dl>
 
             <div className="space-y-2 pt-2">
-              <div className="text-xs font-bold text-slate-400 uppercase tracking-wider font-mono border-b border-slate-100 pb-1 flex items-center gap-1">
+              <div className="text-xs font-bold text-slate-500 uppercase tracking-wider font-mono border-b border-slate-100 pb-1 flex items-center gap-1">
                 <MapPin size={12} /> Nơi đăng ký cư trú & Lịch sử
               </div>
-              <div className="bg-slate-50 p-3 rounded-xl border border-slate-100 space-y-0.5">
+              <dl className="@container bg-slate-50 p-3 rounded-xl border border-slate-100 space-y-0">
                 <DetailRow label="Địa chỉ đăng ký" value={resident.address} />
                 <DetailRow label="Ngày nhập khẩu" value={resident.joinDate || "15/01/2021"} isMono />
-                <DetailRow label="Mã Sổ hộ tịch" value={resident.householdId || "N/A"} isMono />
-              </div>
+                <DetailRow label="Mã Sổ hộ tịch" value={resident.householdId} isMono />
+              </dl>
             </div>
           </div>
         </div>

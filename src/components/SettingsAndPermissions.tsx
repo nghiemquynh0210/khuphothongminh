@@ -44,9 +44,14 @@ import {
 } from "lucide-react";
 import { Resident, ActiveTab, AdministrativeForm, LocalNews } from "../types";
 import AdministrativeForms from "./AdministrativeForms";
+import { ReportSelect } from "./reports/ReportSelect";
+import { InlineNotice } from "./ui/ConfirmModal";
+import { KP3_TO_LIST } from "../utils/kp3Utils";
 import { initialAdministrativeForms } from "../mockForms";
 import { initialNewsList } from "../mockData";
 import { supabase, isSupabaseConfigured } from "../lib/supabase";
+
+const TO_SCOPES_STORAGE_KEY = "kp3_to_permission_scopes_v1";
 
 export interface PendingRegistration {
   id: string;
@@ -86,6 +91,7 @@ interface SettingsAndPermissionsProps {
     phone?: string;
   } | null;
   defaultSubTab?: "approvals" | "forms" | "news" | "permissions" | "plan";
+  onNavigate?: (tab: ActiveTab) => void;
 }
 
 export default function SettingsAndPermissions({
@@ -99,11 +105,12 @@ export default function SettingsAndPermissions({
   onUpdateForm,
   onDeleteForm,
   newsList = initialNewsList,
-  onAddNews,
-  onUpdateNews,
-  onDeleteNews,
+  onAddNews: _onAddNews,
+  onUpdateNews: _onUpdateNews,
+  onDeleteNews: _onDeleteNews,
   currentUser,
-  defaultSubTab = "approvals"
+  defaultSubTab = "approvals",
+  onNavigate
 }: SettingsAndPermissionsProps) {
   const [activeSubTab, setActiveSubTab] = useState<"approvals" | "forms" | "news" | "permissions" | "plan">(defaultSubTab);
 
@@ -172,118 +179,57 @@ export default function SettingsAndPermissions({
     }
   }, [defaultSubTab]);
 
-  // News editing state
-  const [newsSearch, setNewsSearch] = useState("");
-  const [newsCategoryFilter, setNewsCategoryFilter] = useState<string>("Tất cả");
-  const [isWritingNews, setIsWritingNews] = useState(false);
-  const [editingNewsId, setEditingNewsId] = useState<string | null>(null);
-  const [previewNewsItem, setPreviewNewsItem] = useState<LocalNews | null>(null);
-  const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
+  // Tổ 1-14 permission scope state per officer group
+  const [selectedScopeGroup, setSelectedScopeGroup] = useState<string>("totruong");
+  const [toScopesByGroup, setToScopesByGroup] = useState<Record<string, Record<string, boolean>>>(() => {
+    try {
+      const saved = localStorage.getItem(TO_SCOPES_STORAGE_KEY);
+      if (saved) return JSON.parse(saved);
+    } catch {}
+    const default14: Record<string, boolean> = {};
+    KP3_TO_LIST.forEach((toName, idx) => {
+      default14[String(idx + 1)] = true;
+      void toName;
+    });
+    return {
+      totruong: { ...default14 },
+      mattran: { ...default14 },
+      congtacvien: { ...default14 }
+    };
+  });
   const [newsActionToast, setNewsActionToast] = useState<string | null>(null);
-
-  // News form fields
-  const [formNewsTitle, setFormNewsTitle] = useState("");
-  const [formNewsCategory, setFormNewsCategory] = useState<LocalNews["category"]>("Hành chính");
-  const [formNewsAuthor, setFormNewsAuthor] = useState("Ban Điều hành Khu phố 3");
-  const [formNewsDate, setFormNewsDate] = useState("");
-  const [formNewsContent, setFormNewsContent] = useState("");
-  const [formNewsIsPinned, setFormNewsIsPinned] = useState(false);
 
   const showNewsToast = (msg: string) => {
     setNewsActionToast(msg);
-    setTimeout(() => setNewsActionToast(null), 3000);
+    setTimeout(() => setNewsActionToast(null), 3500);
   };
 
-  const handleOpenCreateNews = () => {
-    const todayStr = new Date().toLocaleDateString("vi-VN");
-    setEditingNewsId(null);
-    setFormNewsTitle("");
-    setFormNewsCategory("Hành chính");
-    setFormNewsAuthor(currentUser?.fullName ? `${currentUser.fullName} - Cán bộ KP3` : "Ban Điều hành Khu phố 3");
-    setFormNewsDate(todayStr);
-    setFormNewsContent("");
-    setFormNewsIsPinned(false);
-    setIsWritingNews(true);
+  const handleToggleToScope = (toId: number) => {
+    const key = String(toId);
+    const currentGroup = toScopesByGroup[selectedScopeGroup] || {};
+    const nextGroup = { ...currentGroup, [key]: !(currentGroup[key] ?? true) };
+    const nextAll = { ...toScopesByGroup, [selectedScopeGroup]: nextGroup };
+    setToScopesByGroup(nextAll);
+    try {
+      localStorage.setItem(TO_SCOPES_STORAGE_KEY, JSON.stringify(nextAll));
+    } catch {}
+    showNewsToast(
+      `Đã ${(nextGroup[key] ? "bật" : "khóa")} phạm vi Tổ ${toId} cho nhóm quyền đang chọn.`
+    );
   };
 
-  const handleOpenEditNews = (newsItem: LocalNews) => {
-    setEditingNewsId(newsItem.id);
-    setFormNewsTitle(newsItem.title);
-    setFormNewsCategory(newsItem.category);
-    setFormNewsAuthor(newsItem.author);
-    setFormNewsDate(newsItem.date);
-    setFormNewsContent(newsItem.content);
-    setFormNewsIsPinned(!!newsItem.isPinned);
-    setIsWritingNews(true);
-  };
-
-  const handleSaveNewsSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!formNewsTitle.trim() || !formNewsContent.trim()) {
-      alert("Vui lòng nhập đầy đủ tiêu đề và nội dung bài viết!");
-      return;
-    }
-
-    const todayStr = formNewsDate.trim() || new Date().toLocaleDateString("vi-VN");
-
-    if (editingNewsId) {
-      const updated: LocalNews = {
-        id: editingNewsId,
-        title: formNewsTitle.trim(),
-        category: formNewsCategory,
-        author: formNewsAuthor.trim() || "Ban Điều hành Khu phố 3",
-        date: todayStr,
-        content: formNewsContent.trim(),
-        isPinned: formNewsIsPinned
-      };
-      if (onUpdateNews) {
-        onUpdateNews(updated);
-      }
-      showNewsToast("Đã cập nhật bài viết thành công!");
-    } else {
-      const newId = `NEWS-${Date.now().toString().slice(-6)}`;
-      const created: LocalNews = {
-        id: newId,
-        title: formNewsTitle.trim(),
-        category: formNewsCategory,
-        author: formNewsAuthor.trim() || "Ban Điều hành Khu phố 3",
-        date: todayStr,
-        content: formNewsContent.trim(),
-        isPinned: formNewsIsPinned
-      };
-      if (onAddNews) {
-        onAddNews(created);
-      }
-      showNewsToast("Đã xuất bản bài viết mới lên Cổng Cư dân!");
-    }
-
-    setIsWritingNews(false);
-    setEditingNewsId(null);
-  };
-
-  const handleTogglePinNews = (item: LocalNews) => {
-    if (onUpdateNews) {
-      onUpdateNews({ ...item, isPinned: !item.isPinned });
-      showNewsToast(item.isPinned ? "Đã bỏ ghim bài viết" : "Đã ghim bài viết lên đầu trang Cổng Cư dân");
-    }
-  };
-
-  const handleDeleteNewsConfirm = (id: string) => {
-    if (onDeleteNews) {
-      onDeleteNews(id);
-      showNewsToast("Đã xóa bài viết thành công!");
-    }
-    setDeleteConfirmId(null);
-  };
-
-  const filteredNews = useMemo(() => {
-    const q = newsSearch.trim().toLowerCase();
-    return (newsList || []).filter(item => {
-      const matchCat = newsCategoryFilter === "Tất cả" || item.category === newsCategoryFilter;
-      const matchQuery = !q || item.title.toLowerCase().includes(q) || item.content.toLowerCase().includes(q) || item.author.toLowerCase().includes(q);
-      return matchCat && matchQuery;
+  const handleSetAllToScope = (enabled: boolean) => {
+    const nextGroup: Record<string, boolean> = {};
+    KP3_TO_LIST.forEach((_, idx) => {
+      nextGroup[String(idx + 1)] = enabled;
     });
-  }, [newsList, newsSearch, newsCategoryFilter]);
+    const nextAll = { ...toScopesByGroup, [selectedScopeGroup]: nextGroup };
+    setToScopesByGroup(nextAll);
+    try {
+      localStorage.setItem(TO_SCOPES_STORAGE_KEY, JSON.stringify(nextAll));
+    } catch {}
+    showNewsToast(enabled ? "Đã mở toàn bộ 14 Tổ dân phố KP3." : "Đã giới hạn phạm vi 14 Tổ.");
+  };
 
   // Mock data for Roadmap / Kế hoạch triển khai
   const planningSteps = [
@@ -324,7 +270,7 @@ export default function SettingsAndPermissions({
     enterprises: { label: "Quản lý Doanh nghiệp (DNNVV)", icon: Building2, desc: "Theo dõi tổ chức kinh tế, mã số thuế, quy mô lao động theo NĐ 80/2021" },
     businesses: { label: "Cơ sở Kinh doanh & Hộ cá thể", icon: Store, desc: "Cấp phép hoạt động, duyệt an toàn phòng cháy chữa cháy, cơ sở lưu trú" },
     gis: { label: "Bản đồ không gian GIS", icon: Map, desc: "Định vị vị trí hộ dân, điểm nóng ANTT trên bản đồ số" },
-    tasks: { label: "Lịch công tác & Nhiệm vụ", icon: Calendar, desc: "Theo dõi lịch họp chi bộ, phân công nhiệm vụ 5 Tổ dân phố, kiểm tra hạn chót" },
+    tasks: { label: "Lịch công tác & Nhiệm vụ", icon: Calendar, desc: "Theo dõi lịch họp chi bộ, phân công nhiệm vụ 14 Tổ dân phố KP3, kiểm tra hạn chót" },
     ai: { label: "Hỏi đáp Trợ lý AI", icon: Bot, desc: "Hỏi đáp pháp luật, quy trình thủ tục hành chính tự động" },
     reports: { label: "Phản ánh hiện trường", icon: MessageSquare, desc: "Gửi phản ánh 1022 về rác thải, tiếng ồn, lấn chiếm hẻm" },
     party: { label: "Quản lý Chi hội Đảng", icon: ShieldAlert, desc: "Danh sách đảng viên miễn sinh hoạt, đảng viên 76" },
@@ -335,76 +281,93 @@ export default function SettingsAndPermissions({
 
   return (
     <div className="space-y-6">
-      {/* Top Banner & Tab Navigation */}
-      <div className="bg-gradient-to-r from-indigo-900 to-slate-900 rounded-2xl p-6 text-white shadow-md relative overflow-hidden">
-        <div className="absolute right-0 top-0 translate-x-10 -translate-y-10 w-48 h-48 rounded-full bg-indigo-500/10 blur-3xl"></div>
-        <div className="relative z-10">
+      {newsActionToast && (
+        <InlineNotice
+          message={newsActionToast}
+          type="success"
+          onDismiss={() => setNewsActionToast(null)}
+        />
+      )}
+
+      {/* Top Flat Hairline Header & Tab Navigation */}
+      <div className="bg-white border border-slate-200 rounded-2xl p-5 md:p-6">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div className="flex items-center gap-3">
-            <div className="p-2 bg-indigo-500/20 text-indigo-300 rounded-xl">
-              <Shield size={24} />
+            <div className="p-2.5 bg-emerald-50 border border-emerald-200 text-emerald-700 rounded-xl">
+              <Shield size={22} />
             </div>
             <div>
-              <h1 className="text-xl md:text-2xl font-black tracking-tight text-white">Cổng Bảo Mật & Quản Trị Hệ Thống</h1>
+              <span className="text-xs font-bold uppercase tracking-wider text-emerald-700 block">
+                Quản trị &amp; Bảo mật Đề án 06 • KP3 An Phú
+              </span>
+              <h1 className="text-xl md:text-2xl font-bold tracking-tight text-slate-900">
+                Cổng Bảo Mật &amp; Quản Trị Hệ Thống
+              </h1>
             </div>
           </div>
+        </div>
 
-          <div className="flex flex-wrap gap-2 mt-6 border-t border-slate-700/60 pt-4">
-            <button
-              onClick={() => setActiveSubTab("approvals")}
-              className={`px-4 py-2 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5
-                ${activeSubTab === "approvals" 
-                  ? "bg-white text-indigo-950 shadow" 
-                  : "text-indigo-200 hover:bg-white/10"
-                }
-              `}
-            >
-              <UserCheck size={14} /> Duyệt Hồ sơ Đăng ký ({pendingRegistrations.length})
-            </button>
-            <button
-              onClick={() => setActiveSubTab("forms")}
-              className={`px-4 py-2 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5
-                ${activeSubTab === "forms" 
-                  ? "bg-white text-indigo-950 shadow" 
-                  : "text-indigo-200 hover:bg-white/10"
-                }
-              `}
-            >
-              <FileText size={14} /> Biểu mẫu Hành chính ({forms.length})
-            </button>
-            <button
-              onClick={() => setActiveSubTab("news")}
-              className={`px-4 py-2 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5
-                ${activeSubTab === "news" 
-                  ? "bg-white text-indigo-950 shadow" 
-                  : "text-indigo-200 hover:bg-white/10"
-                }
-              `}
-            >
-              <Newspaper size={14} /> Quản lý & Viết Tin tức ({newsList.length})
-            </button>
-            <button
-              onClick={() => setActiveSubTab("permissions")}
-              className={`px-4 py-2 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5
-                ${activeSubTab === "permissions" 
-                  ? "bg-white text-indigo-950 shadow" 
-                  : "text-indigo-200 hover:bg-white/10"
-                }
-              `}
-            >
-              <Shield size={14} /> Phân quyền Cư dân / Cán bộ
-            </button>
-            <button
-              onClick={() => setActiveSubTab("plan")}
-              className={`px-4 py-2 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5
-                ${activeSubTab === "plan" 
-                  ? "bg-white text-indigo-950 shadow" 
-                  : "text-indigo-200 hover:bg-white/10"
-                }
-              `}
-            >
-              <FileText size={14} /> Kế hoạch Triển khai (Roadmap)
-            </button>
-          </div>
+        <div className="flex flex-wrap gap-2 mt-5 border-t border-slate-200 pt-4">
+          <button
+            type="button"
+            onClick={() => setActiveSubTab("approvals")}
+            className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-colors cursor-pointer flex items-center gap-1.5 border
+              ${activeSubTab === "approvals"
+                ? "bg-emerald-700 border-emerald-700 text-white"
+                : "bg-white border-slate-200 text-slate-700 hover:bg-slate-100"
+              }
+            `}
+          >
+            <UserCheck size={14} /> Duyệt Hồ sơ Đăng ký ({pendingRegistrations.length})
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveSubTab("forms")}
+            className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-colors cursor-pointer flex items-center gap-1.5 border
+              ${activeSubTab === "forms"
+                ? "bg-emerald-700 border-emerald-700 text-white"
+                : "bg-white border-slate-200 text-slate-700 hover:bg-slate-100"
+              }
+            `}
+          >
+            <FileText size={14} /> Biểu mẫu Hành chính ({forms.length})
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveSubTab("permissions")}
+            className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-colors cursor-pointer flex items-center gap-1.5 border
+              ${activeSubTab === "permissions"
+                ? "bg-emerald-700 border-emerald-700 text-white"
+                : "bg-white border-slate-200 text-slate-700 hover:bg-slate-100"
+              }
+            `}
+          >
+            <Shield size={14} /> Phân quyền Cán bộ &amp; Tổ 1–14
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveSubTab("news")}
+            className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-colors cursor-pointer flex items-center gap-1.5 border
+              ${activeSubTab === "news"
+                ? "bg-emerald-700 border-emerald-700 text-white"
+                : "bg-white border-slate-200 text-slate-700 hover:bg-slate-100"
+              }
+            `}
+          >
+            <Newspaper size={14} /> Kênh Tin tức ({newsList.length})
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveSubTab("plan")}
+            className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-colors cursor-pointer flex items-center gap-1.5 border
+              ${activeSubTab === "plan"
+                ? "bg-emerald-700 border-emerald-700 text-white"
+                : "bg-white border-slate-200 text-slate-700 hover:bg-slate-100"
+              }
+            `}
+          >
+            <FileText size={14} /> Kế hoạch Triển khai
+          </button>
         </div>
       </div>
 
@@ -412,60 +375,60 @@ export default function SettingsAndPermissions({
       {activeSubTab === "approvals" && (
         <div className="space-y-6">
           {/* 1. Phê duyệt Cán bộ công tác (Supabase Auth & RLS) */}
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 text-white space-y-4">
-            <div className="flex justify-between items-center">
+          <div className="bg-white border border-slate-200 border-l-4 border-l-indigo-600 rounded-2xl p-5 text-slate-900 space-y-4">
+            <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2">
               <div>
-                <h4 className="font-extrabold text-sm tracking-tight text-white flex items-center gap-2">
-                  <ShieldCheck size={18} className="text-indigo-400" />
+                <h4 className="font-bold text-sm tracking-tight text-slate-900 flex items-center gap-2">
+                  <ShieldCheck size={18} className="text-indigo-700" />
                   PHÊ DUYỆT TÀI KHOẢN CÁN BỘ CÔNG TÁC (SUPABASE AUTH)
                 </h4>
-                <p className="text-xs text-slate-400 mt-0.5">
+                <p className="text-xs text-slate-600 mt-0.5">
                   Xác thực danh tính và phân quyền truy cập hệ thống Quản lý dân cư theo chuẩn PostgreSQL Row Level Security (RLS)
                 </p>
               </div>
-              <span className="bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 font-bold px-2.5 py-1 rounded-full text-[11px] font-mono">
+              <span className="bg-indigo-50 text-indigo-800 border border-indigo-200 font-bold px-2.5 py-1 rounded-full text-xs font-mono shrink-0 w-fit">
                 {pendingCadres.length} Cán bộ chờ duyệt
               </span>
             </div>
 
             {cadreLoading ? (
-              <div className="py-6 text-center text-xs text-slate-400">Đang kiểm tra danh sách cán bộ...</div>
+              <div className="py-6 text-center text-xs text-slate-600">Đang kiểm tra danh sách cán bộ...</div>
             ) : pendingCadres.length === 0 ? (
-              <div className="bg-slate-950/60 border border-slate-800/60 rounded-xl p-5 text-center text-xs text-slate-400 flex items-center justify-center gap-2">
-                <CheckCircle2 size={16} className="text-emerald-400" />
+              <div className="bg-slate-50 border border-slate-200 rounded-xl p-5 text-center text-xs text-slate-700 flex items-center justify-center gap-2">
+                <CheckCircle2 size={16} className="text-emerald-700 shrink-0" />
                 Không có tài khoản Cán bộ nào đang chờ phê duyệt. Toàn bộ cán bộ đã được cấp quyền hợp lệ.
               </div>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
                 {pendingCadres.map((cadre) => (
-                  <div key={cadre.id} className="bg-slate-950 border border-slate-800 rounded-xl p-4 space-y-3">
+                  <div key={cadre.id} className="bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-3">
                     <div className="flex items-start justify-between">
                       <div>
-                        <h5 className="font-bold text-white text-sm">{cadre.full_name}</h5>
-                        <p className="text-xs text-indigo-400 font-medium">{cadre.position || "Cán bộ Khu phố"}</p>
-                        <p className="text-[11px] text-slate-400 font-mono mt-0.5">{cadre.email}</p>
+                        <h5 className="font-bold text-slate-900 text-sm">{cadre.full_name}</h5>
+                        <p className="text-xs text-indigo-700 font-medium">{cadre.position || "Cán bộ Khu phố"}</p>
+                        <p className="text-xs text-slate-600 font-mono mt-0.5">{cadre.email}</p>
                       </div>
-                      <span className="text-[10px] bg-amber-500/10 border border-amber-500/20 text-amber-300 px-2 py-0.5 rounded-full font-bold">
+                      <span className="text-xs bg-amber-50 border border-amber-200 text-amber-800 px-2 py-0.5 rounded-full font-bold">
                         Chờ duyệt
                       </span>
                     </div>
 
-                    <div className="flex items-center gap-2 text-[11px] text-slate-400 pt-1 border-t border-slate-800/80">
-                      <span>Điện thoại: <strong className="text-slate-200">{cadre.phone || "Chưa cập nhật"}</strong></span>
+                    <div className="flex items-center gap-2 text-xs text-slate-600 pt-1 border-t border-slate-200">
+                      <span>Điện thoại: <strong className="text-slate-900">{cadre.phone || "Chưa cập nhật"}</strong></span>
                     </div>
 
                     <div className="flex gap-2 pt-1">
                       <button
                         type="button"
                         onClick={() => handleApproveCadre(cadre.id)}
-                        className="flex-1 bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-1.5 px-3 rounded-lg text-xs transition-all flex items-center justify-center gap-1 cursor-pointer"
+                        className="flex-1 bg-emerald-700 hover:bg-emerald-800 text-white font-bold py-1.5 px-3 rounded-lg text-xs transition-colors flex items-center justify-center gap-1 cursor-pointer"
                       >
                         <UserCheck size={13} /> Phê duyệt cấp quyền
                       </button>
                       <button
                         type="button"
                         onClick={() => handleRejectCadre(cadre.id)}
-                        className="bg-rose-500/10 hover:bg-rose-500/20 text-rose-300 border border-rose-500/20 font-bold px-3 py-1.5 rounded-lg text-xs transition-all cursor-pointer"
+                        className="bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 font-bold px-3 py-1.5 rounded-lg text-xs transition-colors cursor-pointer"
                       >
                         Từ chối
                       </button>
@@ -482,7 +445,7 @@ export default function SettingsAndPermissions({
               <h4 className="font-extrabold text-slate-800 text-sm tracking-tight uppercase">Yêu cầu Đăng ký Cư dân trực tuyến</h4>
               <p className="text-xs text-slate-500">Người dân tự khai báo nhân khẩu qua ứng dụng và đợi Cán bộ phê duyệt trước khi tích hợp vào sổ hộ khẩu</p>
             </div>
-            <span className="bg-indigo-100 text-indigo-800 font-bold px-2.5 py-1 rounded-full text-[11px] font-mono">
+            <span className="bg-indigo-100 text-indigo-800 font-bold px-2.5 py-1 rounded-full text-xs font-mono">
               {pendingRegistrations.length} Hồ sơ chờ duyệt
             </span>
           </div>
@@ -493,7 +456,7 @@ export default function SettingsAndPermissions({
                 <CheckCircle2 size={24} />
               </div>
               <h5 className="font-bold text-slate-700 text-sm">Không có hồ sơ nào chờ duyệt</h5>
-              <p className="text-xs text-slate-400 max-w-sm mx-auto">Tất cả yêu cầu đăng ký cư trú của người dân đã được xử lý hoàn tất.</p>
+              <p className="text-xs text-slate-600 max-w-sm mx-auto">Tất cả yêu cầu đăng ký cư trú của người dân đã được xử lý hoàn tất.</p>
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -511,54 +474,54 @@ export default function SettingsAndPermissions({
                       <div>
                         <h5 className="font-bold text-slate-800 text-sm flex items-center gap-2">
                           {reg.fullName}
-                          <span className={`text-[10px] font-bold px-2 py-0.5 rounded ${reg.status === "Thường trú" ? "bg-emerald-100 text-emerald-800" : "bg-amber-100 text-amber-800"}`}>
+                          <span className={`text-xs font-bold px-2 py-0.5 rounded ${reg.status === "Thường trú" ? "bg-emerald-100 text-emerald-800" : "bg-amber-100 text-amber-800"}`}>
                             {reg.status}
                           </span>
                         </h5>
-                        <p className="text-xs text-slate-400 mt-0.5 font-mono">CCCD: {reg.cccd}</p>
+                        <p className="text-xs text-slate-600 mt-0.5 font-mono">CCCD: {reg.cccd}</p>
                       </div>
                     </div>
-                    <div className="flex items-center gap-1.5 text-amber-600 bg-amber-50 px-2 py-1 rounded-lg text-[10px] font-bold shrink-0">
+                    <div className="flex items-center gap-1.5 text-amber-800 bg-amber-50 border border-amber-200 px-2 py-1 rounded-lg text-xs font-bold shrink-0">
                       <Clock size={11} /> Chờ duyệt
                     </div>
                   </div>
 
                   <div className="grid grid-cols-2 gap-x-4 gap-y-2.5 text-xs border-t border-b border-slate-50 py-3">
                     <div>
-                      <span className="text-[10px] text-slate-400 uppercase tracking-wider block">Giới tính</span>
+                      <span className="text-xs text-slate-600 uppercase tracking-wider block">Giới tính</span>
                       <span className="font-bold text-slate-700">{reg.gender}</span>
                     </div>
                     <div>
-                      <span className="text-[10px] text-slate-400 uppercase tracking-wider block">Ngày sinh</span>
+                      <span className="text-xs text-slate-600 uppercase tracking-wider block">Ngày sinh</span>
                       <span className="font-bold text-slate-700 font-mono">{reg.birthDate}</span>
                     </div>
                     <div>
-                      <span className="text-[10px] text-slate-400 uppercase tracking-wider block">Điện thoại</span>
+                      <span className="text-xs text-slate-600 uppercase tracking-wider block">Điện thoại</span>
                       <span className="font-bold text-slate-700 font-mono">{reg.phone}</span>
                     </div>
                     <div>
-                      <span className="text-[10px] text-slate-400 uppercase tracking-wider block">Nghề nghiệp</span>
+                      <span className="text-xs text-slate-600 uppercase tracking-wider block">Nghề nghiệp</span>
                       <span className="font-bold text-slate-700">{reg.occupation}</span>
                     </div>
                     <div>
-                      <span className="text-[10px] text-slate-400 uppercase tracking-wider block">Mã Hộ khẩu xin nhập</span>
+                      <span className="text-xs text-slate-600 uppercase tracking-wider block">Mã Hộ khẩu xin nhập</span>
                       <span className="font-bold text-indigo-600 font-mono">{reg.householdId}</span>
                     </div>
                     <div>
-                      <span className="text-[10px] text-slate-400 uppercase tracking-wider block">Quan hệ chủ hộ</span>
+                      <span className="text-xs text-slate-600 uppercase tracking-wider block">Quan hệ chủ hộ</span>
                       <span className="font-bold text-slate-700">{reg.relationToOwner}</span>
                     </div>
                   </div>
 
                   <div className="space-y-1.5">
                     <div className="flex items-start gap-1.5 text-xs text-slate-600">
-                      <MapPin size={12} className="text-slate-400 mt-0.5 shrink-0" />
+                      <MapPin size={12} className="text-slate-600 mt-0.5 shrink-0" />
                       <span className="leading-tight"><b>Địa chỉ:</b> {reg.address}</span>
                     </div>
                     {reg.coordinates && (
                       <div className="flex items-start gap-1.5 text-xs text-slate-600">
                         <Fingerprint size={12} className="text-indigo-400 mt-0.5 shrink-0" />
-                        <span className="font-mono text-[10px] text-indigo-600"><b>Tọa độ định vị:</b> {reg.coordinates}</span>
+                        <span className="font-mono text-xs text-indigo-600"><b>Tọa độ định vị:</b> {reg.coordinates}</span>
                       </div>
                     )}
                   </div>
@@ -566,7 +529,7 @@ export default function SettingsAndPermissions({
                   <div className="flex gap-2 pt-1.5">
                     <button
                       onClick={() => onApproveRegistration(reg)}
-                      className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2 px-3 rounded-lg text-xs transition-colors flex items-center justify-center gap-1 cursor-pointer"
+                      className="flex-1 min-h-[40px] bg-emerald-700 hover:bg-emerald-800 text-white font-bold py-2 px-3 rounded-lg text-xs transition-colors flex items-center justify-center gap-1 cursor-pointer"
                     >
                       <UserCheck size={14} /> Phê duyệt nhập khẩu
                     </button>
@@ -598,445 +561,110 @@ export default function SettingsAndPermissions({
         </div>
       )}
 
-      {/* News & Announcement Editor tab */}
+      {/* Canonical News Link tab */}
       {activeSubTab === "news" && (
         <div className="space-y-5">
-          {newsActionToast && (
-            <div className="bg-emerald-600 text-white text-xs font-bold px-4 py-3 rounded-xl shadow-md flex items-center justify-between animate-fadeIn">
-              <span className="flex items-center gap-2">
-                <CheckCircle2 size={16} /> {newsActionToast}
+          <div className="bg-white border border-slate-200 border-l-4 border-l-emerald-600 rounded-2xl p-5 md:p-6 flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div className="space-y-1.5">
+              <span className="inline-flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-emerald-700 bg-emerald-50 border border-emerald-200 px-2.5 py-0.5 rounded-full">
+                <Newspaper size={13} /> Đã hợp nhất về phân hệ Truyền thông KP3
               </span>
-              <button onClick={() => setNewsActionToast(null)} className="opacity-80 hover:opacity-100 cursor-pointer">
-                <X size={14} />
-              </button>
-            </div>
-          )}
-
-          {/* Quick Stats */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3.5">
-            <div className="bg-white border border-slate-200/80 rounded-2xl p-4 shadow-2xs">
-              <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block">Tổng số bài viết</span>
-              <span className="text-2xl font-black text-slate-900 mt-1 block">{(newsList || []).length}</span>
-              <span className="text-[11px] text-slate-400 mt-0.5 block">Đã lưu & phát hành</span>
-            </div>
-            <div className="bg-white border border-amber-200/80 rounded-2xl p-4 shadow-2xs">
-              <span className="text-[11px] font-bold text-amber-700 uppercase tracking-wider block">Đang ghim trang chủ</span>
-              <span className="text-2xl font-black text-amber-600 mt-1 block">{(newsList || []).filter(n => n.isPinned).length}</span>
-              <span className="text-[11px] text-amber-600/80 mt-0.5 block">Ưu tiên trên Cổng Cư dân</span>
-            </div>
-            <div className="bg-white border border-rose-200/80 rounded-2xl p-4 shadow-2xs">
-              <span className="text-[11px] font-bold text-rose-700 uppercase tracking-wider block">Thông báo khẩn</span>
-              <span className="text-2xl font-black text-rose-600 mt-1 block">{(newsList || []).filter(n => n.category === "Thông báo khẩn").length}</span>
-              <span className="text-[11px] text-rose-600/80 mt-0.5 block">An ninh & Y tế cấp bách</span>
-            </div>
-            <div className="bg-white border border-blue-200/80 rounded-2xl p-4 shadow-2xs">
-              <span className="text-[11px] font-bold text-blue-700 uppercase tracking-wider block">Tin hành chính</span>
-              <span className="text-2xl font-black text-blue-600 mt-1 block">{(newsList || []).filter(n => n.category === "Hành chính").length}</span>
-              <span className="text-[11px] text-blue-600/80 mt-0.5 block">Thủ tục & Lịch tiếp dân</span>
-            </div>
-          </div>
-
-          {/* Action Bar & Header */}
-          <div className="bg-white border border-slate-200/80 rounded-2xl p-5 shadow-2xs flex flex-col md:flex-row md:items-center justify-between gap-4">
-            <div>
-              <div className="flex items-center gap-2">
-                <span className="p-1.5 rounded-lg bg-indigo-50 text-indigo-700 font-bold">
-                  <Megaphone size={18} />
-                </span>
-                <h4 className="text-base font-black text-slate-900 tracking-tight">
-                  Biên tập & Công bố Tin tức, Thông báo Khu phố 3
-                </h4>
-              </div>
-              <p className="text-xs text-slate-500 mt-1">
-                Các bài viết và thông báo soạn thảo tại đây sẽ lập tức hiển thị đồng bộ trên Cổng Dịch vụ Cư Dân của Khu phố.
+              <h4 className="text-base font-bold text-slate-900">
+                Quản lý Tin tức, Thông báo &amp; Sự kiện Cộng đồng
+              </h4>
+              <p className="text-xs text-slate-600 max-w-2xl leading-relaxed">
+                Để tránh trùng lặp dữ liệu biên tập, toàn bộ chức năng đăng bài, ghim thông báo khẩn, đính kèm văn bản và lịch Nhà Văn hóa đã được tập trung tại phân hệ <strong>Tin tức &amp; Sự kiện Khu phố 3</strong>.
               </p>
             </div>
             <button
-              onClick={handleOpenCreateNews}
-              className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-[#073B72] hover:bg-[#005BAC] text-white text-xs font-bold transition-all shadow-xs hover:shadow-sm cursor-pointer shrink-0"
+              type="button"
+              onClick={() => {
+                if (onNavigate) {
+                  onNavigate("cultural");
+                } else {
+                  showNewsToast("Vui lòng chọn mục Tin tức & Sự kiện trên thanh điều hướng bên trái.");
+                }
+              }}
+              className="px-4 py-2.5 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-bold transition-colors cursor-pointer shrink-0 flex items-center gap-2"
             >
-              <Plus size={15} />
-              <span>Viết bài / Soạn thông báo mới</span>
+              <Newspaper size={15} />
+              <span>Mở Kênh Tin tức &amp; Sự kiện KP3 →</span>
             </button>
           </div>
 
-          {/* Filter & Search */}
-          <div className="flex flex-col sm:flex-row gap-3 items-stretch sm:items-center justify-between">
-            <div className="relative flex-1 max-w-md">
-              <Search size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
-              <input
-                id="admin-news-search-input"
-                name="newsSearch"
-                aria-label="Tìm bài viết theo tiêu đề, nội dung, tác giả"
-                type="text"
-                value={newsSearch}
-                onChange={(e) => setNewsSearch(e.target.value)}
-                placeholder="Tìm bài viết theo tiêu đề, nội dung, tác giả..."
-                className="w-full pl-9 pr-8 py-2 bg-white border border-slate-200 rounded-xl text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:border-indigo-500 shadow-2xs"
-              />
-              {newsSearch && (
-                <button
-                  onClick={() => setNewsSearch("")}
-                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 text-xs"
-                >
-                  ✕
-                </button>
-              )}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3.5">
+            <div className="bg-white border border-slate-200 rounded-2xl p-4">
+              <span className="text-xs font-bold text-slate-600 uppercase tracking-wider block">Tổng số bài viết</span>
+              <span className="text-2xl font-bold text-slate-900 mt-1 block">{(newsList || []).length}</span>
+              <span className="text-xs text-slate-600 mt-0.5 block">Đã lưu &amp; phát hành</span>
             </div>
-
-            <div className="flex flex-wrap gap-1.5 items-center">
-              {(["Tất cả", "Thông báo khẩn", "Hành chính", "Y tế & Đời sống", "Phong trào", "An sinh xã hội"] as const).map((cat) => (
-                <button
-                  key={cat}
-                  onClick={() => setNewsCategoryFilter(cat)}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
-                    newsCategoryFilter === cat
-                      ? "bg-slate-900 text-white shadow-2xs"
-                      : "bg-white border border-slate-200 text-slate-600 hover:bg-slate-50"
-                  }`}
-                >
-                  {cat}
-                </button>
-              ))}
+            <div className="bg-white border border-amber-200 rounded-2xl p-4">
+              <span className="text-xs font-bold text-amber-800 uppercase tracking-wider block">Đang ghim trang chủ</span>
+              <span className="text-2xl font-bold text-amber-700 mt-1 block">{(newsList || []).filter(n => n.isPinned).length}</span>
+              <span className="text-xs text-slate-600 mt-0.5 block">Ưu tiên trên Cổng Cư dân</span>
+            </div>
+            <div className="bg-white border border-rose-200 rounded-2xl p-4">
+              <span className="text-xs font-bold text-rose-800 uppercase tracking-wider block">Thông báo khẩn</span>
+              <span className="text-2xl font-bold text-rose-700 mt-1 block">{(newsList || []).filter(n => n.category === "Thông báo khẩn").length}</span>
+              <span className="text-xs text-slate-600 mt-0.5 block">An ninh &amp; Y tế cấp bách</span>
+            </div>
+            <div className="bg-white border border-blue-200 rounded-2xl p-4">
+              <span className="text-xs font-bold text-blue-800 uppercase tracking-wider block">Tin hành chính</span>
+              <span className="text-2xl font-bold text-blue-700 mt-1 block">{(newsList || []).filter(n => n.category === "Hành chính").length}</span>
+              <span className="text-xs text-slate-600 mt-0.5 block">Thủ tục &amp; Lịch tiếp dân</span>
             </div>
           </div>
 
-          {/* News List */}
-          {filteredNews.length === 0 ? (
-            <div className="bg-white border border-dashed border-slate-300 rounded-2xl p-10 text-center space-y-3">
-              <div className="w-12 h-12 bg-slate-50 text-slate-400 rounded-2xl flex items-center justify-center mx-auto">
-                <Newspaper size={24} />
-              </div>
-              <h5 className="font-bold text-slate-800 text-sm">Chưa tìm thấy bài viết nào phù hợp</h5>
-              <p className="text-xs text-slate-500 max-w-sm mx-auto">
-                {newsSearch || newsCategoryFilter !== "Tất cả" 
-                  ? "Hãy thử tìm kiếm với từ khóa khác hoặc xóa bộ lọc chuyên mục." 
-                  : "Chưa có bài viết nào trong hệ thống. Hãy bấm nút phía trên để soạn thảo bản tin đầu tiên."}
-              </p>
-              <button
-                onClick={handleOpenCreateNews}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-indigo-50 text-indigo-700 hover:bg-indigo-100 text-xs font-bold transition-colors cursor-pointer"
-              >
-                <Plus size={14} /> Viết bài ngay
-              </button>
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {filteredNews.map((item) => {
-                const badgeColor = 
-                  item.category === "Thông báo khẩn" ? "bg-rose-50 text-rose-700 border-rose-200" :
-                  item.category === "Hành chính" ? "bg-blue-50 text-blue-700 border-blue-200" :
-                  item.category === "Y tế & Đời sống" ? "bg-emerald-50 text-emerald-700 border-emerald-200" :
-                  item.category === "Phong trào" ? "bg-amber-50 text-amber-700 border-amber-200" :
-                  "bg-purple-50 text-purple-700 border-purple-200";
-
-                return (
-                  <div
-                    key={item.id}
-                    className={`bg-white rounded-2xl border transition-all p-5 flex flex-col justify-between gap-4 shadow-2xs hover:shadow-sm ${
-                      item.isPinned ? "border-amber-300 bg-amber-50/20 ring-1 ring-amber-300/40" : "border-slate-200/80"
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3.5">
+            {(newsList || []).slice(0, 6).map((item) => (
+              <div key={item.id} className="bg-white border border-slate-200 rounded-xl p-4 flex flex-col justify-between gap-3">
+                <div className="space-y-1.5">
+                  <div className="flex items-center justify-between gap-2 text-xs">
+                    <span className="px-2 py-0.5 rounded-full bg-slate-100 text-slate-700 font-semibold border border-slate-200">
+                      {item.category}
+                    </span>
+                    <span className="font-mono text-slate-500">{item.date}</span>
+                  </div>
+                  <h5 className="font-bold text-sm text-slate-900 line-clamp-2 leading-snug">{item.title}</h5>
+                  <p className="text-xs text-slate-600 line-clamp-2">{item.summary || item.content}</p>
+                </div>
+                <div className="pt-2.5 border-t border-slate-100 flex items-center justify-between gap-2">
+                  <button
+                    type="button"
+                    onClick={() => _onUpdateNews && _onUpdateNews({ ...item, isPinned: !item.isPinned })}
+                    className={`px-2.5 py-1 rounded-lg text-xs font-semibold border cursor-pointer ${
+                      item.isPinned
+                        ? "bg-amber-50 text-amber-800 border-amber-200"
+                        : "bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100"
                     }`}
                   >
-                    <div className="space-y-2.5">
-                      <div className="flex items-center justify-between gap-2 flex-wrap">
-                        <div className="flex items-center gap-1.5">
-                          <span className={`text-[10px] font-bold px-2 py-0.5 rounded-md border ${badgeColor}`}>
-                            {item.category}
-                          </span>
-                          {item.isPinned && (
-                            <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-md bg-amber-100 text-amber-800 border border-amber-200">
-                              <Pin size={10} className="fill-amber-700" /> Ghim trang chủ
-                            </span>
-                          )}
-                        </div>
-                        <span className="text-[11px] font-medium text-slate-400 flex items-center gap-1">
-                          <Clock size={11} /> {item.date}
-                        </span>
-                      </div>
-
-                      <h4 className="font-bold text-sm text-slate-900 leading-snug line-clamp-2">
-                        {item.title}
-                      </h4>
-
-                      <p className="text-xs text-slate-600 line-clamp-3 leading-relaxed">
-                        {item.content}
-                      </p>
-
-                      <div className="text-[11px] text-slate-500 pt-1 flex items-center gap-1 font-medium">
-                        <span>Tác giả:</span>
-                        <strong className="text-slate-700">{item.author}</strong>
-                      </div>
-                    </div>
-
-                    {/* Card Actions */}
-                    <div className="flex items-center justify-between gap-2 pt-3 border-t border-slate-100 text-xs">
-                      <button
-                        onClick={() => handleTogglePinNews(item)}
-                        className={`flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-colors cursor-pointer ${
-                          item.isPinned 
-                            ? "bg-amber-100 text-amber-800 hover:bg-amber-200" 
-                            : "bg-slate-100 text-slate-600 hover:bg-slate-200"
-                        }`}
-                        title={item.isPinned ? "Bỏ ghim khỏi đầu trang" : "Ghim lên đầu trang chủ Cổng Cư dân"}
-                      >
-                        <Pin size={12} className={item.isPinned ? "fill-amber-800" : ""} />
-                        <span>{item.isPinned ? "Bỏ ghim" : "Ghim tin"}</span>
-                      </button>
-
-                      <div className="flex items-center gap-1.5">
-                        <button
-                          onClick={() => setPreviewNewsItem(item)}
-                          className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold transition-colors cursor-pointer"
-                          title="Xem trước hiển thị"
-                        >
-                          <Eye size={12} />
-                          <span>Xem</span>
-                        </button>
-                        <button
-                          onClick={() => handleOpenEditNews(item)}
-                          className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-semibold transition-colors cursor-pointer"
-                          title="Chỉnh sửa nội dung bài viết"
-                        >
-                          <Edit3 size={12} />
-                          <span>Sửa</span>
-                        </button>
-                        <button
-                          onClick={() => setDeleteConfirmId(item.id)}
-                          className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-600 font-semibold transition-colors cursor-pointer"
-                          title="Xóa bài viết"
-                        >
-                          <Trash2 size={12} />
-                          <span>Xóa</span>
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-
-          {/* Modal Writing / Editing News */}
-          {isWritingNews && (
-            <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-fadeIn">
-              <div className="bg-white rounded-3xl max-w-2xl w-full max-h-[90vh] flex flex-col shadow-2xl overflow-hidden border border-slate-200">
-                <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
-                  <div className="flex items-center gap-2">
-                    <span className="p-2 rounded-xl bg-indigo-100 text-indigo-800">
-                      <Edit3 size={16} />
-                    </span>
-                    <div>
-                      <h3 className="font-black text-sm sm:text-base text-slate-900">
-                        {editingNewsId ? "Chỉnh sửa Bản tin / Thông báo Khu phố" : "Soạn thảo Bản tin / Thông báo mới"}
-                      </h3>
-                      <p className="text-[11px] text-slate-500">
-                        Xuất bản trực tiếp lên Cổng thông tin Cư dân số Khu phố 3
-                      </p>
-                    </div>
-                  </div>
-                  <button
-                    onClick={() => setIsWritingNews(false)}
-                    className="p-1.5 text-slate-400 hover:text-slate-600 rounded-lg hover:bg-slate-200/50 cursor-pointer"
-                  >
-                    <X size={18} />
+                    {item.isPinned ? "Đã ghim" : "Ghim tin"}
                   </button>
-                </div>
-
-                <form onSubmit={handleSaveNewsSubmit} className="p-6 space-y-4 overflow-y-auto flex-1">
-                  <div>
-                    <label className="block text-xs font-bold text-slate-700 mb-1">
-                      Tiêu đề bản tin / thông báo <span className="text-rose-500">*</span>
-                    </label>
-                    <input
-                      type="text"
-                      required
-                      value={formNewsTitle}
-                      onChange={(e) => setFormNewsTitle(e.target.value)}
-                      placeholder="Ví dụ: Kế hoạch tiêm phòng vắc-xin mở rộng cho trẻ em tại Trạm y tế..."
-                      className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs sm:text-sm focus:outline-none focus:border-indigo-500"
-                    />
-                  </div>
-
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-                    <div>
-                      <label className="block text-xs font-bold text-slate-700 mb-1">
-                        Chuyên mục phân loại
-                      </label>
-                      <select
-                        value={formNewsCategory}
-                        onChange={(e) => setFormNewsCategory(e.target.value as any)}
-                        className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs sm:text-sm bg-white focus:outline-none focus:border-indigo-500"
-                      >
-                        <option value="Thông báo khẩn">Thông báo khẩn (Ưu tiên đỏ)</option>
-                        <option value="Hành chính">Hành chính (Thủ tục, tiếp dân)</option>
-                        <option value="Y tế & Đời sống">Y tế & Đời sống</option>
-                        <option value="Phong trào">Phong trào (Văn hóa, thể thao)</option>
-                        <option value="An sinh xã hội">An sinh xã hội (Quỹ, bảo trợ)</option>
-                      </select>
-                    </div>
-
-                    <div>
-                      <label className="block text-xs font-bold text-slate-700 mb-1">
-                        Ngày công bố
-                      </label>
-                      <input
-                        type="text"
-                        value={formNewsDate}
-                        onChange={(e) => setFormNewsDate(e.target.value)}
-                        placeholder="DD/MM/YYYY"
-                        className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs sm:text-sm focus:outline-none focus:border-indigo-500"
-                      />
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className="block text-xs font-bold text-slate-700 mb-1">
-                      Tác giả / Cơ quan ban hành
-                    </label>
-                    <input
-                      type="text"
-                      value={formNewsAuthor}
-                      onChange={(e) => setFormNewsAuthor(e.target.value)}
-                      placeholder="Ban Điều hành Khu phố 3, Chi bộ KP3, CSKV..."
-                      className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs sm:text-sm focus:outline-none focus:border-indigo-500"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-xs font-bold text-slate-700 mb-1">
-                      Nội dung bài viết chi tiết <span className="text-rose-500">*</span>
-                    </label>
-                    <textarea
-                      required
-                      rows={6}
-                      value={formNewsContent}
-                      onChange={(e) => setFormNewsContent(e.target.value)}
-                      placeholder="Nhập nội dung đầy đủ của thông báo, thời gian, địa điểm, yêu cầu chuẩn bị hồ sơ hoặc chỉ đạo..."
-                      className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs sm:text-sm focus:outline-none focus:border-indigo-500 font-sans leading-relaxed"
-                    />
-                  </div>
-
-                  <div className="p-3.5 rounded-xl bg-amber-50/70 border border-amber-200/80 flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <Pin size={16} className="text-amber-700" />
-                      <div>
-                        <span className="text-xs font-bold text-amber-900 block">Ghim nổi bật lên đầu Cổng Cư Dân</span>
-                        <span className="text-[11px] text-amber-700">Bài viết sẽ được đưa vào khung Thông báo quan trọng trên trang chủ người dân</span>
-                      </div>
-                    </div>
-                    <input
-                      type="checkbox"
-                      checked={formNewsIsPinned}
-                      onChange={(e) => setFormNewsIsPinned(e.target.checked)}
-                      className="w-4 h-4 text-amber-600 rounded cursor-pointer"
-                    />
-                  </div>
-
-                  <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-slate-100">
+                  <div className="flex items-center gap-1.5">
                     <button
                       type="button"
-                      onClick={() => setIsWritingNews(false)}
-                      className="px-4 py-2 rounded-xl border border-slate-200 text-slate-600 text-xs font-semibold hover:bg-slate-100 transition-colors cursor-pointer"
+                      onClick={() => onNavigate && onNavigate("cultural")}
+                      className="px-2.5 py-1 rounded-lg bg-slate-50 hover:bg-slate-100 text-slate-700 border border-slate-200 text-xs font-semibold cursor-pointer"
                     >
-                      Hủy bỏ
+                      Sửa
                     </button>
-                    <button
-                      type="submit"
-                      className="inline-flex items-center gap-1.5 px-5 py-2 rounded-xl bg-[#073B72] hover:bg-[#005BAC] text-white text-xs font-bold transition-colors cursor-pointer shadow-xs"
-                    >
-                      <Send size={14} />
-                      <span>{editingNewsId ? "Lưu thay đổi" : "Xuất bản ngay"}</span>
-                    </button>
-                  </div>
-                </form>
-              </div>
-            </div>
-          )}
-
-          {/* Modal Preview News */}
-          {previewNewsItem && (
-            <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-fadeIn">
-              <div className="bg-white rounded-3xl max-w-xl w-full max-h-[85vh] flex flex-col shadow-2xl overflow-hidden border border-slate-200">
-                <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50">
-                  <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">
-                    Giao diện hiển thị cho cư dân
-                  </span>
-                  <button
-                    onClick={() => setPreviewNewsItem(null)}
-                    className="p-1.5 text-slate-400 hover:text-slate-600 rounded-lg hover:bg-slate-200/50 cursor-pointer"
-                  >
-                    <X size={18} />
-                  </button>
-                </div>
-                <div className="p-6 overflow-y-auto space-y-4">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <span className="text-xs font-bold px-2.5 py-1 rounded-md bg-blue-100 text-blue-800">
-                      {previewNewsItem.category}
-                    </span>
-                    {previewNewsItem.isPinned && (
-                      <span className="text-xs font-bold px-2.5 py-1 rounded-md bg-amber-100 text-amber-800 flex items-center gap-1">
-                        <Pin size={11} className="fill-amber-800" /> Ghim ưu tiên
-                      </span>
+                    {_onDeleteNews && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          _onDeleteNews(item.id);
+                          showNewsToast(`Đã xóa bài viết "${item.title}".`);
+                        }}
+                        className="px-2.5 py-1 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 text-xs font-semibold cursor-pointer"
+                      >
+                        Xóa
+                      </button>
                     )}
-                    <span className="text-xs text-slate-400 flex items-center gap-1">
-                      <Clock size={12} /> {previewNewsItem.date}
-                    </span>
                   </div>
-
-                  <h3 className="text-lg font-black text-slate-900 leading-snug">
-                    {previewNewsItem.title}
-                  </h3>
-
-                  <div className="text-xs text-slate-500 pb-2 border-b border-slate-100">
-                    Nguồn thông tin: <strong className="text-slate-800">{previewNewsItem.author}</strong>
-                  </div>
-
-                  <div className="text-sm text-slate-700 leading-relaxed whitespace-pre-line bg-slate-50 p-4 rounded-2xl border border-slate-100">
-                    {previewNewsItem.content}
-                  </div>
-                </div>
-                <div className="p-4 border-t border-slate-100 flex justify-end bg-slate-50/50">
-                  <button
-                    onClick={() => setPreviewNewsItem(null)}
-                    className="px-4 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold cursor-pointer"
-                  >
-                    Đóng xem trước
-                  </button>
                 </div>
               </div>
-            </div>
-          )}
-
-          {/* Delete Confirm Modal */}
-          {deleteConfirmId && (
-            <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-fadeIn">
-              <div className="bg-white rounded-2xl max-w-sm w-full p-6 text-center space-y-4 shadow-xl">
-                <div className="w-12 h-12 bg-rose-50 text-rose-600 rounded-full flex items-center justify-center mx-auto">
-                  <Trash2 size={22} />
-                </div>
-                <div>
-                  <h4 className="font-bold text-slate-900 text-base">Xác nhận xóa bài viết?</h4>
-                  <p className="text-xs text-slate-500 mt-1">
-                    Bài viết sẽ bị gỡ bỏ hoàn toàn khỏi Cổng thông tin Cư dân số và không thể khôi phục.
-                  </p>
-                </div>
-                <div className="flex gap-2 pt-2">
-                  <button
-                    onClick={() => setDeleteConfirmId(null)}
-                    className="flex-1 py-2 rounded-xl border border-slate-200 text-slate-600 text-xs font-semibold hover:bg-slate-100 cursor-pointer"
-                  >
-                    Hủy bỏ
-                  </button>
-                  <button
-                    onClick={() => handleDeleteNewsConfirm(deleteConfirmId)}
-                    className="flex-1 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold cursor-pointer"
-                  >
-                    Xác nhận xóa
-                  </button>
-                </div>
-              </div>
-            </div>
-          )}
+            ))}
+          </div>
         </div>
       )}
 
@@ -1054,7 +682,7 @@ export default function SettingsAndPermissions({
           <div className="bg-white border border-slate-100 rounded-2xl overflow-hidden shadow-sm">
             <div className="p-4 border-b border-slate-50 bg-slate-50/50 flex justify-between items-center">
               <span className="font-bold text-slate-700 text-xs uppercase tracking-wide">Danh sách phân hệ chức năng</span>
-              <span className="text-[10px] text-slate-400 font-mono">CẬP NHẬT TỰ ĐỘNG</span>
+              <span className="text-xs text-slate-600 font-mono">CẬP NHẬT TỰ ĐỘNG</span>
             </div>
 
             <div className="divide-y divide-slate-100">
@@ -1075,7 +703,7 @@ export default function SettingsAndPermissions({
                         <h5 className="font-bold text-slate-800 text-xs flex items-center gap-2">
                           {info.label}
                           {isRestrictedBySystem && (
-                            <span className="text-[10px] font-bold bg-slate-200 text-slate-600 px-2 py-0.5 rounded flex items-center gap-0.5">
+                            <span className="text-xs font-bold bg-slate-200 text-slate-600 px-2 py-0.5 rounded flex items-center gap-0.5">
                               <Lock size={8} /> Chỉ cán bộ
                             </span>
                           )}
@@ -1085,14 +713,14 @@ export default function SettingsAndPermissions({
 
                     <div className="flex items-center gap-6 self-end sm:self-center">
                       {/* Officer Access Level */}
-                      <div className="flex items-center gap-1.5 bg-indigo-50 border border-indigo-100/50 px-2.5 py-1 rounded-lg text-[10px] font-bold text-indigo-700">
+                      <div className="flex items-center gap-1.5 bg-indigo-50 border border-indigo-100/50 px-2.5 py-1 rounded-lg text-xs font-bold text-indigo-700">
                         <Shield size={12} /> Cán bộ: Đầy đủ
                       </div>
 
                       {/* Resident Access Level Toggle */}
                       <div className="flex items-center gap-2">
                         {isRestrictedBySystem ? (
-                          <div className="flex items-center gap-1 text-slate-400 text-xs font-semibold select-none bg-slate-50 px-2.5 py-1 rounded-lg border border-slate-100">
+                          <div className="flex items-center gap-1 text-slate-600 text-xs font-semibold select-none bg-slate-50 px-2.5 py-1 rounded-lg border border-slate-100">
                             <Lock size={12} /> Bị khóa ở dân
                           </div>
                         ) : (
@@ -1124,6 +752,72 @@ export default function SettingsAndPermissions({
               })}
             </div>
           </div>
+
+          {/* Phạm vi Phân quyền Theo Tổ Dân Phố (Tổ 1 - Tổ 14 KP3) */}
+          <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden">
+            <div className="p-4 border-b border-slate-200 bg-slate-50 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div>
+                <h5 className="font-bold text-slate-900 text-xs uppercase tracking-wider flex items-center gap-1.5">
+                  <MapPin size={14} className="text-emerald-700" />
+                  Phạm vi Phụ trách 14 Tổ Dân Phố KP3
+                </h5>
+                <p className="text-xs text-slate-600 mt-0.5">
+                  Cấp hoặc giới hạn quyền thao tác dữ liệu theo từng Tổ dân phố (1–14) cho nhóm cán bộ phụ trách
+                </p>
+              </div>
+              <div className="flex flex-wrap items-center gap-2">
+                <div className="w-56">
+                  <ReportSelect
+                    aria-label="Chọn nhóm quyền áp dụng phạm vi Tổ"
+                    value={selectedScopeGroup}
+                    onChange={(val) => setSelectedScopeGroup(val)}
+                    options={[
+                      { value: "totruong", label: "Tổ trưởng & Tổ phó (14 Tổ)" },
+                      { value: "mattran", label: "Ban Công tác Mặt trận KP3" },
+                      { value: "congtacvien", label: "Cộng tác viên Dân số & An sinh" }
+                    ]}
+                  />
+                </div>
+                <button
+                  type="button"
+                  onClick={() => handleSetAllToScope(true)}
+                  className="px-3 py-2 rounded-xl border border-slate-200 bg-white hover:bg-emerald-50 text-emerald-800 text-xs font-semibold cursor-pointer"
+                >
+                  Mở 14 Tổ
+                </button>
+              </div>
+            </div>
+            <div className="p-4 grid grid-cols-2 sm:grid-cols-4 md:grid-cols-7 gap-2.5">
+              {KP3_TO_LIST.map((toName, idx) => {
+                const toId = idx + 1;
+                const enabled = toScopesByGroup[selectedScopeGroup]?.[String(toId)] ?? true;
+                return (
+                  <button
+                    key={toId}
+                    type="button"
+                    onClick={() => handleToggleToScope(toId)}
+                    className={`p-2.5 rounded-xl border text-left transition-colors cursor-pointer ${
+                      enabled
+                        ? "bg-emerald-50 border-emerald-200 text-emerald-900"
+                        : "bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100"
+                    }`}
+                  >
+                    <div className="flex items-center justify-between gap-1">
+                      <span className="text-xs font-bold">{toName}</span>
+                      {enabled ? (
+                        <CheckCircle2 size={13} className="text-emerald-700 shrink-0" />
+                      ) : (
+                        <Lock size={12} className="text-slate-500 shrink-0" />
+                      )}
+                    </div>
+                    <span className="text-xs text-slate-600 block mt-0.5">
+                      {enabled ? "Đang cấp quyền" : "Đã khóa"}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
         </div>
       )}
 
@@ -1145,7 +839,7 @@ export default function SettingsAndPermissions({
                       ? "border-emerald-500 bg-emerald-50 text-emerald-600" 
                       : step.status === "active" 
                         ? "border-indigo-500 bg-indigo-50 text-indigo-600" 
-                        : "border-slate-300 bg-slate-50 text-slate-400"
+                        : "border-slate-300 bg-slate-50 text-slate-600"
                     }
                   `}>
                     {step.status === "completed" ? (
@@ -1157,7 +851,7 @@ export default function SettingsAndPermissions({
 
                   <div className="space-y-1">
                     <div className="flex items-center gap-2">
-                      <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded
+                      <span className={`text-xs font-bold uppercase tracking-wider px-2 py-0.5 rounded
                         ${step.status === "completed" 
                           ? "bg-emerald-50 text-emerald-700" 
                           : step.status === "active" 
@@ -1167,7 +861,7 @@ export default function SettingsAndPermissions({
                       `}>
                         {step.phase}
                       </span>
-                      <span className="text-[10px] text-slate-400 font-mono">{step.date}</span>
+                      <span className="text-xs text-slate-600 font-mono">{step.date}</span>
                     </div>
                     <h5 className="font-bold text-slate-800 text-sm">{step.title}</h5>
                     <p className="text-xs text-slate-500 leading-relaxed">{step.desc}</p>

@@ -201,7 +201,7 @@ export function isPointInPolygon(point: { lat: number; lng: number }, polygon: {
 // Format area to readable string (m² and ha)
 export function formatArea(sqMeters: number): string {
   if (sqMeters >= 10000) {
-    const ha = (sqMeters / 10000).toFixed(2);
+    const ha = (sqMeters / 10000).toFixed(2).replace(".", ",");
     return `${sqMeters.toLocaleString("vi-VN")} m² (~${ha} ha)`;
   }
   return `${sqMeters.toLocaleString("vi-VN")} m²`;
@@ -210,9 +210,9 @@ export function formatArea(sqMeters: number): string {
 // Format distance in meters
 export function formatDistance(meters: number): string {
   if (meters >= 1000) {
-    return `${(meters / 1000).toFixed(2)} km`;
+    return `${(meters / 1000).toFixed(2).replace(".", ",")} km`;
   }
-  return `${meters} m`;
+  return `${meters.toLocaleString("vi-VN")} m`;
 }
 
 // Calculate geometric center/centroid of an array of points

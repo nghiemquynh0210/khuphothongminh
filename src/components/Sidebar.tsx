@@ -128,8 +128,8 @@ export default function Sidebar({
       <button 
         id="sidebar-toggle"
         onClick={() => setIsOpen(!isOpen)}
-        className="fixed top-4 left-4 z-50 p-2 bg-emerald-600 text-white rounded-lg md:hidden hover:bg-emerald-700 transition-colors shadow-lg cursor-pointer"
-        aria-label="Toggle Navigation"
+        className="fixed top-2.5 left-3 z-50 h-11 w-11 flex items-center justify-center bg-emerald-700 text-white rounded-lg border border-emerald-600 md:hidden hover:bg-emerald-800 transition-colors cursor-pointer"
+        aria-label="Mở menu điều hướng"
       >
         {isOpen ? <X size={20} /> : <Menu size={20} />}
       </button>
@@ -152,20 +152,21 @@ export default function Sidebar({
         `}
       >
         {/* App Logo & Header */}
-        <div className="p-5 flex items-center gap-3 border-b border-slate-800 h-16 shrink-0">
-          <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-emerald-500 to-teal-400 flex items-center justify-center font-bold text-white shadow-md shadow-emerald-500/20 shrink-0">
+        <div className="px-5 flex items-center gap-3 h-16 shrink-0">
+          <div className="w-10 h-10 rounded-xl bg-emerald-700 border border-emerald-600/80 flex items-center justify-center font-bold text-white shadow-xs shrink-0">
             KP3
           </div>
           {isOpen && (
             <div className="flex flex-col min-w-0">
               <span className="font-bold tracking-tight text-white truncate text-base">AN PHÚ</span>
-              <span className="text-[10px] text-emerald-400 font-mono tracking-widest font-semibold uppercase">KHU PHỐ THÔNG MINH</span>
+              <span className="text-xs text-emerald-300 font-mono tracking-wider font-semibold uppercase">KHU PHỐ THÔNG MINH</span>
             </div>
           )}
         </div>
+        <div className="mx-3 h-px bg-slate-800/80 shrink-0" />
 
         {/* Navigation Items — Using Link extension: /dashboard/("sidebar content") */}
-        <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
+        <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto evon-scroll">
           {visibleMenuItems.map((item) => {
             const IconComponent = item.icon;
             const isActive = activeTab === item.id;
@@ -176,6 +177,7 @@ export default function Sidebar({
                 key={item.id}
                 id={`nav-${item.id}`}
                 to={itemPath}
+                aria-label={item.label}
                 aria-current={isActive ? "page" : undefined}
                 whileTap={{ scale: 0.97 }}
                 transition={spring.press}
@@ -187,10 +189,10 @@ export default function Sidebar({
                     setIsOpen(false);
                   }
                 }}
-                className={`w-full flex items-center gap-3 px-3 py-2 lg:py-2.5 rounded-lg text-sm font-medium transition-colors cursor-pointer group relative interactive-tap
+                className={`w-full min-h-[44px] flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors cursor-pointer group relative interactive-tap
                   ${isActive 
-                    ? "text-emerald-400 font-semibold" 
-                    : "text-slate-400 hover:bg-slate-800 hover:text-slate-100"
+                    ? "bg-emerald-950/70 text-emerald-300 font-semibold border border-emerald-700/60" 
+                    : "text-slate-300 hover:bg-slate-800 hover:text-white border border-transparent"
                   }
                 `}
                 title={`${item.label} (${itemPath})`}
@@ -205,20 +207,13 @@ export default function Sidebar({
                 <span className="relative z-10 flex items-center gap-3 w-full">
                   <IconComponent 
                     size={20} 
-                    className={`shrink-0 transition-transform group-hover:scale-105 ${isActive ? "text-emerald-400" : "text-slate-400 group-hover:text-slate-100"}`} 
+                    className={`shrink-0 transition-colors ${isActive ? "text-emerald-400" : "text-slate-400 group-hover:text-slate-100"}`} 
                   />
                   
                   {isOpen && (
                     <span className="truncate">{item.label}</span>
                   )}
                 </span>
-
-                {/* Tooltip on compact mode */}
-                {!isOpen && (
-                  <span className="absolute left-16 bg-slate-950 text-white text-xs rounded px-2 py-1.5 opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none z-50 shadow-md">
-                    {item.label} ({itemPath})
-                  </span>
-                )}
               </MotionLink>
             );
           })}
@@ -246,7 +241,7 @@ export default function Sidebar({
                   <span className="text-xs font-semibold text-white truncate">
                     {currentUser?.role === "canbo" ? currentUser.fullName : "Cổng Cư dân số"}
                   </span>
-                  <span className="text-[10px] text-emerald-400 truncate font-mono">
+                  <span className="text-xs text-emerald-300 truncate font-mono">
                     {currentUser?.role === "canbo" ? "Bí thư Chi bộ KP3" : "Truy cập mở toàn dân"}
                   </span>
                 </div>
@@ -255,8 +250,10 @@ export default function Sidebar({
             
             {isOpen && (
               <button
+                type="button"
                 onClick={onLogout}
-                className="p-1.5 text-slate-400 hover:text-emerald-400 hover:bg-slate-800 rounded-lg transition-all shrink-0 cursor-pointer"
+                aria-label={currentUser?.role === "canbo" ? "Đăng xuất về Cổng Cư dân" : "Làm mới Cổng Cư dân"}
+                className="min-h-[44px] min-w-[44px] flex items-center justify-center text-slate-300 hover:text-emerald-300 hover:bg-slate-800 rounded-lg transition-colors shrink-0 cursor-pointer"
                 title={currentUser?.role === "canbo" ? "Đăng xuất về Cổng Cư dân" : "Làm mới Cổng Cư dân"}
               >
                 <LogOut size={16} />
@@ -268,9 +265,9 @@ export default function Sidebar({
             <Link
               to={currentUser?.role === "canbo" ? "/" : "/dashboard"}
               onClick={onSwitchRole}
-              className="w-full py-2 px-2.5 bg-slate-900 hover:bg-slate-800 text-[11px] font-semibold text-slate-300 hover:text-white rounded-xl border border-slate-800 flex items-center justify-center gap-1.5 transition-colors cursor-pointer shadow-xs"
+              className="w-full min-h-[44px] py-2 px-3 bg-slate-800 hover:bg-slate-700 text-xs font-semibold text-slate-100 hover:text-white rounded-lg border border-slate-700 flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
             >
-              <User size={13} className="text-emerald-400" />
+              <User size={14} className="text-emerald-400" />
               <span>{currentUser?.role === "nguoidan" ? "Đăng nhập Cán bộ" : "Về Cổng Cư dân"}</span>
             </Link>
           )}
@@ -279,7 +276,8 @@ export default function Sidebar({
             <Link
               to={currentUser?.role === "canbo" ? "/" : "/dashboard"}
               onClick={onSwitchRole || onLogout}
-              className="w-full py-2.5 flex items-center justify-center text-slate-400 hover:text-emerald-400 hover:bg-slate-800 rounded-lg transition-all cursor-pointer"
+              aria-label={currentUser?.role === "nguoidan" ? "Đăng nhập Cán bộ" : "Về Cổng Cư dân"}
+              className="w-full min-h-[44px] py-2.5 flex items-center justify-center text-slate-300 hover:text-emerald-300 hover:bg-slate-800 rounded-lg transition-colors cursor-pointer"
               title={currentUser?.role === "nguoidan" ? "Đăng nhập Cán bộ" : "Về Cổng Cư dân"}
             >
               <User size={18} />
