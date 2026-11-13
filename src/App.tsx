@@ -59,8 +59,10 @@ import {
   CulturalPage,
   EnterprisesPage,
   HouseholdsPage,
+  PartyPage,
   ReportsPage,
   ResidentsPage,
+  TasksPage,
 } from "./page";
 import { LoadingFade } from "./components/common/LoadingFade";
 import GisMap from "./components/GisMap";
@@ -248,7 +250,13 @@ export default function App() {
     plan: true,
   });
 
-  const [activeTab, setActiveTab] = useState<ActiveTab>("cultural");
+  const [activeTab, setActiveTab] = useState<ActiveTab>(() => {
+    if (typeof window !== "undefined") {
+      const tab = getTabFromDashboardPath(window.location.pathname);
+      if (tab) return tab as ActiveTab;
+    }
+    return "cultural";
+  });
   const [routePath, setRoutePath] = useState<string>(() =>
     typeof window !== "undefined" ? window.location.pathname : "/"
   );
@@ -773,17 +781,15 @@ export default function App() {
         }
 
         // 7. Fetch Tasks & Welfare Records cho Cán bộ đã đăng nhập
-        if (isApprovedStaff) {
-          const [dbTasks, dbRecipients] = await Promise.all([
-            loadTasksFromDb(),
-            loadWelfareRecord<WelfareRecipient[]>("recipients"),
-          ]);
-          if (dbTasks && dbTasks.length > 0) {
-            setTasks(dbTasks);
-          }
-          if (Array.isArray(dbRecipients) && dbRecipients.length > 0) {
-            setWelfareRecipients(dbRecipients);
-          }
+        const [dbTasks, dbRecipients] = await Promise.all([
+          loadTasksFromDb(),
+          isApprovedStaff ? loadWelfareRecord<WelfareRecipient[]>("recipients") : Promise.resolve(null),
+        ]);
+        if (dbTasks && dbTasks.length > 0) {
+          setTasks(dbTasks);
+        }
+        if (Array.isArray(dbRecipients) && dbRecipients.length > 0) {
+          setWelfareRecipients(dbRecipients);
         }
       } catch (e) {
         console.warn("Lỗi nạp dữ liệu từ Supabase:", e);
@@ -1873,9 +1879,10 @@ export default function App() {
               />
             )}
             {citizenSubView === "party" && (
-              <PartyBranch 
+              <PartyPage 
                 partyMembers={partyMembers} 
                 residents={residents}
+                basePath="/citizen/party"
               />
             )}
             {citizenSubView === "welfare" && (
@@ -2247,10 +2254,11 @@ export default function App() {
           )}
 
           {activeTab === "tasks" && (
-            <TaskAndSchedule
+            <TasksPage
               tasks={tasks}
               onTasksChange={handleTasksChange}
               creatorLabel={currentUser?.fullName || "Đ/c Nguyễn Văn Hùng (Bí thư Chi bộ)"}
+              isDataLoading={isDataLoading}
             />
           )}
 
@@ -2329,7 +2337,7 @@ export default function App() {
           )}
 
           {activeTab === "party" && (
-            <PartyBranch 
+            <PartyPage 
               partyMembers={partyMembers} 
               residents={residents}
               onCreateTask={(newTask) => handleTasksChange([newTask, ...tasks])}
@@ -2337,6 +2345,7 @@ export default function App() {
                 setActiveTab(tab as ActiveTab);
                 navigate(getDashboardExtensionPath(tab as ActiveTab));
               }}
+              isDataLoading={isDataLoading}
             />
           )}
 

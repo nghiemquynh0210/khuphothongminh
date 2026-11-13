@@ -39,6 +39,9 @@ export const ROUTES = {
   DASHBOARD_BUSINESSES_DETAIL: "/dashboard/businesses/detail",
   DASHBOARD_GIS: "/dashboard/gis",
   DASHBOARD_TASKS: "/dashboard/tasks",
+  DASHBOARD_TASKS_NEW: "/dashboard/tasks/new",
+  DASHBOARD_TASKS_EDIT: "/dashboard/tasks/edit",
+  DASHBOARD_TASKS_DETAIL: "/dashboard/tasks/detail",
   DASHBOARD_AI: "/dashboard/ai",
   DASHBOARD_REPORTS: "/dashboard/reports",
   DASHBOARD_REPORTS_NEW: "/dashboard/reports/new",
@@ -46,6 +49,11 @@ export const ROUTES = {
   DASHBOARD_REPORTS_DETAIL: "/dashboard/reports/detail",
   DASHBOARD_REPORTS_RESOLVE: "/dashboard/reports/resolve",
   DASHBOARD_PARTY: "/dashboard/party",
+  DASHBOARD_PARTY_ASSOCIATION_NEW: "/dashboard/party/association/new",
+  DASHBOARD_PARTY_ASSOCIATION_EDIT: "/dashboard/party/association/edit",
+  DASHBOARD_PARTY_MEMBER_NEW: "/dashboard/party/member/new",
+  DASHBOARD_PARTY_MEMBER_EDIT: "/dashboard/party/member/edit",
+  DASHBOARD_PARTY_MEMBER_DETAIL: "/dashboard/party/member/detail",
   DASHBOARD_WELFARE: "/dashboard/welfare",
   DASHBOARD_CULTURAL: "/dashboard/cultural",
   DASHBOARD_CULTURAL_NEWS_NEW: "/dashboard/cultural/news/new",
@@ -475,6 +483,233 @@ export function parseBusinessFormRoute(
   if (clean === "dashboard/businesses/detail" || clean === "businesses/detail") {
     const idParam = params.get("id");
     if (idParam) return { mode: "detail", businessId: idParam };
+  }
+
+  return null;
+}
+
+export type TaskFormRouteMatch =
+  | { mode: "create" }
+  | { mode: "edit"; taskId: string }
+  | { mode: "detail"; taskId: string };
+
+/**
+ * Tạo URL giao nhiệm vụ mới
+ */
+export function getTaskCreatePath(basePath?: string): string {
+  const base = basePath ? basePath.replace(/\/+$/, "") : ROUTES.DASHBOARD_TASKS;
+  return `${base}/new`;
+}
+
+/**
+ * Tạo URL chỉnh sửa nhiệm vụ theo tham số ID
+ */
+export function getTaskEditPath(taskId: string, basePath?: string): string {
+  const base = basePath ? basePath.replace(/\/+$/, "") : ROUTES.DASHBOARD_TASKS;
+  return `${base}/edit/${encodeURIComponent(taskId)}`;
+}
+
+/**
+ * Tạo URL xem chi tiết nhiệm vụ theo tham số ID
+ */
+export function getTaskDetailPath(taskId: string, basePath?: string): string {
+  const base = basePath ? basePath.replace(/\/+$/, "") : ROUTES.DASHBOARD_TASKS;
+  return `${base}/detail/${encodeURIComponent(taskId)}`;
+}
+
+/**
+ * Phân tích URL hiện tại để xác định trang Thêm/Sửa hoặc Chi tiết nhiệm vụ từ params
+ */
+export function parseTaskFormRoute(
+  pathname: string,
+  search = ""
+): TaskFormRouteMatch | null {
+  if (!pathname) return null;
+  const clean = pathname.replace(/^\/+|\/+$/g, "");
+  const params = new URLSearchParams(search || "");
+
+  if (clean === "dashboard/tasks/new" || clean === "tasks/new") {
+    return { mode: "create" };
+  }
+
+  for (const prefix of ["dashboard/tasks/edit/", "tasks/edit/"]) {
+    if (clean.startsWith(prefix)) {
+      const taskId = decodeURIComponent(clean.slice(prefix.length));
+      if (taskId) return { mode: "edit", taskId };
+    }
+  }
+
+  if (clean === "dashboard/tasks/edit" || clean === "tasks/edit") {
+    const idParam = params.get("id");
+    if (idParam) return { mode: "edit", taskId: idParam };
+  }
+
+  for (const prefix of ["dashboard/tasks/detail/", "tasks/detail/"]) {
+    if (clean.startsWith(prefix)) {
+      const taskId = decodeURIComponent(clean.slice(prefix.length));
+      if (taskId) return { mode: "detail", taskId };
+    }
+  }
+
+  if (clean === "dashboard/tasks/detail" || clean === "tasks/detail") {
+    const idParam = params.get("id");
+    if (idParam) return { mode: "detail", taskId: idParam };
+  }
+
+  return null;
+}
+
+export type PartyRouteMatch =
+  | { mode: "create_assoc" }
+  | { mode: "edit_assoc"; assocId: string }
+  | { mode: "member_new"; assocId?: string }
+  | { mode: "member_edit"; cccd: string; assocId?: string }
+  | { mode: "member_detail"; cccd: string; assocId?: string };
+
+/**
+ * Tạo URL thêm Chi hội / Tổ chức phong trào mới
+ */
+export function getPartyAssociationCreatePath(basePath?: string): string {
+  const base = basePath ? basePath.replace(/\/+$/, "") : ROUTES.DASHBOARD_PARTY;
+  return `${base}/association/new`;
+}
+
+/**
+ * Tạo URL chỉnh sửa Chi hội / Tổ chức phong trào theo tham số ID
+ */
+export function getPartyAssociationEditPath(assocId: string, basePath?: string): string {
+  const base = basePath ? basePath.replace(/\/+$/, "") : ROUTES.DASHBOARD_PARTY;
+  return `${base}/association/edit/${encodeURIComponent(assocId)}`;
+}
+
+/**
+ * Tạo URL thêm Hội viên / Cán bộ phong trào mới vào Chi hội
+ */
+export function getPartyMemberCreatePath(assocId?: string, basePath?: string): string {
+  const base = basePath ? basePath.replace(/\/+$/, "") : ROUTES.DASHBOARD_PARTY;
+  const q = assocId ? `?assocId=${encodeURIComponent(assocId)}` : "";
+  return `${base}/member/new${q}`;
+}
+
+/**
+ * Tạo URL chỉnh sửa thông tin & quyết định của Hội viên
+ */
+export function getPartyMemberEditPath(cccd: string, assocId?: string, basePath?: string): string {
+  const base = basePath ? basePath.replace(/\/+$/, "") : ROUTES.DASHBOARD_PARTY;
+  const q = assocId ? `?assocId=${encodeURIComponent(assocId)}` : "";
+  return `${base}/member/edit/${encodeURIComponent(cccd)}${q}`;
+}
+
+/**
+ * Tạo URL xem hồ sơ chi tiết của Hội viên
+ */
+export function getPartyMemberDetailPath(cccd: string, assocId?: string, basePath?: string): string {
+  const base = basePath ? basePath.replace(/\/+$/, "") : ROUTES.DASHBOARD_PARTY;
+  const q = assocId ? `?assocId=${encodeURIComponent(assocId)}` : "";
+  return `${base}/member/detail/${encodeURIComponent(cccd)}${q}`;
+}
+
+/**
+ * Phân tích URL hiện tại để xác định trang Thêm/Sửa Chi hội, Hội viên của Công tác Đảng & Chi bộ
+ */
+export function parsePartyRoute(
+  pathname: string,
+  search = ""
+): PartyRouteMatch | null {
+  if (!pathname) return null;
+  const clean = pathname.replace(/^\/+|\/+$/g, "");
+  const params = new URLSearchParams(search || "");
+
+  // 1. Thêm Chi hội mới
+  if (
+    clean === "dashboard/party/association/new" ||
+    clean === "dashboard/party/associations/new" ||
+    clean === "party/association/new" ||
+    clean === "party/associations/new" ||
+    clean === "party/new"
+  ) {
+    return { mode: "create_assoc" };
+  }
+
+  // 2. Chỉnh sửa Chi hội
+  for (const prefix of [
+    "dashboard/party/association/edit/",
+    "dashboard/party/associations/edit/",
+    "party/association/edit/",
+    "party/associations/edit/",
+  ]) {
+    if (clean.startsWith(prefix)) {
+      const assocId = decodeURIComponent(clean.slice(prefix.length).split("?")[0].split("#")[0]);
+      if (assocId) return { mode: "edit_assoc", assocId };
+    }
+  }
+
+  if (
+    clean === "dashboard/party/association/edit" ||
+    clean === "dashboard/party/associations/edit" ||
+    clean === "party/association/edit"
+  ) {
+    const idParam = params.get("id");
+    if (idParam) return { mode: "edit_assoc", assocId: idParam };
+  }
+
+  // 3. Thêm Hội viên mới
+  if (
+    clean === "dashboard/party/member/new" ||
+    clean === "dashboard/party/members/new" ||
+    clean === "party/member/new" ||
+    clean === "party/members/new"
+  ) {
+    const assocId = params.get("assocId") || undefined;
+    return { mode: "member_new", assocId };
+  }
+
+  // 4. Xem chi tiết Hội viên
+  for (const prefix of [
+    "dashboard/party/member/detail/",
+    "dashboard/party/members/detail/",
+    "party/member/detail/",
+    "party/members/detail/",
+  ]) {
+    if (clean.startsWith(prefix)) {
+      const cccd = decodeURIComponent(clean.slice(prefix.length).split("?")[0].split("#")[0]);
+      const assocId = params.get("assocId") || undefined;
+      if (cccd) return { mode: "member_detail", cccd, assocId };
+    }
+  }
+
+  if (
+    clean === "dashboard/party/member/detail" ||
+    clean === "dashboard/party/members/detail" ||
+    clean === "party/member/detail"
+  ) {
+    const cccd = params.get("cccd");
+    const assocId = params.get("assocId") || undefined;
+    if (cccd) return { mode: "member_detail", cccd, assocId };
+  }
+
+  // 5. Chỉnh sửa Hội viên
+  for (const prefix of [
+    "dashboard/party/member/edit/",
+    "dashboard/party/members/edit/",
+    "party/member/edit/",
+    "party/members/edit/",
+  ]) {
+    if (clean.startsWith(prefix)) {
+      const cccd = decodeURIComponent(clean.slice(prefix.length).split("?")[0].split("#")[0]);
+      const assocId = params.get("assocId") || undefined;
+      if (cccd) return { mode: "member_edit", cccd, assocId };
+    }
+  }
+
+  if (
+    clean === "dashboard/party/member/edit" ||
+    clean === "dashboard/party/members/edit" ||
+    clean === "party/member/edit"
+  ) {
+    const cccd = params.get("cccd");
+    const assocId = params.get("assocId") || undefined;
+    if (cccd) return { mode: "member_edit", cccd, assocId };
   }
 
   return null;

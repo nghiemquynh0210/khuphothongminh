@@ -569,22 +569,52 @@ export const TARGET_GROUPS: TargetGroupConfig[] = [
   }
 ];
 
-interface PartyBranchProps {
+export interface PartyBranchProps {
   partyMembers: PartyMember[];
   residents?: Resident[];
+  associations?: Association[];
+  onAssociationsChange?: (next: Association[]) => void;
   onCreateTask?: (task: TaskItem) => void;
   onNavigate?: (tab: string) => void;
+  basePath?: string;
+  onOpenCreateAssoc?: () => void;
+  onOpenEditAssoc?: (assoc: Association) => void;
+  onOpenAddMember?: (assoc: Association) => void;
+  onOpenMemberDetail?: (member: AssociationMember, assoc: Association) => void;
+  onOpenEditMember?: (member: AssociationMember, assoc: Association) => void;
 }
 
 export default function PartyBranch({
   partyMembers,
   residents = [],
+  associations: externalAssociations,
+  onAssociationsChange,
   onCreateTask,
-  onNavigate
+  onNavigate,
+  basePath,
+  onOpenCreateAssoc,
+  onOpenEditAssoc,
+  onOpenAddMember,
+  onOpenMemberDetail,
+  onOpenEditMember,
 }: PartyBranchProps) {
   // Pre-populated default associations (Chi hội) loaded from shared data and synchronized with local storage & Supabase
-  const [associations, setAssociations] = useState<Association[]>(() => getStoredAssociations());
+  const [internalAssociations, setInternalAssociations] = useState<Association[]>(() => getStoredAssociations());
+  const associations = externalAssociations ?? internalAssociations;
   const assocDbHydratedRef = useRef(false);
+
+  const setAssociations = (updater: Association[] | ((prev: Association[]) => Association[])) => {
+    const next = typeof updater === "function" ? updater(associations) : updater;
+    if (onAssociationsChange) {
+      onAssociationsChange(next);
+    } else {
+      setInternalAssociations(next);
+      saveStoredAssociations(next);
+      if (assocDbHydratedRef.current) {
+        saveAssociationRecord("associations", next);
+      }
+    }
+  };
 
   useEffect(() => {
     let active = true;
@@ -2099,7 +2129,13 @@ export default function PartyBranch({
           </button>
           <button
             type="button"
-            onClick={() => setShowAddAssocModal(true)}
+            onClick={() => {
+              if (onOpenCreateAssoc) {
+                onOpenCreateAssoc();
+              } else {
+                setShowAddAssocModal(true);
+              }
+            }}
             className="w-full sm:w-auto flex items-center justify-center gap-2 bg-emerald-700 hover:bg-emerald-800 text-white px-4 py-2 rounded-xl font-semibold text-xs transition-colors shadow-xs cursor-pointer whitespace-nowrap"
           >
             <FolderPlus size={15} className="shrink-0" />
@@ -2582,7 +2618,13 @@ export default function PartyBranch({
                     <div className="flex flex-wrap items-center gap-1.5 sm:gap-2 shrink-0 w-full 2xl:w-auto">
                       <button
                         type="button"
-                        onClick={() => setShowAddMemberModal(true)}
+                        onClick={() => {
+                          if (onOpenAddMember) {
+                            onOpenAddMember(selectedAssociation);
+                          } else {
+                            setShowAddMemberModal(true);
+                          }
+                        }}
                         className="h-9 flex-1 sm:flex-initial flex items-center justify-center gap-1.5 bg-emerald-700 hover:bg-emerald-800 text-white px-3 rounded-xl text-xs font-semibold transition-colors cursor-pointer whitespace-nowrap"
                       >
                         <UserPlus size={14} className="shrink-0" />
@@ -2612,7 +2654,13 @@ export default function PartyBranch({
                       <div className="flex items-center gap-1.5 shrink-0">
                         <button
                           type="button"
-                          onClick={() => handleOpenEditAssoc(selectedAssociation)}
+                          onClick={() => {
+                            if (onOpenEditAssoc) {
+                              onOpenEditAssoc(selectedAssociation);
+                            } else {
+                              handleOpenEditAssoc(selectedAssociation);
+                            }
+                          }}
                           className="w-9 h-9 inline-flex items-center justify-center text-slate-600 hover:text-indigo-700 hover:bg-indigo-100/70 border border-slate-200 rounded-xl transition-colors cursor-pointer"
                           title="Sửa thông tin chi hội"
                           aria-label="Sửa thông tin chi hội"
@@ -2810,7 +2858,13 @@ export default function PartyBranch({
                                       <div>
                                         <button
                                           type="button"
-                                          onClick={() => setSelectedMemberForDetail(member)}
+                                          onClick={() => {
+                                            if (onOpenMemberDetail) {
+                                              onOpenMemberDetail(member, selectedAssociation);
+                                            } else {
+                                              setSelectedMemberForDetail(member);
+                                            }
+                                          }}
                                           className="font-bold text-slate-900 hover:text-emerald-700 text-xs text-left cursor-pointer transition-colors block"
                                         >
                                           {member.fullName}
@@ -2874,7 +2928,13 @@ export default function PartyBranch({
                                     <div className="flex items-center justify-end gap-1">
                                       <button
                                         type="button"
-                                        onClick={() => setSelectedMemberForDetail(member)}
+                                        onClick={() => {
+                                          if (onOpenMemberDetail) {
+                                            onOpenMemberDetail(member, selectedAssociation);
+                                          } else {
+                                            setSelectedMemberForDetail(member);
+                                          }
+                                        }}
                                         className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-md transition-colors cursor-pointer"
                                         title="Xem chi tiết hồ sơ thành viên"
                                       >
@@ -2882,7 +2942,13 @@ export default function PartyBranch({
                                       </button>
                                       <button
                                         type="button"
-                                        onClick={() => handleOpenEditMember(member)}
+                                        onClick={() => {
+                                          if (onOpenEditMember) {
+                                            onOpenEditMember(member, selectedAssociation);
+                                          } else {
+                                            handleOpenEditMember(member);
+                                          }
+                                        }}
                                         className="p-1.5 text-slate-600 hover:text-emerald-700 hover:bg-emerald-50 rounded-md transition-colors cursor-pointer"
                                         title="Sửa thông tin & Quyết định"
                                       >
@@ -2942,7 +3008,13 @@ export default function PartyBranch({
                                 <div className="space-y-1 min-w-0 flex-1">
                                   <button
                                     type="button"
-                                    onClick={() => setSelectedMemberForDetail(member)}
+                                    onClick={() => {
+                                      if (onOpenMemberDetail) {
+                                        onOpenMemberDetail(member, selectedAssociation);
+                                      } else {
+                                        setSelectedMemberForDetail(member);
+                                      }
+                                    }}
                                     className="font-bold text-slate-900 text-sm truncate hover:text-emerald-700 cursor-pointer block text-left w-full leading-tight"
                                     title={member.fullName}
                                   >
@@ -3035,7 +3107,13 @@ export default function PartyBranch({
                               ) : (
                                 <button
                                   type="button"
-                                  onClick={() => handleOpenEditMember(member)}
+                                  onClick={() => {
+                                    if (onOpenEditMember) {
+                                      onOpenEditMember(member, selectedAssociation);
+                                    } else {
+                                      handleOpenEditMember(member);
+                                    }
+                                  }}
                                   className="w-full flex items-center justify-center gap-1.5 py-1.5 px-2 border border-dashed border-slate-300 hover:border-emerald-600 hover:bg-emerald-50/70 rounded-lg text-xs font-medium text-slate-600 hover:text-emerald-900 transition-colors cursor-pointer whitespace-nowrap"
                                 >
                                   <UploadCloud size={12} className="text-slate-500 shrink-0" />
@@ -3047,7 +3125,13 @@ export default function PartyBranch({
                               <div className="flex items-center justify-between gap-2 pt-0.5">
                                 <button
                                   type="button"
-                                  onClick={() => setSelectedMemberForDetail(member)}
+                                  onClick={() => {
+                                    if (onOpenMemberDetail) {
+                                      onOpenMemberDetail(member, selectedAssociation);
+                                    } else {
+                                      setSelectedMemberForDetail(member);
+                                    }
+                                  }}
                                   className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 hover:text-slate-900 transition-colors cursor-pointer whitespace-nowrap"
                                 >
                                   <Eye size={13} className="text-blue-700 shrink-0" />
@@ -3057,7 +3141,13 @@ export default function PartyBranch({
                                 <div className="flex items-center gap-1 shrink-0">
                                   <button
                                     type="button"
-                                    onClick={() => handleOpenEditMember(member)}
+                                    onClick={() => {
+                                      if (onOpenEditMember) {
+                                        onOpenEditMember(member, selectedAssociation);
+                                      } else {
+                                        handleOpenEditMember(member);
+                                      }
+                                    }}
                                     className="p-1.5 text-slate-600 hover:text-emerald-900 hover:bg-emerald-100 rounded-md transition-colors cursor-pointer"
                                     title="Sửa thông tin & Quyết định"
                                     aria-label={`Sửa ${member.fullName}`}
@@ -3120,7 +3210,13 @@ export default function PartyBranch({
                   </button>
                   <button
                     type="button"
-                    onClick={() => setShowAddAssocModal(true)}
+                    onClick={() => {
+                      if (onOpenCreateAssoc) {
+                        onOpenCreateAssoc();
+                      } else {
+                        setShowAddAssocModal(true);
+                      }
+                    }}
                     className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold shadow-xs cursor-pointer transition-colors"
                   >
                     <Plus size={13} />
@@ -5390,7 +5486,11 @@ export default function PartyBranch({
                     type="button"
                     onClick={() => {
                       setSelectedMemberForDetail(null);
-                      handleOpenEditMember(member);
+                      if (onOpenEditMember) {
+                        onOpenEditMember(member, selectedAssociation);
+                      } else {
+                        handleOpenEditMember(member);
+                      }
                     }}
                     className="min-h-8 inline-flex items-center gap-1 px-3.5 py-1 bg-emerald-700 hover:bg-emerald-800 text-white rounded-lg text-xs font-semibold transition-colors cursor-pointer"
                   >

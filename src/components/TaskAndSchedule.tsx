@@ -69,12 +69,20 @@ export interface TaskAndScheduleProps {
   tasks?: TaskItem[];
   onTasksChange?: (next: TaskItem[]) => void;
   creatorLabel?: string;
+  basePath?: string;
+  onOpenCreate?: () => void;
+  onOpenEdit?: (task: TaskItem) => void;
+  onOpenDetail?: (task: TaskItem) => void;
 }
 
 export default function TaskAndSchedule({
   tasks: externalTasks,
   onTasksChange,
   creatorLabel = "Đ/c Nguyễn Văn Hùng (Bí thư Chi bộ)",
+  basePath,
+  onOpenCreate,
+  onOpenEdit,
+  onOpenDetail,
 }: TaskAndScheduleProps = {}) {
   const [activeSubTab, setActiveSubTab] = useState<"tasks" | "schedules" | "reminders">("tasks");
   const [internalTasks, setInternalTasks] = useState<TaskItem[]>(loadStoredTasks);
@@ -547,8 +555,12 @@ export default function TaskAndSchedule({
                 size="md"
                 leftIcon={<Plus size={16} />}
                 onClick={() => {
-                  setEditingTask(null);
-                  setShowAddTaskModal(true);
+                  if (onOpenCreate) {
+                    onOpenCreate();
+                  } else {
+                    setEditingTask(null);
+                    setShowAddTaskModal(true);
+                  }
                 }}
               >
                 Giao việc mới
@@ -627,7 +639,13 @@ export default function TaskAndSchedule({
                                 <div className="flex items-center gap-1">
                                   <button
                                     type="button"
-                                    onClick={() => setSelectedTask(task)}
+                                    onClick={() => {
+                                      if (onOpenDetail) {
+                                        onOpenDetail(task);
+                                      } else {
+                                        setSelectedTask(task);
+                                      }
+                                    }}
                                     className="min-h-[32px] px-1.5 inline-flex items-center text-xs font-semibold text-indigo-800 hover:underline cursor-pointer whitespace-nowrap"
                                   >
                                     Chi tiết
@@ -635,8 +653,12 @@ export default function TaskAndSchedule({
                                   <button
                                     type="button"
                                     onClick={() => {
-                                      setEditingTask(task);
-                                      setShowAddTaskModal(true);
+                                      if (onOpenEdit) {
+                                        onOpenEdit(task);
+                                      } else {
+                                        setEditingTask(task);
+                                        setShowAddTaskModal(true);
+                                      }
                                     }}
                                     className="min-h-[32px] px-1.5 inline-flex items-center text-xs font-semibold text-slate-700 hover:text-emerald-800 cursor-pointer"
                                     title="Sửa nhiệm vụ"
@@ -734,7 +756,17 @@ export default function TaskAndSchedule({
                           <td className="py-2.5 px-3">{getStatusBadge(t.status)}</td>
                           <td className="py-2.5 px-3 text-right">
                             <div className="inline-flex items-center gap-1.5">
-                              <Button variant="ghost" size="sm" onClick={() => setSelectedTask(t)}>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => {
+                                  if (onOpenDetail) {
+                                    onOpenDetail(t);
+                                  } else {
+                                    setSelectedTask(t);
+                                  }
+                                }}
+                              >
                                 Chi tiết
                               </Button>
                               <Button
@@ -743,8 +775,12 @@ export default function TaskAndSchedule({
                                 aria-label={`Sửa nhiệm vụ ${t.title}`}
                                 title="Sửa nhiệm vụ"
                                 onClick={() => {
-                                  setEditingTask(t);
-                                  setShowAddTaskModal(true);
+                                  if (onOpenEdit) {
+                                    onOpenEdit(t);
+                                  } else {
+                                    setEditingTask(t);
+                                    setShowAddTaskModal(true);
+                                  }
                                 }}
                               >
                                 <Edit2 size={14} />
@@ -969,8 +1005,12 @@ export default function TaskAndSchedule({
         onRemoveAttachment={handleRemoveTaskAttachment}
         onRequestEdit={(t) => {
           setSelectedTask(null);
-          setEditingTask(t);
-          setShowAddTaskModal(true);
+          if (onOpenEdit) {
+            onOpenEdit(t);
+          } else {
+            setEditingTask(t);
+            setShowAddTaskModal(true);
+          }
         }}
         onRequestDelete={(t) => setConfirmState({ kind: "task", id: t.id, label: t.title })}
       />

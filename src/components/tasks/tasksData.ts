@@ -541,3 +541,5 @@ export function saveStoredTasks(tasks: TaskItem[]): void {
     localStorage.setItem(TASK_STORAGE_KEY, JSON.stringify(tasks));
   } catch {}
 }
+
+export { syncTasksDiffToDb } from "../../utils/supabaseSync";

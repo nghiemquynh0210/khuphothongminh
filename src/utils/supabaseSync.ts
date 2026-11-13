@@ -342,6 +342,44 @@ export async function loadTasksFromDb(): Promise<TaskItem[] | null> {
   }
 }
 
+export async function loadTaskByIdFromDb(taskId: string): Promise<TaskItem | null> {
+  if (!isSupabaseConfigured || !supabase || !taskId) return null;
+  try {
+    const cleanId = taskId.trim();
+    const { data, error } = await (supabase as any)
+      .from("tasks")
+      .select("*")
+      .eq("id", cleanId)
+      .maybeSingle();
+    if (error || !data) return null;
+    return {
+      id: data.id,
+      title: data.title,
+      description: data.description || "",
+      unit: data.unit || data.role || "Ban Điều hành Khu phố 3",
+      associationId: data.association_id || undefined,
+      assignee: {
+        name: data.assignee || "Ban Điều hành KP3",
+        role: data.assignee_role || data.role || "Cán bộ phụ trách",
+        unit: data.unit || "Ban Điều hành Khu phố 3",
+        phone: data.assignee_phone || undefined,
+      },
+      creator: data.creator || "Ban Điều hành KP3",
+      priority: data.priority || "Trung bình",
+      status:
+        data.status === "Chưa bắt đầu" ? "Chờ xử lý" : data.status || "Chờ xử lý",
+      progressPercent: Number(data.progress_percent) || 0,
+      startDate: data.start_date || (data.created_at ? String(data.created_at).slice(0, 10) : "2026-10-15"),
+      deadline: data.due_date || "2026-11-30",
+      notes: data.notes || undefined,
+      attachments: Array.isArray(data.attachments) ? data.attachments : [],
+      proofImages: Array.isArray(data.proof_images) ? data.proof_images : [],
+    };
+  } catch {
+    return null;
+  }
+}
+
 export async function syncTasksDiffToDb(prevTasks: TaskItem[], nextTasks: TaskItem[]): Promise<void> {
   if (!isSupabaseConfigured || !supabase) return;
   try {

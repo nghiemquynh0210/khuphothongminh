@@ -8,10 +8,13 @@ export interface ConfirmModalProps {
   onClose: () => void;
   onConfirm: () => void;
   title: string;
-  description: string;
+  description?: string;
+  message?: string;
   confirmLabel?: string;
+  confirmText?: string;
   cancelLabel?: string;
-  variant?: "danger" | "warning" | "primary";
+  cancelText?: string;
+  variant?: "danger" | "destructive" | "warning" | "primary";
   isLoading?: boolean;
 }
 
@@ -21,13 +24,27 @@ export function ConfirmModal({
   onConfirm,
   title,
   description,
-  confirmLabel = "Xác nhận",
-  cancelLabel = "Hủy bỏ",
+  message,
+  confirmLabel,
+  confirmText,
+  cancelLabel,
+  cancelText,
   variant = "danger",
   isLoading = false,
 }: ConfirmModalProps) {
+  const modalDescription = description || message || "";
+  const finalConfirmLabel = confirmLabel || confirmText || "Xác nhận";
+  const finalCancelLabel = cancelLabel || cancelText || "Hủy bỏ";
+
+  const resolvedVariant = variant === "destructive" ? "danger" : (variant || "danger");
+
   const iconConfig = {
     danger: {
+      bg: "bg-rose-50 border-rose-200 text-rose-700",
+      buttonVariant: "destructive" as const,
+      Icon: AlertTriangle,
+    },
+    destructive: {
       bg: "bg-rose-50 border-rose-200 text-rose-700",
       buttonVariant: "destructive" as const,
       Icon: AlertTriangle,
@@ -42,7 +59,11 @@ export function ConfirmModal({
       buttonVariant: "emerald" as const,
       Icon: Info,
     },
-  }[variant];
+  }[resolvedVariant] || {
+    bg: "bg-rose-50 border-rose-200 text-rose-700",
+    buttonVariant: "destructive" as const,
+    Icon: AlertTriangle,
+  };
 
   const { Icon } = iconConfig;
 
@@ -55,7 +76,7 @@ export function ConfirmModal({
       footer={
         <>
           <Button variant="outline" size="form" onClick={onClose} disabled={isLoading}>
-            {cancelLabel}
+            {finalCancelLabel}
           </Button>
           <Button
             variant={iconConfig.buttonVariant}
@@ -66,7 +87,7 @@ export function ConfirmModal({
               onClose();
             }}
           >
-            {confirmLabel}
+            {finalConfirmLabel}
           </Button>
         </>
       }
@@ -75,7 +96,7 @@ export function ConfirmModal({
         <div className={`p-2.5 rounded-xl border shrink-0 ${iconConfig.bg}`}>
           <Icon className="w-5 h-5" aria-hidden="true" />
         </div>
-        <p className="text-sm text-slate-700 leading-relaxed pt-0.5">{description}</p>
+        <p className="text-sm text-slate-700 leading-relaxed pt-0.5">{modalDescription}</p>
       </div>
     </Modal>
   );
