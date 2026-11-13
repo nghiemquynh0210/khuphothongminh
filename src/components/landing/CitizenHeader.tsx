@@ -17,6 +17,26 @@ import {
 } from "lucide-react";
 import { LandingConfig } from "../../types";
 import { DEFAULT_LANDING_CONFIG, NAV_ITEMS, ROUTES, Link } from "./landingConstants";
+import { Button } from "../ui/Button";
+import { Badge } from "../ui/badge";
+import { Separator } from "../ui/separator";
+import { Avatar, AvatarFallback, AvatarImage } from "../ui/avatar";
+import {
+  NavigationMenu,
+  NavigationMenuList,
+  NavigationMenuItem,
+  navigationMenuTriggerStyle,
+} from "../ui/navigation-menu";
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetDescription,
+  SheetClose,
+  SheetTrigger,
+} from "../ui/sheet";
+import { cn } from "../../lib/utils";
 
 export interface CitizenHeaderProps {
   activeRoute?: string;
@@ -76,27 +96,21 @@ export default function CitizenHeader({
   return (
     <header className="sticky top-0 z-40 w-full border-b border-slate-200/80 bg-white/95 backdrop-blur-md supports-[backdrop-filter]:bg-white/80 shadow-2xs transition-all">
       <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-2 sm:gap-4">
-        {/* Brand / Logo (shadcn entity pattern) */}
+        {/* Brand / Logo (shadcn Avatar entity pattern) */}
         <Link
           to={ROUTES.HOME}
           onClick={() => handleNavClick("all")}
           className="flex items-center gap-2.5 text-left cursor-pointer group min-w-0 flex-1 lg:flex-initial lg:shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2 rounded-xl p-1 -ml-1 transition-transform duration-150 active:scale-[0.98]"
           aria-label="Về trang chủ Cổng Cư dân số"
         >
-          {landingConfig.logoUrl ? (
-            <img
-              src={landingConfig.logoUrl}
-              alt=""
-              className="w-9 h-9 rounded-xl object-cover ring-1 ring-slate-200/90 shadow-2xs shrink-0 group-hover:scale-105 transition-transform"
-            />
-          ) : (
-            <div
-              className="w-9 h-9 rounded-xl bg-gov-navy text-white flex items-center justify-center shadow-2xs shrink-0 group-hover:scale-105 transition-transform"
-              aria-hidden="true"
-            >
+          <Avatar className="h-9 w-9 rounded-xl group-hover:scale-105 transition-transform duration-150">
+            {landingConfig.logoUrl ? (
+              <AvatarImage src={landingConfig.logoUrl} alt={landingConfig.siteTitle} />
+            ) : null}
+            <AvatarFallback className="rounded-xl bg-gov-navy text-white">
               <Building2 size={20} />
-            </div>
-          )}
+            </AvatarFallback>
+          </Avatar>
           <div className="flex flex-col min-w-0">
             <span className="text-sm sm:text-base font-bold text-slate-900 tracking-tight leading-tight group-hover:text-gov-navy transition-colors truncate">
               {landingConfig.siteTitle}
@@ -107,176 +121,209 @@ export default function CitizenHeader({
           </div>
         </Link>
 
-        {/* Desktop Navigation (shadcn NavigationMenu optimus) */}
-        <nav
-          aria-label="Điều hướng chính"
-          className="hidden lg:flex items-center gap-1 xl:gap-1.5 min-w-0"
-        >
-          {/* Nút Trang chủ */}
-          <Link
-            to={ROUTES.HOME}
-            onClick={() => handleNavClick("all")}
-            aria-current={activeRoute === "all" ? "page" : undefined}
-            className={`whitespace-nowrap inline-flex items-center justify-center rounded-lg px-2.5 xl:px-3 py-2 text-xs xl:text-sm font-medium transition-all duration-150 select-none cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-1 active:scale-[0.98] ${
-              activeRoute === "all"
-                ? "bg-slate-100 text-slate-950 font-semibold shadow-2xs border border-slate-200/90"
-                : "text-slate-600 hover:text-slate-950 hover:bg-slate-100/70 border border-transparent"
-            }`}
-          >
-            Trang chủ
-          </Link>
-
-          {/* Các mục điều hướng */}
-          {NAV_ITEMS.map(item => {
-            const isActive = activeRoute === item.id;
-            return (
+        {/* Desktop Navigation (shadcn NavigationMenu) */}
+        <NavigationMenu aria-label="Điều hướng chính" className="hidden lg:flex">
+          <NavigationMenuList>
+            {/* Nút Trang chủ */}
+            <NavigationMenuItem>
               <Link
-                key={item.id}
-                to={item.path}
-                onClick={() => handleNavClick(item.id)}
-                aria-current={isActive ? "page" : undefined}
-                className={`whitespace-nowrap inline-flex items-center justify-center rounded-lg px-2.5 xl:px-3 py-2 text-xs xl:text-sm font-medium transition-all duration-150 select-none cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-1 active:scale-[0.98] ${
-                  isActive
-                    ? "bg-slate-100 text-slate-950 font-semibold shadow-2xs border border-slate-200/90"
-                    : "text-slate-600 hover:text-slate-950 hover:bg-slate-100/70 border border-transparent"
-                }`}
-                title={item.description}
+                to={ROUTES.HOME}
+                onClick={() => handleNavClick("all")}
+                aria-current={activeRoute === "all" ? "page" : undefined}
+                className={navigationMenuTriggerStyle({ active: activeRoute === "all" })}
               >
-                {item.label}
+                Trang chủ
               </Link>
-            );
-          })}
-        </nav>
+            </NavigationMenuItem>
 
-        {/* Right action area: Link to staff portal / login & Mobile Trigger */}
+            {/* Các mục điều hướng */}
+            {NAV_ITEMS.map((item) => {
+              const isActive = activeRoute === item.id;
+              return (
+                <NavigationMenuItem key={item.id}>
+                  <Link
+                    to={item.path}
+                    onClick={() => handleNavClick(item.id)}
+                    aria-current={isActive ? "page" : undefined}
+                    className={navigationMenuTriggerStyle({ active: isActive })}
+                    title={item.description}
+                  >
+                    {item.label}
+                  </Link>
+                </NavigationMenuItem>
+              );
+            })}
+          </NavigationMenuList>
+        </NavigationMenu>
+
+        {/* Right action area: Portal badge, Staff login Button & Mobile Sheet Trigger */}
         <div className="flex items-center gap-2 shrink-0">
           <a
             href="https://danguy.phuonganphu.gov.vn/"
             target="_blank"
             rel="noopener noreferrer"
-            className="hidden xl:inline-flex items-center justify-center gap-1.5 whitespace-nowrap rounded-lg text-xs font-bold transition-all duration-150 border border-red-200/90 bg-red-50/80 text-red-700 hover:bg-red-100 hover:text-red-800 shadow-2xs h-9 px-3 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-400"
+            className="hidden xl:inline-flex"
             title="Mở Không Gian Số Đảng Ủy Phường An Phú (Cổng số hóa nhiệm kỳ 2025–2030)"
           >
-            <span>Đảng ủy Phường</span>
-            <ExternalLink size={12} className="opacity-75 shrink-0" aria-hidden="true" />
+            <Badge
+              variant="destructive"
+              className="gap-1.5 h-9 px-3 text-xs font-bold border-red-200/90 bg-red-50/80 text-red-700 hover:bg-red-100 hover:text-red-800 shadow-2xs active:scale-[0.98] cursor-pointer"
+            >
+              <span>Đảng ủy Phường</span>
+              <ExternalLink size={12} className="opacity-75 shrink-0" aria-hidden="true" />
+            </Badge>
           </a>
 
-          <button
-            type="button"
+          <Button
+            variant={isAdmin ? "secondary" : "outline"}
+            size="sm"
             onClick={() => onOpenStaff?.()}
-            className={`hidden sm:inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-lg text-xs xl:text-sm font-semibold transition-all duration-150 h-9 px-3.5 shadow-2xs cursor-pointer active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-1 ${
+            className={cn(
+              "hidden sm:inline-flex items-center gap-2 font-semibold shadow-2xs whitespace-nowrap",
               isAdmin
-                ? "border border-emerald-300 bg-emerald-50 text-emerald-800 hover:bg-emerald-100 focus-visible:ring-emerald-400"
-                : "border border-slate-200/90 bg-white text-slate-700 hover:bg-slate-50 hover:text-slate-900 focus-visible:ring-slate-400"
-            }`}
+                ? "border-emerald-300 bg-emerald-50 text-emerald-800 hover:bg-emerald-100 focus-visible:ring-emerald-400"
+                : "border-slate-200/90 text-slate-700 hover:text-slate-900"
+            )}
             title={isAdmin ? "Vào Bảng Điều Hành Quản Trị KP3 (/dashboard/cultural)" : "Đến Cổng Đăng nhập Cán bộ (/login)"}
           >
             {isAdmin ? (
-              <>
+              <span className="inline-flex items-center gap-1.5 whitespace-nowrap">
                 <LayoutDashboard size={14} className="text-emerald-700 shrink-0" aria-hidden="true" />
                 <span>Quản trị KP3</span>
-              </>
+              </span>
             ) : (
-              <>
+              <span className="inline-flex items-center gap-1.5 whitespace-nowrap">
                 <LockKeyhole size={14} className="text-slate-500 shrink-0" aria-hidden="true" />
                 <span className="2xl:hidden">Cổng cán bộ</span>
                 <span className="hidden 2xl:inline">Cổng dành cho cán bộ</span>
-              </>
+              </span>
             )}
-          </button>
+          </Button>
 
-          {/* Mobile hamburger button */}
-          <button
-            type="button"
-            onClick={() => setMobileMenuOpen(v => !v)}
-            className="lg:hidden h-9 w-9 inline-flex items-center justify-center rounded-lg text-slate-700 hover:bg-slate-100 border border-slate-200/90 shadow-2xs cursor-pointer transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 active:scale-[0.98]"
-            aria-label={mobileMenuOpen ? "Đóng menu điều hướng" : "Mở menu điều hướng"}
-            aria-expanded={mobileMenuOpen}
-            aria-controls="mobile-navigation"
-          >
-            {mobileMenuOpen ? <X size={18} aria-hidden="true" /> : <Menu size={18} aria-hidden="true" />}
-          </button>
-        </div>
-      </div>
-
-      {/* Mobile Drawer (shadcn Sheet optimus) */}
-      {mobileMenuOpen && (
-        <div
-          id="mobile-navigation"
-          className="lg:hidden border-t border-slate-200/80 bg-white/98 backdrop-blur-md px-4 py-4 shadow-lg space-y-4 animate-in slide-in-from-top-2 fade-in duration-200"
-        >
-          <nav aria-label="Điều hướng di động" className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
-            <Link
-              to={ROUTES.HOME}
-              onClick={() => handleNavClick("all")}
-              aria-current={activeRoute === "all" ? "page" : undefined}
-              className={`flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-sm font-medium text-left cursor-pointer transition-colors ${
-                activeRoute === "all"
-                  ? "bg-slate-100 text-slate-950 font-semibold border border-slate-200/90 shadow-2xs"
-                  : "text-slate-700 hover:bg-slate-50 hover:text-slate-950 border border-transparent"
-              }`}
-            >
-              <Home size={16} className={activeRoute === "all" ? "text-slate-900" : "text-slate-400"} aria-hidden="true" />
-              <span>Trang chủ</span>
-            </Link>
-
-            {NAV_ITEMS.map(item => {
-              const isActive = activeRoute === item.id;
-              const IconComp = NAV_ICONS[item.id] || FileText;
-              return (
-                <Link
-                  key={item.id}
-                  to={item.path}
-                  onClick={() => handleNavClick(item.id)}
-                  aria-current={isActive ? "page" : undefined}
-                  className={`flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-sm font-medium text-left cursor-pointer transition-colors ${
-                    isActive
-                      ? "bg-slate-100 text-slate-950 font-semibold border border-slate-200/90 shadow-2xs"
-                      : "text-slate-700 hover:bg-slate-50 hover:text-slate-950 border border-transparent"
-                  }`}
+          {/* Mobile Sheet Drawer using shadcn Sheet */}
+          <div className="lg:hidden">
+            <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
+              <SheetTrigger asChild>
+                <Button
+                  variant="outline"
+                  size="icon"
+                  className="h-9 w-9 text-slate-700 hover:bg-slate-100 border-slate-200/90 shadow-2xs"
+                  aria-label={mobileMenuOpen ? "Đóng menu điều hướng" : "Mở menu điều hướng"}
                 >
-                  <IconComp size={16} className={isActive ? "text-slate-900" : "text-slate-400"} aria-hidden="true" />
-                  <span>{item.label}</span>
-                </Link>
-              );
-            })}
-          </nav>
+                  {mobileMenuOpen ? <X size={18} aria-hidden="true" /> : <Menu size={18} aria-hidden="true" />}
+                </Button>
+              </SheetTrigger>
 
-          <div className="pt-3 border-t border-slate-200/90 space-y-2">
-            <a
-              href="https://danguy.phuonganphu.gov.vn/"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="w-full h-10 inline-flex items-center justify-center gap-2 rounded-lg text-xs sm:text-sm font-bold transition-colors border border-red-200 bg-red-50 text-red-700 hover:bg-red-100 px-4 shadow-2xs"
-              title="Mở Không Gian Số Đảng Ủy Phường An Phú"
-            >
-              <span>🏛️ Không Gian Số Đảng Ủy Phường An Phú</span>
-              <ExternalLink size={13} className="shrink-0 opacity-80" aria-hidden="true" />
-            </a>
+              <SheetContent
+                side="top"
+                showClose={true}
+                className="lg:hidden border-b border-slate-200/90 bg-white/98 backdrop-blur-md px-4 py-5 shadow-xl space-y-4 max-h-[85vh] overflow-y-auto"
+              >
+                <SheetHeader className="pb-2 border-b border-slate-100">
+                  <div className="flex items-center gap-2.5">
+                    <Avatar className="h-7 w-7 rounded-lg">
+                      {landingConfig.logoUrl ? (
+                        <AvatarImage src={landingConfig.logoUrl} alt={landingConfig.siteTitle} />
+                      ) : null}
+                      <AvatarFallback className="rounded-lg bg-gov-navy text-white text-[10px]">
+                        <Building2 size={14} />
+                      </AvatarFallback>
+                    </Avatar>
+                    <SheetTitle className="text-sm font-bold text-slate-900 truncate">
+                      {landingConfig.siteTitle}
+                    </SheetTitle>
+                  </div>
+                  <SheetDescription className="text-xs text-slate-500">
+                    Cổng thông tin & dịch vụ số Khu phố 3, Phường An Phú
+                  </SheetDescription>
+                </SheetHeader>
 
-            <button
-              type="button"
-              onClick={() => {
-                setMobileMenuOpen(false);
-                onOpenStaff?.();
-              }}
-              className="w-full h-11 inline-flex items-center justify-center gap-2 rounded-xl text-sm font-semibold transition-colors bg-gov-navy text-white hover:bg-gov-blue px-4 cursor-pointer shadow-xs active:scale-[0.99]"
-            >
-              {isAdmin ? (
-                <>
-                  <LayoutDashboard size={16} aria-hidden="true" />
-                  <span>Quản trị KP3 (/dashboard/cultural)</span>
-                </>
-              ) : (
-                <>
-                  <LockKeyhole size={16} aria-hidden="true" />
-                  <span>Cổng dành cho cán bộ</span>
-                </>
-              )}
-            </button>
+                <nav aria-label="Điều hướng di động" className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 pt-1">
+                  <SheetClose asChild>
+                    <Link
+                      to={ROUTES.HOME}
+                      onClick={() => handleNavClick("all")}
+                      aria-current={activeRoute === "all" ? "page" : undefined}
+                      className={cn(
+                        "flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-sm font-medium text-left cursor-pointer transition-colors",
+                        activeRoute === "all"
+                          ? "bg-slate-100 text-slate-950 font-semibold border border-slate-200/90 shadow-2xs"
+                          : "text-slate-700 hover:bg-slate-50 hover:text-slate-950 border border-transparent"
+                      )}
+                    >
+                      <Home size={16} className={activeRoute === "all" ? "text-slate-900" : "text-slate-400"} aria-hidden="true" />
+                      <span>Trang chủ</span>
+                    </Link>
+                  </SheetClose>
+
+                  {NAV_ITEMS.map((item) => {
+                    const isActive = activeRoute === item.id;
+                    const IconComp = NAV_ICONS[item.id] || FileText;
+                    return (
+                      <SheetClose asChild key={item.id}>
+                        <Link
+                          to={item.path}
+                          onClick={() => handleNavClick(item.id)}
+                          aria-current={isActive ? "page" : undefined}
+                          className={cn(
+                            "flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-sm font-medium text-left cursor-pointer transition-colors",
+                            isActive
+                              ? "bg-slate-100 text-slate-950 font-semibold border border-slate-200/90 shadow-2xs"
+                              : "text-slate-700 hover:bg-slate-50 hover:text-slate-950 border border-transparent"
+                          )}
+                        >
+                          <IconComp size={16} className={isActive ? "text-slate-900" : "text-slate-400"} aria-hidden="true" />
+                          <span>{item.label}</span>
+                        </Link>
+                      </SheetClose>
+                    );
+                  })}
+                </nav>
+
+                <Separator className="my-2" />
+
+                <div className="space-y-2 pt-1">
+                  <a
+                    href="https://danguy.phuonganphu.gov.vn/"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="w-full block"
+                    title="Mở Không Gian Số Đảng Ủy Phường An Phú"
+                  >
+                    <Button
+                      variant="outline"
+                      className="w-full h-10 justify-center gap-2 rounded-lg text-xs sm:text-sm font-bold border-red-200 bg-red-50 text-red-700 hover:bg-red-100 shadow-2xs"
+                    >
+                      <span>🏛️ Không Gian Số Đảng Ủy Phường An Phú</span>
+                      <ExternalLink size={13} className="shrink-0 opacity-80" aria-hidden="true" />
+                    </Button>
+                  </a>
+
+                  <SheetClose asChild>
+                    <Button
+                      variant="default"
+                      onClick={() => onOpenStaff?.()}
+                      className="w-full h-11 justify-center gap-2 rounded-xl text-sm font-semibold bg-gov-navy text-white hover:bg-gov-blue shadow-xs active:scale-[0.99]"
+                    >
+                      {isAdmin ? (
+                        <span className="inline-flex items-center gap-2 whitespace-nowrap">
+                          <LayoutDashboard size={16} aria-hidden="true" />
+                          <span>Quản trị KP3 (/dashboard/cultural)</span>
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-2 whitespace-nowrap">
+                          <LockKeyhole size={16} aria-hidden="true" />
+                          <span>Cổng dành cho cán bộ</span>
+                        </span>
+                      )}
+                    </Button>
+                  </SheetClose>
+                </div>
+              </SheetContent>
+            </Sheet>
           </div>
         </div>
-      )}
+      </div>
     </header>
   );
 }

@@ -13,6 +13,7 @@ import {
   Settings,
   ShieldCheck,
   Trash2,
+  X,
 } from "lucide-react";
 import {
   AdministrativeForm,
@@ -45,6 +46,11 @@ import {
   navigate,
   useCurrentPath
 } from "./landing/landingConstants";
+import { Button, buttonVariants } from "./ui/Button";
+import { Badge } from "./ui/badge";
+import { Card } from "./ui/Card";
+import { Separator } from "./ui/separator";
+import { cn } from "../lib/utils";
 
 /* ==========================================================================
    CỔNG NGƯỜI DÂN — LANDING PAGE KHU PHỐ 3, PHƯỜNG AN PHÚ
@@ -262,54 +268,72 @@ export default function CitizenLandingPage({
 
       {/* Admin Bar when signed in as Cán bộ */}
       {isAdmin && (
-        <div className="border-b border-emerald-200 bg-emerald-50/90 text-emerald-950">
+        <div className="border-b border-emerald-200/90 bg-emerald-50/90 text-emerald-950 backdrop-blur-xs">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-2.5 flex flex-wrap items-center justify-between gap-2.5 text-xs">
             <div className="flex items-center gap-2 font-semibold">
-              <ShieldCheck size={16} className="text-emerald-700 shrink-0" aria-hidden="true" />
-              <span>
-                Chế độ Cán bộ ({adminName || "Cán bộ KP3"}) — Quản lý nội dung Trang chủ &amp; Cổng cư dân trong mục Cài đặt
+              <Badge variant="success" className="gap-1.5 px-2.5 py-1 text-xs font-bold border-emerald-300 bg-emerald-100 text-emerald-900 shadow-2xs">
+                <ShieldCheck size={14} className="text-emerald-700 shrink-0" aria-hidden="true" />
+                <span>Chế độ Cán bộ ({adminName || "Cán bộ KP3"})</span>
+              </Badge>
+              <span className="text-emerald-900 hidden md:inline text-xs font-medium">
+                Quản lý nội dung Trang chủ &amp; Cổng cư dân trong mục Cài đặt
               </span>
             </div>
             <div className="flex flex-wrap items-center gap-1.5">
-              <button
+              <Button
                 type="button"
+                size="sm"
+                variant="outline"
                 onClick={() => onNavigateToTab("settings")}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white hover:bg-emerald-100 border border-emerald-300 text-emerald-900 font-bold cursor-pointer"
+                leftIcon={<Settings size={13} aria-hidden="true" />}
+                className="bg-white hover:bg-emerald-50 border-emerald-300 text-emerald-900 font-bold"
               >
-                <Settings size={13} aria-hidden="true" /> Cài đặt Trang chủ &amp; Cán bộ
-              </button>
-              <button
+                Cài đặt Trang chủ &amp; Cán bộ
+              </Button>
+              <Button
                 type="button"
+                size="sm"
+                variant="emerald"
                 onClick={() => setNewsEditorState({ open: true, item: null })}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-700 hover:bg-emerald-800 text-white font-bold cursor-pointer"
+                leftIcon={<Plus size={13} aria-hidden="true" />}
+                className="font-bold"
               >
-                <Plus size={13} aria-hidden="true" /> Đăng Tin tức
-              </button>
-              <button
+                Đăng Tin tức
+              </Button>
+              <Button
                 type="button"
+                size="sm"
+                variant="primary"
                 onClick={() => setEventEditorState({ open: true, item: null })}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#073B72] hover:bg-[#062d57] text-white font-bold cursor-pointer"
+                leftIcon={<Plus size={13} aria-hidden="true" />}
+                className="font-bold bg-[#073B72] hover:bg-[#062d57]"
               >
-                <Plus size={13} aria-hidden="true" /> Tạo Sự kiện
-              </button>
+                Tạo Sự kiện
+              </Button>
               {onOpenDashboard && (
-                <button
+                <Button
                   type="button"
+                  size="sm"
+                  variant="outline"
                   onClick={onOpenDashboard}
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white hover:bg-slate-100 border border-slate-300 text-slate-900 font-bold cursor-pointer"
+                  leftIcon={<LayoutDashboard size={13} aria-hidden="true" />}
+                  className="bg-white hover:bg-slate-100 border-slate-300 text-slate-900 font-bold"
                 >
-                  <LayoutDashboard size={13} aria-hidden="true" /> Vào Quản trị KP3
-                </button>
+                  Vào Quản trị KP3
+                </Button>
               )}
               {onLogoutAdmin && (
-                <button
+                <Button
                   type="button"
+                  size="sm"
+                  variant="dangerGhost"
                   onClick={onLogoutAdmin}
-                  className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-white hover:bg-rose-50 border border-rose-200 text-rose-700 font-semibold cursor-pointer"
+                  leftIcon={<LogOut size={13} aria-hidden="true" />}
+                  className="font-semibold text-rose-700 border-rose-200"
                   title="Đăng xuất phiên Cán bộ"
                 >
-                  <LogOut size={13} aria-hidden="true" /> Đăng xuất
-                </button>
+                  Đăng xuất
+                </Button>
               )}
             </div>
           </div>
@@ -320,26 +344,33 @@ export default function CitizenLandingPage({
       <main id="main-content" tabIndex={-1} className="outline-none">
         {/* Sub-page Breadcrumb & Header Banner when route !== "all" */}
         {activeRoute !== "all" && currentNavItem && (
-          <div className="bg-gov-navy text-white border-b border-blue-950">
+          <div className="bg-gradient-to-r from-gov-navy to-[#062d57] text-white border-b border-blue-950/40 shadow-xs">
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
-              <nav aria-label="Breadcrumb" className="flex flex-wrap items-center gap-2 text-xs font-semibold text-blue-100 mb-2">
+              <nav aria-label="Breadcrumb" className="flex flex-wrap items-center gap-2 text-xs font-semibold text-blue-200/90 mb-2">
                 <Link
                   to={ROUTES.HOME}
-                  className="hover:underline inline-flex items-center gap-1 cursor-pointer min-h-[36px]"
+                  className="hover:text-white hover:underline inline-flex items-center gap-1 cursor-pointer transition-colors min-h-[36px]"
                 >
                   <Home size={13} aria-hidden="true" /> Trang chủ
                 </Link>
-                <ChevronRight size={13} className="text-blue-200" aria-hidden="true" />
+                <ChevronRight size={13} className="text-blue-300/80" aria-hidden="true" />
                 <span className="text-white font-bold">{currentNavItem.label}</span>
               </nav>
 
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div>
-                  <h1 className="text-2xl sm:text-3xl font-black tracking-tight">{currentNavItem.label}</h1>
+                  <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-white">{currentNavItem.label}</h1>
+                  <p className="text-xs sm:text-sm text-blue-100/80 mt-1 max-w-2xl">
+                    Cổng dịch vụ hành chính công trực tuyến và tra cứu cộng đồng Khu phố 3, Phường An Phú
+                  </p>
                 </div>
                 <Link
                   to={ROUTES.HOME}
-                  className="min-h-[44px] inline-flex items-center gap-1.5 self-start sm:self-auto px-4 py-2 rounded-xl bg-white/10 hover:bg-white/20 border border-white/25 text-xs font-bold transition-colors cursor-pointer"
+                  className={buttonVariants({
+                    variant: "outline",
+                    size: "sm",
+                    className: "bg-white/10 hover:bg-white/20 text-white border-white/25 backdrop-blur-xs font-bold",
+                  })}
                 >
                   ← Về toàn bộ trang chủ
                 </Link>
@@ -351,19 +382,25 @@ export default function CitizenLandingPage({
         {/* ROUTE 0: TRANG CHỦ — Mặc định hiển thị Bản tin & Báo điện tử Khu phố 3 + Sự kiện & Tiện ích nhanh */}
         {activeRoute === "all" ? (
           <>
-            {/* Compact Masthead & Global Portal Search Strip */}
+            {/* Compact Masthead & Global Portal Search Strip (shadcn Card + Badge) */}
             <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-6">
-              <div className="bg-white rounded-3xl border border-slate-200 p-4 sm:p-6 shadow-sm space-y-4">
+              <Card className="p-4 sm:p-6 rounded-2xl sm:rounded-3xl border-slate-200/90 shadow-2xs space-y-4 bg-white">
                 <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-                  <div className="space-y-1">
-                    <span className="inline-flex items-center gap-1.5 text-xs font-bold text-gov-navy bg-blue-50 border border-blue-200 px-2.5 py-0.5 rounded-full">
-                      {landingConfig.heroBadge}
-                    </span>
+                  <div className="space-y-1.5">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <Badge variant="outline" className="text-gov-navy bg-blue-50/80 border-blue-200/80 px-2.5 py-0.5 font-bold">
+                        {landingConfig.heroBadge}
+                      </Badge>
+                      <Badge variant="success" className="font-semibold text-[11px] px-2 py-0.5">
+                        Cổng Dịch Vụ Cư Dân Số
+                      </Badge>
+                    </div>
                     <h1 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight">
                       {landingConfig.heroTitle}
                     </h1>
-                    <p className="text-xs sm:text-sm text-slate-600">
-                      {landingConfig.heroAddressNote}
+                    <p className="text-xs sm:text-sm text-slate-600 flex items-center gap-1.5">
+                      <MapPin size={14} className="text-rose-600/80 shrink-0" aria-hidden="true" />
+                      <span>{landingConfig.heroAddressNote}</span>
                     </p>
                   </div>
 
@@ -371,7 +408,7 @@ export default function CitizenLandingPage({
                   <div className="relative w-full lg:w-96 shrink-0">
                     <Search
                       size={16}
-                      className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500"
+                      className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500 pointer-events-none"
                       aria-hidden="true"
                     />
                     <input
@@ -380,16 +417,26 @@ export default function CitizenLandingPage({
                       onChange={(e) => setPortalSearch(e.target.value)}
                       placeholder="Tra cứu nhanh tin tức, sự kiện, cán bộ, biểu mẫu..."
                       aria-label="Tra cứu nhanh cổng thông tin"
-                      className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-300 bg-slate-50 hover:bg-white focus:bg-white text-sm text-slate-900 focus:outline-none focus:border-emerald-600"
+                      className="w-full pl-10 pr-9 py-2.5 rounded-xl border border-slate-200 bg-slate-50/80 hover:bg-white focus:bg-white text-sm text-slate-900 focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-500/20 transition-all shadow-2xs placeholder:text-slate-500"
                     />
+                    {portalSearch && (
+                      <button
+                        type="button"
+                        onClick={() => setPortalSearch("")}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-0.5 rounded cursor-pointer"
+                        aria-label="Xóa nội dung tìm kiếm"
+                      >
+                        <X size={14} />
+                      </button>
+                    )}
                     {searchResults && (
-                      <div className="absolute left-0 right-0 mt-1.5 bg-white border border-slate-200 rounded-2xl shadow-xl z-30 p-3 space-y-2 max-h-80 overflow-y-auto text-xs">
+                      <div className="absolute left-0 right-0 mt-1.5 bg-white/95 backdrop-blur-md border border-slate-200 rounded-2xl shadow-xl z-30 p-3 space-y-1.5 max-h-80 overflow-y-auto text-xs animate-in fade-in-0 zoom-in-95">
                         {searchResults.news.length === 0 &&
                         searchResults.events.length === 0 &&
                         searchResults.forms.length === 0 &&
                         searchResults.leaders.length === 0 ? (
-                          <p className="text-slate-500 py-2 text-center">
-                            Không tìm thấy kết quả phù hợp.
+                          <p className="text-slate-500 py-3 text-center font-medium">
+                            Không tìm thấy kết quả phù hợp cho &quot;{portalSearch}&quot;.
                           </p>
                         ) : (
                           <>
@@ -398,13 +445,18 @@ export default function CitizenLandingPage({
                                 key={n.id}
                                 type="button"
                                 onClick={() => {
-                                  setNewsDetail(n);
+                                  navigate(`/news/detail/${encodeURIComponent(n.id)}`);
                                   setPortalSearch("");
                                 }}
-                                className="w-full text-left px-2.5 py-1.5 rounded-lg hover:bg-slate-50 font-semibold text-slate-800 block cursor-pointer"
+                                className="w-full text-left px-2.5 py-2 rounded-lg hover:bg-slate-50 font-medium text-slate-800 flex items-center justify-between gap-2 cursor-pointer transition-colors"
                               >
-                                <span className="text-emerald-700 mr-1.5">[Tin tức]</span>
-                                {n.title}
+                                <div className="flex items-center gap-2 truncate">
+                                  <Badge variant="success" className="shrink-0 text-[10px] px-1.5 py-0 font-bold">
+                                    Tin tức
+                                  </Badge>
+                                  <span className="truncate">{n.title}</span>
+                                </div>
+                                <ChevronRight size={13} className="text-slate-400 shrink-0" />
                               </button>
                             ))}
                             {searchResults.events.map((ev) => (
@@ -415,10 +467,15 @@ export default function CitizenLandingPage({
                                   setEventDetail(ev);
                                   setPortalSearch("");
                                 }}
-                                className="w-full text-left px-2.5 py-1.5 rounded-lg hover:bg-slate-50 font-semibold text-slate-800 block cursor-pointer"
+                                className="w-full text-left px-2.5 py-2 rounded-lg hover:bg-slate-50 font-medium text-slate-800 flex items-center justify-between gap-2 cursor-pointer transition-colors"
                               >
-                                <span className="text-blue-700 mr-1.5">[Sự kiện]</span>
-                                {ev.title}
+                                <div className="flex items-center gap-2 truncate">
+                                  <Badge variant="secondary" className="shrink-0 text-[10px] px-1.5 py-0 font-bold bg-blue-50 text-gov-navy border-blue-200">
+                                    Sự kiện
+                                  </Badge>
+                                  <span className="truncate">{ev.title}</span>
+                                </div>
+                                <ChevronRight size={13} className="text-slate-400 shrink-0" />
                               </button>
                             ))}
                             {searchResults.forms.map((f) => (
@@ -429,10 +486,15 @@ export default function CitizenLandingPage({
                                   setPreviewForm(f);
                                   setPortalSearch("");
                                 }}
-                                className="w-full text-left px-2.5 py-1.5 rounded-lg hover:bg-slate-50 font-semibold text-slate-800 block cursor-pointer"
+                                className="w-full text-left px-2.5 py-2 rounded-lg hover:bg-slate-50 font-medium text-slate-800 flex items-center justify-between gap-2 cursor-pointer transition-colors"
                               >
-                                <span className="text-amber-700 mr-1.5">[Biểu mẫu]</span>
-                                {f.code} — {f.title}
+                                <div className="flex items-center gap-2 truncate">
+                                  <Badge variant="warning" className="shrink-0 text-[10px] px-1.5 py-0 font-bold">
+                                    Biểu mẫu
+                                  </Badge>
+                                  <span className="truncate">{f.code} — {f.title}</span>
+                                </div>
+                                <ChevronRight size={13} className="text-slate-400 shrink-0" />
                               </button>
                             ))}
                             {searchResults.leaders.map((l) => (
@@ -443,10 +505,15 @@ export default function CitizenLandingPage({
                                   goTo("leadership");
                                   setPortalSearch("");
                                 }}
-                                className="w-full text-left px-2.5 py-1.5 rounded-lg hover:bg-slate-50 font-semibold text-slate-800 block cursor-pointer"
+                                className="w-full text-left px-2.5 py-2 rounded-lg hover:bg-slate-50 font-medium text-slate-800 flex items-center justify-between gap-2 cursor-pointer transition-colors"
                               >
-                                <span className="text-purple-700 mr-1.5">[Cán bộ]</span>
-                                {l.name} — {l.role}
+                                <div className="flex items-center gap-2 truncate">
+                                  <Badge variant="outline" className="shrink-0 text-[10px] px-1.5 py-0 font-bold border-purple-200 text-purple-700 bg-purple-50">
+                                    Cán bộ
+                                  </Badge>
+                                  <span className="truncate">{l.name} — {l.role}</span>
+                                </div>
+                                <ChevronRight size={13} className="text-slate-400 shrink-0" />
                               </button>
                             ))}
                           </>
@@ -455,22 +522,22 @@ export default function CitizenLandingPage({
                     )}
                   </div>
                 </div>
-              </div>
+              </Card>
             </section>
 
-            {/* Mặc định: Trang Bản tin & Báo điện tử Khu phố 3 */}
+            {/* Mặc định: Trang Bản tin & Báo điện tử Khu phố 3 (shadcn Card) */}
             <section
               id="kp3-news-events"
               className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-6 space-y-8"
               aria-labelledby="kp3-news-events-heading"
             >
-              <div className="bg-white rounded-3xl border border-slate-200 p-5 sm:p-8 shadow-sm">
+              <Card className="bg-white rounded-2xl sm:rounded-3xl border-slate-200/90 p-5 sm:p-8 shadow-2xs">
                 <h2 id="kp3-news-events-heading" className="sr-only">
                   Bản tin &amp; Báo điện tử Khu phố 3
                 </h2>
                 <NewsNewspaperFeed
                   newsList={displayNews}
-                  onSelectNews={setNewsDetail}
+                  onSelectNews={(item) => navigate(`/news/detail/${encodeURIComponent(item.id)}`)}
                   onCreateNews={
                     isAdmin ? () => setNewsEditorState({ open: true, item: null }) : undefined
                   }
@@ -486,27 +553,44 @@ export default function CitizenLandingPage({
                   bannerNotice={landingConfig.bannerNotice}
                   itemsPerPage={6}
                 />
-              </div>
+              </Card>
 
-              {/* Lịch Sự kiện Cộng đồng sắp tới (hiển thị gọn bên dưới Báo điện tử) */}
-              <div className="bg-white rounded-3xl border border-slate-200 p-5 sm:p-8 shadow-sm space-y-4">
-                <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 pb-3">
-                  <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
-                    <Calendar size={18} className="text-gov-blue" aria-hidden="true" /> Sự kiện &amp; Hoạt động Cộng đồng KP3
-                  </h3>
-                  <div className="flex items-center gap-3">
+              {/* Lịch Sự kiện Cộng đồng sắp tới (shadcn Card + Badge + Button) */}
+              <Card className="bg-white rounded-2xl sm:rounded-3xl border-slate-200/90 p-5 sm:p-8 shadow-2xs space-y-5">
+                <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 pb-4">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-10 h-10 rounded-xl bg-blue-50 border border-blue-200/70 flex items-center justify-center text-gov-blue shrink-0">
+                      <Calendar size={18} aria-hidden="true" />
+                    </div>
+                    <div>
+                      <h3 className="text-base font-bold text-slate-900 tracking-tight">
+                        Sự kiện &amp; Hoạt động Cộng đồng KP3
+                      </h3>
+                      <p className="text-xs text-slate-500">
+                        Lịch sinh hoạt chi bộ, họp dân, tiêm chủng và phong trào thi đua
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
                     {isAdmin && (
-                      <button
+                      <Button
                         type="button"
+                        size="sm"
+                        variant="emerald"
                         onClick={() => setEventEditorState({ open: true, item: null })}
-                        className="inline-flex items-center gap-1 text-xs font-bold text-emerald-700 hover:text-emerald-800 cursor-pointer"
+                        leftIcon={<Plus size={14} aria-hidden="true" />}
+                        className="font-bold shadow-2xs"
                       >
-                        <Plus size={14} aria-hidden="true" /> Tạo sự kiện
-                      </button>
+                        Tạo sự kiện
+                      </Button>
                     )}
                     <Link
                       to={ROUTES.SCHEDULE}
-                      className="text-xs font-bold text-gov-blue hover:underline inline-flex items-center gap-0.5"
+                      className={buttonVariants({
+                        variant: "outline",
+                        size: "sm",
+                        className: "font-bold text-gov-blue hover:text-gov-blue border-slate-200 gap-1",
+                      })}
                     >
                       Xem lịch đầy đủ <ChevronRight size={14} aria-hidden="true" />
                     </Link>
@@ -515,84 +599,98 @@ export default function CitizenLandingPage({
 
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                   {events.slice(0, 6).map((ev) => (
-                    <article
+                    <Card
                       key={ev.id}
-                      className="p-4 rounded-2xl border border-slate-200 hover:border-gov-blue bg-white flex flex-col justify-between gap-3 transition-colors"
+                      variant="interactive"
+                      className="p-4 rounded-xl border-slate-200/90 hover:border-gov-blue/60 hover:shadow-sm bg-white flex flex-col justify-between gap-3 transition-all"
                     >
                       <button
                         type="button"
                         onClick={() => setEventDetail(ev)}
-                        className="text-left space-y-2 cursor-pointer"
+                        className="text-left space-y-2.5 cursor-pointer w-full"
                       >
                         <div className="flex items-center justify-between gap-2">
-                          <span
-                            className={`inline-block text-xs font-semibold px-2.5 py-0.5 rounded-full ${
+                          <Badge
+                            variant={
                               ev.status === "Đang diễn ra"
-                                ? "bg-emerald-100 text-emerald-800"
+                                ? "success"
                                 : ev.status === "Sắp diễn ra"
-                                ? "bg-blue-100 text-gov-navy"
-                                : "bg-slate-100 text-slate-700"
-                            }`}
+                                ? "secondary"
+                                : "outline"
+                            }
+                            className={cn(
+                              "font-semibold text-xs",
+                              ev.status === "Sắp diễn ra" && "bg-blue-50 text-gov-navy border-blue-200"
+                            )}
                           >
                             {ev.status}
-                          </span>
-                          <span className="text-xs font-mono text-slate-600">
+                          </Badge>
+                          <Badge variant="outline" className="font-mono text-slate-600 text-[11px] bg-slate-50 border-slate-200">
                             ~{ev.expectedAttendees} người
-                          </span>
+                          </Badge>
                         </div>
-                        <h4 className="font-bold text-sm text-slate-900 line-clamp-2 leading-snug">
+                        <h4 className="font-bold text-sm text-slate-900 line-clamp-2 leading-snug hover:text-gov-blue transition-colors">
                           {ev.title}
                         </h4>
-                        <p className="text-xs text-slate-600 flex items-center gap-1.5">
-                          <Clock size={13} className="text-gov-blue shrink-0" aria-hidden="true" />{" "}
-                          <span className="truncate">{ev.dateTime}</span>
-                        </p>
-                        <p className="text-xs text-slate-600 flex items-center gap-1.5">
-                          <MapPin size={13} className="text-gov-danger shrink-0" aria-hidden="true" />{" "}
-                          <span className="truncate">{ev.location}</span>
-                        </p>
+                        <div className="space-y-1 text-xs text-slate-600">
+                          <p className="flex items-center gap-1.5">
+                            <Clock size={13} className="text-gov-blue shrink-0" aria-hidden="true" />{" "}
+                            <span className="truncate">{ev.dateTime}</span>
+                          </p>
+                          <p className="flex items-center gap-1.5">
+                            <MapPin size={13} className="text-rose-600 shrink-0" aria-hidden="true" />{" "}
+                            <span className="truncate">{ev.location}</span>
+                          </p>
+                        </div>
                       </button>
 
-                      <div className="pt-2.5 border-t border-slate-100 flex items-center justify-between gap-2 text-xs">
-                        <span className="truncate text-slate-600">{ev.organizer}</span>
-                        <div className="flex items-center gap-1.5 shrink-0">
+                      <div className="pt-3 border-t border-slate-100 flex items-center justify-between gap-2 text-xs">
+                        <span className="truncate text-slate-500 font-medium">{ev.organizer}</span>
+                        <div className="flex items-center gap-1 shrink-0">
                           {isAdmin && (
                             <>
-                              <button
-                                type="button"
-                                onClick={() => setEventEditorState({ open: true, item: ev })}
-                                className="p-1.5 rounded-lg border border-slate-200 bg-slate-50 hover:bg-slate-100 text-slate-700 cursor-pointer"
+                              <Button
+                                size="icon"
+                                variant="ghost"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setEventEditorState({ open: true, item: ev });
+                                }}
+                                className="h-8 w-8 text-slate-600 hover:text-slate-900 hover:bg-slate-100"
                                 title="Sửa sự kiện"
                                 aria-label={`Sửa ${ev.title}`}
                               >
                                 <Edit2 size={13} />
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() =>
-                                  setDeleteTarget({ kind: "event", id: ev.id, title: ev.title })
-                                }
-                                className="p-1.5 rounded-lg border border-rose-200 bg-rose-50 hover:bg-rose-100 text-rose-700 cursor-pointer"
+                              </Button>
+                              <Button
+                                size="icon"
+                                variant="dangerGhost"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setDeleteTarget({ kind: "event", id: ev.id, title: ev.title });
+                                }}
+                                className="h-8 w-8 text-rose-600 hover:text-rose-700 hover:bg-rose-50"
                                 title="Xóa sự kiện"
                                 aria-label={`Xóa ${ev.title}`}
                               >
                                 <Trash2 size={13} />
-                              </button>
+                              </Button>
                             </>
                           )}
-                          <button
-                            type="button"
+                          <Button
+                            variant="ghost"
+                            size="sm"
                             onClick={() => setEventDetail(ev)}
-                            className="text-gov-blue font-bold hover:underline cursor-pointer"
+                            className="text-gov-blue hover:text-gov-blue hover:bg-blue-50 font-bold h-8 px-2 cursor-pointer"
                           >
                             Chi tiết →
-                          </button>
+                          </Button>
                         </div>
                       </div>
-                    </article>
+                    </Card>
                   ))}
                 </div>
-              </div>
+              </Card>
             </section>
 
             {/* Tiện ích nhanh (id="services") — cổng điều hướng vào các chuyên mục */}

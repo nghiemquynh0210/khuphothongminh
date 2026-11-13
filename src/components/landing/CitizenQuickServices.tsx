@@ -91,7 +91,7 @@ export default function CitizenQuickServices({
       id="services"
       tabIndex={-1}
       aria-labelledby="services-title"
-      className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 -mt-12 relative z-10 scroll-mt-24 outline-none"
+      className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 -mt-12 relative z-10 scroll-mt-24 outline-none pt-15 pb-15"
     >
       <div className="bg-white rounded-2xl border border-slate-200 p-5 sm:p-8 space-y-5">
         <div className="flex flex-wrap items-center justify-between gap-2">
