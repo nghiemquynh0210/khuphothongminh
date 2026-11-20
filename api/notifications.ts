@@ -1705,18 +1705,22 @@ export default async function notificationsHandler(req: any, res: any) {
       const seenKeys = new Set<string>();
 
       for (const off of assignedOfficers) {
-        const k = normalizeCadreKey(off?.personName);
+        const officerName = String(off?.name || off?.personName || off?.fullName || "").trim();
+        const k = normalizeCadreKey(officerName);
         if (!k || seenKeys.has(k)) continue;
         seenKeys.add(k);
         const dir = cadreDirectory.get(k);
+        const offPhone = String(off?.phone || dir?.phone || "").trim();
         const fMatch =
           dir?.zaloUserId
             ? { zaloUserId: dir.zaloUserId }
-            : findMatchingZaloFollower(off.personName, dir?.phone, followerList);
+            : cadreMapping[k]?.zaloUserId
+            ? { zaloUserId: cadreMapping[k].zaloUserId }
+            : findMatchingZaloFollower(officerName, offPhone, followerList);
         matchedCadres.push({
-          fullName: off.personName,
-          role: off.roleLabel || dir?.role || "Cán bộ KP3",
-          phone: dir?.phone || "",
+          fullName: officerName,
+          role: String(off?.role || off?.roleLabel || dir?.role || "Cán bộ KP3").trim(),
+          phone: offPhone,
           email: dir?.email || "",
           zaloUserId: fMatch?.zaloUserId,
         });
@@ -1776,9 +1780,12 @@ export default async function notificationsHandler(req: any, res: any) {
         nowUtcMs
       );
       const is60mUrgent = timeInfo.inRemindWindow || onlyWithinLeadWindow;
-      const meetingDedupePrefix = `mtg_${remindLeadMinutes}m:${row.id}:${row.schedule_date}`;
+      const autoMeetingDedupePrefix = `mtg_auto_${remindLeadMinutes}m:${row.id}:${row.schedule_date}`;
       const alreadyAutoReminded = existingLogs.some(
-        (l) => l.dedupeKey && l.dedupeKey.startsWith(meetingDedupePrefix)
+        (l) =>
+          l.status === "sent" &&
+          l.dedupeKey &&
+          l.dedupeKey.startsWith(autoMeetingDedupePrefix)
       );
 
       const formattedMessage = is60mUrgent
@@ -1858,7 +1865,10 @@ export default async function notificationsHandler(req: any, res: any) {
 
       for (const cadre of targetCadres) {
         const cadreKey = normalizeCadreKey(cadre.fullName) || "bdh";
-        const dedupeKey = `mtg_${remindLeadMinutes}m:${mtg.id}:${mtg.dateIso}:${cadreKey}`;
+        const isAutoWindowDispatch = onlyWithinLeadWindow || mtg.inRemindWindow;
+        const dedupeKey = isAutoWindowDispatch
+          ? `mtg_auto_${remindLeadMinutes}m:${mtg.id}:${mtg.dateIso}:${cadreKey}`
+          : `mtg_manual:${mtg.id}:${mtg.dateIso}:${cadreKey}:${Date.now()}`;
         if (onlyWithinLeadWindow && sentDedupeSet.has(dedupeKey) && !body.forceResend) {
           continue;
         }
@@ -1905,10 +1915,13 @@ export default async function notificationsHandler(req: any, res: any) {
           }
         }
 
-        if (sentOk) sentCount++;
-        else manualReadyCount++;
+        if (sentOk) {
+          sentCount++;
+          sentDedupeSet.add(dedupeKey);
+        } else {
+          manualReadyCount++;
+        }
 
-        sentDedupeSet.add(dedupeKey);
         newLogs.push({
           id: `NTF-MTG-${Date.now()}-${Math.random().toString(36).slice(2, 6).toUpperCase()}`,
           timestamp: new Date().toISOString(),

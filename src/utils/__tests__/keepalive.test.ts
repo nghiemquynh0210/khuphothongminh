@@ -1,5 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import keepAliveHandler, { resetKeepAliveThrottleForTests } from "../../../api/keepalive";
+import keepAliveHandler, {
+  matchCadreTargets,
+  resetKeepAliveThrottleForTests,
+} from "../../../api/keepalive";
 
 function createMockRes() {
   const headers: Record<string, string> = {};
@@ -81,6 +84,39 @@ describe("api/keepalive serverless anti-pause endpoint", () => {
     expect(resCron.jsonBody.trigger).toBe("vercel-cron");
     expect(resCron.jsonBody.throttled).toBeUndefined();
     expect(fetchSpy).toHaveBeenCalledTimes(2);
+
+    // Scheduled probe (?check_meetings=1 from pg_cron) ALSO bypasses 60s throttle!
+    const resProbe = createMockRes();
+    await keepAliveHandler(
+      { method: "GET", url: "/api/keepalive?check_meetings=1", headers: {} },
+      resProbe
+    );
+    expect(resProbe.statusCode).toBe(200);
+    expect(resProbe.jsonBody.trigger).toBe("scheduled-probe");
+    expect(resProbe.jsonBody.throttled).toBeUndefined();
+    expect(fetchSpy).toHaveBeenCalledTimes(3);
+  });
+
+  it("matchCadreTargets resolves assignedOfficers .name field and all mapped cadres accurately", () => {
+    const targets = matchCadreTargets(
+      [
+        { name: "Nghiêm Xuân Quỳnh" },
+        { name: "Nguyễn Trung Huy" },
+        { name: "TRẦN THỊ MỸ DUNG" },
+        { name: "DƯƠNG TẤN ĐẠT" },
+      ],
+      "",
+      [],
+      {
+        "duong tan dat": { fullName: "DƯƠNG TẤN ĐẠT", zaloUserId: "575440132125981497" },
+      }
+    );
+    expect(targets.map((t) => t.zaloUserId)).toEqual([
+      "8204901768555080728",
+      "6920129842444200396",
+      "4080370657469274213",
+      "575440132125981497",
+    ]);
   });
 
   it("returns 503 when Supabase responds with an error status", async () => {
