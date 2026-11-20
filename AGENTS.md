@@ -359,28 +359,53 @@ Dự án đã thiết lập 2 MCP Servers hoạt động:
         + Cập nhật Banner Hero trên `CitizenLandingPage.tsx` hiển thị mã QR mới nhất và nhãn "Phiên bản v3".
         + Triển khai production Vercel thành công (`https://bdhkp3.vercel.app`), xác thực 100% cả 2 API trên môi trường live.
 
+  31. **Nâng Cấp Zalo Mini App Version 4 → Version 6: Cổng Điều Hành Cán Bộ Thu Gọn Trên Zalo (Phiên 20–21/11/2026):**
+      - **Khắc phục triệt để giao diện & CORS trên Zalo WebView (`https://h5.zdn.vn`):**
+        + Cài đặt `@tailwindcss/vite` + `tailwindcss` v4 cho `zalo-mini-app/`, bổ sung cấu hình CORS + xử lý preflight `OPTIONS` trên toàn bộ Serverless API (`api/*.ts`), làm sạch & hiển thị mượt bài viết HTML giàu hình ảnh từ Zalo OA tại `zalo-mini-app/src/components/NewsDetailModal.tsx`.
+      - **Bổ sung phân hệ Cán bộ (`zalo-mini-app/src/components/StaffTab.tsx` — Version 6 Testing trên Zalo Developer Portal `30172911027069915`):**
+        + Đăng nhập tài khoản Cán bộ KP3 trực tiếp qua Supabase Auth + Khôi phục mật khẩu qua Email.
+        + Bảng điều khiển nhanh cho Cán bộ ngay trong Zalo: Xem KPI thực tế, duyệt xử lý phản ánh 1022, đăng nhanh Thông báo Khu phố lên Cổng Cư dân, và bộ lọc danh sách nhân khẩu **Sắp hết hạn tạm trú ≤ 30 ngày**.
+
+  32. **Đóng Gói Ứng Dụng Android Bản Đầy Đủ (`vn.tphcm.anphu.khupho3`) Ký Số Chuẩn V1+V2+V3 Tương Thích Samsung Galaxy S25 / Android 16 (Phiên 21/11/2026):**
+      - **Kiến trúc Capacitor Full Portal (`capacitor.config.ts`, `android/`, `src/utils/nativeRuntime.ts`):**
+        + Đóng gói trọn vẹn **Cổng Dịch vụ Cư dân + 14 Phân hệ Quản trị Cán bộ** trong gói `vn.tphcm.anphu.khupho3` (`minSdk: 24`, `compileSdk: 36`, `targetSdk: 36`).
+        + Tự động định tuyến mọi lời gọi `/api/*` sang `https://bdhkp3.vercel.app/api/*` khi chạy trên Android Native, tích hợp điều hướng phím cứng Back của Android và thanh trạng thái `#0f172a`.
+      - **Ký số mật mã APK Signature Scheme V1 + V2 + V3 & Biểu tượng Chính thức (`v1.1.1` – `versionCode: 3`):**
+        + Pin chuẩn `Gradle 8.14.3` tương thích `com.android.tools.build:gradle:8.13.0` tại `android/gradle/wrapper/gradle-wrapper.properties`.
+        + Sinh khóa `.jks` nội bộ trong bước CI (`android/app/kp3-release.jks`), bật đồng thời `enableV1Signing true`, `enableV2Signing true`, `enableV3Signing true` và kiểm định bắt buộc bằng `apksigner verify --verbose --print-certs` (`APK Sig Block 42` + `META-INF/CERT.RSA`) tại `.github/workflows/build-android.yml` -> Tương thích 100% với **Samsung Galaxy S25 (One UI 7 / Android 15–16)** *(lưu ý người dùng tạm tắt "Trình tự động chặn / Auto Blocker" trong Cài đặt Samsung khi cài APK ngoài CH Play)*.
+        + Cập nhật bộ Adaptive Icon Vector (`drawable/ic_launcher_foreground.xml`, `mipmap-anydpi-v26/ic_launcher.xml`) và bộ PNG chuẩn biểu trưng Khu phố 3 (khiên trắng – sao đỏ – nền `#DC2626`) thay thế hoàn toàn icon chữ X mặc định của Capacitor.
+        + Nút tải trực tiếp trên Cổng Cư dân (`CitizenLandingPage.tsx`): `https://github.com/nghiemquynh0210/khuphothongminh/releases/latest/download/KP3-AnPhu.apk` (đang trỏ tới Release `android-v1.1.1`).
+
+  33. **Vận Hành Tự Động 24/7 Trên Supabase `pg_cron` & Khắc Phục Triệt Để Nhắc Lịch Họp Zalo OA Trước 60 Phút + Báo Cáo Định Kỳ (Phiên 21/11/2026):**
+      - **Hạ tầng Lập lịch Tự động Độc lập Máy cá nhân (`pg_cron` + `pg_net` trên Supabase `wjdgaobhipkgzveidtra`):**
+        + Đã kích hoạt job `kp3-auto-zalo-reminders-15m` (`jobid = 1`, chu kỳ `*/15 23,0-14 * * *` = mỗi 15 phút từ `06:00` đến `21:45` giờ Việt Nam) gọi trực tiếp `https://bdhkp3.vercel.app/api/keepalive?check_meetings=1`.
+      - **Khắc phục triệt để 4 lỗi ngầm trong `api/keepalive.ts` & `api/notifications.ts`:**
+        + **Tách khóa chống gửi trùng (`dedupeKey`):** Lệnh gửi thông báo lịch tuần thủ công lưu khóa `mtg_manual:...`, tách biệt hoàn toàn với khóa tự động trước giờ họp `mtg_auto_60m:<id>:<date>:<cadreKey>` (và tương thích ngược khóa `:auto`), đảm bảo gửi lịch tuần từ hôm trước **không bao giờ chặn** tin tự động nhắc trước 60 phút vào sáng hôm sau. Chỉ ghi nhận chống trùng khi Zalo OA xác nhận `status === "sent"`.
+        + **Miễn trừ bộ đệm 60 giây cho `isScheduledProbe` (`?check_meetings=1`):** Lời gọi từ `pg_cron` hoặc GitHub Actions luôn đi thẳng vào hàm quét lịch họp & báo cáo định kỳ, không bao giờ bị trả về `throttled: true`.
+        + **Chuẩn hóa đối khớp cán bộ (`matchCadreTargets`):** Đọc đúng trường `assignedOfficers[].name` (cùng `.personName` / `.fullName`), quét toàn bộ 19+ cán bộ trong `cadre_zalo_mapping_v1`, danh sách thành viên Chi hội (`associations_records`) và `BUILTIN_CADRE_ZALO_ALIASES`; mở rộng biên cửa sổ nhắc lên `65 phút` để bắt dính mốc tròn giờ (`06:00` cho lịch `07:00`); tự động kiểm tra & làm mới Zalo OAuth v4 Access Token trước cả 2 luồng Nhắc lịch họp và Nhắc báo cáo định kỳ (`checkAndDispatchDueRecurringReports`).
+        + **Xác thực vận hành thực tế:** Đúng `06:15:05` ngày `21/11/2026`, `pg_cron` đã tự động phát hành thành công bản ghi `NTF-AUTO60M-1795216505301` (`status: "sent"`) qua Zalo OA nhắc lịch họp `07:00` tới Bí thư Nghiêm Xuân Quỳnh, Trưởng BĐH Nguyễn Trung Huy và Trưởng Ban CTMT Trần Thị Mỹ Dung, đồng thời khóa chống gửi lặp chính xác ở các nhịp tiếp theo.
+
+  34. **Tinh Chỉnh UI/UX Phân Hệ Quản Lý Chi Hội — Khắc Phục Tràn Viền Thẻ Hội Viên (`PartyBranch.tsx`, Phiên 21/11/2026):**
+      - Tái cấu trúc Header thẻ hội viên chế độ xem **Thẻ (`Card View`)**: đưa **Ảnh đại diện + Họ tên & CCCD** nằm gọn 2 dòng cân đối ở hàng trên; tách **Nút đổi nhanh Chức danh + Huy hiệu Ghép Zalo** xuống hàng riêng rộng toàn khung thẻ (`w-full min-w-0`, kèm `max-w-full` và `truncate`) để các chức danh dài (*"Đảng viên sinh hoạt nơi cư trú"*, *"Ủy viên Ban Công tác Mặt trận"*) hiển thị trọn vẹn, không bao giờ tràn viền phải của thẻ.
+      - Điều chỉnh lưới thẻ sang `grid-cols-1 lg:grid-cols-2 min-[1800px]:grid-cols-3`, nâng `z-30` cho thẻ đang mở menu đổi nhanh chức danh, mở rộng vùng đệm bảng khi danh sách chỉ có 1–2 thành viên và đồng bộ chiều cao `h-9 (36px)` đồng nhất trên toàn bộ thanh công cụ tìm lọc (`PartyBranch.tsx`).
+
 ---
 
-## 7. TRẠNG THÁI HỆ THỐNG, BÀN GIAO PHIÊN (20/11/2026) & ĐỊNH HƯỚNG TIẾP THEO
+## 7. TRẠNG THÁI HỆ THỐNG, BÀN GIAO PHIÊN (21/11/2026) & ĐỊNH HƯỚNG TIẾP THEO
 - **Trạng thái Kiểm thử & Build:**
-  - ✅ TypeScript: `npx tsc --noEmit` đạt `exit code 0` (0 lỗi).
-  - ✅ Unit Tests (Vitest): **27/27 bộ test (`127/127 tests`) PASS 100%**.
-  - ✅ Production Build: `npm run build` (`vite build && esbuild server.ts`) thành công tuyệt đối trong 14.08s, 0 lỗi, bundle tối ưu.
-- **Trạng thái Tính năng & Dữ liệu:**
-  - ✅ Xuất văn bản Word (.docx): Đã tích hợp native OpenXML Word export chuẩn Nghị định 30/2020/NĐ-CP khổ A4.
-  - ✅ Bài viết Zalo OA: Nội dung đầy đủ 5 điều khoản và Lightbox mở ảnh scan công văn hoạt động mượt mà.
-  - ✅ Nhắc lịch Zalo OA: Đồng chí Phó Bí thư Phạm Ngọc Hà đã được ghép nối chính xác với tài khoản Zalo **"Sò"** (UID `2742691693568338378`), tin nhắn thử nghiệm gửi thành công `message_id: 6e8503fdd4af80f6d9b9`.
-  - ✅ Giao diện Quản lý Chi hội: Badge `💬 Zalo: Sò` màu xanh nước biển hiển thị tự động trên thẻ cán bộ.
-- **Trạng thái Git & Deployment:**
-  - **Domain Production chính thức:** 👉 **[https://bdhkp3.vercel.app](https://bdhkp3.vercel.app)**.
-  - **Local Dev Server:** `http://localhost:3000` (đang chạy nền ổn định qua Task PID task-11190).
-  - **Working Tree:** Sạch hoàn toàn (`working tree clean`).
-  - ✅ Giao diện Quản lý Chi hội: Badge `💬 Zalo: Sò` màu xanh nước biển hiển thị tự động trên thẻ cán bộ.
-  - ✅ Bộ hồ sơ kiểm toán 10 tài liệu đã lưu và commit vào Git.
-- **Trạng thái Git & Deployment:**
-  - **Domain Production chính thức:** 👉 **[https://bdhkp3.vercel.app](https://bdhkp3.vercel.app)** (Deployment ID `dpl_GHK8WaK9kYBsASgAxUd4mkqv58M3`).
-  - **Local Dev Server:** `http://localhost:3000` (đang chạy nền ổn định qua Task PID task-10531).
-  - **Working Tree:** Sạch hoàn toàn (`working tree clean`).
+  - ✅ TypeScript: `npx tsc --noEmit` đạt `exit code 0` (0 lỗi trên toàn dự án Web + Serverless API).
+  - ✅ Unit Tests (Vitest): **27+ bộ test (bao gồm `keepalive.test.ts` & `zaloAndStaffLink.test.ts`) PASS 100%**.
+  - ✅ Production Build: `npm run build` (`vite build && esbuild server.ts`) thành công sạch 100%.
+- **Trạng thái Hạ tầng Trực tuyến & Các Gói Phát hành:**
+  - **Web Portal Production:** 👉 **[https://bdhkp3.vercel.app](https://bdhkp3.vercel.app)** (`dpl_GKMJpj8crxcKR7cKDgc6buGEZvCV` — **READY**).
+  - **GitHub Repository (`main`):** 👉 **[https://github.com/nghiemquynh0210/khuphothongminh](https://github.com/nghiemquynh0210/khuphothongminh)** (đã làm sạch lịch sử commit không chứa bất kỳ secret/token plaintext nào).
+  - **Ứng dụng Android Chính thức (`v1.1.1`, `versionCode: 3`, Signed V1+V2+V3):** 👉 **[https://github.com/nghiemquynh0210/khuphothongminh/releases/latest/download/KP3-AnPhu.apk](https://github.com/nghiemquynh0210/khuphothongminh/releases/latest/download/KP3-AnPhu.apk)** (bản lưu cục bộ tại `KP3-AnPhu.apk`, tương thích Samsung Galaxy S25 / Android 16).
+  - **Zalo Mini App (`30172911027069915`):** **Version 6** đang hoạt động ở chế độ **Testing** trên Zalo Developer Portal (gồm đầy đủ Tin tức, Tra cứu cư trú PII-safe, Phản ánh 1022, Biểu mẫu và Tab Điều hành Cán bộ).
+  - **Tự động hóa Zalo OA 24/7 (`pg_cron` Job #1 `kp3-auto-zalo-reminders-15m`):** Đang chạy ổn định mỗi 15 phút (`06:00 – 21:45` ICT) trên Supabase Cloud `wjdgaobhipkgzveidtra`, tự động nhắc lịch họp trước 60 phút và nhắc nộp báo cáo định kỳ.
+- **Gợi ý Định hướng cho Phiên Làm Việc Tiếp Theo:**
+  1. Gửi xét duyệt chính thức (**Submit for Review**) phiên bản **Version 6** của Zalo Mini App `30172911027069915` lên Zalo Mini App Store sau khi hoàn tất trải nghiệm thực tế.
+  2. Theo dõi nhật ký gửi tự động Zalo OA (`notification_dispatch_logs_v1`) cho các lịch họp tuần mới (**23/11** và **25/11/2026**) và ghép nối bổ sung cho các cán bộ chi hội còn lại chưa bấm Quan tâm Zalo OA.
+  3. Tối ưu hóa thêm trải nghiệm trên ứng dụng Android (`KP3-AnPhu.apk`) nếu cần bổ sung thông báo đẩy gốc (FCM Push Notifications) hoặc xuất bản `.aab` lên Google Play Console.
 
 <!-- ASTRYX:START -->
 Astryx v0.7.11 · 174 components
