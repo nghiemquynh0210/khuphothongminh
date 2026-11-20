@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- Vòng khiên trắng viền mờ chuẩn hành chính -->
+    <path
+        android:fillColor="#33FFFFFF"
+        android:pathData="M54,22 L80,32 L80,54 C80,71 69,83 54,89 C39,83 28,71 28,54 L28,32 Z" />
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M54,26 L76,34.5 L76,54 C76,68.5 66.5,79 54,84.5 C41.5,79 32,68.5 32,54 L32,34.5 Z" />
+    <!-- Ngôi sao đỏ trung tâm biểu trưng Khu phố 3 -->
+    <path
+        android:fillColor="#DC2626"
+        android:pathData="M54,37 L58.2,46.2 L68.2,47.4 L60.8,54.3 L62.8,64.2 L54,59.3 L45.2,64.2 L47.2,54.3 L39.8,47.4 L49.8,46.2 Z" />
+    <!-- Thanh đế xanh ngọc Smart City -->
+    <path
+        android:fillColor="#059669"
+        android:pathData="M43,69 L65,69 L65,73 L43,73 Z" />
+</vector>
