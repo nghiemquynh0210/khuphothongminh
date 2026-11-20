@@ -102,18 +102,19 @@ jobs:
       - name: Upload Build Artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: KP3-AnPhu-Android-Signed-v1.1.0
+          name: KP3-AnPhu-Android-Signed-v1.1.1
           path: release-artifacts/*
 
-      - name: Publish Official GitHub Release (Signed KP3-AnPhu.apk v1.1.0)
+      - name: Publish Official GitHub Release (Signed KP3-AnPhu.apk v1.1.1)
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: android-v1.1.0
-          name: "Ứng dụng Android Khu phố 3 – Phường An Phú (Bản Đầy Đủ v1.1.0 – Signed S25 Ready)"
+          tag_name: android-v1.1.1
+          name: "Ứng dụng Android Khu phố 3 – Phường An Phú (Bản Đầy Đủ v1.1.1 – Signed S25 Ready)"
           body: |
-            ### 📱 Ứng dụng Android Chính thức: Khu phố 3 – Phường An Phú, TP. Hồ Chí Minh (v1.1.0)
-            - **Package ID:** `vn.tphcm.anphu.khupho3` (`versionCode: 2`, `targetSdk: 36`)
+            ### 📱 Ứng dụng Android Chính thức: Khu phố 3 – Phường An Phú, TP. Hồ Chí Minh (v1.1.1)
+            - **Package ID:** `vn.tphcm.anphu.khupho3` (`versionCode: 3`, `targetSdk: 36`)
             - **Chữ ký số:** Đã xác thực **APK Signature Scheme V1 + V2 + V3** (tương thích hoàn toàn Samsung Galaxy S25 / Android 15–16).
+            - **Cập nhật v1.1.1:** Khắc phục triệt để tràn khung thẻ hội viên & chuẩn hóa thanh lọc phân hệ Quản lý Chi hội.
             - **Tải cài đặt trực tiếp:** Tải file **`KP3-AnPhu.apk`** bên dưới. *(Lưu ý trên dòng Samsung S24/S25: nếu bật "Trình tự động chặn / Auto Blocker" trong Cài đặt → Bảo mật và riêng tư, vui lòng tạm tắt khi cài APK ngoài CH Play).*
           files: |
             release-artifacts/KP3-AnPhu.apk

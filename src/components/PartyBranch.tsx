@@ -3119,8 +3119,8 @@ export default function PartyBranch({
                   <div className="flex flex-col sm:flex-row sm:flex-wrap items-stretch sm:items-center justify-between gap-2.5">
                     <div className="flex flex-wrap items-center gap-2 flex-1 min-w-0">
                       {/* Member Search */}
-                      <div className="relative flex-1 min-w-[180px] sm:max-w-[240px]">
-                        <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-500 pointer-events-none" size={13} />
+                      <div className="relative flex-1 min-w-[180px] sm:max-w-[250px]">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 pointer-events-none" size={13} />
                         <input
                           id="party-member-search"
                           name="memberSearchTerm"
@@ -3128,12 +3128,12 @@ export default function PartyBranch({
                           placeholder="Lọc thành viên..."
                           value={memberSearchTerm}
                           onChange={(e) => setMemberSearchTerm(e.target.value)}
-                          className="w-full h-8 pl-8 pr-3 border border-slate-200 rounded-lg text-xs text-slate-900 placeholder:text-slate-500 focus:outline-none focus:border-emerald-600 bg-slate-50/70"
+                          className="w-full h-9 pl-8 pr-3 border border-slate-200 rounded-xl text-xs text-slate-900 placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600 bg-slate-50/70 focus:bg-white transition-all"
                         />
                       </div>
 
                       {/* Role Filter */}
-                      <div className="w-full sm:w-[168px] shrink-0">
+                      <div className="w-full sm:w-[176px] shrink-0">
                         <ReportSelect
                           aria-label="Lọc chức danh thành viên"
                           value={memberRoleFilter}
@@ -3145,6 +3145,7 @@ export default function PartyBranch({
                             { value: "Có Quyết định", label: "Có Quyết định" }
                           ]}
                           className="text-xs"
+                          buttonClassName="!h-9 !rounded-xl !border-slate-200 !text-xs !px-3"
                         />
                       </div>
 
@@ -3156,11 +3157,11 @@ export default function PartyBranch({
                     </div>
 
                     {/* View Mode Toggle: Table vs Cards */}
-                    <div className="flex items-center bg-slate-100 p-0.5 rounded-lg border border-slate-200 shrink-0 self-end sm:self-auto">
+                    <div className="h-9 flex items-center bg-slate-100 p-1 rounded-xl border border-slate-200 shrink-0 self-end sm:self-auto">
                       <button
                         type="button"
                         onClick={() => setMemberViewMode("list")}
-                        className={`flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-semibold transition-all cursor-pointer ${memberViewMode === "list"
+                        className={`h-full flex items-center gap-1.5 px-2.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${memberViewMode === "list"
                             ? "bg-white text-emerald-800 shadow-2xs font-bold"
                             : "text-slate-600 hover:text-slate-900"
                           }`}
@@ -3172,7 +3173,7 @@ export default function PartyBranch({
                       <button
                         type="button"
                         onClick={() => setMemberViewMode("card")}
-                        className={`flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-semibold transition-all cursor-pointer ${memberViewMode === "card"
+                        className={`h-full flex items-center gap-1.5 px-2.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${memberViewMode === "card"
                             ? "bg-white text-emerald-800 shadow-2xs font-bold"
                             : "text-slate-600 hover:text-slate-900"
                           }`}
@@ -3204,7 +3205,7 @@ export default function PartyBranch({
                   ) : memberViewMode === "list" ? (
                     /* LIST (TABLE) VIEW */
                     <div className="bg-white rounded-xl border border-slate-200/90 shadow-2xs overflow-hidden">
-                      <div className="overflow-x-auto">
+                      <div className={`overflow-x-auto ${quickRoleMenuCccd ? "pb-56" : ""}`}>
                         <table className="w-full min-w-[860px] text-left text-xs border-collapse">
                           <thead>
                             <tr className="bg-slate-50 text-slate-600 border-b border-slate-200/80 text-xs font-bold uppercase tracking-wider">
@@ -3279,14 +3280,14 @@ export default function PartyBranch({
                                             prev === member.cccd ? null : member.cccd
                                           );
                                         }}
-                                        title="Nhấp để đổi nhanh chức danh Trưởng / Phó / Hội viên"
-                                        className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs whitespace-nowrap border cursor-pointer hover:ring-2 hover:ring-emerald-500/30 transition-all ${roleStyle.badgeClass}`}
+                                        title={`${member.role} — Nhấp để đổi nhanh chức danh Trưởng / Phó / Hội viên`}
+                                        className={`inline-flex items-center gap-1 max-w-[230px] min-w-0 px-2 py-0.5 rounded-md text-xs border cursor-pointer hover:ring-2 hover:ring-emerald-500/30 transition-all ${roleStyle.badgeClass}`}
                                       >
-                                        <span>{member.role}</span>
+                                        <span className="truncate">{member.role}</span>
                                         <ChevronDown size={11} className="opacity-75 shrink-0" />
                                       </button>
                                       {selectedAssociation.id === "ASC_DANG" && classifyMemberRoleTier(member.role) === "head" && (
-                                        <span className="text-[11px] font-bold text-amber-900 bg-amber-100 border border-amber-300 px-1.5 py-0.5 rounded whitespace-nowrap">
+                                        <span className="text-[11px] font-bold text-amber-900 bg-amber-100 border border-amber-300 px-1.5 py-0.5 rounded whitespace-nowrap shrink-0">
                                           ★KP3
                                         </span>
                                       )}
@@ -3299,7 +3300,7 @@ export default function PartyBranch({
                                               e.stopPropagation();
                                               handleOpenZaloLinkForMember(member, selectedAssociation);
                                             }}
-                                            className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold border transition-colors cursor-pointer ${
+                                            className={`inline-flex items-center gap-1 max-w-[180px] min-w-0 px-1.5 py-0.5 rounded-md text-[10px] font-bold border transition-colors cursor-pointer ${
                                               zaloInfo.isLinked
                                                 ? "bg-blue-50 text-blue-800 border-blue-200 hover:bg-blue-100"
                                                 : "bg-amber-50 text-amber-800 border-amber-200 hover:bg-amber-100"
@@ -3310,8 +3311,8 @@ export default function PartyBranch({
                                                 : "Nhấn để liên kết tài khoản Zalo OA nhận tin nhắc lịch họp"
                                             }
                                           >
-                                            <MessageCircle size={10} className={zaloInfo.isLinked ? "text-blue-600" : "text-amber-600"} />
-                                            <span>{zaloInfo.isLinked ? (zaloInfo.zaloDisplayName ? `Zalo: ${zaloInfo.zaloDisplayName}` : "Đã gắn Zalo") : "Ghép Zalo"}</span>
+                                            <MessageCircle size={10} className={`shrink-0 ${zaloInfo.isLinked ? "text-blue-600" : "text-amber-600"}`} />
+                                            <span className="truncate">{zaloInfo.isLinked ? (zaloInfo.zaloDisplayName ? `Zalo: ${zaloInfo.zaloDisplayName}` : "Đã gắn Zalo") : "Ghép Zalo"}</span>
                                           </button>
                                         );
                                       })()}
@@ -3320,10 +3321,10 @@ export default function PartyBranch({
                                     {quickRoleMenuCccd === member.cccd && (
                                       <div
                                         className={`absolute left-3 ${
-                                          mIdx > 0 && mIdx >= filteredMembers.length - 2
+                                          filteredMembers.length >= 4 && mIdx >= filteredMembers.length - 2
                                             ? "bottom-full mb-1"
                                             : "top-full mt-1"
-                                        } z-30 w-56 bg-white rounded-xl border border-slate-200 shadow-lg p-1.5 space-y-0.5`}
+                                        } z-30 w-60 bg-white rounded-xl border border-slate-200 shadow-lg p-1.5 space-y-0.5`}
                                       >
                                         <div className="px-2 py-1 text-[10px] font-extrabold uppercase tracking-wider text-slate-500 border-b border-slate-100 flex items-center justify-between">
                                           <span>Đổi nhanh chức danh</span>
@@ -3479,12 +3480,13 @@ export default function PartyBranch({
                     </div>
                   ) : (
                     /* CARD VIEW */
-                    <div className="grid grid-cols-1 xl:grid-cols-2 2xl:grid-cols-3 gap-3.5">
+                    <div className="grid grid-cols-1 lg:grid-cols-2 min-[1800px]:grid-cols-3 gap-3.5">
                       {filteredMembers.map((member, mIdx) => {
                         const matchedRes = residents.find(r => r.cccd === member.cccd);
                         const roleStyle = getMemberRoleStyle(member.role);
                         const isPartyMem = partyMembers.some(p => p.cccd === member.cccd);
                         const memberAvatar = member.avatar || matchedRes?.avatar || "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150";
+                        const isRoleMenuOpen = quickRoleMenuCccd === member.cccd;
 
                         return (
                           <div
@@ -3501,12 +3503,14 @@ export default function PartyBranch({
                                 handleTriggerMemberDetail(member, selectedAssociation);
                               }
                             }}
-                            className={`group p-3.5 rounded-xl border relative transition-all cursor-pointer hover:border-emerald-500/80 hover:shadow-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/40 flex flex-col justify-between gap-2.5 ${roleStyle.cardBorder}`}
+                            className={`group p-3.5 sm:p-4 rounded-xl border relative min-w-0 transition-all cursor-pointer hover:border-emerald-500/80 hover:shadow-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/40 flex flex-col justify-between gap-2.5 ${
+                              isRoleMenuOpen ? "z-30 ring-2 ring-emerald-500/25 border-emerald-500/70" : "z-0"
+                            } ${roleStyle.cardBorder}`}
                           >
-                            <div className="space-y-2.5">
-                              {/* Member Header with Avatar (Full width for Full Name, zero squeezing) */}
-                              <div className="flex items-start gap-2.5 min-w-0">
-                                <div className="relative shrink-0 mt-0.5">
+                            <div className="space-y-2.5 min-w-0 w-full">
+                              {/* Member Header: Avatar + Name & CCCD aligned cleanly */}
+                              <div className="flex items-center gap-3 min-w-0">
+                                <div className="relative shrink-0">
                                   <img
                                     src={memberAvatar}
                                     alt={member.fullName}
@@ -3515,7 +3519,7 @@ export default function PartyBranch({
                                   />
                                   {isPartyMem && (
                                     <span
-                                      className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-rose-600 border border-white text-white flex items-center justify-center text-xs font-bold"
+                                      className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-rose-600 border border-white text-white flex items-center justify-center text-[10px] font-bold"
                                       title="Đảng viên ĐCSVN"
                                     >
                                       ★
@@ -3523,135 +3527,141 @@ export default function PartyBranch({
                                   )}
                                 </div>
 
-                                <div className="space-y-1 min-w-0 flex-1">
+                                <div className="min-w-0 flex-1 space-y-0.5">
                                   <span
-                                    className="font-bold text-slate-900 text-sm truncate group-hover:text-emerald-700 transition-colors block text-left w-full leading-tight"
+                                    className="font-bold text-slate-900 text-sm truncate group-hover:text-emerald-700 transition-colors block text-left w-full leading-snug"
                                     title={member.fullName}
                                   >
                                     {member.fullName}
                                   </span>
-
-                                  <div
-                                    className="flex flex-wrap items-center gap-1.5 relative"
-                                    onClick={(e) => e.stopPropagation()}
-                                  >
-                                    <div className="flex flex-wrap items-center gap-1.5">
-                                      <button
-                                        type="button"
-                                        onClick={(e) => {
-                                          e.stopPropagation();
-                                          setQuickRoleMenuCccd((prev) =>
-                                            prev === member.cccd ? null : member.cccd
-                                          );
-                                        }}
-                                        title="Nhấp để đổi nhanh chức danh Trưởng / Phó / Hội viên"
-                                        className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs whitespace-nowrap border cursor-pointer hover:ring-2 hover:ring-emerald-500/30 transition-all ${roleStyle.badgeClass}`}
-                                      >
-                                        <span>{member.role}</span>
-                                        <ChevronDown size={11} className="opacity-75 shrink-0" />
-                                      </button>
-                                      {selectedAssociation.id === "ASC_DANG" && classifyMemberRoleTier(member.role) === "head" && (
-                                        <span className="text-[11px] font-bold text-amber-900 bg-amber-100 border border-amber-300 px-1.5 py-0.5 rounded whitespace-nowrap">
-                                          ★KP3
-                                        </span>
-                                      )}
-                                      {(() => {
-                                        const zaloInfo = getMemberZaloInfo(member);
-                                        return (
-                                          <button
-                                            type="button"
-                                            onClick={(e) => {
-                                              e.stopPropagation();
-                                              handleOpenZaloLinkForMember(member, selectedAssociation);
-                                            }}
-                                            className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold border transition-colors cursor-pointer ${
-                                              zaloInfo.isLinked
-                                                ? "bg-blue-50 text-blue-800 border-blue-200 hover:bg-blue-100"
-                                                : "bg-amber-50 text-amber-800 border-amber-200 hover:bg-amber-100"
-                                            }`}
-                                            title={
-                                              zaloInfo.isLinked
-                                                ? `Đã liên kết Zalo OA: ${zaloInfo.zaloDisplayName || zaloInfo.zaloUserId} - Nhấn để kiểm tra hoặc nhắn thử`
-                                                : "Nhấn để liên kết tài khoản Zalo OA nhận tin nhắc lịch họp"
-                                            }
-                                          >
-                                            <MessageCircle size={10} className={zaloInfo.isLinked ? "text-blue-600" : "text-amber-600"} />
-                                            <span>{zaloInfo.isLinked ? (zaloInfo.zaloDisplayName ? `Zalo: ${zaloInfo.zaloDisplayName}` : "Đã gắn Zalo") : "Ghép Zalo"}</span>
-                                          </button>
-                                        );
-                                      })()}
-                                    </div>
-
-                                    {quickRoleMenuCccd === member.cccd && (
-                                      <div
-                                        className={`absolute left-0 ${
-                                          mIdx > 0 && mIdx >= filteredMembers.length - 2
-                                            ? "bottom-full mb-1"
-                                            : "top-full mt-1"
-                                        } z-30 w-56 bg-white rounded-xl border border-slate-200 shadow-lg p-1.5 space-y-0.5`}
-                                      >
-                                        <div className="px-2 py-1 text-[10px] font-extrabold uppercase tracking-wider text-slate-500 border-b border-slate-100 flex items-center justify-between">
-                                          <span>Đổi nhanh chức danh</span>
-                                          <button
-                                            type="button"
-                                            onClick={() => setQuickRoleMenuCccd(null)}
-                                            className="text-slate-400 hover:text-slate-700 cursor-pointer"
-                                          >
-                                            ✕
-                                          </button>
-                                        </div>
-                                        {selectedAssocPresets.allSuggestedRoles.map((roleOpt) => {
-                                          const tier = classifyMemberRoleTier(roleOpt);
-                                          const isCurrent = member.role === roleOpt;
-                                          return (
-                                            <button
-                                              key={roleOpt}
-                                              type="button"
-                                              onClick={() => handleQuickRoleChangeRequest(member, roleOpt)}
-                                              className={`w-full text-left px-2.5 py-1.5 rounded-lg text-xs flex items-center justify-between gap-2 transition-colors cursor-pointer ${
-                                                isCurrent
-                                                  ? "bg-emerald-50 text-emerald-900 font-bold"
-                                                  : "hover:bg-slate-50 text-slate-800 font-medium"
-                                              }`}
-                                            >
-                                              <span className="truncate">{roleOpt}</span>
-                                              {tier === "head" && (
-                                                <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-rose-50 text-rose-700 border border-rose-200 shrink-0">
-                                                  Trưởng
-                                                </span>
-                                              )}
-                                              {tier === "deputy" && (
-                                                <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-blue-50 text-blue-700 border border-blue-200 shrink-0">
-                                                  Phó
-                                                </span>
-                                              )}
-                                            </button>
-                                          );
-                                        })}
-                                        <div className="pt-1 mt-1 border-t border-slate-100">
-                                          <button
-                                            type="button"
-                                            onClick={() => {
-                                              setQuickRoleMenuCccd(null);
-                                              if (onOpenEditMember) {
-                                                onOpenEditMember(member, selectedAssociation);
-                                              } else {
-                                                handleOpenEditMember(member);
-                                              }
-                                            }}
-                                            className="w-full text-left px-2.5 py-1.5 rounded-lg text-xs font-semibold text-emerald-700 hover:bg-emerald-50 cursor-pointer"
-                                          >
-                                            ✎ Sửa chi tiết & Số Quyết định...
-                                          </button>
-                                        </div>
-                                      </div>
-                                    )}
-                                  </div>
-
-                                  <div className="text-xs text-slate-600 font-mono whitespace-nowrap">
+                                  <div className="text-xs text-slate-500 font-mono truncate">
                                     CCCD: <span className="text-slate-800 font-medium">{member.cccd}</span>
                                   </div>
                                 </div>
+                              </div>
+
+                              {/* Full-width Role Selector & Zalo Badge Row — never overflows card border */}
+                              <div
+                                className="flex flex-wrap items-center gap-1.5 min-w-0 max-w-full relative"
+                                onClick={(e) => e.stopPropagation()}
+                              >
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setQuickRoleMenuCccd((prev) =>
+                                      prev === member.cccd ? null : member.cccd
+                                    );
+                                  }}
+                                  title={`${member.role} — Nhấp để đổi nhanh chức danh Trưởng / Phó / Hội viên`}
+                                  className={`inline-flex items-center gap-1.5 max-w-full min-w-0 px-2.5 py-1 rounded-lg text-xs border cursor-pointer hover:ring-2 hover:ring-emerald-500/30 transition-all ${roleStyle.badgeClass}`}
+                                >
+                                  <span className="truncate">{member.role}</span>
+                                  <ChevronDown size={12} className="opacity-75 shrink-0" />
+                                </button>
+
+                                {selectedAssociation.id === "ASC_DANG" && classifyMemberRoleTier(member.role) === "head" && (
+                                  <span className="text-[11px] font-bold text-amber-900 bg-amber-100 border border-amber-300 px-1.5 py-0.5 rounded-md whitespace-nowrap shrink-0">
+                                    ★KP3
+                                  </span>
+                                )}
+
+                                {(() => {
+                                  const zaloInfo = getMemberZaloInfo(member);
+                                  return (
+                                    <button
+                                      type="button"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        handleOpenZaloLinkForMember(member, selectedAssociation);
+                                      }}
+                                      className={`inline-flex items-center gap-1 max-w-full min-w-0 px-2 py-1 rounded-lg text-[11px] font-bold border transition-colors cursor-pointer ${
+                                        zaloInfo.isLinked
+                                          ? "bg-blue-50 text-blue-800 border-blue-200 hover:bg-blue-100"
+                                          : "bg-amber-50 text-amber-800 border-amber-200 hover:bg-amber-100"
+                                      }`}
+                                      title={
+                                        zaloInfo.isLinked
+                                          ? `Đã liên kết Zalo OA: ${zaloInfo.zaloDisplayName || zaloInfo.zaloUserId} - Nhấn để kiểm tra hoặc nhắn thử`
+                                          : "Nhấn để liên kết tài khoản Zalo OA nhận tin nhắc lịch họp"
+                                      }
+                                    >
+                                      <MessageCircle size={11} className={`shrink-0 ${zaloInfo.isLinked ? "text-blue-600" : "text-amber-600"}`} />
+                                      <span className="truncate">
+                                        {zaloInfo.isLinked
+                                          ? zaloInfo.zaloDisplayName
+                                            ? `Zalo: ${zaloInfo.zaloDisplayName}`
+                                            : "Đã gắn Zalo"
+                                          : "Ghép Zalo"}
+                                      </span>
+                                    </button>
+                                  );
+                                })()}
+
+                                {isRoleMenuOpen && (
+                                  <div
+                                    className={`absolute left-0 ${
+                                      filteredMembers.length >= 4 && mIdx >= filteredMembers.length - 2
+                                        ? "bottom-full mb-1.5"
+                                        : "top-full mt-1.5"
+                                    } z-40 w-60 max-w-full bg-white rounded-xl border border-slate-200 shadow-lg p-1.5 space-y-0.5`}
+                                  >
+                                    <div className="px-2 py-1 text-[10px] font-extrabold uppercase tracking-wider text-slate-500 border-b border-slate-100 flex items-center justify-between">
+                                      <span>Đổi nhanh chức danh</span>
+                                      <button
+                                        type="button"
+                                        onClick={() => setQuickRoleMenuCccd(null)}
+                                        className="text-slate-400 hover:text-slate-700 cursor-pointer"
+                                      >
+                                        ✕
+                                      </button>
+                                    </div>
+                                    {selectedAssocPresets.allSuggestedRoles.map((roleOpt) => {
+                                      const tier = classifyMemberRoleTier(roleOpt);
+                                      const isCurrent = member.role === roleOpt;
+                                      return (
+                                        <button
+                                          key={roleOpt}
+                                          type="button"
+                                          onClick={() => handleQuickRoleChangeRequest(member, roleOpt)}
+                                          className={`w-full text-left px-2.5 py-1.5 rounded-lg text-xs flex items-center justify-between gap-2 transition-colors cursor-pointer ${
+                                            isCurrent
+                                              ? "bg-emerald-50 text-emerald-900 font-bold"
+                                              : "hover:bg-slate-50 text-slate-800 font-medium"
+                                          }`}
+                                        >
+                                          <span className="truncate">{roleOpt}</span>
+                                          {tier === "head" && (
+                                            <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-rose-50 text-rose-700 border border-rose-200 shrink-0">
+                                              Trưởng
+                                            </span>
+                                          )}
+                                          {tier === "deputy" && (
+                                            <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-blue-50 text-blue-700 border border-blue-200 shrink-0">
+                                              Phó
+                                            </span>
+                                          )}
+                                        </button>
+                                      );
+                                    })}
+                                    <div className="pt-1 mt-1 border-t border-slate-100">
+                                      <button
+                                        type="button"
+                                        onClick={() => {
+                                          setQuickRoleMenuCccd(null);
+                                          if (onOpenEditMember) {
+                                            onOpenEditMember(member, selectedAssociation);
+                                          } else {
+                                            handleOpenEditMember(member);
+                                          }
+                                        }}
+                                        className="w-full text-left px-2.5 py-1.5 rounded-lg text-xs font-semibold text-emerald-700 hover:bg-emerald-50 cursor-pointer"
+                                      >
+                                        ✎ Sửa chi tiết & Số Quyết định...
+                                      </button>
+                                    </div>
+                                  </div>
+                                )}
                               </div>
 
                               {/* Member Meta Info */}
@@ -4286,6 +4296,7 @@ export default function PartyBranch({
                         ...KP3_AREA_LIST.map(area => ({ value: area, label: area }))
                       ]}
                       className="text-xs"
+                      buttonClassName="!h-9 !rounded-xl !border-slate-200 !text-xs !px-3"
                     />
                   </div>
                 </div>
@@ -4584,13 +4595,16 @@ export default function PartyBranch({
                                   : ""
                               }`}
                             >
-                              <div className="flex items-center gap-1.5 min-w-0">
+                              <div className="flex items-center gap-1.5 min-w-0 flex-1">
                                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0" />
                                 <span className="font-semibold text-slate-800 truncate text-xs">
                                   {r.groupName}
                                 </span>
                               </div>
-                              <span className="px-2 py-0.5 bg-white border border-slate-200 text-emerald-800 font-bold rounded-lg text-xs shrink-0">
+                              <span
+                                className="px-2 py-0.5 bg-white border border-slate-200 text-emerald-800 font-bold rounded-lg text-xs max-w-[55%] truncate shrink-0"
+                                title={r.role}
+                              >
                                 {r.role}
                               </span>
                             </div>
@@ -4702,6 +4716,7 @@ export default function PartyBranch({
                     ...associations.map(a => ({ value: a.id, label: a.name }))
                   ]}
                   className="text-xs"
+                  buttonClassName="!h-9 !rounded-xl !border-slate-200 !text-xs !px-3"
                 />
               </div>
             </div>
