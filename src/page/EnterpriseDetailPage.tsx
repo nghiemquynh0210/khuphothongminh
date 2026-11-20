@@ -10,8 +10,11 @@ import {
   Compass,
   ExternalLink,
   Eye,
+  FileCheck,
+  FileText,
   HelpCircle,
   History,
+  Layers,
   MapPin,
   Navigation,
   Pencil,
@@ -43,8 +46,12 @@ import {
   parseCoordinates as parseGisCoords,
 } from "../utils/gisUtils";
 import { formatShortRecordId } from "../utils/kp3Utils";
+import { getNormalizedLinkedHouseholdCodes } from "../utils/addressCoLocationUtils";
+import { normalizeEntityLandParcels } from "../utils/landParcelsUtils";
 import { DetailGrid, DetailRow } from "../components/common/DetailRow";
 import { LoadingFade } from "../components/common/LoadingFade";
+import { MultiParcelDetailView } from "../components/common/MultiParcelDetailView";
+import { SharedAddressHubCard } from "../components/common/SharedAddressHubCard";
 import { ReportSelect } from "../components/reports/ReportSelect";
 import { ConfirmModal, InlineNotice } from "../components/ui/ConfirmModal";
 import {
@@ -52,6 +59,7 @@ import {
   getEnterpriseDetailPath,
   getEnterpriseEditPath,
   getHouseholdDetailPath,
+  getResidentDetailPath,
   navigate,
 } from "../routes";
 
@@ -102,6 +110,7 @@ export default function EnterpriseDetailPage({
   const [viewingImagePreview, setViewingImagePreview] = useState<{
     url: string;
     caption: string;
+    type?: "image" | "pdf";
   } | null>(null);
 
   const [changeType, setChangeType] =
@@ -198,8 +207,8 @@ export default function EnterpriseDetailPage({
   };
 
   const handleDirections = (b: Business) => {
-    let lat = KP3_CENTER[0];
-    let lng = KP3_CENTER[1];
+    let lat = KP3_CENTER.lat;
+    let lng = KP3_CENTER.lng;
     let coordsStr = b.coordinates;
 
     if (b.coordinates) {
@@ -552,6 +561,42 @@ export default function EnterpriseDetailPage({
                     />
                     <span>{selectedEnterprise.status}</span>
                   </span>
+
+                  {selectedEnterprise.timemarkVerified && (
+                    <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-amber-50 text-amber-900 border border-amber-300 shadow-2xs">
+                      <Sparkles size={11} className="text-amber-600" />
+                      <span>Timemark GPS</span>
+                    </span>
+                  )}
+
+                  {(() => {
+                    const hhCodes =
+                      getNormalizedLinkedHouseholdCodes(selectedEnterprise);
+                    if (hhCodes.length === 0) return null;
+                    return (
+                      <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-blue-50 text-blue-800 border border-blue-200">
+                        <span>
+                          {hhCodes.length > 1
+                            ? `Ghép ${hhCodes.length} hộ (${hhCodes.join(", ")})`
+                            : `Hộ ${hhCodes[0]}`}
+                        </span>
+                      </span>
+                    );
+                  })()}
+
+                  {(() => {
+                    const parcels =
+                      normalizeEntityLandParcels(selectedEnterprise);
+                    if (parcels.length < 2) return null;
+                    return (
+                      <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-indigo-50 text-indigo-800 border border-indigo-200">
+                        <Layers size={11} className="text-indigo-600" />
+                        <span>
+                          Ghép {String(parcels.length).padStart(2, "0")} Sổ đỏ
+                        </span>
+                      </span>
+                    );
+                  })()}
                 </div>
 
                 <h1 className="text-lg sm:text-xl font-extrabold text-slate-900 tracking-tight leading-snug break-words">
@@ -697,7 +742,22 @@ export default function EnterpriseDetailPage({
                     Hồ sơ Doanh nghiệp, Mã số thuế &amp; Pháp lý
                   </h4>
 
-                  <div className="flex items-center gap-2 shrink-0 self-end sm:self-center">
+                  <div className="flex flex-wrap items-center gap-2 shrink-0 self-end sm:self-center">
+                    {selectedEnterprise.giayPhepFile && (
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setViewingImagePreview({
+                            url: selectedEnterprise.giayPhepFile!.url,
+                            caption: `Giấy CN ĐKDN: ${selectedEnterprise.giayPhepFile!.name}`,
+                            type: selectedEnterprise.giayPhepFile!.type,
+                          })
+                        }
+                        className="min-h-8 text-xs text-emerald-800 hover:text-emerald-950 font-bold cursor-pointer inline-flex items-center gap-1 bg-emerald-50 hover:bg-emerald-100 px-2.5 py-1 rounded-lg border border-emerald-200 transition-colors"
+                      >
+                        <FileText size={12} /> Xem bản chụp ĐKDN
+                      </button>
+                    )}
                     <div className="flex items-center gap-1.5">
                       {(
                         selectedEnterprise.images || [
@@ -769,7 +829,19 @@ export default function EnterpriseDetailPage({
                   />
                   <DetailRow
                     label="Ngày bắt đầu hoạt động"
-                    value={selectedEnterprise.startDate}
+                    value={
+                      selectedEnterprise.licenseIssueDate ||
+                      selectedEnterprise.startDate
+                    }
+                    isMono
+                  />
+                  <DetailRow
+                    label="Nơi cấp ĐKDN"
+                    value={selectedEnterprise.issuingAuthority}
+                  />
+                  <DetailRow
+                    label="Vốn điều lệ"
+                    value={selectedEnterprise.charterCapital}
                     isMono
                   />
                 </DetailGrid>
@@ -832,7 +904,7 @@ export default function EnterpriseDetailPage({
                     colSpan={2}
                   />
                   <DetailRow
-                    label="Tuyến đường / Phân khu"
+                    label="Tuyến đường KP3"
                     value={
                       selectedEnterprise.streetArea ||
                       (selectedEnterprise.address.includes("42")
@@ -860,42 +932,20 @@ export default function EnterpriseDetailPage({
                     label="Liên kết mã hộ KP3"
                     value={
                       <span className="font-mono text-blue-700 font-bold">
-                        {selectedEnterprise.linkedHouseholdCode ||
-                          "Địa chỉ độc lập"}
+                        {getNormalizedLinkedHouseholdCodes(
+                          selectedEnterprise
+                        ).join(", ") || "Địa chỉ độc lập"}
                       </span>
                     }
                   />
                 </DetailGrid>
 
-                {(() => {
-                  const hh = getLinkedHh(selectedEnterprise);
-                  if (!hh) return null;
-                  return (
-                    <div className="p-3 bg-emerald-50/70 rounded-xl border border-emerald-200 text-xs flex flex-wrap justify-between items-center gap-2">
-                      <div>
-                        <span className="text-emerald-900 font-bold block">
-                          Liên kết Hộ dân: {hh.ownerName} (Mã hộ: {hh.code})
-                        </span>
-                        <span className="text-[11px] text-emerald-800 block">
-                          Số nhân khẩu: {hh.memberCount} người • Địa chỉ:{" "}
-                          {hh.address}
-                        </span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <span className="text-[10px] font-bold bg-emerald-200/80 text-emerald-900 px-2.5 py-0.5 rounded-full">
-                          Đã đối soát CSDL
-                        </span>
-                        <button
-                          type="button"
-                          onClick={() => navigate(getHouseholdDetailPath(hh.id))}
-                          className="text-[11px] font-bold text-emerald-800 hover:underline cursor-pointer"
-                        >
-                          Xem sổ hộ khẩu ➜
-                        </button>
-                      </div>
-                    </div>
-                  );
-                })()}
+                {/* Tổ hợp Hộ khẩu • Doanh nghiệp • Cơ sở KD Cùng Địa Chỉ */}
+                <SharedAddressHubCard
+                  focusBusiness={selectedEnterprise}
+                  households={households || []}
+                  businesses={businesses}
+                />
 
                 <div className="p-3.5 bg-slate-50 text-slate-900 rounded-xl border border-slate-200 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2.5 text-xs">
                   <div className="space-y-0.5">
@@ -955,12 +1005,91 @@ export default function EnterpriseDetailPage({
                     )}
                   </div>
                 </div>
+
+                {/* Khối Đa Thửa Đất & Nhiều Sổ Đỏ (GCN QSDĐ) */}
+                <MultiParcelDetailView entity={selectedEnterprise} />
+
+                {/* Khối Ảnh hiện trường & Timemark Verified Geolocation */}
+                <div className="space-y-2.5 pt-2">
+                  <h4 className="text-xs font-bold text-slate-900 uppercase tracking-wider flex items-center justify-between border-b border-slate-200 pb-2">
+                    <span className="flex items-center gap-1.5">
+                      <Camera size={14} className="text-amber-600" />
+                      Hình ảnh Hiện trường &amp; Khảo sát Thực tế Timemark
+                    </span>
+                    {selectedEnterprise.timemarkVerified && (
+                      <span className="text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-amber-500 text-white shadow-2xs flex items-center gap-1">
+                        <Sparkles size={11} /> Timemark 100% Chân thực
+                      </span>
+                    )}
+                  </h4>
+
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                    <div className="relative rounded-xl overflow-hidden bg-slate-100 border border-slate-200 aspect-video md:aspect-auto md:h-44">
+                      <img
+                        src={selectedEnterprise.image || getEnterpriseImage(selectedEnterprise)}
+                        alt={selectedEnterprise.name}
+                        className="w-full h-full object-cover"
+                      />
+                      {selectedEnterprise.timemarkHash && (
+                        <div className="absolute top-2 right-2 bg-black/70 backdrop-blur-xs text-white text-[10px] font-mono px-2 py-0.5 rounded-md border border-white/20">
+                          #{selectedEnterprise.timemarkHash}
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="md:col-span-2 bg-slate-50/80 rounded-xl p-3 border border-slate-200/80 flex flex-col justify-between space-y-2 text-xs">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                        <div>
+                          <span className="text-[11px] text-slate-500 font-medium block">Tọa độ GPS xác thực:</span>
+                          <span className="font-mono font-bold text-slate-800 text-[12px]">{selectedEnterprise.coordinates || "Chưa ghi nhận"}</span>
+                        </div>
+                        <div>
+                          <span className="text-[11px] text-slate-500 font-medium block">Thời gian khảo sát:</span>
+                          <span className="font-semibold text-slate-800 text-[12px]">{selectedEnterprise.photoTakenAt || "Chưa ghi nhận"}</span>
+                        </div>
+                        <div>
+                          <span className="text-[11px] text-slate-500 font-medium block">Độ cao định vị:</span>
+                          <span className="font-semibold text-slate-800">{selectedEnterprise.photoElevation || "Chưa ghi nhận"}</span>
+                        </div>
+                        <div>
+                          <span className="text-[11px] text-slate-500 font-medium block">Phương hướng camera:</span>
+                          <span className="font-semibold text-slate-800">{selectedEnterprise.photoDirection || "Chưa ghi nhận"}</span>
+                        </div>
+                      </div>
+
+                      <div className="pt-2 border-t border-slate-200 flex items-center justify-between">
+                        <span className="text-[11px] text-emerald-800 font-semibold flex items-center gap-1">
+                          <Check size={12} className="text-emerald-600" /> Dữ liệu đã đồng bộ Bản đồ số GIS KP3
+                        </span>
+                        {selectedEnterprise.coordinates && (
+                          <button
+                            type="button"
+                            onClick={() => handleDirections(selectedEnterprise)}
+                            className="text-[11px] font-bold text-emerald-700 hover:text-emerald-900 cursor-pointer"
+                          >
+                            Xem trên bản đồ ➜
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
           )}
 
           {/* TAB 3: ĐẠI DIỆN & LAO ĐỘNG */}
-          {detailTab === "personnel" && (
+          {detailTab === "personnel" && (() => {
+            const legalRepName = selectedEnterprise.legalRepresentative || selectedEnterprise.owner;
+            const matchedLegalRep = residents.find(
+              (r) => r.fullName.toLowerCase() === (legalRepName || "").toLowerCase().trim()
+            );
+            const siteManagerName = selectedEnterprise.siteManager || selectedEnterprise.owner;
+            const matchedSiteManager = residents.find(
+              (r) => r.fullName.toLowerCase() === (siteManagerName || "").toLowerCase().trim()
+            );
+
+            return (
             <div className="space-y-4 animate-in fade-in duration-200">
               <div className="space-y-2.5">
                 <h4 className="text-xs font-bold text-slate-900 uppercase tracking-wider flex items-center gap-1.5 border-b border-slate-200 pb-2">
@@ -972,8 +1101,18 @@ export default function EnterpriseDetailPage({
                   <DetailRow
                     label="Đại diện pháp luật"
                     value={
-                      selectedEnterprise.legalRepresentative ||
-                      selectedEnterprise.owner
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span>{legalRepName}</span>
+                        {matchedLegalRep && (
+                          <button
+                            type="button"
+                            onClick={() => navigate(getResidentDetailPath(matchedLegalRep.id))}
+                            className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 hover:bg-emerald-200 text-emerald-800 border border-emerald-300 transition-colors cursor-pointer"
+                          >
+                            ✓ Cư dân KP3 ({matchedLegalRep.status || "Thường trú"}) ➜
+                          </button>
+                        )}
+                      </div>
                     }
                     helperText={`SĐT: ${selectedEnterprise.legalRepPhone || selectedEnterprise.phone}${
                       selectedEnterprise.legalRepEmail
@@ -984,7 +1123,18 @@ export default function EnterpriseDetailPage({
                   <DetailRow
                     label="Quản lý tại chỗ"
                     value={
-                      selectedEnterprise.siteManager || selectedEnterprise.owner
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span>{siteManagerName}</span>
+                        {matchedSiteManager && (
+                          <button
+                            type="button"
+                            onClick={() => navigate(getResidentDetailPath(matchedSiteManager.id))}
+                            className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 hover:bg-emerald-200 text-emerald-800 border border-emerald-300 transition-colors cursor-pointer"
+                          >
+                            ✓ Cư dân KP3 ({matchedSiteManager.status || "Thường trú"}) ➜
+                          </button>
+                        )}
+                      </div>
                     }
                     helperText={`SĐT: ${selectedEnterprise.siteManagerPhone || selectedEnterprise.phone}`}
                   />
@@ -1134,7 +1284,8 @@ export default function EnterpriseDetailPage({
                 })()}
               </div>
             </div>
-          )}
+            );
+          })()}
 
           {/* TAB 4: BIẾN ĐỘNG ĐỊA BÀN */}
           {detailTab === "history" && (
@@ -1315,9 +1466,9 @@ export default function EnterpriseDetailPage({
         >
           <div
             onClick={(e) => e.stopPropagation()}
-            className="bg-white rounded-2xl shadow-xl border border-slate-200 w-full max-w-lg overflow-hidden animate-in zoom-in-95 duration-200 text-slate-800"
+            className="bg-white rounded-2xl shadow-xl border border-slate-200 w-full max-w-lg max-h-[90vh] flex flex-col overflow-hidden animate-in zoom-in-95 duration-200 text-slate-800"
           >
-            <div className="bg-slate-50 p-4 text-slate-900 flex justify-between items-center border-b border-slate-200">
+            <div className="bg-slate-50 p-4 text-slate-900 flex justify-between items-center border-b border-slate-200 shrink-0">
               <div className="flex items-center gap-2.5 min-w-0">
                 <div className="p-2 bg-indigo-50 text-indigo-700 border border-indigo-200 rounded-xl shrink-0">
                   <MapPin size={18} />
@@ -1342,7 +1493,7 @@ export default function EnterpriseDetailPage({
               </button>
             </div>
 
-            <div className="p-5 space-y-4 text-xs">
+            <div className="p-4 sm:p-5 space-y-4 text-xs overflow-y-auto flex-1">
               <div className="bg-slate-50 p-3 rounded-xl border border-slate-200 space-y-1">
                 <span className="text-xs text-slate-600 font-semibold block">
                   Trụ sở hoạt động:
@@ -1356,7 +1507,7 @@ export default function EnterpriseDetailPage({
               </div>
 
               <div className="space-y-1.5">
-                <div className="flex justify-between items-center gap-2">
+                <div className="flex flex-wrap justify-between items-center gap-2">
                   <label className="font-bold text-slate-700">
                     Tọa độ GIS (Định dạng DMS hoặc Thập phân):
                   </label>
@@ -1383,7 +1534,7 @@ export default function EnterpriseDetailPage({
                     value={gisPinInput}
                     onChange={(e) => setGisPinInput(e.target.value)}
                     placeholder='Ví dụ: 10°56&#39;14.2"N 106°44&#39;39.5"E hoặc 10.936997, 106.744645'
-                    className="w-full px-3.5 py-2.5 border border-slate-300 rounded-xl font-mono text-xs focus:outline-none focus:border-indigo-600 focus:ring-1 focus:ring-indigo-600 bg-white"
+                    className="w-full px-3.5 py-2.5 border border-slate-300 rounded-xl font-mono text-xs focus:outline-none focus:border-indigo-600 focus:ring-1 focus:ring-indigo-600 bg-white pr-9"
                   />
                   <MapPin
                     size={15}
@@ -1396,7 +1547,7 @@ export default function EnterpriseDetailPage({
                 <span className="text-xs font-semibold text-slate-600 block">
                   Gợi ý phân khu trục chính KP3:
                 </span>
-                <div className="grid grid-cols-2 gap-1.5 text-xs">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 text-xs">
                   <button
                     type="button"
                     onClick={() =>
@@ -1490,7 +1641,7 @@ export default function EnterpriseDetailPage({
                 })()}
             </div>
 
-            <div className="p-4 bg-slate-50 border-t border-slate-200 flex flex-wrap items-center justify-between gap-2">
+            <div className="p-4 bg-slate-50 border-t border-slate-200 flex flex-wrap items-center justify-between gap-2 shrink-0">
               <button
                 type="button"
                 onClick={() => setShowPinModal(false)}
@@ -1532,21 +1683,29 @@ export default function EnterpriseDetailPage({
         variant="danger"
       />
 
-      {/* IMAGE PREVIEW LIGHTBOX */}
+      {/* IMAGE / PDF PREVIEW LIGHTBOX */}
       {viewingImagePreview && (
         <div
           onClick={() => setViewingImagePreview(null)}
           className="fixed inset-0 bg-slate-950/90 flex items-center justify-center z-50 p-4 backdrop-blur-sm animate-in fade-in duration-150 cursor-pointer"
         >
           <div
-            className="relative max-w-4xl max-h-[90vh] flex flex-col items-center"
+            className="relative max-w-4xl w-full max-h-[90vh] flex flex-col items-center"
             onClick={(e) => e.stopPropagation()}
           >
-            <img
-              src={viewingImagePreview.url}
-              alt={viewingImagePreview.caption}
-              className="max-h-[80vh] w-auto rounded-xl shadow-2xl object-contain border border-white/10"
-            />
+            {viewingImagePreview.type === "pdf" ? (
+              <iframe
+                src={viewingImagePreview.url}
+                title={viewingImagePreview.caption}
+                className="w-full h-[78vh] rounded-xl bg-white border border-white/15 shadow-2xl"
+              />
+            ) : (
+              <img
+                src={viewingImagePreview.url}
+                alt={viewingImagePreview.caption}
+                className="max-h-[80vh] w-auto rounded-xl shadow-2xl object-contain border border-white/10"
+              />
+            )}
             <div className="mt-3 flex items-center justify-between w-full px-2 text-white">
               <span className="text-xs font-bold">
                 {viewingImagePreview.caption}

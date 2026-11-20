@@ -71,6 +71,8 @@ export default function BusinessesPage(props: BusinessesPageProps) {
           mode="edit"
           businessId={routeMatch.businessId}
           businesses={props.businesses}
+          residents={props.residents}
+          households={props.households}
           isDataLoading={props.isDataLoading}
           onUpdateBusinesses={props.onUpdateBusinesses}
           onCancel={() =>
@@ -90,6 +92,8 @@ export default function BusinessesPage(props: BusinessesPageProps) {
       <BusinessFormPage
         mode="create"
         businesses={props.businesses}
+        residents={props.residents}
+        households={props.households}
         isDataLoading={props.isDataLoading}
         onUpdateBusinesses={props.onUpdateBusinesses}
         onCancel={() => navigate(ROUTES.DASHBOARD_BUSINESSES)}

@@ -37,8 +37,11 @@ import {
   FolderPlus,
   Users,
   Check,
-  Tag
+  Tag,
+  FileSpreadsheet,
+  RefreshCw
 } from "lucide-react";
+import * as XLSX from "xlsx";
 import {
   WelfareRecipient,
   Resident,
@@ -58,6 +61,9 @@ import { Modal } from "./ui/Modal";
 import { KP3_AREA_LIST, extractKp3Area, formatShortRecordId } from "../utils/kp3Utils";
 import { loadWelfareRecord, saveWelfareRecord } from "../utils/supabaseSync";
 import { formatVNNumber } from "../utils/numberFormat";
+import { getResidentDetailPath, navigate } from "../routes";
+import { getStoredAssociations } from "../data/associationsData";
+import { extractKeyLeadersSummary } from "../utils/leadershipSync";
 import {
   DEFAULT_WELFARE_SUBCATEGORIES,
   ALL_STANDARD_BENEFITS,
@@ -98,6 +104,18 @@ export default function SocialWelfare({
   const [campaigns, setCampaigns] = useState<WelfareCampaign[]>(() => getStoredCampaigns());
   const [emergencyRecords, setEmergencyRecords] = useState<EmergencySupportRecord[]>(() => getStoredEmergencyRecords());
 
+  // Synced recipients cache so batch demographic sync persists even if parent callback updates single items
+  const [syncedExtraRecipients, setSyncedExtraRecipients] = useState<WelfareRecipient[]>(() => {
+    try {
+      const cached = localStorage.getItem("kp3_welfare_synced_extra_v1");
+      if (cached) {
+        const parsed = JSON.parse(cached);
+        if (Array.isArray(parsed)) return parsed;
+      }
+    } catch {}
+    return [];
+  });
+
   // Save changes to localStorage & Supabase
   const updateSubCategories = (updated: WelfareSubCategory[]) => {
     setSubCategories(updated);
@@ -137,10 +155,40 @@ export default function SocialWelfare({
         saveStoredEmergencyRecords(rows);
       }
     });
+    loadWelfareRecord<WelfareRecipient[]>("recipients").then((rows) => {
+      if (active && Array.isArray(rows) && rows.length > 0) {
+        setSyncedExtraRecipients(rows);
+        try {
+          localStorage.setItem("kp3_welfare_synced_extra_v1", JSON.stringify(rows));
+        } catch {}
+      }
+    });
     return () => {
       active = false;
     };
   }, []);
+
+  // Deduplicated effective recipients list combining parent props + synced cache
+  const effectiveRecipients = useMemo(() => {
+    const merged: WelfareRecipient[] = [];
+    const seenIds = new Set<string>();
+    const seenCccds = new Set<string>();
+
+    const pushUnique = (rec: WelfareRecipient) => {
+      if (!rec) return;
+      const cleanId = (rec.id || "").trim();
+      const cleanCccd = (rec.cccd || "").trim();
+      if (cleanId && seenIds.has(cleanId)) return;
+      if (cleanCccd && seenCccds.has(cleanCccd)) return;
+      if (cleanId) seenIds.add(cleanId);
+      if (cleanCccd) seenCccds.add(cleanCccd);
+      merged.push(rec);
+    };
+
+    recipients.forEach(pushUnique);
+    syncedExtraRecipients.forEach(pushUnique);
+    return merged;
+  }, [recipients, syncedExtraRecipients]);
 
   // Filter & Search States
   const [searchTerm, setSearchTerm] = useState("");
@@ -172,6 +220,119 @@ export default function SocialWelfare({
     }
     return { hasBhyt: false, code: "", label: "Chưa cập nhật BHYT" };
   };
+
+  const parseResidentBirthYear = (rawDate?: string): number | null => {
+    if (!rawDate) return null;
+    const match = String(rawDate).match(/\b(19\d{2}|20\d{2})\b/);
+    if (!match) return null;
+    const yr = Number(match[1]);
+    return yr >= 1900 && yr <= new Date().getFullYear() ? yr : null;
+  };
+
+  const getRecipientBirthYearLabel = (rec: WelfareRecipient): string => {
+    const directYr = parseResidentBirthYear(rec.birthDate);
+    if (directYr) return String(directYr);
+    const matched = residentByCccd.get((rec.cccd || "").trim());
+    const resYr = parseResidentBirthYear(matched?.birthDate);
+    if (resYr) return String(resYr);
+    return rec.birthDate || matched?.birthDate || "—";
+  };
+
+  // Real-time Demographic & Policy Reconciliation from CSDL Dân cư (residents)
+  const residentWelfareStats = useMemo(() => {
+    const currentYear = new Date().getFullYear();
+    const existingCccds = new Set(
+      effectiveRecipients.map(r => (r.cccd || "").trim()).filter(Boolean)
+    );
+    const seenSyncCccds = new Set<string>();
+
+    let seniors60Total = 0;
+    let seniors70Plus = 0;
+    let seniors80Plus = 0;
+    let seniors90Plus = 0;
+    let longevityMilestoneCount = 0;
+    let childrenUnder14 = 0;
+    let policyCount = 0;
+
+    const unsyncedCandidates: Array<{
+      resident: Resident;
+      age: number | null;
+      reasonTag: "senior90" | "senior80" | "longevity" | "policy";
+    }> = [];
+
+    const policyRegex = /thương binh|liệt sĩ|bệnh binh|người có công|mẹ việt nam|chất độc da cam|gia đình chính sách|hộ nghèo|cận nghèo|khuyết tật|bảo trợ xã hội|mồ côi|neo đơn/i;
+
+    residents.forEach((res) => {
+      const cccd = (res.cccd || "").trim();
+      const birthYr = parseResidentBirthYear(res.birthDate);
+      const age = birthYr !== null ? currentYear - birthYr : null;
+
+      const metaText = [
+        (res as any).notes,
+        (res as any).policyCategory,
+        (res as any).managementStatus,
+        res.occupation
+      ]
+        .filter(Boolean)
+        .join(" ");
+      const isPolicyResident = policyRegex.test(metaText);
+      if (isPolicyResident) {
+        policyCount += 1;
+      }
+
+      if (age !== null) {
+        if (age >= 0 && age < 14) {
+          childrenUnder14 += 1;
+        }
+        if (age >= 60) {
+          seniors60Total += 1;
+          if (age >= 70) seniors70Plus += 1;
+          if (age >= 80) seniors80Plus += 1;
+          if (age >= 90) seniors90Plus += 1;
+          if (age === 70 || age === 75 || age === 80 || age === 85 || age === 90 || age === 95 || age >= 100) {
+            longevityMilestoneCount += 1;
+          }
+        }
+      }
+
+      // Candidate for 1-click Welfare Sync: Age >= 80, Longevity Milestone (70, 75, 80, 85, 90+), or Policy Household
+      const isLongevityMilestone =
+        age !== null && (age === 70 || age === 75 || age === 80 || age === 85 || age === 90 || age === 95 || age >= 100);
+      const isSenior80 = age !== null && age >= 80;
+
+      if ((isSenior80 || isLongevityMilestone || isPolicyResident) && cccd && !existingCccds.has(cccd) && !seenSyncCccds.has(cccd)) {
+        seenSyncCccds.add(cccd);
+        unsyncedCandidates.push({
+          resident: res,
+          age,
+          reasonTag:
+            age !== null && age >= 90
+              ? "senior90"
+              : isSenior80
+                ? "senior80"
+                : isLongevityMilestone
+                  ? "longevity"
+                  : "policy"
+        });
+      }
+    });
+
+    const existingPolicyRecs = effectiveRecipients.filter(r =>
+      /người có công|chính sách|hộ nghèo|cận nghèo/i.test(r.category)
+    ).length;
+
+    return {
+      currentYear,
+      seniors60Total,
+      seniors70Plus,
+      seniors80Plus,
+      seniors90Plus,
+      longevityMilestoneCount,
+      childrenUnder14,
+      policyTotalCount: Math.max(policyCount, existingPolicyRecs),
+      unsyncedCandidates
+    };
+  }, [residents, effectiveRecipients]);
 
   // Modals
   const [showAddRecipientModal, setShowAddRecipientModal] = useState(false);
@@ -278,8 +439,14 @@ export default function SocialWelfare({
       return;
     }
 
+    const cleanCccd = recCccd.trim();
+    if (effectiveRecipients.some(r => (r.cccd || "").trim() === cleanCccd)) {
+      showToast(`Đối tượng có số CCCD ${cleanCccd} đã tồn tại trong danh sách thụ hưởng!`, "error");
+      return;
+    }
+
     const sub = subCategories.find(s => s.name === recCategory);
-    const newId = "WF" + (recipients.length + 1).toString().padStart(3, "0");
+    const newId = "WF" + (effectiveRecipients.length + 1).toString().padStart(3, "0");
 
     const newRec: WelfareRecipient = {
       id: newId,
@@ -287,7 +454,7 @@ export default function SocialWelfare({
       category: recCategory,
       subCategoryId: sub?.id,
       address: recAddress.trim(),
-      cccd: recCccd.trim(),
+      cccd: cleanCccd,
       phone: recPhone.trim() || undefined,
       supportLevel: recSupportLevel.trim(),
       status: "Chờ duyệt hồ sơ",
@@ -312,6 +479,116 @@ export default function SocialWelfare({
     setRecPhone("");
     setRecNotes("");
     setRecSelectedBenefits([]);
+  };
+
+  // 1-Click Sync Seniors (>=80t / Longevity) & Policy Households from Real Residents DB
+  const handleSyncResidentsToWelfare = () => {
+    if (residents.length === 0) {
+      showToast("Đang tải dữ liệu CSDL Dân cư, vui lòng thử lại sau giây lát.", "info");
+      return;
+    }
+    const candidates = residentWelfareStats.unsyncedCandidates;
+    if (candidates.length === 0) {
+      showToast("Toàn bộ đối tượng Người cao tuổi (≥80t / Mừng thọ) & Chính sách đã được đồng bộ đầy đủ (không trùng CCCD)!", "info");
+      return;
+    }
+
+    const seniorSub =
+      subCategories.find(s => /cao tuổi/i.test(s.name)) ||
+      subCategories[0];
+    const policySub =
+      subCategories.find(s => /người có công|chính sách/i.test(s.name)) ||
+      subCategories[0];
+    const poorSub =
+      subCategories.find(s => /hộ nghèo|cận nghèo/i.test(s.name)) ||
+      policySub;
+
+    const todayStr = new Date().toISOString().split("T")[0];
+    const baseIdx = effectiveRecipients.length;
+    const newlyCreated: WelfareRecipient[] = [];
+
+    candidates.forEach((item, idx) => {
+      const { resident, age, reasonTag } = item;
+      const metaLower = [
+        (resident as any).notes,
+        (resident as any).policyCategory,
+        (resident as any).managementStatus
+      ]
+        .filter(Boolean)
+        .join(" ")
+        .toLowerCase();
+
+      let targetSub = seniorSub;
+      let supportLevel = "1.000.000đ / tháng";
+      let benefits: string[] = [
+        "Trợ cấp xã hội Người cao tuổi hằng tháng (NĐ 20/2021/NĐ-CP)",
+        "Cấp thẻ BHYT miễn phí 100%",
+        "Chúc thọ, mừng thọ dịp Lễ / Tết Nguyên Đán"
+      ];
+      let noteDetail = "";
+
+      if (reasonTag === "senior90") {
+        supportLevel = "1.500.000đ / tháng";
+        noteDetail = `Cao niên đại thọ ${age} tuổi — đồng bộ từ CSDL Dân cư KP3.`;
+      } else if (reasonTag === "senior80") {
+        supportLevel = "1.000.000đ / tháng";
+        noteDetail = `Người cao tuổi ${age} tuổi (≥80t) hưởng trợ cấp bảo trợ xã hội & BHYT — đồng bộ từ CSDL Dân cư KP3.`;
+      } else if (reasonTag === "longevity") {
+        supportLevel = "1.000.000đ / đợt mừng thọ";
+        benefits = [
+          `Chúc thọ, mừng thọ tuổi ${age} năm ${residentWelfareStats.currentYear} (Luật Người cao tuổi)`,
+          "Thăm hỏi, tặng quà Tết Người cao tuổi Khu phố 3"
+        ];
+        noteDetail = `Đến tuổi mừng thọ tròn ${age} tuổi năm ${residentWelfareStats.currentYear} — đồng bộ từ CSDL Dân cư KP3.`;
+      } else {
+        const isPoor = /nghèo|cận nghèo|khó khăn/i.test(metaLower);
+        targetSub = isPoor ? poorSub : policySub;
+        supportLevel = isPoor ? "1.200.000đ / tháng" : "2.500.000đ / tháng";
+        benefits = targetSub?.standardBenefits?.length
+          ? [...targetSub.standardBenefits]
+          : ["Trợ cấp ưu đãi chính sách hằng tháng", "Cấp thẻ BHYT miễn phí 100%"];
+        noteDetail = `Hồ sơ diện chính sách đối soát từ CSDL Dân cư KP3.`;
+      }
+
+      const rec: WelfareRecipient = {
+        id: `WF-${String(baseIdx + idx + 1).padStart(3, "0")}`,
+        fullName: resident.fullName.trim(),
+        category: targetSub?.name || "Người cao tuổi neo đơn",
+        subCategoryId: targetSub?.id,
+        address: (resident.currentAddress || resident.address || "Khu phố 3, Phường An Phú").trim(),
+        cccd: resident.cccd.trim(),
+        phone: resident.phone && resident.phone !== "N/A" ? resident.phone.trim() : undefined,
+        supportLevel,
+        status: "Đang nhận trợ cấp",
+        notes: noteDetail,
+        benefits,
+        gender: resident.gender || undefined,
+        birthDate: resident.birthDate || undefined,
+        householdId: resident.householdId || undefined,
+        joinedDate: todayStr,
+        disbursedTotal: 0
+      };
+
+      newlyCreated.push(rec);
+    });
+
+    const nextSyncedCache = [...newlyCreated, ...syncedExtraRecipients];
+    const combinedAll = [...newlyCreated, ...effectiveRecipients];
+    setSyncedExtraRecipients(nextSyncedCache);
+    try {
+      localStorage.setItem("kp3_welfare_synced_extra_v1", JSON.stringify(nextSyncedCache));
+      localStorage.setItem(
+        "kp3_welfare_recipients",
+        JSON.stringify(combinedAll)
+      );
+    } catch {}
+    saveWelfareRecord("recipients", combinedAll);
+    newlyCreated.forEach((rec) => onAddRecipient(rec));
+
+    showToast(
+      `Đã đồng bộ ${newlyCreated.length} đối tượng Người cao tuổi (≥80t / Mừng thọ) & Chính sách từ CSDL Dân cư (đã khử trùng CCCD)!`,
+      "success"
+    );
   };
 
   // ================= FORM STATE: CREATE CUSTOM SUB-MODULE =================
@@ -371,7 +648,7 @@ export default function SocialWelfare({
   const handleDeleteSubCategory = (subId: string) => {
     const target = subCategories.find(s => s.id === subId);
     if (!target) return;
-    if (recipients.some(r => r.category === target.name)) {
+    if (effectiveRecipients.some(r => r.category === target.name)) {
       showToast(`Không thể xóa phân hệ "${target.name}" vì đang có đối tượng thụ hưởng!`, "error");
       return;
     }
@@ -388,17 +665,37 @@ export default function SocialWelfare({
   const [camLocation, setCamLocation] = useState("Nhà văn hóa Khu phố 3");
   const [camNotes, setCamNotes] = useState("");
 
+  const getCampaignTargetRecipients = (cam: WelfareCampaign): WelfareRecipient[] => {
+    if (Array.isArray(cam.recipientIds) && cam.recipientIds.length > 0) {
+      const idSet = new Set(cam.recipientIds);
+      const byIds = effectiveRecipients.filter(r => idSet.has(r.id));
+      if (byIds.length > 0) return byIds;
+    }
+    return effectiveRecipients.filter(r => cam.targetCategories.includes(r.category));
+  };
+
   const handleCreateCampaign = (e: React.FormEvent) => {
     e.preventDefault();
     if (!camTitle.trim()) {
       showToast("Vui lòng nhập tên chương trình / đợt hỗ trợ!", "error");
       return;
     }
+    if (camCategories.length === 0) {
+      showToast("Vui lòng chọn ít nhất 01 phân hệ đối tượng thụ hưởng!", "error");
+      return;
+    }
 
-    // Match recipients from selected categories
-    const matchingRecs = recipients.filter(r => camCategories.includes(r.category));
+    // Match real recipients from selected categories (never fabricate fake targetCount = 10)
+    const matchingRecs = effectiveRecipients.filter(r => camCategories.includes(r.category));
+    if (matchingRecs.length === 0) {
+      showToast(
+        "Phân hệ đã chọn hiện có 0 đối tượng thụ hưởng. Vui lòng bấm \"Đồng bộ Người cao tuổi & Chính sách từ CSDL Dân cư\" hoặc thêm đối tượng trước khi lập đợt!",
+        "error"
+      );
+      return;
+    }
     const recipientIds = matchingRecs.map(r => r.id);
-    const count = matchingRecs.length || 10;
+    const count = matchingRecs.length;
     const total = count * camCashAmount;
 
     const newCampaign: WelfareCampaign = {
@@ -422,7 +719,7 @@ export default function SocialWelfare({
     const updated = [newCampaign, ...campaigns];
     updateCampaigns(updated);
     setShowAddCampaignModal(false);
-    showToast(`Đã lập đề xuất đợt hỗ trợ "${newCampaign.title}" thành công!`, "success");
+    showToast(`Đã lập đề xuất đợt hỗ trợ "${newCampaign.title}" (${count} đối tượng thực tế) thành công!`, "success");
 
     // Reset Form
     setCamTitle("");
@@ -440,6 +737,17 @@ export default function SocialWelfare({
   };
 
   // ================= FORM STATE: IMMEDIATE EMERGENCY SUPPORT =================
+  const liveWelfareLeaders = useMemo(
+    () => extractKeyLeadersSummary(getStoredAssociations()),
+    [recipients.length]
+  );
+  const defaultEmgApprover = `${liveWelfareLeaders.neighborhoodHead.name} (${liveWelfareLeaders.neighborhoodHead.role})`;
+  const defaultEmgDisburser = liveWelfareLeaders.neighborhoodDeputy
+    ? `${liveWelfareLeaders.neighborhoodDeputy.name} (${liveWelfareLeaders.neighborhoodDeputy.role})`
+    : liveWelfareLeaders.frontHead
+    ? `${liveWelfareLeaders.frontHead.name} (${liveWelfareLeaders.frontHead.role})`
+    : `${liveWelfareLeaders.partySecretary.name} (Bí thư Chi bộ)`;
+
   const [emgRecipientId, setEmgRecipientId] = useState("");
   const [emgRecipientName, setEmgRecipientName] = useState("");
   const [emgCccd, setEmgCccd] = useState("");
@@ -448,8 +756,8 @@ export default function SocialWelfare({
   const [emgAmount, setEmgAmount] = useState<number>(3000000);
   const [emgGiftItems, setEmgGiftItems] = useState("Túi thuốc men khẩn cấp + 25kg Gạo");
   const [emgReason, setEmgReason] = useState("");
-  const [emgApprover, setEmgApprover] = useState("Nguyễn Trung Huy (Trưởng ban ĐHKP)");
-  const [emgDisbursedBy, setEmgDisbursedBy] = useState("Lê Văn Sơn (Phó Ban điều hành)");
+  const [emgApprover, setEmgApprover] = useState(() => defaultEmgApprover);
+  const [emgDisbursedBy, setEmgDisbursedBy] = useState(() => defaultEmgDisburser);
   const [emgFundingSource, setEmgFundingSource] = useState("Quỹ Cứu trợ khẩn cấp & Tương thân tương ái KP3");
   const [emgNotes, setEmgNotes] = useState("");
 
@@ -512,6 +820,9 @@ export default function SocialWelfare({
 
   // Add Custom Benefit to Selected Recipient
   const [newCustomBenefitName, setNewCustomBenefitName] = useState("");
+  const [campaignSearchQuery, setCampaignSearchQuery] = useState("");
+  const [campaignModalMemberSearch, setCampaignModalMemberSearch] = useState("");
+  const [emergencySearchQuery, setEmergencySearchQuery] = useState("");
   const handleAddBenefitToSelected = () => {
     if (!selectedRecipient || !newCustomBenefitName.trim()) return;
     const currentBenefits = selectedRecipient.benefits || [];
@@ -521,8 +832,12 @@ export default function SocialWelfare({
     setSelectedRecipient(updatedRec);
 
     // Update in recipients list
-    const updatedList = recipients.map(r => r.id === selectedRecipient.id ? updatedRec : r);
+    const updatedList = effectiveRecipients.map(r => r.id === selectedRecipient.id ? updatedRec : r);
+    const nextExtra = syncedExtraRecipients.map(r => r.id === selectedRecipient.id ? updatedRec : r);
+    setSyncedExtraRecipients(nextExtra);
+    saveWelfareRecord("recipients", updatedList);
     try {
+      localStorage.setItem("kp3_welfare_synced_extra_v1", JSON.stringify(nextExtra));
       localStorage.setItem("kp3_welfare_recipients", JSON.stringify(updatedList));
     } catch { }
     if (onUpdateRecipient) onUpdateRecipient(updatedRec);
@@ -535,8 +850,12 @@ export default function SocialWelfare({
     const updatedBenefits = (selectedRecipient.benefits || []).filter(b => b !== benefitText);
     const updatedRec = { ...selectedRecipient, benefits: updatedBenefits };
     setSelectedRecipient(updatedRec);
-    const updatedList = recipients.map(r => r.id === selectedRecipient.id ? updatedRec : r);
+    const updatedList = effectiveRecipients.map(r => r.id === selectedRecipient.id ? updatedRec : r);
+    const nextExtra = syncedExtraRecipients.map(r => r.id === selectedRecipient.id ? updatedRec : r);
+    setSyncedExtraRecipients(nextExtra);
+    saveWelfareRecord("recipients", updatedList);
     try {
+      localStorage.setItem("kp3_welfare_synced_extra_v1", JSON.stringify(nextExtra));
       localStorage.setItem("kp3_welfare_recipients", JSON.stringify(updatedList));
     } catch { }
     if (onUpdateRecipient) onUpdateRecipient(updatedRec);
@@ -544,6 +863,15 @@ export default function SocialWelfare({
 
   // Execute Recipient Deletion
   const executeDeleteRecipient = (id: string) => {
+    const nextExtra = syncedExtraRecipients.filter(r => r.id !== id);
+    const remainingAll = effectiveRecipients.filter(r => r.id !== id);
+    if (nextExtra.length !== syncedExtraRecipients.length) {
+      setSyncedExtraRecipients(nextExtra);
+      try {
+        localStorage.setItem("kp3_welfare_synced_extra_v1", JSON.stringify(nextExtra));
+      } catch {}
+    }
+    saveWelfareRecord("recipients", remainingAll);
     onDeleteRecipient(id);
     showToast("Đã xóa đối tượng khỏi danh sách trợ cấp thành công!", "info");
     setRecipientToDelete(null);
@@ -597,6 +925,14 @@ export default function SocialWelfare({
       benefits: editBenefits,
       notes: editNotes.trim() || undefined
     };
+
+    const nextExtra = syncedExtraRecipients.map(r => r.id === updated.id ? updated : r);
+    const nextAll = effectiveRecipients.map(r => r.id === updated.id ? updated : r);
+    setSyncedExtraRecipients(nextExtra);
+    saveWelfareRecord("recipients", nextAll);
+    try {
+      localStorage.setItem("kp3_welfare_synced_extra_v1", JSON.stringify(nextExtra));
+    } catch {}
 
     if (onUpdateRecipient) {
       onUpdateRecipient(updated);
@@ -663,12 +999,16 @@ export default function SocialWelfare({
 
     // If name changed, synchronize recipients whose category was oldName
     if (oldName !== newName) {
-      recipients.forEach(r => {
+      effectiveRecipients.forEach(r => {
         if (r.category === oldName) {
           const updatedRec = { ...r, category: newName };
           if (onUpdateRecipient) onUpdateRecipient(updatedRec);
         }
       });
+      const nextExtra = syncedExtraRecipients.map(r => r.category === oldName ? { ...r, category: newName } : r);
+      const nextAll = effectiveRecipients.map(r => r.category === oldName ? { ...r, category: newName } : r);
+      setSyncedExtraRecipients(nextExtra);
+      saveWelfareRecord("recipients", nextAll);
       if (selectedRecipient && selectedRecipient.category === oldName) {
         setSelectedRecipient({ ...selectedRecipient, category: newName });
       }
@@ -679,7 +1019,7 @@ export default function SocialWelfare({
   };
 
   const handleConfirmDeleteSubCategory = (sub: WelfareSubCategory, reassignTarget?: string) => {
-    const affectedRecipients = recipients.filter(r => r.category === sub.name);
+    const affectedRecipients = effectiveRecipients.filter(r => r.category === sub.name);
     if (affectedRecipients.length > 0) {
       if (!reassignTarget) {
         showToast(`Vui lòng chọn phân hệ mới để chuyển ${affectedRecipients.length} đối tượng!`, "error");
@@ -689,6 +1029,10 @@ export default function SocialWelfare({
         const updatedRec = { ...r, category: reassignTarget };
         if (onUpdateRecipient) onUpdateRecipient(updatedRec);
       });
+      const nextExtra = syncedExtraRecipients.map(r => r.category === sub.name ? { ...r, category: reassignTarget } : r);
+      const nextAll = effectiveRecipients.map(r => r.category === sub.name ? { ...r, category: reassignTarget } : r);
+      setSyncedExtraRecipients(nextExtra);
+      saveWelfareRecord("recipients", nextAll);
       showToast(`Đã chuyển giao ${affectedRecipients.length} đối tượng sang phân hệ "${reassignTarget}".`, "info");
     }
 
@@ -698,9 +1042,265 @@ export default function SocialWelfare({
     showToast(`Đã xóa phân hệ an sinh "${sub.name}" thành công!`, "success");
   };
 
+  // Export Sign-sheet Excel (.xlsx)
+  const handleExportSignSheetXlsx = (
+    list: WelfareRecipient[],
+    options: {
+      title: string;
+      amountOverride?: string;
+      filenamePrefix?: string;
+    }
+  ) => {
+    if (list.length === 0) {
+      showToast("Danh sách hiện đang trống, chưa có đối tượng để xuất Excel!", "error");
+      return;
+    }
+
+    const rows = list.map((rec, idx) => ({
+      "STT": idx + 1,
+      "Họ và tên": rec.fullName,
+      "Năm sinh": getRecipientBirthYearLabel(rec),
+      "Số CCCD": rec.cccd || "",
+      "Địa chỉ": rec.address || "",
+      "Diện chính sách": rec.category || "",
+      "Mức quà/tiền": options.amountOverride || rec.supportLevel || "",
+      "Ký và ghi rõ họ tên": ""
+    }));
+
+    const ws = XLSX.utils.json_to_sheet(rows);
+    ws["!cols"] = [
+      { wch: 6 },
+      { wch: 26 },
+      { wch: 11 },
+      { wch: 16 },
+      { wch: 36 },
+      { wch: 22 },
+      { wch: 24 },
+      { wch: 24 }
+    ];
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "DS_KyNhan_KP3");
+    const dateTag = new Date().toISOString().slice(0, 10);
+    const safePrefix = (options.filenamePrefix || "DS_KyNhan_AnSinh_KP3")
+      .replace(/[^a-zA-Z0-9_-]/g, "_");
+    XLSX.writeFile(wb, `${safePrefix}_${dateTag}.xlsx`);
+    showToast(`Đã xuất tệp Excel danh sách ký nhận (${list.length} đối tượng)!`, "success");
+  };
+
+  // Print A4 Sign-sheet (Quốc hiệu – Tiêu ngữ chuẩn hành chính)
+  const handlePrintSignSheetA4 = (
+    list: WelfareRecipient[],
+    options: {
+      title: string;
+      subtitle?: string;
+      amountOverride?: string;
+      totalSummary?: string;
+    }
+  ) => {
+    if (list.length === 0) {
+      showToast("Danh sách hiện đang trống, chưa có đối tượng để in!", "error");
+      return;
+    }
+
+    const printWin = window.open("", "_blank", "width=1050,height=820");
+    if (!printWin) {
+      showToast("Trình duyệt đang chặn cửa sổ bật lên. Vui lòng cho phép mở tab in!", "error");
+      return;
+    }
+
+    const escapeHtml = (val: string) =>
+      String(val || "")
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;");
+
+    const now = new Date();
+    const dayStr = String(now.getDate()).padStart(2, "0");
+    const monthStr = String(now.getMonth() + 1).padStart(2, "0");
+    const yearStr = String(now.getFullYear());
+
+    const tableRowsHtml = list
+      .map(
+        (rec, idx) => `
+        <tr>
+          <td style="text-align:center;">${idx + 1}</td>
+          <td style="font-weight:bold;">${escapeHtml(rec.fullName)}</td>
+          <td style="text-align:center;">${escapeHtml(getRecipientBirthYearLabel(rec))}</td>
+          <td style="text-align:center;font-family:'Courier New',monospace;">${escapeHtml(rec.cccd)}</td>
+          <td>${escapeHtml(rec.address)}</td>
+          <td style="text-align:right;font-weight:bold;">${escapeHtml(options.amountOverride || rec.supportLevel)}</td>
+          <td style="height:42px;"></td>
+        </tr>`
+      )
+      .join("");
+
+    const htmlDoc = `<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8" />
+  <title>${escapeHtml(options.title)}</title>
+  <style>
+    @page { size: A4 portrait; margin: 15mm 12mm 15mm 18mm; }
+    body {
+      font-family: "Times New Roman", Times, serif;
+      font-size: 12.5pt;
+      color: #000;
+      margin: 0;
+      padding: 0;
+      line-height: 1.35;
+    }
+    .gov-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      margin-bottom: 16px;
+    }
+    .gov-org, .gov-motto {
+      text-align: center;
+    }
+    .gov-org .upper { font-size: 11.5pt; text-transform: uppercase; }
+    .gov-org .bold { font-size: 11.5pt; font-weight: bold; text-transform: uppercase; }
+    .gov-motto .country { font-size: 12pt; font-weight: bold; text-transform: uppercase; }
+    .gov-motto .motto { font-size: 12.5pt; font-weight: bold; }
+    .underline-bar {
+      width: 130px;
+      border-bottom: 1px solid #000;
+      margin: 3px auto 0;
+    }
+    .doc-title {
+      text-align: center;
+      margin: 14px 0 12px;
+    }
+    .doc-title h1 {
+      font-size: 14pt;
+      font-weight: bold;
+      text-transform: uppercase;
+      margin: 0 0 4px;
+    }
+    .doc-title p {
+      font-size: 12pt;
+      font-style: italic;
+      margin: 2px 0;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 11.5pt;
+      margin-top: 8px;
+    }
+    th, td {
+      border: 1px solid #000;
+      padding: 6px 6px;
+      vertical-align: middle;
+    }
+    th {
+      background: #f8fafc;
+      font-weight: bold;
+      text-align: center;
+    }
+    tr { page-break-inside: avoid; }
+    .summary-line {
+      margin-top: 10px;
+      font-size: 12pt;
+      font-weight: bold;
+    }
+    .date-line {
+      text-align: right;
+      font-style: italic;
+      margin-top: 12px;
+      margin-bottom: 6px;
+    }
+    .signatures {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 12px;
+      text-align: center;
+      margin-top: 8px;
+      page-break-inside: avoid;
+    }
+    .sig-role { font-weight: bold; text-transform: uppercase; font-size: 11.5pt; }
+    .sig-sub { font-style: italic; font-size: 11pt; }
+    .sig-name { margin-top: 64px; font-weight: bold; font-size: 12pt; }
+  </style>
+</head>
+<body>
+  <div class="gov-header">
+    <div class="gov-org">
+      <div class="upper">UBND PHƯỜNG AN PHÚ</div>
+      <div class="bold">BAN ĐIỀU HÀNH KHU PHỐ 3</div>
+      <div class="underline-bar" style="width:90px;"></div>
+    </div>
+    <div class="gov-motto">
+      <div class="country">CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM</div>
+      <div class="motto">Độc lập - Tự do - Hạnh phúc</div>
+      <div class="underline-bar" style="width:160px;"></div>
+    </div>
+  </div>
+
+  <div class="doc-title">
+    <h1>${escapeHtml(options.title)}</h1>
+    ${options.subtitle ? `<p>${escapeHtml(options.subtitle)}</p>` : `<p>Địa bàn: Khu phố 3, Phường An Phú, Thành phố Hồ Chí Minh</p>`}
+  </div>
+
+  <table>
+    <thead>
+      <tr>
+        <th style="width:38px;">STT</th>
+        <th style="width:145px;">Họ và tên</th>
+        <th style="width:65px;">Năm sinh</th>
+        <th style="width:105px;">Số CCCD</th>
+        <th>Địa chỉ</th>
+        <th style="width:115px;">Mức quà/tiền</th>
+        <th style="width:125px;">Ký và ghi rõ họ tên</th>
+      </tr>
+    </thead>
+    <tbody>
+      ${tableRowsHtml}
+    </tbody>
+  </table>
+
+  <div class="summary-line">
+    Danh sách ấn định gồm: ${list.length} người thụ hưởng.${options.totalSummary ? ` ${escapeHtml(options.totalSummary)}` : ""}
+  </div>
+
+  <div class="date-line">
+    An Phú, ngày ${dayStr} tháng ${monthStr} năm ${yearStr}
+  </div>
+
+  <div class="signatures">
+    <div>
+      <div class="sig-role">NGƯỜI LẬP BIỂU</div>
+      <div class="sig-sub">(Ký, ghi rõ họ tên)</div>
+      <div class="sig-name">&nbsp;</div>
+    </div>
+    <div>
+      <div class="sig-role">TRƯỞNG KHU PHỐ 3</div>
+      <div class="sig-sub">(Ký, xác nhận)</div>
+      <div class="sig-name">${escapeHtml(liveWelfareLeaders.neighborhoodHead.name)}</div>
+    </div>
+    <div>
+      <div class="sig-role">BÍ THƯ CHI BỘ KP3</div>
+      <div class="sig-sub">(Ký, phê duyệt)</div>
+      <div class="sig-name">${escapeHtml(liveWelfareLeaders.partySecretary.name)}</div>
+    </div>
+  </div>
+  <script>
+    window.onload = function() {
+      setTimeout(function() { window.focus(); window.print(); }, 250);
+    };
+  </script>
+</body>
+</html>`;
+
+    printWin.document.open();
+    printWin.document.write(htmlDoc);
+    printWin.document.close();
+  };
+
   // Filter Recipients
   const filteredRecipients = useMemo(() => {
-    return recipients.filter(r => {
+    return effectiveRecipients.filter(r => {
       const q = searchTerm.toLowerCase().trim();
       const matchSearch = !q ||
         r.fullName.toLowerCase().includes(q) ||
@@ -715,7 +1315,7 @@ export default function SocialWelfare({
 
       return matchSearch && matchCategory && matchStatus && matchTo;
     });
-  }, [recipients, searchTerm, selectedCategoryPill, statusFilter, toFilter]);
+  }, [effectiveRecipients, searchTerm, selectedCategoryPill, statusFilter, toFilter]);
 
   // Pagination
   const totalItems = filteredRecipients.length;
@@ -726,9 +1326,9 @@ export default function SocialWelfare({
 
   // Overall KPI Metrics
   const kpiData = useMemo(() => {
-    const totalRecs = recipients.length;
-    const activeRecs = recipients.filter(r => r.status === "Đang nhận trợ cấp").length;
-    const pendingRecs = recipients.filter(r => r.status === "Chờ duyệt hồ sơ").length;
+    const totalRecs = effectiveRecipients.length;
+    const activeRecs = effectiveRecipients.filter(r => r.status === "Đang nhận trợ cấp").length;
+    const pendingRecs = effectiveRecipients.filter(r => r.status === "Chờ duyệt hồ sơ").length;
     const totalCampaigns = campaigns.length;
     const totalEmergency = emergencyRecords.reduce((sum, r) => sum + r.amount, 0);
 
@@ -739,7 +1339,7 @@ export default function SocialWelfare({
       totalCampaigns,
       totalEmergency
     };
-  }, [recipients, campaigns, emergencyRecords]);
+  }, [effectiveRecipients, campaigns, emergencyRecords]);
 
   // Sub-Category Helper for Badges & Colors
   const getSubCategoryBadge = (catName: string) => {
@@ -778,7 +1378,7 @@ export default function SocialWelfare({
         badgeSubtext="NGHỊ ĐỊNH 20/2021/NĐ-CP & ĐỀ ÁN AN SINH"
         title="An Sinh Xã Hội"
         actions={
-          <div className="flex flex-wrap items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2 shrink-0">
             <button
               id="btn-add-welfare-recipient"
               type="button"
@@ -786,7 +1386,7 @@ export default function SocialWelfare({
                 setShowAddRecipientModal(true);
                 handleCategorySelectChange("Người có công");
               }}
-              className="flex items-center gap-1.5 bg-rose-600 hover:bg-rose-700 text-white px-3.5 py-2 rounded-xl font-bold text-xs shadow-xs cursor-pointer transition-colors"
+              className="flex items-center gap-1.5 bg-emerald-700 hover:bg-emerald-800 text-white px-3 py-2 rounded-xl font-bold text-xs shadow-xs cursor-pointer transition-colors whitespace-nowrap shrink-0"
             >
               <Plus size={14} /> Thêm đối tượng thụ hưởng
             </button>
@@ -803,7 +1403,7 @@ export default function SocialWelfare({
                 setEmgReason("Hỗ trợ khẩn cấp đột xuất cho trường hợp khó khăn cấp bách");
                 setShowEmergencyModal(true);
               }}
-              className="flex items-center gap-1.5 bg-white hover:bg-amber-50 text-amber-800 border border-amber-300 px-3.5 py-2 rounded-xl font-bold text-xs shadow-xs cursor-pointer transition-colors"
+              className="flex items-center gap-1.5 bg-white hover:bg-amber-50 text-amber-800 border border-amber-300 px-3 py-2 rounded-xl font-bold text-xs shadow-xs cursor-pointer transition-colors whitespace-nowrap shrink-0"
             >
               <Zap size={14} className="text-amber-600" /> Hỗ trợ khẩn cấp
             </button>
@@ -811,45 +1411,124 @@ export default function SocialWelfare({
         }
       />
 
-      {/* 4 StatCards: Responsive & Actionable Metrics */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+      {/* 4 StatCards */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3 sm:gap-4">
         <StatCard
           label="Đối tượng thụ hưởng"
           value={kpiData.totalRecs}
           badge={`${kpiData.activeRecs} đang hưởng`}
-          highlighted={true}
+          highlighted={activeTab === "recipients"}
           icon={Heart}
           color="rose"
-          subtext="Toàn bộ đối tượng bảo trợ cơ sở"
-          subtextRight="Hồ sơ số hóa"
+          onClick={() => setActiveTab("recipients")}
         />
         <StatCard
           label="Phân hệ an sinh con"
           value={subCategories.length}
           badge="nhóm đối tượng"
+          highlighted={activeTab === "submodules"}
           icon={Tag}
           color="indigo"
-          subtext="Người có công, Hộ nghèo, Trẻ em..."
-          subtextRight="Phân loại chuẩn"
+          onClick={() => setActiveTab("submodules")}
         />
         <StatCard
           label="Đợt hỗ trợ & Trao quà"
           value={kpiData.totalCampaigns}
           badge="chương trình"
+          highlighted={activeTab === "campaigns"}
           icon={Gift}
           color="emerald"
-          subtext="Tết Nguyên Đán, gạo Quý, học bổng"
-          subtextRight="Kế hoạch năm"
+          onClick={() => setActiveTab("campaigns")}
         />
         <StatCard
           label="Cứu trợ khẩn cấp đã chi"
           value={formatVNNumber(kpiData.totalEmergency)}
           badge="VNĐ"
+          highlighted={activeTab === "emergency"}
           icon={Zap}
           color="amber"
-          subtext="Hỗ trợ ngay tai nạn, tang tế, viện phí"
-          subtextRight="Giải ngân nóng"
+          onClick={() => setActiveTab("emergency")}
         />
+      </div>
+
+      {/* Smart Resident DB Reconciliation & 1-Click Sync Banner */}
+      <div className="bg-white rounded-2xl border border-emerald-200 p-4 sm:p-5 shadow-xs flex flex-col xl:flex-row xl:items-center justify-between gap-4">
+        <div className="space-y-2 min-w-0 flex-1">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="inline-flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200">
+              <Sparkles size={12} className="text-emerald-700" /> Đối soát tự động CSDL Dân cư KP3 ({formatVNNumber(residents.length)} nhân khẩu)
+            </span>
+            {residentWelfareStats.unsyncedCandidates.length > 0 ? (
+              <span className="text-xs font-bold px-2.5 py-0.5 rounded-full bg-amber-50 text-amber-800 border border-amber-200">
+                Phát hiện {formatVNNumber(residentWelfareStats.unsyncedCandidates.length)} hồ sơ đủ tiêu chuẩn chưa lập sổ an sinh
+              </span>
+            ) : residents.length > 0 ? (
+              <span className="text-xs font-bold px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200">
+                ✓ Đã đồng bộ khử trùng CCCD
+              </span>
+            ) : null}
+          </div>
+
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 text-xs text-slate-700">
+            <span>
+              Người cao tuổi (≥60t):{" "}
+              <strong className="font-mono font-bold text-slate-900">
+                {formatVNNumber(residentWelfareStats.seniors60Total)} người
+              </strong>
+            </span>
+            <span className="text-slate-300 hidden sm:inline">•</span>
+            <span>
+              Cao niên / Mừng thọ:{" "}
+              <strong className="font-mono text-indigo-800">
+                ≥70t ({formatVNNumber(residentWelfareStats.seniors70Plus)})
+              </strong>
+              {" | "}
+              <strong className="font-mono text-rose-700">
+                ≥80t ({formatVNNumber(residentWelfareStats.seniors80Plus)})
+              </strong>
+              {" | "}
+              <strong className="font-mono text-emerald-800">
+                ≥90t ({formatVNNumber(residentWelfareStats.seniors90Plus)})
+              </strong>
+              {" • "}
+              Đúng tuổi mừng thọ năm {residentWelfareStats.currentYear}:{" "}
+              <strong className="font-mono text-amber-800">
+                {formatVNNumber(residentWelfareStats.longevityMilestoneCount)} cụ
+              </strong>
+            </span>
+            <span className="text-slate-300 hidden sm:inline">•</span>
+            <span>
+              Trẻ em (&lt;14t):{" "}
+              <strong className="font-mono text-slate-900">
+                {formatVNNumber(residentWelfareStats.childrenUnder14)} em
+              </strong>
+            </span>
+            <span className="text-slate-300 hidden sm:inline">•</span>
+            <span>
+              Hộ chính sách:{" "}
+              <strong className="font-mono text-rose-700">
+                {formatVNNumber(residentWelfareStats.policyTotalCount)} hồ sơ
+              </strong>
+            </span>
+          </div>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-2 shrink-0">
+          <button
+            id="btn-sync-senior-policy-residents"
+            type="button"
+            onClick={handleSyncResidentsToWelfare}
+            className="px-3.5 py-2.5 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-bold inline-flex items-center gap-1.5 shadow-xs cursor-pointer transition-colors"
+          >
+            <RefreshCw size={14} className="shrink-0" />
+            <span>
+              Đồng bộ Người cao tuổi (≥80t / Mừng thọ) &amp; Chính sách từ CSDL Dân cư
+              {residentWelfareStats.unsyncedCandidates.length > 0
+                ? ` (+${residentWelfareStats.unsyncedCandidates.length})`
+                : ""}
+            </span>
+          </button>
+        </div>
       </div>
 
       {/* Sub-tab Navigation Bar */}
@@ -858,12 +1537,12 @@ export default function SocialWelfare({
           type="button"
           onClick={() => setActiveTab("recipients")}
           className={`min-h-[40px] px-3 py-2 rounded-xl text-xs font-bold transition-colors cursor-pointer flex items-center justify-center gap-2 whitespace-nowrap ${activeTab === "recipients"
-            ? "bg-white text-rose-800 border border-slate-200"
+            ? "bg-white text-emerald-800 border border-slate-200"
             : "text-slate-700 hover:text-slate-900 hover:bg-white/60"
             }`}
         >
-          <Users size={14} className={activeTab === "recipients" ? "text-rose-700" : "text-slate-600"} />
-          <span>Đối tượng thụ hưởng ({recipients.length})</span>
+          <Users size={14} className={activeTab === "recipients" ? "text-emerald-700" : "text-slate-600"} />
+          <span>Đối tượng thụ hưởng ({effectiveRecipients.length})</span>
         </button>
 
         <button
@@ -914,22 +1593,22 @@ export default function SocialWelfare({
               type="button"
               onClick={() => { setSelectedCategoryPill("all"); setCurrentPage(1); }}
               className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer border ${selectedCategoryPill === "all"
-                ? "bg-rose-600 text-white border-rose-600 shadow-xs"
+                ? "bg-emerald-700 text-white border-emerald-700 shadow-xs"
                 : "bg-white text-slate-700 border-slate-200 hover:bg-slate-50"
                 }`}
             >
-              Tất cả phân hệ ({recipients.length})
+              Tất cả phân hệ ({effectiveRecipients.length})
             </button>
             {subCategories.map(sub => {
-              const count = recipients.filter(r => r.category === sub.name).length;
+              const count = effectiveRecipients.filter(r => r.category === sub.name).length;
               return (
                 <button
                   key={sub.id}
                   type="button"
                   onClick={() => { setSelectedCategoryPill(sub.name); setCurrentPage(1); }}
                   className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer border flex items-center gap-1.5 ${selectedCategoryPill === sub.name
-                    ? "bg-rose-600 text-white border-rose-600 shadow-xs"
-                    : "bg-white text-slate-700 border-slate-200 hover:bg-rose-50/50"
+                    ? "bg-emerald-700 text-white border-emerald-700 shadow-xs"
+                    : "bg-white text-slate-700 border-slate-200 hover:bg-emerald-50/50"
                     }`}
                 >
                   <span>{sub.name}</span>
@@ -985,8 +1664,47 @@ export default function SocialWelfare({
                 />
               </div>
 
+              {/* Sign-sheet Export & A4 Print */}
+              <button
+                type="button"
+                onClick={() =>
+                  handleExportSignSheetXlsx(filteredRecipients, {
+                    title: "Danh sách ký nhận tiền / quà an sinh Khu phố 3",
+                    filenamePrefix:
+                      selectedCategoryPill === "all"
+                        ? "DS_KyNhan_AnSinh_KP3"
+                        : `DS_KyNhan_${selectedCategoryPill}`
+                  })
+                }
+                className="px-3 py-2 rounded-xl border border-emerald-200 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 text-xs font-bold inline-flex items-center gap-1.5 cursor-pointer transition-colors whitespace-nowrap shrink-0"
+                title="Xuất danh sách ký nhận tiền/quà ra tệp Excel (.xlsx)"
+              >
+                <FileSpreadsheet size={14} className="text-emerald-700 shrink-0" />
+                <span>Xuất DS Ký nhận (.xlsx)</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() =>
+                  handlePrintSignSheetA4(filteredRecipients, {
+                    title:
+                      selectedCategoryPill === "all"
+                        ? "DANH SÁCH KÝ NHẬN TIỀN / QUÀ HỖ TRỢ AN SINH XÃ HỘI"
+                        : `DANH SÁCH KÝ NHẬN TIỀN / QUÀ — ${selectedCategoryPill.toUpperCase()}`,
+                    subtitle: `Địa bàn: Khu phố 3, Phường An Phú, TP. Hồ Chí Minh • Phân hệ: ${
+                      selectedCategoryPill === "all" ? "Toàn bộ đối tượng" : selectedCategoryPill
+                    }`
+                  })
+                }
+                className="px-3 py-2 rounded-xl border border-slate-300 bg-white hover:bg-slate-50 text-slate-800 text-xs font-bold inline-flex items-center gap-1.5 cursor-pointer transition-colors whitespace-nowrap shrink-0"
+                title="In danh sách ký nhận tiền/quà khổ A4 chuẩn Quốc hiệu – Tiêu ngữ"
+              >
+                <Printer size={14} className="text-slate-700 shrink-0" />
+                <span>In Danh sách Ký nhận A4</span>
+              </button>
+
               {/* View mode toggle */}
-              <div className="flex items-center border border-slate-200 rounded-xl p-0.5 bg-slate-100 gap-0.5">
+              <div className="flex items-center border border-slate-200 rounded-xl p-0.5 bg-slate-100 gap-0.5 shrink-0">
                 <button
                   type="button"
                   onClick={() => setViewMode("card")}
@@ -1011,10 +1729,62 @@ export default function SocialWelfare({
 
           {/* Cards Grid or Table View */}
           {viewMode === "card" ? (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-3 2xl:grid-cols-4 gap-4">
               {paginatedRecipients.length === 0 ? (
-                <div className="col-span-full bg-white rounded-2xl border border-slate-200 p-12 text-center text-sm text-slate-600">
-                  Không tìm thấy thông tin đối tượng chính sách phù hợp bộ lọc.
+                <div className="col-span-full bg-white rounded-2xl border border-slate-200 p-10 sm:p-12 text-center space-y-3">
+                  <div className="w-12 h-12 rounded-2xl bg-emerald-50 text-emerald-700 border border-emerald-200/80 flex items-center justify-center mx-auto">
+                    <Heart size={22} />
+                  </div>
+                  {effectiveRecipients.length === 0 ? (
+                    <>
+                      <div className="text-sm font-bold text-slate-900">
+                        Chưa có hồ sơ đối tượng chính sách nào được khởi tạo
+                      </div>
+                      <div className="flex flex-wrap items-center justify-center gap-2 pt-1">
+                        {residents.length > 0 && (
+                          <button
+                            type="button"
+                            onClick={handleSyncResidentsToWelfare}
+                            className="inline-flex items-center gap-1.5 bg-emerald-700 hover:bg-emerald-800 text-white px-4 py-2 rounded-xl font-bold text-xs shadow-xs cursor-pointer transition-colors"
+                          >
+                            <RefreshCw size={14} /> Đồng bộ từ CSDL Dân cư ({residentWelfareStats.unsyncedCandidates.length})
+                          </button>
+                        )}
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setShowAddRecipientModal(true);
+                            handleCategorySelectChange("Người có công");
+                          }}
+                          className="inline-flex items-center gap-1.5 bg-white hover:bg-slate-50 text-slate-800 border border-slate-300 px-4 py-2 rounded-xl font-bold text-xs shadow-xs cursor-pointer transition-colors"
+                        >
+                          <Plus size={14} /> Thêm đối tượng thủ công
+                        </button>
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <div className="text-sm font-bold text-slate-900">
+                        Không tìm thấy đối tượng phù hợp bộ lọc
+                      </div>
+                      <p className="text-xs text-slate-500 max-w-md mx-auto">
+                        Thử điều chỉnh từ khóa tìm kiếm hoặc đặt lại bộ lọc phân hệ / trạng thái trợ cấp.
+                      </p>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setSearchTerm("");
+                          setSelectedCategoryPill("all");
+                          setToFilter("all");
+                          setStatusFilter("all");
+                          setCurrentPage(1);
+                        }}
+                        className="text-xs font-bold text-emerald-700 hover:underline cursor-pointer"
+                      >
+                        Đặt lại bộ lọc
+                      </button>
+                    </>
+                  )}
                 </div>
               ) : (
                 paginatedRecipients.map(rec => {
@@ -1028,7 +1798,18 @@ export default function SocialWelfare({
                   return (
                     <div
                       key={rec.id}
-                      className="bg-white rounded-2xl border border-slate-200/90 hover:border-rose-300 p-4 hover:shadow-md transition-all flex flex-col justify-between space-y-3 group"
+                      role="button"
+                      tabIndex={0}
+                      aria-label={`Xem chi tiết hồ sơ an sinh ${rec.fullName}`}
+                      onClick={() => setSelectedRecipient(rec)}
+                      onKeyDown={(e) => {
+                        if (e.target !== e.currentTarget) return;
+                        if (e.key === "Enter" || e.key === " ") {
+                          e.preventDefault();
+                          setSelectedRecipient(rec);
+                        }
+                      }}
+                      className="bg-white rounded-2xl border border-slate-200/90 hover:border-rose-400 p-4 hover:shadow-md transition-all flex flex-col justify-between space-y-3 group cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-500"
                     >
                       <div className="space-y-2">
                         <div className="flex flex-wrap justify-between items-start gap-1.5">
@@ -1087,7 +1868,10 @@ export default function SocialWelfare({
                         </div>
 
                         {/* Card Action Buttons */}
-                        <div className="flex items-center justify-between gap-1 pt-1">
+                        <div
+                          onClick={(e) => e.stopPropagation()}
+                          className="flex items-center justify-between gap-1 pt-1"
+                        >
                           <button
                             type="button"
                             onClick={() => setSelectedRecipient(rec)}
@@ -1142,14 +1926,16 @@ export default function SocialWelfare({
                       <th className="py-3 px-4 min-w-[215px] whitespace-nowrap">Địa chỉ cư trú</th>
                       <th className="py-3 px-4 min-w-[140px] whitespace-nowrap">Trợ cấp</th>
                       <th className="py-3 px-4 text-center min-w-[150px] whitespace-nowrap">Trạng thái</th>
-                      <th className="py-3 px-4 text-center min-w-[130px] whitespace-nowrap">Thao tác</th>
+                      <th className="py-3 px-4 text-center min-w-[140px] whitespace-nowrap sticky right-0 bg-slate-50 z-10 shadow-[-4px_0_8px_-4px_rgba(15,23,42,0.06)]">Thao tác</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
                     {paginatedRecipients.length === 0 ? (
                       <tr>
                         <td colSpan={7} className="py-10 text-center text-sm text-slate-600">
-                          Không tìm thấy thông tin đối tượng chính sách phù hợp bộ lọc.
+                          {effectiveRecipients.length === 0
+                            ? "Chưa có hồ sơ đối tượng chính sách nào được khởi tạo trên hệ thống."
+                            : "Không tìm thấy đối tượng chính sách phù hợp bộ lọc hiện tại."}
                         </td>
                       </tr>
                     ) : (
@@ -1163,9 +1949,21 @@ export default function SocialWelfare({
                               ? "bg-amber-50 text-amber-800 border-amber-200"
                               : "bg-slate-100 text-slate-700 border-slate-200";
                         return (
-                          <tr key={rec.id} className="hover:bg-rose-50/30 transition-colors">
+                          <tr
+                            key={rec.id}
+                            tabIndex={0}
+                            onClick={() => setSelectedRecipient(rec)}
+                            onKeyDown={(e) => {
+                              if (e.target !== e.currentTarget) return;
+                              if (e.key === "Enter" || e.key === " ") {
+                                e.preventDefault();
+                                setSelectedRecipient(rec);
+                              }
+                            }}
+                            className="cursor-pointer hover:bg-rose-50/40 transition-colors group"
+                          >
                             <td className="py-3.5 px-4">
-                              <div className="font-bold text-slate-900 text-xs">{rec.fullName}</div>
+                              <div className="font-bold text-slate-900 group-hover:text-rose-700 text-xs transition-colors">{rec.fullName}</div>
                               <span className="font-mono text-xs font-bold text-rose-700 bg-rose-50 px-1.5 py-0.5 rounded border border-rose-200 mt-0.5 inline-block">
                                 {rec.id}
                               </span>
@@ -1206,7 +2004,7 @@ export default function SocialWelfare({
                                 {rec.status}
                               </span>
                             </td>
-                            <td className="py-3.5 px-4 text-center">
+                            <td className="py-3.5 px-4 text-center sticky right-0 bg-white group-hover:bg-rose-50 z-10 shadow-[-4px_0_8px_-4px_rgba(15,23,42,0.06)]" onClick={(e) => e.stopPropagation()}>
                               <div className="flex items-center justify-center gap-1.5">
                                 <button
                                   type="button"
@@ -1273,9 +2071,6 @@ export default function SocialWelfare({
               <h3 className="font-bold text-slate-900 text-sm sm:text-base">
                 Danh Mục Phân Hệ An Sinh Con & Chế Độ Chính Sách
               </h3>
-              <p className="text-xs text-slate-600">
-                Quản lý các nhóm đối tượng bảo trợ đặc thù (người có công, hộ nghèo, người cao tuổi...) và chuẩn hóa quyền lợi theo quy định
-              </p>
             </div>
             <button
               type="button"
@@ -1288,11 +2083,26 @@ export default function SocialWelfare({
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {subCategories.map(sub => {
-              const count = recipients.filter(r => r.category === sub.name).length;
+              const count = effectiveRecipients.filter(r => r.category === sub.name).length;
               return (
                 <div
                   key={sub.id}
-                  className="bg-white rounded-2xl border border-slate-200/90 hover:border-indigo-300 p-4.5 flex flex-col justify-between space-y-3 shadow-xs hover:shadow-md transition-all"
+                  role="button"
+                  tabIndex={0}
+                  aria-label={`Lọc danh sách đối tượng thuộc nhóm ${sub.name}`}
+                  onClick={() => {
+                    setSelectedCategoryPill(sub.name);
+                    setActiveTab("recipients");
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.target !== e.currentTarget) return;
+                    if (e.key === "Enter" || e.key === " ") {
+                      e.preventDefault();
+                      setSelectedCategoryPill(sub.name);
+                      setActiveTab("recipients");
+                    }
+                  }}
+                  className="bg-white rounded-2xl border border-slate-200/90 hover:border-indigo-400 p-4.5 flex flex-col justify-between space-y-3 shadow-xs hover:shadow-md transition-all cursor-pointer group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500"
                 >
                   <div className="space-y-2.5">
                     <div className="flex items-start justify-between gap-2">
@@ -1352,7 +2162,10 @@ export default function SocialWelfare({
                       Xem {count} đối tượng ➜
                     </button>
 
-                    <div className="flex items-center gap-1.5 shrink-0">
+                    <div
+                      onClick={(e) => e.stopPropagation()}
+                      className="flex items-center gap-1.5 shrink-0"
+                    >
                       <button
                         type="button"
                         onClick={() => handleOpenEditSubCategory(sub)}
@@ -1387,28 +2200,47 @@ export default function SocialWelfare({
       {/* ========================================================================= */}
       {/* SUB-TAB 3: ĐỢT HỖ TRỢ & CẤP PHÁT TẬP TRUNG                                */}
       {/* ========================================================================= */}
-      {activeTab === "campaigns" && (
+      {activeTab === "campaigns" && (() => {
+        const qCam = campaignSearchQuery.trim().toLowerCase();
+        const filteredCampaigns = campaigns.filter(cam =>
+          !qCam ||
+          cam.id.toLowerCase().includes(qCam) ||
+          cam.title.toLowerCase().includes(qCam) ||
+          cam.fundingSource.toLowerCase().includes(qCam) ||
+          cam.location.toLowerCase().includes(qCam) ||
+          cam.targetCategories.some(c => c.toLowerCase().includes(qCam))
+        );
+        return (
         <div className="space-y-4">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white p-4 rounded-2xl border border-slate-200 shadow-xs">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 bg-white p-4 rounded-2xl border border-slate-200 shadow-xs">
             <div>
               <h3 className="font-bold text-slate-900 text-sm sm:text-base">
                 Kế Hoạch & Các Đợt Trao Quà Hỗ Trợ Định Kỳ
               </h3>
-              <p className="text-xs text-slate-600">
-                Tổ chức các đợt phát quà Tết, học bổng khuyến học, gạo cứu trợ định kỳ theo từng diện chính sách
-              </p>
             </div>
-            <button
-              type="button"
-              onClick={() => setShowAddCampaignModal(true)}
-              className="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-xs cursor-pointer transition-colors self-start sm:self-auto shrink-0"
-            >
-              <Plus size={14} /> Lập đợt hỗ trợ mới
-            </button>
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 shrink-0">
+              <div className="relative min-w-[220px]">
+                <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 pointer-events-none" />
+                <input
+                  type="search"
+                  value={campaignSearchQuery}
+                  onChange={e => setCampaignSearchQuery(e.target.value)}
+                  placeholder="Tìm đợt hỗ trợ, nguồn quỹ..."
+                  className="w-full h-9 pl-9 pr-3 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600"
+                />
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowAddCampaignModal(true)}
+                className="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 shadow-xs cursor-pointer transition-colors shrink-0"
+              >
+                <Plus size={14} /> Lập đợt hỗ trợ mới
+              </button>
+            </div>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {campaigns.map(cam => {
+            {filteredCampaigns.map(cam => {
               const statusBadges: Record<string, string> = {
                 "Đang đề xuất": "bg-amber-100 text-amber-800 border-amber-300",
                 "Đã duyệt chi": "bg-indigo-100 text-indigo-800 border-indigo-300",
@@ -1419,7 +2251,22 @@ export default function SocialWelfare({
               return (
                 <div
                   key={cam.id}
-                  className="bg-white rounded-2xl border border-slate-200/90 hover:border-emerald-300 p-5 shadow-xs hover:shadow-md transition-all flex flex-col justify-between space-y-3.5"
+                  role="button"
+                  tabIndex={0}
+                  aria-label={`Xem chi tiết đợt hỗ trợ ${cam.title}`}
+                  onClick={() => {
+                    setCampaignModalMemberSearch("");
+                    setSelectedCampaign(cam);
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.target !== e.currentTarget) return;
+                    if (e.key === "Enter" || e.key === " ") {
+                      e.preventDefault();
+                      setCampaignModalMemberSearch("");
+                      setSelectedCampaign(cam);
+                    }
+                  }}
+                  className="bg-white rounded-2xl border border-slate-200/90 hover:border-emerald-400 p-5 shadow-xs hover:shadow-md transition-all flex flex-col justify-between space-y-3.5 cursor-pointer group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600"
                 >
                   <div className="space-y-3">
                     <div className="flex items-start justify-between gap-2">
@@ -1486,8 +2333,11 @@ export default function SocialWelfare({
                   </div>
 
                   {/* Actions */}
-                  <div className="pt-3 border-t border-slate-100 flex items-center justify-between gap-2">
-                    <div className="flex items-center gap-1.5">
+                  <div
+                    onClick={(e) => e.stopPropagation()}
+                    className="pt-3 border-t border-slate-100 flex flex-wrap items-center justify-between gap-2"
+                  >
+                    <div className="flex flex-wrap items-center gap-1.5">
                       {cam.status === "Đang đề xuất" && (
                         <button
                           type="button"
@@ -1517,35 +2367,75 @@ export default function SocialWelfare({
                       )}
                       <button
                         type="button"
-                        onClick={() => setSelectedCampaign(cam)}
+                        onClick={() => {
+                          setCampaignModalMemberSearch("");
+                          setSelectedCampaign(cam);
+                        }}
                         className="px-3 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs cursor-pointer"
                       >
                         Chi tiết danh sách
                       </button>
                     </div>
 
-                    <button
-                      type="button"
-                      onClick={() => window.print()}
-                      className="p-1.5 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-lg cursor-pointer"
-                      title="In phiếu ký nhận quà"
-                    >
-                      <Printer size={15} />
-                    </button>
+                    <div className="flex items-center gap-1.5">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const camRecs = getCampaignTargetRecipients(cam);
+                          handleExportSignSheetXlsx(camRecs, {
+                            title: cam.title,
+                            amountOverride: `${formatVNNumber(cam.cashAmountPerPerson)} đ${cam.giftDescription ? " + Hiện vật" : ""}`,
+                            filenamePrefix: `DS_KyNhan_${cam.id}`
+                          });
+                        }}
+                        className="px-2.5 py-1.5 text-emerald-800 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 rounded-lg text-xs font-bold inline-flex items-center gap-1 cursor-pointer"
+                        title="Xuất DS Ký nhận (.xlsx)"
+                      >
+                        <FileSpreadsheet size={13} />
+                        <span>.xlsx</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const camRecs = getCampaignTargetRecipients(cam);
+                          handlePrintSignSheetA4(camRecs, {
+                            title: `DANH SÁCH KÝ NHẬN TIỀN / QUÀ — ${cam.title.toUpperCase()}`,
+                            subtitle: `Thời gian: ${cam.disbursementDate} • Địa điểm: ${cam.location} • Nguồn quỹ: ${cam.fundingSource}`,
+                            amountOverride: `${formatVNNumber(cam.cashAmountPerPerson)} đ${cam.giftDescription ? " + Quà" : ""}`,
+                            totalSummary: `Tổng kinh phí tiền mặt: ${formatVNNumber(camRecs.length * cam.cashAmountPerPerson)} VNĐ.`
+                          });
+                        }}
+                        className="px-2.5 py-1.5 text-slate-700 bg-white hover:bg-slate-100 border border-slate-200 rounded-lg text-xs font-bold inline-flex items-center gap-1 cursor-pointer"
+                        title="In Danh sách Ký nhận A4"
+                      >
+                        <Printer size={13} />
+                        <span>In A4</span>
+                      </button>
+                    </div>
                   </div>
                 </div>
               );
             })}
           </div>
         </div>
-      )}
+        );
+      })()}
 
       {/* ========================================================================= */}
       {/* SUB-TAB 4: HỖ TRỢ NGAY & CỨU TRỢ KHẨN CẤP                                */}
       {/* ========================================================================= */}
-      {activeTab === "emergency" && (
+      {activeTab === "emergency" && (() => {
+        const qEmg = emergencySearchQuery.trim().toLowerCase();
+        const filteredEmergency = emergencyRecords.filter(rec =>
+          !qEmg ||
+          rec.id.toLowerCase().includes(qEmg) ||
+          rec.recipientName.toLowerCase().includes(qEmg) ||
+          rec.cccd.toLowerCase().includes(qEmg) ||
+          rec.reason.toLowerCase().includes(qEmg)
+        );
+        return (
         <div className="space-y-4">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-amber-50/70 p-4 rounded-2xl border border-amber-200 shadow-xs">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 bg-amber-50/70 p-4 rounded-2xl border border-amber-200 shadow-xs">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-xl bg-amber-100 text-amber-800 border border-amber-300 flex items-center justify-center font-bold shrink-0">
                 <Zap size={20} />
@@ -1554,34 +2444,70 @@ export default function SocialWelfare({
                 <h3 className="font-black text-amber-950 text-sm sm:text-base">
                   Cơ Chế Hỗ Trợ Ngay & Cứu Trợ Khẩn Cấp
                 </h3>
-                <p className="text-xs text-amber-900">
-                  Xử lý ngay các trường hợp tai nạn đột xuất, viện phí nóng, hỏa hoạn, tang gia khó khăn trong ngày
-                </p>
               </div>
             </div>
 
-            <button
-              type="button"
-              onClick={() => {
-                setEmergencyTargetRecipient(null);
-                setEmgRecipientId("");
-                setEmgRecipientName("");
-                setEmgCccd("");
-                setEmgAddress("42/ Lương Định Của, Phường An Phú");
-                setEmgReason("Hỗ trợ khẩn cấp đột xuất cho trường hợp khó khăn cấp bách");
-                setShowEmergencyModal(true);
-              }}
-              className="px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-xs cursor-pointer transition-colors self-start sm:self-auto shrink-0"
-            >
-              <Zap size={14} /> Chi trả hỗ trợ ngay
-            </button>
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 shrink-0">
+              <div className="relative min-w-[210px]">
+                <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-amber-800/70 pointer-events-none" />
+                <input
+                  type="search"
+                  value={emergencySearchQuery}
+                  onChange={e => setEmergencySearchQuery(e.target.value)}
+                  placeholder="Tìm tên người nhận, CCCD, lý do..."
+                  className="w-full h-9 pl-9 pr-3 bg-white border border-amber-300 rounded-xl text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-600"
+                />
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setEmergencyTargetRecipient(null);
+                  setEmgRecipientId("");
+                  setEmgRecipientName("");
+                  setEmgCccd("");
+                  setEmgAddress("42/ Lương Định Của, Phường An Phú");
+                  setEmgReason("Hỗ trợ khẩn cấp đột xuất cho trường hợp khó khăn cấp bách");
+                  setShowEmergencyModal(true);
+                }}
+                className="px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 shadow-xs cursor-pointer transition-colors shrink-0"
+              >
+                <Zap size={14} /> Chi trả hỗ trợ ngay
+              </button>
+            </div>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {emergencyRecords.map(rec => (
+            {filteredEmergency.map(rec => {
+              const matchedRec = effectiveRecipients.find(r => r.id === rec.recipientId || r.cccd === rec.cccd);
+              const matchedRes = (residents || []).find(r => r.cccd === rec.cccd || r.fullName === rec.recipientName);
+              const isClickable = Boolean(matchedRec || matchedRes);
+              const openEmgProfile = () => {
+                if (matchedRec) {
+                  setSelectedRecipient(matchedRec);
+                } else if (matchedRes) {
+                  navigate(getResidentDetailPath(matchedRes.id));
+                }
+              };
+              return (
               <div
                 key={rec.id}
-                className="bg-white rounded-2xl border border-amber-200/90 hover:border-amber-400 p-4.5 shadow-xs hover:shadow-md transition-all flex flex-col justify-between space-y-3"
+                role={isClickable ? "button" : undefined}
+                tabIndex={isClickable ? 0 : undefined}
+                onClick={isClickable ? openEmgProfile : undefined}
+                onKeyDown={
+                  isClickable
+                    ? (e) => {
+                        if (e.target !== e.currentTarget) return;
+                        if (e.key === "Enter" || e.key === " ") {
+                          e.preventDefault();
+                          openEmgProfile();
+                        }
+                      }
+                    : undefined
+                }
+                className={`bg-white rounded-2xl border border-amber-200/90 hover:border-amber-400 p-4.5 shadow-xs hover:shadow-md transition-all flex flex-col justify-between space-y-3 ${
+                  isClickable ? "cursor-pointer group" : ""
+                }`}
               >
                 <div className="space-y-2.5">
                   <div className="flex items-start justify-between gap-2">
@@ -1623,7 +2549,10 @@ export default function SocialWelfare({
                   </div>
                 </div>
 
-                <div className="pt-2 border-t border-slate-100 flex items-center justify-between">
+                <div
+                  onClick={(e) => e.stopPropagation()}
+                  className="pt-2 border-t border-slate-100 flex items-center justify-between"
+                >
                   <span className="text-xs text-emerald-700 font-bold">Đã lưu trữ biên lai</span>
                   <button
                     type="button"
@@ -1635,10 +2564,12 @@ export default function SocialWelfare({
                   </button>
                 </div>
               </div>
-            ))}
+              );
+            })}
           </div>
         </div>
-      )}
+        );
+      })()}
 
       {/* ========================================================================= */}
       {/* MODAL 1: THÊM ĐỐI TƯỢNG TỪ DANH SÁCH CƯ DÂN KHU PHỐ                      */}
@@ -1877,7 +2808,7 @@ export default function SocialWelfare({
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="block font-bold text-slate-700 mb-1">Mã viết tắt</label>
                   <input
@@ -2026,29 +2957,37 @@ export default function SocialWelfare({
 
               {/* Target Categories Selection */}
               <div>
-                <label className="block font-bold text-slate-700 mb-1">Đối tượng thụ hưởng (chọn nhiều phân hệ):</label>
-                <div className="grid grid-cols-2 gap-2 p-2.5 rounded-xl bg-slate-50 border border-slate-200 max-h-32 overflow-y-auto">
+                <label className="block font-bold text-slate-700 mb-1">
+                  Đối tượng thụ hưởng (chọn nhiều phân hệ — khớp {effectiveRecipients.filter(r => camCategories.includes(r.category)).length} người):
+                </label>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 p-2.5 rounded-xl bg-slate-50 border border-slate-200 max-h-36 overflow-y-auto">
                   {subCategories.map(s => {
                     const isChecked = camCategories.includes(s.name);
+                    const subCount = effectiveRecipients.filter(r => r.category === s.name).length;
                     return (
-                      <label key={s.id} className="flex items-center gap-1.5 cursor-pointer font-medium text-slate-800 text-xs">
-                        <input
-                          type="checkbox"
-                          checked={isChecked}
-                          onChange={e => {
-                            if (e.target.checked) setCamCategories(prev => [...prev, s.name]);
-                            else setCamCategories(prev => prev.filter(c => c !== s.name));
-                          }}
-                          className="rounded accent-emerald-600"
-                        />
-                        <span className="truncate">{s.name}</span>
+                      <label key={s.id} className="flex items-center justify-between gap-1.5 cursor-pointer font-medium text-slate-800 text-xs">
+                        <span className="flex items-center gap-1.5 min-w-0">
+                          <input
+                            type="checkbox"
+                            checked={isChecked}
+                            onChange={e => {
+                              if (e.target.checked) setCamCategories(prev => [...prev, s.name]);
+                              else setCamCategories(prev => prev.filter(c => c !== s.name));
+                            }}
+                            className="rounded accent-emerald-600 shrink-0"
+                          />
+                          <span className="truncate">{s.name}</span>
+                        </span>
+                        <span className="font-mono text-[11px] px-1.5 py-0.5 rounded bg-white border border-slate-200 text-slate-600 shrink-0">
+                          {subCount}
+                        </span>
                       </label>
                     );
                   })}
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="block font-bold text-slate-700 mb-1">Tiền mặt mỗi đối tượng (VNĐ) *</label>
                   <input
@@ -2083,7 +3022,7 @@ export default function SocialWelfare({
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="block font-bold text-slate-700 mb-1">Nguồn kinh phí *</label>
                   <input
@@ -2171,7 +3110,7 @@ export default function SocialWelfare({
               </div>
 
               {/* Recipient Details */}
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="block font-bold text-slate-700 mb-1">Đối tượng thụ hưởng *</label>
                   <input
@@ -2204,7 +3143,7 @@ export default function SocialWelfare({
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="block font-bold text-rose-800 mb-1">Số tiền hỗ trợ khẩn cấp (VNĐ) *</label>
                   <input
@@ -2254,7 +3193,7 @@ export default function SocialWelfare({
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="block font-bold text-slate-700 mb-1">Lãnh đạo duyệt nóng *</label>
                   <input
@@ -2301,13 +3240,16 @@ export default function SocialWelfare({
       {/* MODAL 5: CHI TIẾT HỒ SƠ, CHẾ ĐỘ CHÍNH SÁCH & QUYỀN LỢI ĐỐI TƯỢNG          */}
       {/* ========================================================================= */}
       {selectedRecipient && (() => {
-        const navList = filteredRecipients.length > 0 ? filteredRecipients : recipients;
+        const navList = filteredRecipients.length > 0 ? filteredRecipients : effectiveRecipients;
         const currentIdx = navList.findIndex(r => r.id === selectedRecipient.id);
         const totalNav = navList.length;
         const hasPrev = currentIdx > 0;
         const hasNext = currentIdx >= 0 && currentIdx < totalNav - 1;
         const shortId = formatShortRecordId(selectedRecipient.id, "ASXH");
         const bhyt = getBhytInfo(selectedRecipient);
+        const matchedResidentProfile = (residents || []).find(
+          r => r.cccd === selectedRecipient.cccd || r.fullName === selectedRecipient.fullName
+        );
 
         return (
           <Modal
@@ -2395,6 +3337,18 @@ export default function SocialWelfare({
                   >
                     <Printer size={13} /> In
                   </button>
+                  {matchedResidentProfile && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSelectedRecipient(null);
+                        navigate(getResidentDetailPath(matchedResidentProfile.id));
+                      }}
+                      className="min-h-8 px-2.5 py-1 bg-indigo-50 hover:bg-indigo-100 text-indigo-800 border border-indigo-200 rounded-lg text-xs font-semibold inline-flex items-center gap-1 cursor-pointer"
+                    >
+                      <ExternalLink size={12} /> Hồ sơ Cư dân
+                    </button>
+                  )}
                 </div>
 
                 <div className="flex flex-wrap items-center gap-1.5">
@@ -2536,7 +3490,18 @@ export default function SocialWelfare({
       {/* ========================================================================= */}
       {/* MODAL 6: CHI TIẾT ĐỢT HỖ TRỢ / DANH SÁCH THỤ HƯỞNG                         */}
       {/* ========================================================================= */}
-      {selectedCampaign && (
+      {selectedCampaign && (() => {
+        const campaignTargetList = getCampaignTargetRecipients(selectedCampaign);
+        const filteredCampaignTargetList = campaignTargetList.filter(r => {
+          const q = campaignModalMemberSearch.trim().toLowerCase();
+          if (!q) return true;
+          return (
+            r.fullName.toLowerCase().includes(q) ||
+            r.cccd.toLowerCase().includes(q) ||
+            r.address.toLowerCase().includes(q)
+          );
+        });
+        return (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/70 backdrop-blur-sm animate-in fade-in duration-150"
           onClick={() => setSelectedCampaign(null)}
@@ -2545,14 +3510,15 @@ export default function SocialWelfare({
             onClick={e => e.stopPropagation()}
             className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-xl max-h-[92vh] flex flex-col overflow-hidden animate-in zoom-in-95 duration-200 text-slate-800 text-xs"
           >
-            <div className="p-4 bg-slate-50 text-slate-900 flex items-center justify-between shrink-0 border-b border-slate-200">
-              <h3 className="font-black text-sm flex items-center gap-2">
-                <Gift size={16} className="text-emerald-600" /> {selectedCampaign.title}
+            <div className="p-4 bg-slate-50 text-slate-900 flex items-center justify-between gap-2 shrink-0 border-b border-slate-200">
+              <h3 className="font-black text-sm flex items-center gap-2 min-w-0">
+                <Gift size={16} className="text-emerald-600 shrink-0" />
+                <span className="truncate">{selectedCampaign.title}</span>
               </h3>
               <button
                 type="button"
                 onClick={() => setSelectedCampaign(null)}
-                className="p-1.5 rounded-full text-slate-600 hover:text-slate-900 hover:bg-slate-200/70 cursor-pointer"
+                className="p-1.5 rounded-full text-slate-600 hover:text-slate-900 hover:bg-slate-200/70 cursor-pointer shrink-0"
                 aria-label="Đóng cửa sổ"
               >
                 <X size={18} />
@@ -2560,14 +3526,14 @@ export default function SocialWelfare({
             </div>
 
             <div className="p-5 space-y-3 overflow-y-auto flex-1">
-              <div className="grid grid-cols-2 gap-2 p-3 bg-emerald-50/70 rounded-xl border border-emerald-200">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 p-3 bg-emerald-50/70 rounded-xl border border-emerald-200">
                 <div>
                   <span className="text-xs uppercase font-bold text-emerald-900 block">Tổng kinh phí:</span>
                   <span className="font-black text-emerald-800 text-base">{formatVNNumber(selectedCampaign.totalBudget)} đ</span>
                 </div>
                 <div>
                   <span className="text-xs uppercase font-bold text-emerald-900 block">Số đối tượng:</span>
-                  <span className="font-bold text-slate-900 text-base">{selectedCampaign.recipientCount} người</span>
+                  <span className="font-bold text-slate-900 text-base">{campaignTargetList.length || selectedCampaign.recipientCount} người</span>
                 </div>
               </div>
 
@@ -2579,31 +3545,89 @@ export default function SocialWelfare({
               )}
 
               <div>
-                <span className="font-bold text-slate-800 block mb-1">Danh sách đối tượng thụ hưởng dự kiến:</span>
-                <div className="space-y-1.5 max-h-48 overflow-y-auto border border-slate-200 rounded-xl p-2 bg-slate-50">
-                  {recipients
-                    .filter(r => selectedCampaign.targetCategories.includes(r.category))
-                    .map(r => (
-                      <div key={r.id} className="p-2 bg-white rounded-lg border border-slate-200 flex items-center justify-between">
-                        <div>
-                          <span className="font-bold text-slate-900 block">{r.fullName}</span>
-                          <span className="text-xs text-slate-600 font-mono">CCCD: {r.cccd} • {r.address}</span>
+                <div className="flex flex-wrap items-center justify-between gap-2 mb-1.5">
+                  <span className="font-bold text-slate-800">
+                    Danh sách đối tượng thụ hưởng ({filteredCampaignTargetList.length}):
+                  </span>
+                  <div className="relative w-full sm:w-48">
+                    <Search size={12} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+                    <input
+                      type="search"
+                      value={campaignModalMemberSearch}
+                      onChange={e => setCampaignModalMemberSearch(e.target.value)}
+                      placeholder="Tìm tên, CCCD..."
+                      className="w-full h-7 pl-7 pr-2 bg-slate-50 border border-slate-200 rounded-lg text-xs text-slate-900 focus:bg-white focus:outline-none focus:border-emerald-600"
+                    />
+                  </div>
+                </div>
+                <div className="space-y-1.5 max-h-56 overflow-y-auto border border-slate-200 rounded-xl p-2 bg-slate-50">
+                  {filteredCampaignTargetList.length === 0 ? (
+                    <div className="p-4 text-center text-slate-500 text-xs">
+                      Chưa có đối tượng phù hợp trong danh sách. Hãy bấm &ldquo;Đồng bộ từ CSDL Dân cư&rdquo; để nạp đối tượng chính sách &amp; người cao tuổi.
+                    </div>
+                  ) : (
+                    filteredCampaignTargetList.map(r => (
+                      <div
+                        key={r.id}
+                        role="button"
+                        tabIndex={0}
+                        onClick={() => {
+                          setSelectedCampaign(null);
+                          setSelectedRecipient(r);
+                        }}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter" || e.key === " ") {
+                            e.preventDefault();
+                            setSelectedCampaign(null);
+                            setSelectedRecipient(r);
+                          }
+                        }}
+                        className="p-2.5 bg-white hover:bg-emerald-50/50 hover:border-emerald-300 rounded-lg border border-slate-200 flex flex-wrap sm:flex-nowrap items-center justify-between gap-2 cursor-pointer transition-colors group"
+                      >
+                        <div className="min-w-0 flex-1">
+                          <span className="font-bold text-slate-900 group-hover:text-emerald-800 block truncate transition-colors">{r.fullName}</span>
+                          <span className="text-xs text-slate-600 font-mono block truncate">CCCD: {r.cccd} • {r.address}</span>
                         </div>
-                        <span className="font-mono text-rose-700 font-bold">{formatVNNumber(selectedCampaign.cashAmountPerPerson)} đ</span>
+                        <span className="font-mono text-rose-700 font-bold shrink-0 whitespace-nowrap">
+                          {formatVNNumber(selectedCampaign.cashAmountPerPerson)} đ
+                        </span>
                       </div>
-                    ))}
+                    ))
+                  )}
                 </div>
               </div>
             </div>
 
-            <div className="p-3.5 bg-slate-50 border-t border-slate-200 flex items-center justify-between shrink-0">
-              <button
-                type="button"
-                onClick={() => window.print()}
-                className="px-3 py-1.5 bg-white hover:bg-slate-100 text-slate-700 border border-slate-300 rounded-lg text-xs font-bold flex items-center gap-1 cursor-pointer"
-              >
-                <Printer size={13} /> In danh sách ký nhận quà
-              </button>
+            <div className="p-3.5 bg-slate-50 border-t border-slate-200 flex flex-wrap items-center justify-between gap-2 shrink-0">
+              <div className="flex flex-wrap items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() =>
+                    handleExportSignSheetXlsx(campaignTargetList, {
+                      title: selectedCampaign.title,
+                      amountOverride: `${formatVNNumber(selectedCampaign.cashAmountPerPerson)} đ${selectedCampaign.giftDescription ? " + Hiện vật" : ""}`,
+                      filenamePrefix: `DS_KyNhan_${selectedCampaign.id}`
+                    })
+                  }
+                  className="px-3 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 rounded-lg text-xs font-bold inline-flex items-center gap-1.5 cursor-pointer"
+                >
+                  <FileSpreadsheet size={13} /> Xuất DS Ký nhận (.xlsx)
+                </button>
+                <button
+                  type="button"
+                  onClick={() =>
+                    handlePrintSignSheetA4(campaignTargetList, {
+                      title: `DANH SÁCH KÝ NHẬN TIỀN / QUÀ — ${selectedCampaign.title.toUpperCase()}`,
+                      subtitle: `Thời gian: ${selectedCampaign.disbursementDate} • Địa điểm: ${selectedCampaign.location} • Nguồn quỹ: ${selectedCampaign.fundingSource}`,
+                      amountOverride: `${formatVNNumber(selectedCampaign.cashAmountPerPerson)} đ${selectedCampaign.giftDescription ? " + Quà" : ""}`,
+                      totalSummary: `Tổng kinh phí tiền mặt: ${formatVNNumber(campaignTargetList.length * selectedCampaign.cashAmountPerPerson)} VNĐ.`
+                    })
+                  }
+                  className="px-3 py-1.5 bg-white hover:bg-slate-100 text-slate-700 border border-slate-300 rounded-lg text-xs font-bold inline-flex items-center gap-1.5 cursor-pointer"
+                >
+                  <Printer size={13} /> In Danh sách Ký nhận A4
+                </button>
+              </div>
               <button
                 type="button"
                 onClick={() => setSelectedCampaign(null)}
@@ -2614,7 +3638,8 @@ export default function SocialWelfare({
             </div>
           </div>
         </div>
-      )}
+        );
+      })()}
 
       {/* Recipient Deletion Confirmation Modal */}
       <ConfirmModal
@@ -2953,7 +3978,7 @@ export default function SocialWelfare({
                     Chỉnh sửa phân hệ an sinh con
                   </h3>
                   <p className="text-xs text-slate-600">
-                    Mã phân hệ: <span className="font-mono font-bold text-slate-900">{subCategoryToEdit.code}</span> • Đang có <span className="font-bold text-indigo-700">{recipients.filter(r => r.category === subCategoryToEdit.name).length}</span> đối tượng
+                    Mã phân hệ: <span className="font-mono font-bold text-slate-900">{subCategoryToEdit.code}</span> • Đang có <span className="font-bold text-indigo-700">{effectiveRecipients.filter(r => r.category === subCategoryToEdit.name).length}</span> đối tượng
                   </p>
                 </div>
               </div>
@@ -3134,7 +4159,7 @@ export default function SocialWelfare({
       {/* MODAL 9: XÁC NHẬN XÓA PHÂN HỆ AN SINH VÀ CHUYỂN GIAO ĐỐI TƯỢNG             */}
       {/* ========================================================================= */}
       {subCategoryToDelete && (() => {
-        const affectedCount = recipients.filter(r => r.category === subCategoryToDelete.name).length;
+        const affectedCount = effectiveRecipients.filter(r => r.category === subCategoryToDelete.name).length;
         const otherCategories = subCategories.filter(s => s.id !== subCategoryToDelete.id);
 
         return (

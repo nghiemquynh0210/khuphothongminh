@@ -27,6 +27,7 @@ import {
   DEFAULT_LEADERSHIP_MEMBERS,
   mergeLandingConfig,
 } from "../landing/landingConstants";
+import { enforcePartySecretaryFirst } from "../../utils/leadershipSync";
 import {
   uploadSingleImage,
   validateImageFile,
@@ -40,6 +41,8 @@ export interface PortalConfigSettingsProps {
   landingConfig: LandingConfig;
   onUpdateLandingConfig: (next: LandingConfig) => void;
   onNotify?: (msg: string) => void;
+  onResyncLeadership?: () => void;
+  onNavigateToParty?: () => void;
 }
 
 type PortalSubSection = "general" | "images" | "leadership" | "about";
@@ -55,6 +58,8 @@ export const PortalConfigSettings: React.FC<PortalConfigSettingsProps> = ({
   landingConfig,
   onUpdateLandingConfig,
   onNotify,
+  onResyncLeadership,
+  onNavigateToParty,
 }) => {
   const merged = mergeLandingConfig(landingConfig);
   const [section, setSection] = useState<PortalSubSection>("general");
@@ -115,11 +120,12 @@ export const PortalConfigSettings: React.FC<PortalConfigSettingsProps> = ({
     setErrorMsg(null);
     setUploadingKey(key);
     try {
-      const uploadedUrl = await uploadSingleImage(file, `cms/${key}`, {
+      const uploadedUrl = await uploadSingleImage(file, "portal", {
+        bucket: "admin-forms",
         maxWidth: maxW,
         maxHeight: maxH,
         quality: 0.85,
-      });
+      } as any);
       onDone(uploadedUrl);
     } catch (ex) {
       setErrorMsg(
@@ -239,14 +245,16 @@ export const PortalConfigSettings: React.FC<PortalConfigSettingsProps> = ({
       isHighlight: ldHighlight,
     };
 
-    const nextList = editingLeader
-      ? leaders.map((l) => (l.id === saved.id ? saved : l))
-      : [...leaders, saved];
+    const nextList = enforcePartySecretaryFirst(
+      editingLeader
+        ? leaders.map((l) => (l.id === saved.id ? { ...l, ...saved } : l))
+        : [...leaders, saved]
+    );
 
     commit(
       { ...merged, leadership: nextList },
       editingLeader
-        ? `Đã cập nhật thông tin cán bộ "${saved.name}".`
+        ? `Đã cập nhật cán bộ "${saved.name}" & đồng bộ sang Quản lý Chi hội!`
         : `Đã thêm cán bộ "${saved.name}" vào cơ cấu tổ chức.`
     );
     setLeaderModalOpen(false);
@@ -269,14 +277,9 @@ export const PortalConfigSettings: React.FC<PortalConfigSettingsProps> = ({
       {/* Header & inner sub-tabs */}
       <div className="bg-white border border-slate-200 rounded-2xl p-5 space-y-4">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-          <div>
-            <h4 className="text-base font-bold text-slate-900">
-              Cấu hình Trang chủ, Hình ảnh, Giới thiệu KP3 &amp; Cán bộ
-            </h4>
-            <p className="text-xs text-slate-600 mt-0.5">
-              Mọi thay đổi được lưu trực tiếp và đồng bộ ngay ra Cổng cư dân công khai (Trang chủ, Giới thiệu KP3, Cơ cấu tổ chức &amp; cán bộ).
-            </p>
-          </div>
+          <h4 className="text-base font-bold text-slate-900">
+            Cấu hình Trang chủ, Hình ảnh, Giới thiệu KP3 &amp; Cán bộ
+          </h4>
           <Button
             variant="outline"
             size="sm"
@@ -796,17 +799,39 @@ export const PortalConfigSettings: React.FC<PortalConfigSettingsProps> = ({
                 Danh sách Cơ cấu tổ chức &amp; Cán bộ Khu phố 3 ({leaders.length})
               </h5>
               <p className="text-xs text-slate-600 mt-0.5">
-                Hiển thị công khai tại chuyên mục Cơ cấu tổ chức &amp; cán bộ và trang Giới thiệu Khu phố 3.
+                Đồng bộ 2 chiều với Quản lý Chi bộ &amp; Đoàn thể — Bí thư Chi bộ luôn cố định ở vị trí #01 (Người đứng đầu Khu phố 3).
               </p>
             </div>
-            <Button
-              size="sm"
-              variant="emerald"
-              leftIcon={<UserPlus size={15} />}
-              onClick={openAddLeader}
-            >
-              Thêm cán bộ mới
-            </Button>
+            <div className="flex flex-wrap items-center gap-2">
+              {onResyncLeadership && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  leftIcon={<RotateCcw size={14} />}
+                  onClick={onResyncLeadership}
+                >
+                  Đồng bộ từ Chi hội
+                </Button>
+              )}
+              {onNavigateToParty && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  leftIcon={<Users size={14} />}
+                  onClick={onNavigateToParty}
+                >
+                  Mở Quản lý Chi hội
+                </Button>
+              )}
+              <Button
+                size="sm"
+                variant="emerald"
+                leftIcon={<UserPlus size={15} />}
+                onClick={openAddLeader}
+              >
+                Thêm cán bộ mới
+              </Button>
+            </div>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">

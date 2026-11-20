@@ -4,7 +4,10 @@ import TaskFormPage from "./TaskFormPage";
 import TaskDetailPage from "./TaskDetailPage";
 import { LoadingFade } from "../components/common/LoadingFade";
 import { InlineNotice } from "../components/ui/ConfirmModal";
-import { TaskAttachment, TaskItem } from "../types";
+import { Association, TaskAttachment, TaskItem } from "../types";
+import { getStoredAssociations } from "../data/associationsData";
+import { extractKeyLeadersSummary } from "../utils/leadershipSync";
+import { reconcileTasksWithAssociations } from "../utils/taskScheduleRoleSync";
 import { loadStoredTasks, saveStoredTasks } from "../components/tasks/tasksData";
 import { loadTasksFromDb, syncTasksDiffToDb } from "../utils/supabaseSync";
 import {
@@ -21,6 +24,7 @@ export interface TasksPageProps {
   tasks?: TaskItem[];
   onTasksChange?: (next: TaskItem[]) => void;
   creatorLabel?: string;
+  associationsList?: Association[];
   isDataLoading?: boolean;
   basePath?: string;
 }
@@ -28,26 +32,44 @@ export interface TasksPageProps {
 export default function TasksPage({
   tasks: externalTasks,
   onTasksChange,
-  creatorLabel = "Đ/c Nguyễn Văn Hùng (Bí thư Chi bộ)",
+  creatorLabel,
+  associationsList,
   isDataLoading = false,
   basePath = ROUTES.DASHBOARD_TASKS,
 }: TasksPageProps = {}) {
+  const resolvedCreatorLabel =
+    creatorLabel ||
+    extractKeyLeadersSummary(associationsList || getStoredAssociations()).partySecretary
+      .formattedWithTitle;
   const location = useCurrentLocation();
   const routeMatch = parseTaskFormRoute(location.pathname, location.search);
   const [internalTasks, setInternalTasks] = useState<TaskItem[]>(loadStoredTasks);
   const tasks = externalTasks ?? internalTasks;
 
   const [savedNotice, setSavedNotice] = useState<string | null>(null);
+  const [activeSubTab, setActiveSubTab] = useState<"tasks" | "schedules" | "reminders">("tasks");
+  const [taskViewMode, setTaskViewMode] = useState<"kanban" | "list">("kanban");
 
   useEffect(() => {
     let active = true;
     loadTasksFromDb().then((rows) => {
       if (active && rows && rows.length > 0) {
+        const assocs =
+          associationsList && associationsList.length > 0
+            ? associationsList
+            : getStoredAssociations();
+        const { tasks: syncedTasks, changed } = reconcileTasksWithAssociations(
+          rows,
+          assocs
+        );
+        if (changed) {
+          syncTasksDiffToDb(rows, syncedTasks);
+        }
         if (onTasksChange) {
-          onTasksChange(rows);
+          onTasksChange(syncedTasks);
         } else {
-          setInternalTasks(rows);
-          saveStoredTasks(rows);
+          setInternalTasks(syncedTasks);
+          saveStoredTasks(syncedTasks);
         }
       }
     });
@@ -159,7 +181,8 @@ export default function TasksPage({
           tasks={tasks}
           isDataLoading={isDataLoading}
           basePath={basePath}
-          creatorLabel={creatorLabel}
+          creatorLabel={resolvedCreatorLabel}
+          associationsList={associationsList}
           onUpdateTask={handleUpdateTask}
           onCancel={() => navigate(getTaskDetailPath(routeMatch.taskId, basePath))}
           onSaved={(saved) => {
@@ -176,7 +199,8 @@ export default function TasksPage({
         tasks={tasks}
         isDataLoading={isDataLoading}
         basePath={basePath}
-        creatorLabel={creatorLabel}
+        creatorLabel={resolvedCreatorLabel}
+        associationsList={associationsList}
         onAddTask={handleAddTask}
         onCancel={() => navigate(basePath)}
         onSaved={(saved) => {
@@ -202,8 +226,13 @@ export default function TasksPage({
         <TaskAndSchedule
           tasks={tasks}
           onTasksChange={saveTasks}
-          creatorLabel={creatorLabel}
+          creatorLabel={resolvedCreatorLabel}
+          associationsList={associationsList}
           basePath={basePath}
+          activeSubTab={activeSubTab}
+          onActiveSubTabChange={setActiveSubTab}
+          taskViewMode={taskViewMode}
+          onTaskViewModeChange={setTaskViewMode}
           onOpenCreate={() => navigate(getTaskCreatePath(basePath))}
           onOpenEdit={(task) => navigate(getTaskEditPath(task.id, basePath))}
           onOpenDetail={(task) => navigate(getTaskDetailPath(task.id, basePath))}

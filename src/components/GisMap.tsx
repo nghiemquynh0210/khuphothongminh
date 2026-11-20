@@ -305,6 +305,11 @@ export default function GisMap({
         details: `${b.type} · Chủ hộ/Đại diện: ${b.owner} · ${formatVNNumber(
           b.employeeCount || 0
         )} lao động.`,
+        timemarkVerified: b.timemarkVerified,
+        timemarkHash: b.timemarkHash,
+        photoElevation: b.photoElevation,
+        photoHeading: b.photoDirection,
+        photoDate: b.photoTakenAt,
       });
     }
 
@@ -324,6 +329,11 @@ export default function GisMap({
           lng: pt.lng,
           toNumber: extractToDanPhoNumber(h.address, pt.lat, pt.lng),
           details: `Hộ ${h.type || "Thường trú"} · ${formatVNNumber(h.memberCount)} nhân khẩu.`,
+          timemarkVerified: h.timemarkVerified,
+          timemarkHash: h.timemarkHash,
+          photoElevation: h.photoElevation,
+          photoHeading: h.photoDirection,
+          photoDate: h.photoTakenAt,
         });
       }
     }
@@ -682,7 +692,7 @@ export default function GisMap({
         }
         actions={
           !readOnly ? (
-            <div className="flex flex-wrap items-center gap-2 shrink-0">
+            <div className="flex flex-row flex-wrap items-center gap-2 shrink-0">
               {missingTotal > 0 && (
                 <Button
                   variant="outline"
@@ -728,12 +738,7 @@ export default function GisMap({
           icon={MapPin}
           color="indigo"
           highlighted={activeFilterType === "household"}
-          subtext={
-            readOnly
-              ? "Thống kê tổng hợp KP3"
-              : `${households.length - missingHouseholds.length} hộ đã gắn tọa độ`
-          }
-          subtextRight="Toàn KP3"
+          subtext={!readOnly ? `${households.length - missingHouseholds.length} hộ gắn tọa độ` : undefined}
           onClick={
             readOnly
               ? () => setWorkspaceMode("schematic")
@@ -751,7 +756,6 @@ export default function GisMap({
           color="blue"
           highlighted={activeFilterType === "business"}
           subtext={`${businesses.length - missingBusinesses.length} đã định vị GPS`}
-          subtextRight="An Phú"
           onClick={() => {
             setWorkspaceMode("map");
             setActiveFilterType((f) => (f === "business" ? "ALL" : "business"));
@@ -823,10 +827,10 @@ export default function GisMap({
             <button
               type="button"
               onClick={() => setShowSidebar((v) => !v)}
-              className="hidden lg:inline-flex min-h-9 px-3 rounded-xl bg-white hover:bg-slate-200 text-slate-800 border border-slate-300 font-bold items-center gap-1.5 cursor-pointer"
+              className="inline-flex min-h-9 px-3 rounded-xl bg-white hover:bg-slate-200 text-slate-800 border border-slate-300 font-bold items-center gap-1.5 cursor-pointer"
             >
               {showSidebar ? <PanelLeftClose size={14} /> : <PanelLeftOpen size={14} />}
-              {showSidebar ? "Thu gọn bộ lọc" : "Mở bộ lọc lớp"}
+              {showSidebar ? "Ẩn bộ lọc lớp" : "Mở bộ lọc lớp"}
             </button>
           )}
           <span className="px-3 py-1.5 rounded-xl bg-slate-50 border border-slate-200 text-slate-700 font-semibold">
@@ -850,9 +854,9 @@ export default function GisMap({
           verticesCount={boundaryCoords.length}
         />
       ) : (
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
+        <div className="grid grid-cols-1 xl:grid-cols-12 gap-5 items-start">
           {showSidebar && (
-            <div className="lg:col-span-4 min-w-0">
+            <div className="xl:col-span-4 min-w-0 max-h-[420px] overflow-y-auto xl:max-h-none xl:overflow-visible pr-0.5 xl:pr-0 evon-scroll">
               <GisPinListPanel
                 layers={layers}
                 onToggleLayer={handleToggleLayer}
@@ -879,7 +883,7 @@ export default function GisMap({
 
           <div
             className={`${
-              showSidebar ? "lg:col-span-8" : "lg:col-span-12"
+              showSidebar ? "xl:col-span-8" : "xl:col-span-12"
             } min-w-0 space-y-4`}
           >
             {/* Boundary Live Edit HUD */}
@@ -1057,6 +1061,8 @@ export default function GisMap({
               onDeleteCustomPin={!readOnly ? handleDeleteCustomPin : undefined}
               onTriggerLiveStream={(pin) => setLiveCameraPin(pin)}
               onNavigateToReport={onNavigateToReport}
+              households={households}
+              businesses={businesses}
               readOnly={readOnly}
             />
           </div>

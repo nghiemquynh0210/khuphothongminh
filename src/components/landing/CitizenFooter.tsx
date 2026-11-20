@@ -1,5 +1,5 @@
 import React from "react";
-import { Clock, LayoutDashboard, LockKeyhole, Mail, MapPin, Phone } from "lucide-react";
+import { BellRing, Clock, ExternalLink, LayoutDashboard, LockKeyhole, Mail, MapPin, MessageCircle, Phone } from "lucide-react";
 import { LandingConfig } from "../../types";
 import { DEFAULT_LANDING_CONFIG, ROUTES, Link } from "./landingConstants";
 
@@ -70,11 +70,40 @@ export default function CitizenFooter({
           </div>
         </div>
 
-        {/* Column 3: Data Protection & Staff Portal */}
+        {/* Column 3: Official Zalo OA & Staff Portal */}
         <div className="space-y-3">
-          <p className="font-bold text-blue-100 uppercase text-xs tracking-wider">Bảo vệ dữ liệu</p>
-          <p className="text-blue-100">
-            Thông tin cá nhân trong phản ánh chỉ dùng cho mục đích tiếp nhận và xử lý, chỉ cán bộ có thẩm quyền được truy cập.
+          <p className="font-bold text-blue-100 uppercase text-xs tracking-wider flex items-center gap-1.5">
+            <BellRing size={13} className="text-emerald-300" aria-hidden="true" />
+            Kênh Zalo OA Chính thức &amp; Bảo vệ Dữ liệu
+          </p>
+          <div className="bg-white/10 border border-white/20 rounded-xl p-3 flex items-center gap-3">
+            <img
+              src="https://api.qrserver.com/v1/create-qr-code/?size=96x96&data=https%3A%2F%2Fzalo.me%2Fbdhkhupho3"
+              alt="QR Zalo OA Ban Điều Hành Khu Phố 3"
+              className="w-14 h-14 rounded-lg bg-white p-1 shrink-0"
+              loading="lazy"
+            />
+            <div className="space-y-1 min-w-0">
+              <p className="font-bold text-white text-xs leading-snug">
+                Ban Điều Hành Khu Phố 3 phường An Phú
+              </p>
+              <p className="text-[11px] text-blue-100 leading-relaxed">
+                Nhận thông báo khu phố &amp; tự động nhắc gia hạn tạm trú trước 15 ngày.
+              </p>
+              <a
+                href="https://zalo.me/bdhkhupho3"
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex items-center gap-1 text-xs font-bold text-emerald-300 hover:text-white hover:underline"
+              >
+                <MessageCircle size={13} aria-hidden="true" />
+                <span>Quan tâm Zalo OA (zalo.me/bdhkhupho3)</span>
+                <ExternalLink size={11} aria-hidden="true" />
+              </a>
+            </div>
+          </div>
+          <p className="text-xs text-blue-100/90">
+            Thông tin cá nhân chỉ dùng cho mục đích tiếp nhận và phục vụ cư dân theo Nghị định 13/2023/NĐ-CP.
           </p>
           <Link
             to={isAdmin ? ROUTES.DASHBOARD_CULTURAL : ROUTES.DASHBOARD}

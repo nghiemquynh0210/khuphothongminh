@@ -10,6 +10,7 @@ import {
   CreditCard,
   Download,
   Edit2,
+  ExternalLink,
   Eye,
   FileCheck,
   FileText,
@@ -28,6 +29,15 @@ import { DetailGrid, DetailRow } from "../components/common/DetailRow";
 import { PageHeader } from "../components/common/PageHeader";
 import { LoadingFade } from "../components/common/LoadingFade";
 import { ConfirmModal, InlineNotice } from "../components/ui/ConfirmModal";
+import {
+  assignMemberRoleInAssociation,
+  getAssociationRolePresets,
+  previewRoleAssignment,
+} from "../utils/leadershipSync";
+import {
+  isRealDecisionDocumentUrl,
+  downloadDecisionDocument,
+} from "../utils/decisionDocumentOcr";
 import {
   ROUTES,
   getPartyMemberDetailPath,
@@ -186,12 +196,7 @@ export default function PartyMemberDetailPage({
 
   const handleDownloadDecision = () => {
     if (!member?.decisionFile) return;
-    const link = document.createElement("a");
-    link.href = member.decisionFile.url;
-    link.download = member.decisionFile.name || `Quyet_dinh_${member.fullName}.pdf`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+    downloadDecisionDocument(member.decisionFile);
   };
 
   const handleConfirmDelete = () => {
@@ -221,7 +226,7 @@ export default function PartyMemberDetailPage({
   };
 
   if (isDataLoading && !member) {
-    return <LoadingFade text="Đang tải dữ liệu hồ sơ hội viên..." />;
+    return <LoadingFade title="Đang tải dữ liệu hồ sơ hội viên..." />;
   }
 
   if (!member) {
@@ -400,6 +405,51 @@ export default function PartyMemberDetailPage({
               )}
             </div>
 
+            {/* Quick Role Switcher (Đổi nhanh Trưởng / Phó đồng bộ toàn hệ thống) */}
+            {currentAssoc && onUpdateAssociations && (
+              <div className="w-full pt-2.5 border-t border-slate-100 text-left space-y-1.5">
+                <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500 block">
+                  Đổi nhanh chức danh (Đồng bộ toàn hệ thống)
+                </span>
+                <div className="flex flex-wrap gap-1.5">
+                  {getAssociationRolePresets(currentAssoc).allSuggestedRoles.map((roleOpt) => {
+                    const isActive = member.role === roleOpt;
+                    const preview = previewRoleAssignment(currentAssoc, member.cccd, roleOpt);
+                    return (
+                      <button
+                        key={roleOpt}
+                        type="button"
+                        onClick={() => {
+                          if (isActive) return;
+                          const nextAssocs = assignMemberRoleInAssociation(
+                            associations,
+                            currentAssoc.id,
+                            member.cccd,
+                            roleOpt
+                          );
+                          onUpdateAssociations(nextAssocs);
+                          setNotice({
+                            type: "success",
+                            message:
+                              preview.requiresHandover && preview.currentHead
+                                ? `Đã bổ nhiệm "${member.fullName}" giữ chức "${roleOpt}" (bàn giao từ Đ/c ${preview.currentHead.fullName}) và đồng bộ toàn hệ thống!`
+                                : `Đã cập nhật chức danh "${roleOpt}" cho "${member.fullName}" và đồng bộ toàn hệ thống!`,
+                          });
+                        }}
+                        className={`px-2.5 py-1 rounded-lg text-xs font-semibold border transition-colors cursor-pointer ${
+                          isActive
+                            ? "bg-emerald-700 text-white border-emerald-700"
+                            : "bg-slate-50 hover:bg-emerald-50 text-slate-700 hover:text-emerald-800 border-slate-200 hover:border-emerald-300"
+                        }`}
+                      >
+                        {roleOpt}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
             {/* Quick Contact & Action Buttons */}
             <div className="w-full pt-3 border-t border-slate-100 space-y-2 text-xs">
               {(member.phone || matchedRes?.phone) && (
@@ -512,7 +562,7 @@ export default function PartyMemberDetailPage({
               />
               <DetailRow
                 label="Địa chỉ thường trú / Chỗ ở"
-                value={matchedRes?.address || "Khu phố 3, Phường An Phú, TP. Thủ Đức"}
+                value={matchedRes?.address || "Khu phố 3, Phường An Phú, TP. Hồ Chí Minh"}
                 colSpan={2}
               />
               <DetailRow
@@ -648,10 +698,38 @@ export default function PartyMemberDetailPage({
               {allAssociatedRoles.map((roleItem, idx) => (
                 <div
                   key={idx}
+                  role={!roleItem.isCurrentAssoc ? "button" : undefined}
+                  tabIndex={!roleItem.isCurrentAssoc ? 0 : undefined}
+                  onClick={
+                    !roleItem.isCurrentAssoc
+                      ? () =>
+                          navigate(
+                            getPartyMemberDetailPath(member.cccd, roleItem.assocId, basePath)
+                          )
+                      : undefined
+                  }
+                  onKeyDown={
+                    !roleItem.isCurrentAssoc
+                      ? (e) => {
+                          if (e.target !== e.currentTarget) return;
+                          if (e.key === "Enter" || e.key === " ") {
+                            e.preventDefault();
+                            navigate(
+                              getPartyMemberDetailPath(member.cccd, roleItem.assocId, basePath)
+                            );
+                          }
+                        }
+                      : undefined
+                  }
+                  title={
+                    !roleItem.isCurrentAssoc
+                      ? `Nhấp để xem thông tin tại ${roleItem.assocName}`
+                      : undefined
+                  }
                   className={`p-3.5 rounded-xl border flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 transition-colors ${
                     roleItem.isCurrentAssoc
                       ? "bg-emerald-50/70 border-emerald-200"
-                      : "bg-slate-50/60 border-slate-200"
+                      : "bg-slate-50/60 border-slate-200 hover:border-emerald-300 hover:bg-emerald-50/40 cursor-pointer"
                   }`}
                 >
                   <div className="min-w-0 space-y-1">
@@ -726,25 +804,52 @@ export default function PartyMemberDetailPage({
             {/* Modal Content */}
             <div className="p-6 overflow-y-auto flex-1 bg-slate-50/50 space-y-4">
               {member.decisionFile.type === "pdf" ? (
-                <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm text-center space-y-4">
-                  <div className="w-16 h-16 mx-auto rounded-2xl bg-rose-50 text-rose-600 flex items-center justify-center">
-                    <FileText size={32} />
+                isRealDecisionDocumentUrl(member.decisionFile.url) ? (
+                  <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden space-y-3">
+                    <iframe
+                      src={member.decisionFile.url}
+                      className="w-full h-[520px] rounded-lg border border-slate-200"
+                    />
+                    <div className="px-4 pb-3 flex items-center gap-3">
+                      <button
+                        type="button"
+                        onClick={handleDownloadDecision}
+                        className="inline-flex items-center gap-2 px-4 py-2 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl text-xs font-semibold cursor-pointer shadow-xs transition-colors"
+                      >
+                        <Download size={14} />
+                        <span>Tải về xem chi tiết</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => window.open(member.decisionFile!.url, "_blank")}
+                        className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 transition-colors cursor-pointer"
+                      >
+                        <ExternalLink className="w-4 h-4" />
+                        Mở bản gốc tab mới
+                      </button>
+                    </div>
                   </div>
-                  <div>
-                    <h4 className="font-bold text-slate-900 text-sm">{member.decisionFile.name}</h4>
-                    <p className="text-xs text-slate-500 mt-1">Định dạng PDF • {member.decisionFile.size || "Văn bản số hóa"}</p>
+                ) : (
+                  <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm text-center space-y-4">
+                    <div className="w-16 h-16 mx-auto rounded-2xl bg-rose-50 text-rose-600 flex items-center justify-center">
+                      <FileText size={32} />
+                    </div>
+                    <div>
+                      <h4 className="font-bold text-slate-900 text-sm">{member.decisionFile.name}</h4>
+                      <p className="text-xs text-slate-500 mt-1">Định dạng PDF • {member.decisionFile.size || "Văn bản số hóa"}</p>
+                    </div>
+                    <div className="flex justify-center gap-3">
+                      <button
+                        type="button"
+                        onClick={handleDownloadDecision}
+                        className="inline-flex items-center gap-2 px-4 py-2 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl text-xs font-semibold cursor-pointer shadow-xs transition-colors"
+                      >
+                        <Download size={14} />
+                        <span>Tải về xem chi tiết</span>
+                      </button>
+                    </div>
                   </div>
-                  <div className="flex justify-center gap-3">
-                    <button
-                      type="button"
-                      onClick={handleDownloadDecision}
-                      className="inline-flex items-center gap-2 px-4 py-2 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl text-xs font-semibold cursor-pointer shadow-xs transition-colors"
-                    >
-                      <Download size={14} />
-                      <span>Tải về xem chi tiết</span>
-                    </button>
-                  </div>
-                </div>
+                )
               ) : (
                 <div className="bg-white p-2 rounded-xl border border-slate-200 shadow-sm flex justify-center">
                   <img
@@ -758,6 +863,16 @@ export default function PartyMemberDetailPage({
 
             {/* Modal Footer */}
             <div className="bg-white p-3.5 px-5 border-t border-slate-200 flex justify-end gap-2 shrink-0">
+              {member.decisionFile && isRealDecisionDocumentUrl(member.decisionFile.url) && (
+                <button
+                  type="button"
+                  onClick={() => window.open(member.decisionFile!.url, "_blank")}
+                  className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 transition-colors cursor-pointer"
+                >
+                  <ExternalLink className="w-4 h-4" />
+                  Mở bản gốc tab mới
+                </button>
+              )}
               <button
                 type="button"
                 onClick={() => setViewingDecisionDoc(false)}
@@ -779,7 +894,7 @@ export default function PartyMemberDetailPage({
         cancelLabel="Hủy bỏ"
         variant="danger"
         onConfirm={handleConfirmDelete}
-        onCancel={() => setShowDeleteConfirm(false)}
+        onClose={() => setShowDeleteConfirm(false)}
       />
     </div>
   );

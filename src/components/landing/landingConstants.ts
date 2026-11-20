@@ -1,5 +1,10 @@
 import React from "react";
 import { FieldReport, LandingConfig, LeadershipMember } from "../../types";
+import { INITIAL_ASSOCIATIONS } from "../../data/associationsData";
+import {
+  buildAssociationLeadersDirectory,
+  enforcePartySecretaryFirst,
+} from "../../utils/leadershipSync";
 
 export const PUBLIC_CONTACT_EMAIL = "bdhkhupho3.ap@gmail.com";
 export const LANDING_CONFIG_STORAGE_KEY = "kp3_landing_config_v1";
@@ -12,9 +17,12 @@ export const DEFAULT_LEADERSHIP_MEMBERS: LeadershipMember[] = [
     group: "Cấp ủy Chi bộ",
     scope: "Chi bộ Khu phố 3",
     phone: "0825681868",
-    description: "Phụ trách chung công tác Đảng, chính trị tư tưởng và định hướng chuyển đổi số tại cơ sở.",
+    assocId: "ASC_DANG",
+    description: "Lãnh đạo toàn diện công tác Đảng, chính trị tư tưởng và định hướng chuyển đổi số tại Khu phố 3.",
     schedule: "Sáng Thứ 7 (08:00 - 11:00) tại Nhà Văn hóa KP3",
     isHighlight: true,
+    isTopLeader: true,
+    protocolRank: 1,
   },
   {
     id: "LD-02",
@@ -23,39 +31,68 @@ export const DEFAULT_LEADERSHIP_MEMBERS: LeadershipMember[] = [
     group: "Cấp ủy Chi bộ",
     scope: "Chi bộ Khu phố 3",
     phone: "0908579479",
+    assocId: "ASC_DANG",
     description: "Phụ trách công tác tổ chức, kiểm tra giám sát và phong trào đoàn thể khu phố.",
     isHighlight: false,
+    protocolRank: 2,
   },
   {
     id: "LD-03",
     name: "Nguyễn Trung Huy",
-    role: "Chi ủy viên",
-    subRole: "Trưởng Ban Điều hành Khu phố 3",
+    role: "Trưởng Khu phố",
+    subRole: "Kiêm Chi ủy viên",
     group: "Ban Điều hành Khu phố",
     scope: "Ban Điều hành Khu phố 3",
     phone: "0962037937",
+    assocId: "ASC_BDH",
     description: "Chủ trì điều hành hoạt động hành chính, trật tự đô thị, an sinh xã hội và dịch vụ công.",
     schedule: "Giờ hành chính Thứ 2 - Thứ 6",
     isHighlight: false,
+    protocolRank: 3,
   },
   {
     id: "LD-04",
-    name: "Dương Tấn Đạt",
-    role: "Chi ủy viên",
-    group: "Cấp ủy Chi bộ",
-    scope: "Ban Điều hành Khu phố 3",
-    phone: "0352475848",
-    description: "Phụ trách công tác thanh niên, phong trào tự quản và an ninh trật tự địa bàn.",
+    name: "Trần Thị Mỹ Dung",
+    role: "Trưởng Ban Công tác Mặt trận",
+    group: "Đoàn thể",
+    scope: "Ban Công tác Mặt trận Khu phố 3",
+    assocId: "ASC_MT",
+    description: "Chủ trì khối đại đoàn kết toàn dân, giám sát phản biện xã hội, vận động an sinh và hòa giải cơ sở.",
     isHighlight: false,
+    protocolRank: 3,
+  },
+  {
+    id: "LD-04B",
+    name: "Nguyễn Thu Phương",
+    role: "Phó Trưởng Khu phố",
+    group: "Ban Điều hành Khu phố",
+    scope: "Ban Điều hành Khu phố 3",
+    assocId: "ASC_BDH",
+    description: "Phối hợp điều hành công tác dân cư, trật tự mỹ quan đô thị, hòa giải và đời sống khu phố.",
+    isHighlight: false,
+    protocolRank: 4,
   },
   {
     id: "LD-05",
+    name: "Dương Tấn Đạt",
+    role: "Chi ủy viên",
+    group: "Cấp ủy Chi bộ",
+    scope: "Chi bộ & Ban Điều hành Khu phố 3",
+    phone: "0352475848",
+    assocId: "ASC_DANG",
+    description: "Phụ trách công tác thanh niên, phong trào tự quản và an ninh trật tự địa bàn.",
+    isHighlight: false,
+    protocolRank: 5,
+  },
+  {
+    id: "LD-06",
     name: "Đại úy Trần Quốc Hải",
     role: "Công an khu vực",
     group: "Công an khu vực",
     scope: "Công an Phường An Phú (phụ trách địa bàn KP3)",
     description: "Phụ trách an ninh trật tự, quản lý cư trú VNeID, PCCC và tiếp nhận tin báo tội phạm.",
     isHighlight: false,
+    protocolRank: 8,
   },
 ];
 
@@ -86,6 +123,7 @@ export const DEFAULT_LANDING_CONFIG: LandingConfig = {
     },
   ],
   leadership: DEFAULT_LEADERSHIP_MEMBERS,
+  associationLeaders: buildAssociationLeadersDirectory(INITIAL_ASSOCIATIONS),
   about: {
     summaryText:
       "Khu phố 3 là một trong 14 khu phố trực thuộc Đảng ủy – HĐND – UBND – UBMTTQ Việt Nam Phường An Phú, Thành phố Hồ Chí Minh; địa bàn khép kín văn minh, hiện đại, năng động và đi đầu trong công tác chuyển đổi số cơ sở.",
@@ -109,16 +147,21 @@ export const DEFAULT_LANDING_CONFIG: LandingConfig = {
 
 export function mergeLandingConfig(raw?: Partial<LandingConfig> | null): LandingConfig {
   if (!raw) return DEFAULT_LANDING_CONFIG;
+  const rawLeaders =
+    Array.isArray(raw.leadership) && raw.leadership.length > 0
+      ? raw.leadership
+      : DEFAULT_LANDING_CONFIG.leadership || DEFAULT_LEADERSHIP_MEMBERS;
   return {
     ...DEFAULT_LANDING_CONFIG,
     ...raw,
     galleryImages: Array.isArray(raw.galleryImages)
       ? raw.galleryImages
       : DEFAULT_LANDING_CONFIG.galleryImages,
-    leadership:
-      Array.isArray(raw.leadership) && raw.leadership.length > 0
-        ? raw.leadership
-        : DEFAULT_LANDING_CONFIG.leadership,
+    leadership: enforcePartySecretaryFirst(rawLeaders).map(({ cccd: _cccd, ...rest }) => rest),
+    associationLeaders:
+      Array.isArray(raw.associationLeaders) && raw.associationLeaders.length > 0
+        ? raw.associationLeaders
+        : DEFAULT_LANDING_CONFIG.associationLeaders,
     about: {
       ...DEFAULT_LANDING_CONFIG.about!,
       ...(raw.about || {}),

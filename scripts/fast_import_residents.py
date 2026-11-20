@@ -26,13 +26,9 @@ import pandas as pd
 
 sys.stdout.reconfigure(encoding='utf-8')
 
-# Cấu hình Supabase
-SUPABASE_URL = "https://wjdgaobhipkgzveidtra.supabase.co"
-DEFAULT_SERVICE_ROLE_KEY = (
-    "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9."
-    "eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndqZGdhb2JoaXBrZ3p2ZWlkdHJhIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc5MTg1OTQzNCwiZXhwIjoyMTA3NDM1NDM0fQ."
-    "qlheohPPyspOM0ezFa-wr_D6vIQNrAFrmaPpSD_v_zo"
-)
+# Cấu hình Supabase (khóa quản trị đọc từ biến môi trường SUPABASE_SERVICE_ROLE_KEY)
+SUPABASE_URL = os.environ.get("VITE_SUPABASE_URL", "https://wjdgaobhipkgzveidtra.supabase.co")
+DEFAULT_SERVICE_ROLE_KEY = ""
 
 def clean_cccd(val):
     if pd.isna(val) or val is None:

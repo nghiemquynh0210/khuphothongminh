@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
   Bell,
   BellRing,
@@ -9,8 +9,11 @@ import {
   Edit2,
   FileCheck,
   FileText,
+  Loader2,
+  MessageCircle,
   Plus,
   Search,
+  Send,
   Trash2,
   User,
 } from "lucide-react";
@@ -21,6 +24,7 @@ import { AttachmentGallery } from "./AttachmentGallery";
 import { AttachmentPreviewModal } from "./TaskModals";
 import { Button, EmptyState, Input, Modal, ReportSelect } from "../ui";
 import { DetailRow } from "../common/DetailRow";
+import { getStaffAuthHeaders } from "../../utils/imageUpload";
 
 interface ReminderSectionProps {
   reminders: RecurringReminder[];
@@ -77,6 +81,154 @@ export const ReminderSection: React.FC<ReminderSectionProps> = ({
   // Submit report modal state
   const [submitNotes, setSubmitNotes] = useState("");
   const [submitFiles, setSubmitFiles] = useState<TaskAttachment[]>([]);
+
+  // Zalo OA integration state
+  const [cadreZaloMap, setCadreZaloMap] = useState<Record<string, { zaloUserId?: string; zaloDisplayName?: string }>>({});
+  const [sendingReminderId, setSendingReminderId] = useState<string | null>(null);
+  const [batchSending, setBatchSending] = useState(false);
+
+  const normalizeNameKey = (raw?: string) =>
+    String(raw || "")
+      .replace(/^(?:Bí thư|Phó Bí thư|Trưởng Khu phố|Phó Trưởng Khu phố|Đ\/c|Đồng chí|Đại úy)\s+/i, "")
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .replace(/đ/gi, "d")
+      .toLowerCase()
+      .replace(/\s+/g, " ")
+      .trim();
+
+  useEffect(() => {
+    let active = true;
+    getStaffAuthHeaders()
+      .then((headers) =>
+        fetch("/api/notifications", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", ...headers },
+          body: JSON.stringify({ action: "get_cadre_zalo_directory" }),
+        })
+      )
+      .then((r) => (r.ok ? r.json() : null))
+      .then((json) => {
+        if (!active || !json?.ok || !Array.isArray(json.cadres)) return;
+        const map: Record<string, { zaloUserId?: string; zaloDisplayName?: string }> = {};
+        for (const c of json.cadres) {
+          if (c?.zaloUserId) {
+            const k = normalizeNameKey(c.fullName);
+            if (k) map[k] = { zaloUserId: c.zaloUserId, zaloDisplayName: c.zaloDisplayName };
+          }
+        }
+        setCadreZaloMap(map);
+      })
+      .catch(() => {});
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  const getZaloInfoForReminder = (rem: RecurringReminder) => {
+    const k = normalizeNameKey(rem.responsiblePerson?.name);
+    const hit = cadreZaloMap[k];
+    if (hit?.zaloUserId) return hit;
+    if (k === "pham ngoc ha" || String(rem.responsiblePerson?.phone || "").includes("0908579479")) {
+      return { zaloUserId: "2742691693568338378", zaloDisplayName: "Sò" };
+    }
+    return null;
+  };
+
+  const handleSendZaloOaReminder = async (rem: RecurringReminder) => {
+    setSendingReminderId(rem.id);
+    try {
+      const authHeaders = await getStaffAuthHeaders();
+      const res = await fetch("/api/notifications", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", ...authHeaders },
+        body: JSON.stringify({
+          action: "send_recurring_report_reminder",
+          reminder: rem,
+        }),
+      });
+      const json = await res.json().catch(() => ({}));
+      if (json.ok) {
+        onNotify(
+          `✅ Đã gửi nhắc hạn "${rem.title}" qua Zalo OA tới ${rem.responsiblePerson.name}${
+            json.zaloDisplayName ? ` (Zalo: ${json.zaloDisplayName})` : ""
+          } (${json.detail || "OK"}).`,
+          "success"
+        );
+      } else if (json.needsManualZalo) {
+        if (json.messagePreview && navigator.clipboard) {
+          navigator.clipboard.writeText(json.messagePreview).catch(() => {});
+        }
+        onNotify(
+          `⚠️ ${json.error || "Chưa khớp Zalo OA"} — Đã sao chép mẫu tin nhắc hạn để gửi qua Zalo cá nhân.`,
+          "warning"
+        );
+        if (json.manualZaloUrl) {
+          window.open(json.manualZaloUrl, "_blank", "noopener,noreferrer");
+        }
+      } else {
+        onNotify(`❌ Không thể gửi Zalo OA: ${json.error || "Lỗi kết nối máy chủ."}`, "warning");
+      }
+    } catch {
+      onNotify("❌ Lỗi kết nối API gửi nhắc Zalo OA.", "warning");
+    } finally {
+      setSendingReminderId(null);
+    }
+  };
+
+  const handleBatchSendDueReminders = async () => {
+    setBatchSending(true);
+    try {
+      const authHeaders = await getStaffAuthHeaders();
+      const res = await fetch("/api/notifications", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", ...authHeaders },
+        body: JSON.stringify({
+          action: "scan_or_send_recurring_report_reminders",
+          mode: "send",
+        }),
+      });
+      const json = await res.json().catch(() => ({}));
+      if (json.ok) {
+        if (json.totalDue === 0) {
+          onNotify("Hiện không có báo cáo định kỳ đang bật nào đến hạn trong 2 ngày tới.", "info");
+        } else {
+          onNotify(
+            `✅ Đã quét ${json.totalDue} báo cáo đến hạn/quá hạn: Gửi thành công ${json.sentCount} tin Zalo OA${
+              json.skippedUnmatched > 0 ? `, ${json.skippedUnmatched} chưa khớp OA` : ""
+            }.`,
+            json.sentCount > 0 ? "success" : "warning"
+          );
+        }
+      } else {
+        onNotify(`❌ Lỗi quét gửi hàng loạt: ${json.error || "Vui lòng thử lại."}`, "warning");
+      }
+    } catch {
+      onNotify("❌ Lỗi kết nối khi quét nhắc báo cáo định kỳ.", "warning");
+    } finally {
+      setBatchSending(false);
+    }
+  };
+
+  const handleOpenManualZalo = (rem: RecurringReminder) => {
+    const phoneDigits = String(rem.responsiblePerson?.phone || "").replace(/\D/g, "");
+    const dueFormatted = /^\d{4}-\d{2}-\d{2}$/.test(rem.nextDueDate)
+      ? rem.nextDueDate.split("-").reverse().join("/")
+      : rem.nextDueDate;
+    const msg = `📋 [NHẮC BÁO CÁO ĐỊNH KỲ KP3] Kính gửi đồng chí ${rem.responsiblePerson.name}: Đề nghị hoàn thành "${rem.title}" gửi ${rem.recipientOrg} trước ${rem.frequencyDetail?.time || "16:30"} ngày ${dueFormatted}.`;
+    if (navigator.clipboard) {
+      navigator.clipboard.writeText(msg).catch(() => {});
+    }
+    onNotify(
+      `Đã sao chép mẫu tin nhắc hạn cho ${rem.responsiblePerson.name}. Đang mở Zalo...`,
+      "info"
+    );
+    window.open(
+      phoneDigits ? `https://zalo.me/${phoneDigits}` : "https://zalo.me/bdhkhupho3",
+      "_blank",
+      "noopener,noreferrer"
+    );
+  };
 
   const currentAssocMembers = useMemo(() => {
     const found = associationsList.find((a) => a.id === remAssociationId || a.name === remUnit);
@@ -221,7 +373,10 @@ export const ReminderSection: React.FC<ReminderSectionProps> = ({
 
     if (remAutoCreateTask) {
       onAutoCreateTask({
-        id: `TASK-${Date.now().toString().slice(-4)}`,
+        id:
+          typeof crypto !== "undefined" && typeof crypto.randomUUID === "function"
+            ? crypto.randomUUID()
+            : `00000000-0000-4000-8000-${Date.now().toString(16).padStart(12, "0").slice(-12)}`,
         title: `[Báo cáo định kỳ] ${newRem.title}`,
         unit: remUnit,
         associationId: remAssociationId,
@@ -352,15 +507,27 @@ export const ReminderSection: React.FC<ReminderSectionProps> = ({
           />
         </div>
 
-        <Button
-          id="btn-add-reminder-modal"
-          variant="primary"
-          size="md"
-          leftIcon={<Plus size={16} />}
-          onClick={openCreateReminder}
-        >
-          Cài đặt nhắc hẹn mới
-        </Button>
+        <div className="flex flex-wrap items-center gap-2">
+          <Button
+            id="btn-batch-zalo-reminders"
+            variant="secondary"
+            size="md"
+            leftIcon={batchSending ? <Loader2 size={15} className="animate-spin" /> : <Send size={15} />}
+            disabled={batchSending}
+            onClick={() => void handleBatchSendDueReminders()}
+          >
+            {batchSending ? "Đang gửi Zalo OA..." : "Nhắc đến hạn (Zalo OA)"}
+          </Button>
+          <Button
+            id="btn-add-reminder-modal"
+            variant="primary"
+            size="md"
+            leftIcon={<Plus size={16} />}
+            onClick={openCreateReminder}
+          >
+            Cài đặt nhắc hẹn mới
+          </Button>
+        </div>
       </search>
 
       {/* Cards Grid */}
@@ -375,10 +542,21 @@ export const ReminderSection: React.FC<ReminderSectionProps> = ({
           {filteredReminders.map((rem) => (
             <article
               key={rem.id}
-              className={`bg-white rounded-xl border p-4 flex flex-col justify-between gap-3 transition-colors ${
+              role="button"
+              tabIndex={0}
+              aria-label={`Xem chi tiết lịch báo cáo ${rem.title}`}
+              onClick={() => setSelectedReminder(rem)}
+              onKeyDown={(e) => {
+                if (e.target !== e.currentTarget) return;
+                if (e.key === "Enter" || e.key === " ") {
+                  e.preventDefault();
+                  setSelectedReminder(rem);
+                }
+              }}
+              className={`bg-white rounded-xl border p-4 flex flex-col justify-between gap-3 transition-all cursor-pointer group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 ${
                 rem.isActive
-                  ? "border-slate-200 hover:border-slate-300"
-                  : "border-slate-200 bg-slate-50/70 opacity-85"
+                  ? "border-slate-200 hover:border-indigo-400 hover:shadow-sm"
+                  : "border-slate-200 bg-slate-50/70 opacity-85 hover:border-slate-400"
               }`}
             >
               <div className="space-y-3">
@@ -387,7 +565,10 @@ export const ReminderSection: React.FC<ReminderSectionProps> = ({
                     {getFrequencyBadge(rem.frequency)}
                     {getReminderStatusBadge(rem.status)}
                   </div>
-                  <label className="inline-flex items-center gap-1.5 text-xs font-medium text-slate-700 cursor-pointer">
+                  <label
+                    onClick={(e) => e.stopPropagation()}
+                    className="inline-flex items-center gap-1.5 text-xs font-medium text-slate-700 cursor-pointer"
+                  >
                     <input
                       type="checkbox"
                       checked={rem.isActive}
@@ -398,7 +579,9 @@ export const ReminderSection: React.FC<ReminderSectionProps> = ({
                   </label>
                 </div>
 
-                <h3 className="text-sm font-bold text-slate-900 leading-snug">{rem.title}</h3>
+                <h3 className="text-sm font-bold text-slate-900 group-hover:text-indigo-800 leading-snug transition-colors">
+                  {rem.title}
+                </h3>
 
                 <div className="space-y-1.5 text-xs text-slate-700">
                   <div className="flex items-start gap-1.5">
@@ -409,9 +592,24 @@ export const ReminderSection: React.FC<ReminderSectionProps> = ({
                   </div>
                   <div className="flex items-start gap-1.5">
                     <User size={14} className="text-slate-500 shrink-0 mt-0.5" aria-hidden="true" />
-                    <span>
-                      Phụ trách: <strong className="text-slate-900">{rem.responsiblePerson.name}</strong> ({rem.responsibleUnit})
-                    </span>
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      <span>
+                        Phụ trách: <strong className="text-slate-900">{rem.responsiblePerson.name}</strong> ({rem.responsibleUnit})
+                      </span>
+                      {(() => {
+                        const zInfo = getZaloInfoForReminder(rem);
+                        return zInfo ? (
+                          <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-sky-50 text-sky-700 border border-sky-200 text-[10px] font-bold">
+                            <MessageCircle size={10} />
+                            Zalo OA: {zInfo.zaloDisplayName || "Đã khớp"}
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-slate-100 text-slate-600 border border-slate-200 text-[10px] font-semibold">
+                            Chưa khớp OA
+                          </span>
+                        );
+                      })()}
+                    </div>
                   </div>
                   <div className="flex items-center gap-1.5 font-mono text-indigo-800 font-semibold">
                     <Clock size={14} className="shrink-0" aria-hidden="true" />
@@ -431,6 +629,7 @@ export const ReminderSection: React.FC<ReminderSectionProps> = ({
                       <a
                         href={rem.attachments[0].url}
                         download={rem.attachments[0].name}
+                        onClick={(e) => e.stopPropagation()}
                         className="px-2 py-1 rounded bg-white border border-slate-200 text-indigo-800 font-semibold inline-flex items-center gap-1 shrink-0 hover:bg-slate-50"
                       >
                         <Download size={12} /> Tải mẫu
@@ -447,7 +646,10 @@ export const ReminderSection: React.FC<ReminderSectionProps> = ({
                 )}
               </div>
 
-              <div className="pt-3 border-t border-slate-200 flex flex-wrap items-center justify-between gap-2">
+              <div
+                onClick={(e) => e.stopPropagation()}
+                className="pt-3 border-t border-slate-200 flex flex-wrap items-center justify-between gap-2"
+              >
                 <div className="flex items-center gap-1.5">
                   <Button
                     id={`btn-submit-reminder-${rem.id}`}
@@ -465,15 +667,27 @@ export const ReminderSection: React.FC<ReminderSectionProps> = ({
                   <Button
                     variant="secondary"
                     size="sm"
-                    leftIcon={<BellRing size={14} />}
-                    onClick={() =>
-                      onNotify(
-                        `Đã gửi thông báo nhắc hạn "${rem.title}" tới ${rem.responsiblePerson.name} (${rem.responsiblePerson.phone || "KP3"}).`,
-                        "warning"
+                    leftIcon={
+                      sendingReminderId === rem.id ? (
+                        <Loader2 size={14} className="animate-spin" />
+                      ) : (
+                        <BellRing size={14} />
                       )
                     }
+                    disabled={sendingReminderId === rem.id}
+                    onClick={() => void handleSendZaloOaReminder(rem)}
+                    title="Gửi tin nhắn nhắc nộp báo cáo trực tiếp qua Zalo OA"
                   >
-                    Nhắc
+                    {sendingReminderId === rem.id ? "Đang gửi..." : "Nhắc Zalo OA"}
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    leftIcon={<MessageCircle size={14} />}
+                    onClick={() => handleOpenManualZalo(rem)}
+                    title="Sao chép mẫu tin và mở chat Zalo cá nhân"
+                  >
+                    Zalo
                   </Button>
                 </div>
 
@@ -705,7 +919,7 @@ export const ReminderSection: React.FC<ReminderSectionProps> = ({
                 [
                   { id: "in_app", label: "Chuông ứng dụng" },
                   { id: "banner", label: "Banner ưu tiên" },
-                  { id: "zalo_sms", label: "Nhắc Zalo/SMS" },
+                  { id: "zalo_sms", label: "Zalo OA tự động" },
                   { id: "email", label: "Email văn phòng" },
                 ] as const
               ).map((ch) => (

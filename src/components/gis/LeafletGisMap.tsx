@@ -575,7 +575,7 @@ export default function LeafletGisMap({
       const svgPath = getPinSvgPath(pin.type);
 
       const iconHtml = `
-        <div style="width:${badgeSize}px;height:${badgeSize}px;border-radius:12px;background:${
+        <div style="position:relative;width:${badgeSize}px;height:${badgeSize}px;border-radius:12px;background:${
         meta.markerBg
       };color:#ffffff;border:2.5px solid ${
         isSelected ? "#0f172a" : "#ffffff"
@@ -583,6 +583,11 @@ export default function LeafletGisMap({
           <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
             ${svgPath}
           </svg>
+          ${pin.timemarkVerified ? `
+            <span style="position:absolute;top:-5px;right:-5px;width:15px;height:15px;background:#f59e0b;color:#ffffff;border-radius:9999px;border:1.5px solid #ffffff;display:flex;align-items:center;justify-content:center;box-shadow:0 1px 3px rgba(0,0,0,0.35);" title="Timemark GPS 100% Chân thực">
+              <svg xmlns="http://www.w3.org/2000/svg" width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+            </span>
+          ` : ""}
         </div>
       `;
 
@@ -609,12 +614,20 @@ export default function LeafletGisMap({
       });
 
       const toTag = pin.toNumber ? ` · PK #${pin.toNumber}` : "";
+      const timemarkTag = pin.timemarkVerified
+        ? `<div style="display:inline-flex;align-items:center;gap:4px;margin-top:4px;padding:2px 6px;border-radius:4px;background:#fffbeb;color:#b45309;font-size:10px;font-weight:700;border:1px solid #fde68a;">
+             <span style="width:5px;height:5px;border-radius:9999px;background:#f59e0b;"></span>
+             ✓ Timemark GPS 100% Chân thực
+           </div>`
+        : "";
+
       marker.bindTooltip(
         `<div class="text-xs font-sans">
           <div class="font-bold text-slate-900">${escapeHtml(pin.name)}</div>
           <div class="text-slate-600 mt-0.5">${escapeHtml(meta.shortLabel)}${escapeHtml(toTag)} · ${escapeHtml(
           pin.status
         )}</div>
+          ${timemarkTag}
         </div>`,
         { direction: "auto", offset: [0, -14] }
       );

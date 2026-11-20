@@ -1,12 +1,12 @@
 import React, { useState } from "react";
 import { ShieldAlert } from "lucide-react";
-import HouseholdManagement from "../components/HouseholdManagement";
+import HouseholdManagement, { HouseholdModuleTab } from "../components/HouseholdManagement";
 import HouseholdFormPage from "./HouseholdFormPage";
 import HouseholdDetailPage from "./HouseholdDetailPage";
 import HouseholdAddMemberPage from "./HouseholdAddMemberPage";
 import { InlineNotice } from "../components/ui/ConfirmModal";
 import { LoadingFade } from "../components/common/LoadingFade";
-import { Household, Resident, TargetGisItem, ActiveTab } from "../types";
+import { Household, Resident, TargetGisItem, ActiveTab, Business } from "../types";
 import {
   ROUTES,
   getHouseholdAddMemberPath,
@@ -20,6 +20,7 @@ import {
 export interface HouseholdsPageProps {
   households: Household[];
   residents: Resident[];
+  businesses?: Business[];
   currentUser: any;
   residentPermissions: Record<string, boolean>;
   isDataLoading?: boolean;
@@ -33,6 +34,7 @@ export interface HouseholdsPageProps {
 export default function HouseholdsPage({
   households,
   residents,
+  businesses = [],
   currentUser,
   residentPermissions,
   isDataLoading = false,
@@ -44,6 +46,8 @@ export default function HouseholdsPage({
 }: HouseholdsPageProps) {
   const { pathname, search } = useCurrentLocation();
   const [savedNotice, setSavedNotice] = useState<string | null>(null);
+  const [subTab, setSubTab] = useState<HouseholdModuleTab>("list");
+  const [viewMode, setViewMode] = useState<"list" | "card">("card");
 
   if (currentUser?.role === "nguoidan" && !residentPermissions.households) {
     return (
@@ -91,6 +95,7 @@ export default function HouseholdsPage({
             householdId={formRoute.householdId}
             households={households}
             residents={residents}
+            businesses={businesses}
             isDataLoading={isDataLoading}
             onUpdateHouseholds={onUpdateHouseholds}
             onUpdateResidents={onUpdateResidents}
@@ -198,6 +203,10 @@ export default function HouseholdsPage({
         onUpdateHouseholds={onUpdateHouseholds}
         onUpdateResidents={onUpdateResidents}
         onNavigateToGis={onNavigateToGis}
+        activeTab={subTab}
+        onActiveTabChange={setSubTab}
+        viewMode={viewMode}
+        onViewModeChange={setViewMode}
       />
     </div>
   );

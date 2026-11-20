@@ -217,6 +217,14 @@ export function getResidentDetailPath(residentId: string): string {
 /**
  * Phân tích URL hiện tại để xác định trang Form Thêm/Sửa hoặc Chi tiết cư dân từ params
  */
+function safeDecodeURIComponent(raw: string): string {
+  try {
+    return globalThis.decodeURIComponent(raw);
+  } catch {
+    return raw;
+  }
+}
+
 export function parseResidentFormRoute(
   pathname: string,
   search = ""
@@ -233,7 +241,7 @@ export function parseResidentFormRoute(
 
   for (const prefix of ["dashboard/residents/edit/", "residents/edit/"]) {
     if (clean.startsWith(prefix)) {
-      const residentId = decodeURIComponent(clean.slice(prefix.length));
+      const residentId = safeDecodeURIComponent(clean.slice(prefix.length));
       if (residentId) return { mode: "edit", residentId };
     }
   }
@@ -245,7 +253,7 @@ export function parseResidentFormRoute(
 
   for (const prefix of ["dashboard/residents/detail/", "residents/detail/"]) {
     if (clean.startsWith(prefix)) {
-      const residentId = decodeURIComponent(clean.slice(prefix.length));
+      const residentId = safeDecodeURIComponent(clean.slice(prefix.length));
       if (residentId) return { mode: "detail", residentId };
     }
   }
@@ -309,7 +317,7 @@ export function parseHouseholdFormRoute(
 
   for (const prefix of ["dashboard/households/edit/", "households/edit/"]) {
     if (clean.startsWith(prefix)) {
-      const householdId = decodeURIComponent(clean.slice(prefix.length));
+      const householdId = safeDecodeURIComponent(clean.slice(prefix.length));
       if (householdId) return { mode: "edit", householdId };
     }
   }
@@ -324,7 +332,7 @@ export function parseHouseholdFormRoute(
     "households/add-member/",
   ]) {
     if (clean.startsWith(prefix)) {
-      const householdId = decodeURIComponent(clean.slice(prefix.length));
+      const householdId = safeDecodeURIComponent(clean.slice(prefix.length));
       if (householdId) return { mode: "add-member", householdId };
     }
   }
@@ -339,7 +347,7 @@ export function parseHouseholdFormRoute(
 
   for (const prefix of ["dashboard/households/detail/", "households/detail/"]) {
     if (clean.startsWith(prefix)) {
-      const householdId = decodeURIComponent(clean.slice(prefix.length));
+      const householdId = safeDecodeURIComponent(clean.slice(prefix.length));
       if (householdId) return { mode: "detail", householdId };
     }
   }
@@ -395,7 +403,7 @@ export function parseEnterpriseFormRoute(
 
   for (const prefix of ["dashboard/enterprises/edit/", "enterprises/edit/"]) {
     if (clean.startsWith(prefix)) {
-      const enterpriseId = decodeURIComponent(clean.slice(prefix.length));
+      const enterpriseId = safeDecodeURIComponent(clean.slice(prefix.length));
       if (enterpriseId) return { mode: "edit", enterpriseId };
     }
   }
@@ -407,7 +415,7 @@ export function parseEnterpriseFormRoute(
 
   for (const prefix of ["dashboard/enterprises/detail/", "enterprises/detail/"]) {
     if (clean.startsWith(prefix)) {
-      const enterpriseId = decodeURIComponent(clean.slice(prefix.length));
+      const enterpriseId = safeDecodeURIComponent(clean.slice(prefix.length));
       if (enterpriseId) return { mode: "detail", enterpriseId };
     }
   }
@@ -463,7 +471,7 @@ export function parseBusinessFormRoute(
 
   for (const prefix of ["dashboard/businesses/edit/", "businesses/edit/"]) {
     if (clean.startsWith(prefix)) {
-      const businessId = decodeURIComponent(clean.slice(prefix.length));
+      const businessId = safeDecodeURIComponent(clean.slice(prefix.length));
       if (businessId) return { mode: "edit", businessId };
     }
   }
@@ -475,7 +483,7 @@ export function parseBusinessFormRoute(
 
   for (const prefix of ["dashboard/businesses/detail/", "businesses/detail/"]) {
     if (clean.startsWith(prefix)) {
-      const businessId = decodeURIComponent(clean.slice(prefix.length));
+      const businessId = safeDecodeURIComponent(clean.slice(prefix.length));
       if (businessId) return { mode: "detail", businessId };
     }
   }
@@ -534,7 +542,7 @@ export function parseTaskFormRoute(
 
   for (const prefix of ["dashboard/tasks/edit/", "tasks/edit/"]) {
     if (clean.startsWith(prefix)) {
-      const taskId = decodeURIComponent(clean.slice(prefix.length));
+      const taskId = safeDecodeURIComponent(clean.slice(prefix.length));
       if (taskId) return { mode: "edit", taskId };
     }
   }
@@ -546,7 +554,7 @@ export function parseTaskFormRoute(
 
   for (const prefix of ["dashboard/tasks/detail/", "tasks/detail/"]) {
     if (clean.startsWith(prefix)) {
-      const taskId = decodeURIComponent(clean.slice(prefix.length));
+      const taskId = safeDecodeURIComponent(clean.slice(prefix.length));
       if (taskId) return { mode: "detail", taskId };
     }
   }
@@ -639,7 +647,7 @@ export function parsePartyRoute(
     "party/associations/edit/",
   ]) {
     if (clean.startsWith(prefix)) {
-      const assocId = decodeURIComponent(clean.slice(prefix.length).split("?")[0].split("#")[0]);
+      const assocId = safeDecodeURIComponent(clean.slice(prefix.length).split("?")[0].split("#")[0]);
       if (assocId) return { mode: "edit_assoc", assocId };
     }
   }
@@ -672,7 +680,7 @@ export function parsePartyRoute(
     "party/members/detail/",
   ]) {
     if (clean.startsWith(prefix)) {
-      const cccd = decodeURIComponent(clean.slice(prefix.length).split("?")[0].split("#")[0]);
+      const cccd = safeDecodeURIComponent(clean.slice(prefix.length).split("?")[0].split("#")[0]);
       const assocId = params.get("assocId") || undefined;
       if (cccd) return { mode: "member_detail", cccd, assocId };
     }
@@ -696,7 +704,7 @@ export function parsePartyRoute(
     "party/members/edit/",
   ]) {
     if (clean.startsWith(prefix)) {
-      const cccd = decodeURIComponent(clean.slice(prefix.length).split("?")[0].split("#")[0]);
+      const cccd = safeDecodeURIComponent(clean.slice(prefix.length).split("?")[0].split("#")[0]);
       const assocId = params.get("assocId") || undefined;
       if (cccd) return { mode: "member_edit", cccd, assocId };
     }
@@ -789,7 +797,7 @@ export function parseReportFormRoute(
     "reflection/edit/",
   ]) {
     if (clean.startsWith(prefix)) {
-      const reportId = decodeURIComponent(clean.slice(prefix.length));
+      const reportId = safeDecodeURIComponent(clean.slice(prefix.length));
       if (reportId) return { mode: "edit", reportId };
     }
   }
@@ -809,7 +817,7 @@ export function parseReportFormRoute(
     "reflection/resolve/",
   ]) {
     if (clean.startsWith(prefix)) {
-      const reportId = decodeURIComponent(clean.slice(prefix.length));
+      const reportId = safeDecodeURIComponent(clean.slice(prefix.length));
       if (reportId) return { mode: "resolve", reportId };
     }
   }
@@ -829,7 +837,7 @@ export function parseReportFormRoute(
     "reflection/detail/",
   ]) {
     if (clean.startsWith(prefix)) {
-      const reportId = decodeURIComponent(clean.slice(prefix.length));
+      const reportId = safeDecodeURIComponent(clean.slice(prefix.length));
       if (reportId) return { mode: "detail", reportId };
     }
   }
@@ -944,7 +952,7 @@ export function parseCulturalRoute(
     "news/edit/",
   ]) {
     if (clean.startsWith(prefix)) {
-      const newsId = decodeURIComponent(clean.slice(prefix.length));
+      const newsId = safeDecodeURIComponent(clean.slice(prefix.length));
       if (newsId) return { type: "news", mode: "edit", newsId };
     }
   }
@@ -964,7 +972,7 @@ export function parseCulturalRoute(
     "news/detail/",
   ]) {
     if (clean.startsWith(prefix)) {
-      const newsId = decodeURIComponent(clean.slice(prefix.length));
+      const newsId = safeDecodeURIComponent(clean.slice(prefix.length));
       if (newsId) return { type: "news", mode: "detail", newsId };
     }
   }
@@ -993,7 +1001,7 @@ export function parseCulturalRoute(
     "schedule/edit/",
   ]) {
     if (clean.startsWith(prefix)) {
-      const eventId = decodeURIComponent(clean.slice(prefix.length));
+      const eventId = safeDecodeURIComponent(clean.slice(prefix.length));
       if (eventId) return { type: "event", mode: "edit", eventId };
     }
   }
@@ -1013,7 +1021,7 @@ export function parseCulturalRoute(
     "schedule/detail/",
   ]) {
     if (clean.startsWith(prefix)) {
-      const eventId = decodeURIComponent(clean.slice(prefix.length));
+      const eventId = safeDecodeURIComponent(clean.slice(prefix.length));
       if (eventId) return { type: "event", mode: "detail", eventId };
     }
   }
@@ -1077,8 +1085,13 @@ export function navigate(
     }
   }
 
-  // Xóa hash dư thừa nếu có
-  if (window.location.hash) {
+  // Xóa hash dư thừa nếu có (nhưng giữ lại auth callback hash của Supabase như recovery / access_token)
+  if (
+    window.location.hash &&
+    !/(?:access_token=|refresh_token=|type=recovery|error_description=)/i.test(
+      window.location.hash
+    )
+  ) {
     window.history.replaceState({}, "", window.location.pathname + window.location.search);
   }
 
@@ -1221,7 +1234,9 @@ export const NavLink = React.forwardRef<HTMLAnchorElement, NavLinkProps>(
     ref
   ) => {
     const currentPath = useCurrentPath();
-    const isActive = exact ? currentPath === to : currentPath.startsWith(to);
+    const isActive = exact
+      ? currentPath === to
+      : currentPath === to || (to !== "/" && currentPath.startsWith(`${to}/`));
     const resolvedClass = `${className} ${isActive ? activeClassName : ""}`.trim();
 
     return (

@@ -1,5 +1,40 @@
-import { Resident, Business } from "../types";
+import { Resident, Business, Household } from "../types";
 import { normalizeAddress } from "../components/household/HouseholdDuplicates";
+
+/**
+ * Tính số tuổi thực tế của công dân từ chuỗi ngày sinh (trả về null nếu chưa rõ năm sinh)
+ */
+export function calculateResidentAge(birthDateStr?: string): number | null {
+  if (!birthDateStr || !birthDateStr.trim()) return null;
+  const match = birthDateStr.trim().match(/\b(19\d\d|20\d\d)\b/);
+  if (!match) return null;
+  const year = parseInt(match[1], 10);
+  const currentYear = new Date().getFullYear();
+  if (isNaN(year) || year < 1900 || year > currentYear) return null;
+  return currentYear - year;
+}
+
+/**
+ * Rút gọn địa chỉ hiển thị trên Thẻ/Bảng (lược bỏ đuôi hành chính lặp lại của Phường An Phú / TP.HCM)
+ */
+export function formatCompactKp3Address(rawAddress?: string): string {
+  if (!rawAddress || !rawAddress.trim()) return "Khu phố 3, An Phú";
+  const parsed = parseAccommodationInfo(rawAddress);
+  const base = parsed.isHostel && parsed.address ? parsed.address : rawAddress.trim();
+  const cleaned = base
+    .replace(
+      /[,\s-]*(?:phường\s+an\s+phú|p\.?\s*an\s+phú)?[,\s-]*(?:tp\.?\s*thủ\s+đức|thành\s+phố\s+thủ\s+đức|quận\s*2)?[,\s-]*(?:tp\.?\s*hồ\s+chí\s+minh|thành\s+phố\s+hồ\s+chí\s+minh|tp\.?\s*hcm)\s*$/i,
+      ""
+    )
+    .replace(/[,\s-]*(?:phường\s+an\s+phú|p\.?\s*an\s+phú)\s*$/i, "")
+    .replace(/\bkhu\s+phố\s*3\b/gi, "KP3")
+    .replace(/^(?:địa\s+chỉ\s*:?\s*|số\s+nhà\s+)/i, "")
+    .replace(/\s+,/g, ",")
+    .replace(/,{2,}/g, ",")
+    .replace(/^[,;\s-]+|[,;\s-]+$/g, "")
+    .trim();
+  return cleaned || "KP3, Phường An Phú";
+}
 
 /**
  * Trích xuất năm sinh từ chuỗi ngày sinh (DD/MM/YYYY, YYYY-MM-DD, hoặc YYYY)
@@ -401,28 +436,28 @@ export function parseAccommodationInfo(rawAddress?: string): ParsedAccommodation
   result.isHostel = true;
   let rest = match[1].trim();
 
-  // Bóc tách SĐT nếu có: (SĐT: 0913137155) hoặc (0918312448) hoặc sđt: 0975054647...
-  const phoneMatch = rest.match(/(?:\((?:sđt:?|sdt:?|đt:?)?\s*([0-9.\s-]{8,15})\)|(?:sđt|sdt|đt)\s*[:.]?\s*([0-9.\s-]{8,15}))/i);
+  // Bóc tách SĐT nếu có: (SĐT: 0913137155) hoặc (0918312448) hoặc sđt: 0975054647 / số điện thoại 0377...
+  const phoneMatch = rest.match(/(?:\((?:số\s+điện\s+thoại:?|sđt:?|sdt:?|đt:?)?\s*([0-9.\s-]{8,15})\)|(?:số\s+điện\s+thoại|sđt|sdt|đt)\s*[:.]?\s*([0-9.\s-]{8,15}))/i);
   if (phoneMatch && phoneMatch.index !== undefined) {
     result.phone = (phoneMatch[1] || phoneMatch[2] || "").replace(/[^\d]/g, "").trim();
     rest = (rest.slice(0, phoneMatch.index) + " " + rest.slice(phoneMatch.index + phoneMatch[0].length)).trim();
   }
 
   // Tách tên chủ nhà trọ và địa chỉ nhà trọ
-  // Nhận diện địa chỉ bắt đầu bằng số nhà (17/A3, 14/B1, 39A/A11, Ô 30, Lô B...) hoặc "tại địa chỉ"
-  const addrMatch = rest.match(/(?:,\s*|\s+tại\s+địa\s+chỉ\s+|\s+địa\s+chỉ\s+|\s+)((?:\d+[A-Za-z0-9/-]*|Ô\s*\d+|Lô\s*[A-Za-z0-9]+)\s+.*)$/i);
+  // Nhận diện địa chỉ bắt đầu bằng số nhà (17/A3, 14/B1, 39A/A11, Ô 30, Lô B...) hoặc "tại địa chỉ" / "địa chỉ số nhà"
+  const addrMatch = rest.match(/(?:[,;]\s*|\s+tại\s+địa\s+chỉ\s+|\s+địa\s+chỉ(?:\s+số\s+nhà)?\s+|\s+số\s+nhà\s+|\s+)((?:\d+[A-Za-z0-9/-]*|Ô\s*\d+|Lô\s*[A-Za-z0-9]+)\s*[, ]\s*.*)$/i);
   if (addrMatch && addrMatch.index !== undefined) {
-    result.owner = rest.slice(0, addrMatch.index).trim().replace(/^[:,\-\s]+|[:,\-\s]+$/g, "");
+    result.owner = rest.slice(0, addrMatch.index).trim().replace(/^[:;,\-\s]+|[:;,\-\s]+$/g, "");
     result.address = addrMatch[1].trim();
   } else {
-    const parts = rest.split(",");
-    result.owner = parts[0].trim().replace(/^[:,\-\s]+|[:,\-\s]+$/g, "");
+    const parts = rest.split(/[,;]/);
+    result.owner = parts[0].trim().replace(/^[:;,\-\s]+|[:;,\-\s]+$/g, "");
     result.address = parts.slice(1).join(",").trim();
   }
 
-  // Làm sạch tiền tố xưng hô như "ông", "bà", "anh", "chị" trong tên chủ trọ
+  // Làm sạch tiền tố xưng hô như "tên", "ông", "bà", "anh", "chị" trong tên chủ trọ
   if (result.owner) {
-    result.owner = result.owner.replace(/^(?:ông|bà|anh|chị)\s+/i, "").trim();
+    result.owner = result.owner.replace(/^(?:tên\s+|chủ\s+trọ\s+|ông\s+|bà\s+|anh\s+|chị\s+)+/i, "").trim();
   }
 
   // Tạo địa chỉ ngắn gọn
@@ -582,7 +617,7 @@ export function autoExtractHostelBusinesses(
       ],
       safetyCertified: true,
       image: lodgingImages[(nextIndex - 1) % lodgingImages.length],
-      coordinates: `${(10.7925 + ((nextIndex * 7) % 30) * 0.0001).toFixed(4)}, ${(106.7435 + ((nextIndex * 11) % 30) * 0.0001).toFixed(4)}`,
+      coordinates: `${(10.9355 + ((nextIndex * 7) % 30) * 0.0001).toFixed(4)}, ${(106.7435 + ((nextIndex * 11) % 30) * 0.0001).toFixed(4)}`,
       toBanDo: "272",
       soThua: String(40 + (nextIndex % 50)),
       dienTich: 120 + ((nextIndex * 15) % 150),
@@ -669,4 +704,321 @@ export function isResidentInAccommodation(res: Resident, bus: Business): boolean
 
   return false;
 }
+
+export interface TemporaryHouseholdBuildResult {
+  mergedHouseholds: Household[];
+  updatedResidents: Resident[];
+  tempStats: {
+    totalTempHouseholds: number;
+    independentTempHouseholds: number;
+    hostelTempHouseholds: number;
+    expiringTempHouseholds: number;
+    expiredTempHouseholds: number;
+    tempHeadsCount: number;
+    tempFamilyMembersCount: number;
+  };
+}
+
+function normalizeTempAddressKey(rawAddress?: string): string {
+  if (!rawAddress || !rawAddress.trim()) return "kp3-chua-ro-dia-chi";
+  const parsed = parseAccommodationInfo(rawAddress);
+  const core = parsed.isHostel && parsed.address ? `${parsed.hostelName} ${parsed.address}` : rawAddress;
+  return (
+    core
+      .toLowerCase()
+      .replace(
+        /[,\s-]*(?:phường\s+an\s+phú|p\.?\s*an\s+phú|thành\s+phố\s+thủ\s+đức|tp\.?\s*thủ\s+đức|quận\s*2|thành\s+phố\s+hồ\s+chí\s+minh|tp\.?\s*hồ\s+chí\s+minh|tp\.?\s*hcm).*/gi,
+        ""
+      )
+      .replace(/\bkhu\s+phố\s*3\b/gi, "kp3")
+      .replace(/[.,;:\-()]+/g, " ")
+      .replace(/\s+/g, " ")
+      .trim() || "kp3-chua-ro-dia-chi"
+  );
+}
+
+function extractTempHouseToken(rawAddress?: string): string {
+  if (!rawAddress || !rawAddress.trim()) return "kp3-chua-ro-dia-chi";
+  const s = rawAddress
+    .toLowerCase()
+    .replace(/\(.*?\)/g, " ")
+    .replace(/\b0\d{9,10}\b/g, " ");
+  const houseMatch = s.match(/\b0*(\d+[a-z]?\s*\/\s*[a-z0-9]+(?:\s*\/\s*\d+[a-z]?)?)\b/i);
+  if (houseMatch) {
+    return houseMatch[1].replace(/\s+/g, "").replace(/^0+(\d)/, "$1");
+  }
+  return normalizeTempAddressKey(rawAddress);
+}
+
+/**
+ * Tự động xây dựng & đồng bộ danh sách Hộ Tạm Trú (CT08 / Khai báo lưu trú) từ dữ liệu Cư dân Tạm trú,
+ * kết hợp mượt mà với 488 Sổ Hộ khẩu Thường trú hiện có mà không làm thay đổi dữ liệu đã lưu thủ công.
+ */
+export function buildTemporaryHouseholdsFromResidents(
+  residents: Resident[],
+  existingHouseholds: Household[]
+): TemporaryHouseholdBuildResult {
+  // Loại bỏ các hộ tạm trú tự sinh ở lần chạy trước (HH-TT-*) để hàm luôn idempotent 100%
+  const baseHouseholds = Array.isArray(existingHouseholds)
+    ? existingHouseholds.filter((h) => !(h?.id || "").startsWith("HH-TT-"))
+    : [];
+  const existingByCode = new Map<string, Household>();
+  for (const h of baseHouseholds) {
+    if (h?.code) existingByCode.set(h.code.trim(), h);
+  }
+
+  const residentAssignedCode = new Map<string, string>();
+  let tempHeadsCount = 0;
+  let tempFamilyMembersCount = 0;
+
+  const withOwnerName: Resident[] = [];
+  const withoutOwnerClusters = new Map<string, Resident[]>();
+
+  for (const r of residents || []) {
+    if (r.status !== "Tạm trú") continue;
+    const ownerUpper = (r.ownerName || "").trim().toUpperCase();
+    const nameUpper = (r.fullName || "").trim().toUpperCase();
+    const relLower = (r.relationToOwner || "").trim().toLowerCase();
+    const isHeadByOwner = ownerUpper !== "" && ownerUpper === nameUpper;
+
+    if (isHeadByOwner || (!ownerUpper && (relLower.includes("đứng tên") || relLower === "chủ hộ"))) {
+      tempHeadsCount++;
+    } else {
+      tempFamilyMembersCount++;
+    }
+
+    const explicitCode = (r.householdId || "").trim();
+    if (
+      explicitCode &&
+      explicitCode !== "Tạm trú" &&
+      explicitCode !== "Chưa cập nhật" &&
+      explicitCode !== "N/A" &&
+      existingByCode.has(explicitCode) &&
+      existingByCode.get(explicitCode)?.type === "Tạm trú"
+    ) {
+      residentAssignedCode.set(r.id, explicitCode);
+      continue;
+    }
+
+    if (ownerUpper) {
+      withOwnerName.push(r);
+    } else {
+      const rawAddr = r.currentAddress || r.temporaryAddress || r.address || "";
+      const addrKey = normalizeTempAddressKey(rawAddr);
+      let bucket = withoutOwnerClusters.get(addrKey);
+      if (!bucket) {
+        bucket = [];
+        withoutOwnerClusters.set(addrKey, bucket);
+      }
+      bucket.push(r);
+    }
+  }
+
+  const finalGroups: Resident[][] = [];
+
+  // 1. Phân cụm chính xác 100% từ trường "CHỦ HỘ TẠM TRÚ" (ownerName)
+  if (withOwnerName.length > 0) {
+    const headBucketsByName = new Map<string, { token: string; group: Resident[] }[]>();
+    const nonHeadMembers: Resident[] = [];
+
+    for (const r of withOwnerName) {
+      const ownerUpper = (r.ownerName || "").trim().toUpperCase();
+      const nameUpper = (r.fullName || "").trim().toUpperCase();
+      if (ownerUpper === nameUpper) {
+        const rawAddr = r.currentAddress || r.temporaryAddress || r.address || "";
+        const entry = { token: extractTempHouseToken(rawAddr), group: [r] };
+        const list = headBucketsByName.get(ownerUpper);
+        if (list) list.push(entry);
+        else headBucketsByName.set(ownerUpper, [entry]);
+      } else {
+        nonHeadMembers.push(r);
+      }
+    }
+
+    const orphanClusters = new Map<string, Resident[]>();
+    for (const m of nonHeadMembers) {
+      const ownerUpper = (m.ownerName || "").trim().toUpperCase();
+      const candidates = headBucketsByName.get(ownerUpper);
+      if (candidates && candidates.length === 1) {
+        candidates[0].group.push(m);
+      } else if (candidates && candidates.length > 1) {
+        const rawAddr = m.currentAddress || m.temporaryAddress || m.address || "";
+        const mToken = extractTempHouseToken(rawAddr);
+        const matched = candidates.find((c) => c.token === mToken) || candidates[0];
+        matched.group.push(m);
+      } else {
+        const rawAddr = m.currentAddress || m.temporaryAddress || m.address || "";
+        const orphanKey = `${ownerUpper}|||${extractTempHouseToken(rawAddr)}`;
+        const bucket = orphanClusters.get(orphanKey);
+        if (bucket) bucket.push(m);
+        else orphanClusters.set(orphanKey, [m]);
+      }
+    }
+
+    const sortedHeadNames = Array.from(headBucketsByName.keys()).sort((a, b) => a.localeCompare(b, "vi"));
+    for (const name of sortedHeadNames) {
+      const list = headBucketsByName.get(name) || [];
+      for (const item of list) {
+        finalGroups.push(item.group);
+      }
+    }
+
+    const sortedOrphanKeys = Array.from(orphanClusters.keys()).sort((a, b) => a.localeCompare(b, "vi"));
+    for (const k of sortedOrphanKeys) {
+      const grp = orphanClusters.get(k);
+      if (grp && grp.length > 0) finalGroups.push(grp);
+    }
+  }
+
+  // 2. Fallback cho dữ liệu cũ chưa có ownerName
+  const sortedLegacyKeys = Array.from(withoutOwnerClusters.keys()).sort((a, b) => a.localeCompare(b, "vi"));
+  for (const key of sortedLegacyKeys) {
+    const group = withoutOwnerClusters.get(key);
+    if (!group || group.length === 0) continue;
+
+    const heads = group.filter((m) => {
+      const rel = (m.relationToOwner || "").trim().toLowerCase();
+      return rel.includes("đứng tên") || rel === "chủ hộ" || rel.startsWith("chủ hộ");
+    });
+
+    if (heads.length <= 1) {
+      finalGroups.push(group);
+    } else {
+      const members = group.filter((m) => {
+        const rel = (m.relationToOwner || "").trim().toLowerCase();
+        return !rel.includes("đứng tên") && rel !== "chủ hộ" && !rel.startsWith("chủ hộ");
+      });
+      for (const head of heads) {
+        finalGroups.push([head]);
+      }
+      if (members.length > 0) {
+        finalGroups.push(members);
+      }
+    }
+  }
+
+  const generatedTempHouseholds: Household[] = [];
+  let seq = 1;
+
+  for (const group of finalGroups) {
+    if (!group || group.length === 0) continue;
+
+    while (existingByCode.has(`TT-${String(seq).padStart(4, "0")}`)) {
+      seq++;
+    }
+    const code = `TT-${String(seq).padStart(4, "0")}`;
+    seq++;
+
+    const owner =
+      group.find((m) => {
+        const rel = (m.relationToOwner || "").trim().toLowerCase();
+        return rel === "người đứng tên tạm trú" || rel === "chủ hộ" || rel.startsWith("chủ hộ");
+      }) ||
+      // Fallback: dùng ownerName nếu có — tìm người có tên trùng ownerName  
+      group.find((m) => {
+        const on = (m.ownerName || "").trim().toUpperCase();
+        return on && m.fullName.trim().toUpperCase() === on;
+      }) ||
+      [...group].sort((a, b) => extractBirthYear(a.birthDate) - extractBirthYear(b.birthDate))[0];
+
+    const rawOwnerAddr =
+      owner.currentAddress ||
+      owner.temporaryAddress ||
+      owner.address ||
+      "Khu phố 3, Phường An Phú, TP. Hồ Chí Minh";
+    const hostelInfo = parseAccommodationInfo(rawOwnerAddr);
+
+    let expiringMemberCount = 0;
+    let expiredMemberCount = 0;
+    let earliestDateObj: Date | null = null;
+    let nearestExpiryDate: string | undefined;
+
+    for (const m of group) {
+      residentAssignedCode.set(m.id, code);
+      if (m.temporaryExpDate) {
+        const st = getTemporaryResidenceExpiryStatus(m.temporaryExpDate);
+        if (st.isWarning) expiringMemberCount++;
+        else if (st.isExpired) expiredMemberCount++;
+        const dObj = parseDateString(m.temporaryExpDate);
+        if (dObj && (!earliestDateObj || dObj.getTime() < earliestDateObj.getTime())) {
+          earliestDateObj = dObj;
+          nearestExpiryDate = st.formattedDate || m.temporaryExpDate;
+        }
+      }
+    }
+
+    const members = group.map((m) => {
+      const isOwner = m.id === owner.id || (m.cccd && m.cccd === owner.cccd);
+      let relation = "Thành viên tạm trú";
+      if (isOwner) {
+        relation = hostelInfo.isHostel && group.length > 1 ? "Đại diện lưu trú" : "Chủ hộ tạm trú";
+      } else {
+        const rawRel = (m.relationToOwner || "").trim();
+        if (rawRel === "Người đứng tên tạm trú") {
+          relation = hostelInfo.isHostel ? "Người thuê trọ" : "Đồng đứng tên TT";
+        } else {
+          const inferred = inferRelationToOwner(m, owner, group);
+          relation = inferred === "Thành viên gia đình" ? "Thành viên tạm trú" : inferred;
+        }
+      }
+      return {
+        name: m.fullName,
+        relation,
+        cccd: m.cccd,
+        birthYear: extractBirthYear(m.birthDate),
+        phone: m.phone && m.phone !== "N/A" ? m.phone : undefined,
+      };
+    });
+
+    const displayAddress =
+      hostelInfo.isHostel && hostelInfo.address
+        ? `${hostelInfo.hostelName}${hostelInfo.phone ? ` (SĐT: ${hostelInfo.phone})` : ""} — ${hostelInfo.address}`
+        : rawOwnerAddr;
+
+    generatedTempHouseholds.push({
+      id: `HH-${code}`,
+      code,
+      ownerName: owner.fullName,
+      address: displayAddress,
+      memberCount: members.length,
+      type: "Tạm trú",
+      members,
+      tempSubType: hostelInfo.isHostel ? "hostel" : "independent",
+      hostelName: hostelInfo.isHostel ? hostelInfo.hostelName : undefined,
+      hostelPhone: hostelInfo.phone || undefined,
+      expiringMemberCount,
+      expiredMemberCount,
+      nearestExpiryDate,
+      ownerPermanentAddress: owner.permanentAddress || undefined,
+    });
+  }
+
+  const mergedHouseholds = [...baseHouseholds, ...generatedTempHouseholds];
+  const allTempHouseholds = mergedHouseholds.filter((h) => h.type === "Tạm trú" && !(h as any).deletedAt);
+
+  const updatedResidents = (residents || []).map((r) => {
+    if (r.status !== "Tạm trú") return r;
+    const assigned = residentAssignedCode.get(r.id);
+    if (!assigned || r.householdId === assigned) return r;
+    return {
+      ...r,
+      householdId: assigned,
+    };
+  });
+
+  return {
+    mergedHouseholds,
+    updatedResidents,
+    tempStats: {
+      totalTempHouseholds: allTempHouseholds.length,
+      independentTempHouseholds: allTempHouseholds.filter((h) => h.tempSubType !== "hostel").length,
+      hostelTempHouseholds: allTempHouseholds.filter((h) => h.tempSubType === "hostel").length,
+      expiringTempHouseholds: allTempHouseholds.filter((h) => (h.expiringMemberCount || 0) > 0).length,
+      expiredTempHouseholds: allTempHouseholds.filter((h) => (h.expiredMemberCount || 0) > 0).length,
+      tempHeadsCount,
+      tempFamilyMembersCount,
+    },
+  };
+}
+
 

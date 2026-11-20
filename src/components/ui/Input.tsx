@@ -41,11 +41,11 @@ export const Input = React.forwardRef<HTMLInputElement, InputProps>(
         {label && (
           <label
             htmlFor={inputId}
-            className="text-xs font-semibold text-slate-800 select-none flex items-center justify-between"
+            className="text-xs font-semibold text-slate-800 select-none inline-flex items-center gap-0.5"
           >
             <span>{label}</span>
             {props.required && (
-              <span className="text-rose-600 ml-1 font-bold" aria-hidden="true">
+              <span className="text-rose-600 ml-0.5 font-bold" aria-hidden="true">
                 *
               </span>
             )}

@@ -46,16 +46,14 @@ export interface CitizenHeaderProps {
   landingConfig?: LandingConfig;
 }
 
-const NAV_ICONS: Record<string, React.ComponentType<{ size?: number; className?: string }>> = {
-  all: Home,
-  about: Info,
-  reflection: MessageSquare,
-  forms: FileText,
-  notices: Bell,
-  news: Newspaper,
-  leadership: Users,
-  schedule: Calendar,
-};
+const PRIMARY_CITIZEN_NAV = [
+  { id: "all", label: "Trang chủ", path: ROUTES.HOME, matchIds: ["all"], icon: Home },
+  { id: "news", label: "Tin tức", path: ROUTES.NEWS, matchIds: ["news", "notices"], icon: Newspaper },
+  { id: "schedule", label: "Lịch hoạt động", path: ROUTES.SCHEDULE, matchIds: ["schedule"], icon: Calendar },
+  { id: "reflection", label: "Phản ánh 1022", path: ROUTES.REFLECTION, matchIds: ["reflection"], icon: MessageSquare },
+  { id: "forms", label: "Biểu mẫu", path: ROUTES.FORMS, matchIds: ["forms"], icon: FileText },
+  { id: "about", label: "Giới thiệu & Cán bộ", path: ROUTES.ABOUT, matchIds: ["about", "leadership"], icon: Info },
+] as const;
 
 export default function CitizenHeader({
   activeRoute = "all",
@@ -85,7 +83,7 @@ export default function CitizenHeader({
   // Auto-close mobile drawer when viewport expands to desktop
   useEffect(() => {
     const onResize = () => {
-      if (window.innerWidth >= 1024 && mobileMenuOpen) {
+      if (window.innerWidth >= 1280 && mobileMenuOpen) {
         setMobileMenuOpen(false);
       }
     };
@@ -95,15 +93,15 @@ export default function CitizenHeader({
 
   return (
     <header className="sticky top-0 z-40 w-full border-b border-slate-200/80 bg-white/95 backdrop-blur-md supports-[backdrop-filter]:bg-white/80 shadow-2xs transition-all">
-      <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-2 sm:gap-4">
+      <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-2 xl:gap-2.5 2xl:gap-4">
         {/* Brand / Logo (shadcn Avatar entity pattern) */}
         <Link
           to={ROUTES.HOME}
           onClick={() => handleNavClick("all")}
-          className="flex items-center gap-2.5 text-left cursor-pointer group min-w-0 flex-1 lg:flex-initial lg:shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2 rounded-xl p-1 -ml-1 transition-transform duration-150 active:scale-[0.98]"
-          aria-label="Về trang chủ Cổng Cư dân số"
+          className="flex items-center gap-2 sm:gap-2.5 text-left cursor-pointer group min-w-0 flex-1 lg:flex-initial lg:shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2 rounded-xl p-1 -ml-1 transition-transform duration-150 active:scale-[0.98]"
+          title="Về trang chủ Cổng Cư dân số"
         >
-          <Avatar className="h-9 w-9 rounded-xl group-hover:scale-105 transition-transform duration-150">
+          <Avatar className="h-9 w-9 rounded-xl shrink-0 group-hover:scale-105 transition-transform duration-150">
             {landingConfig.logoUrl ? (
               <AvatarImage src={landingConfig.logoUrl} alt={landingConfig.siteTitle} />
             ) : null}
@@ -112,7 +110,7 @@ export default function CitizenHeader({
             </AvatarFallback>
           </Avatar>
           <div className="flex flex-col min-w-0">
-            <span className="text-sm sm:text-base font-bold text-slate-900 tracking-tight leading-tight group-hover:text-gov-navy transition-colors truncate">
+            <span className="text-sm sm:text-base xl:text-sm 2xl:text-base font-bold text-slate-900 tracking-tight leading-tight group-hover:text-gov-navy transition-colors truncate">
               {landingConfig.siteTitle}
             </span>
             <span className="text-xs text-slate-500 font-normal hidden sm:block truncate leading-tight">
@@ -121,32 +119,21 @@ export default function CitizenHeader({
           </div>
         </Link>
 
-        {/* Desktop Navigation (shadcn NavigationMenu) */}
-        <NavigationMenu aria-label="Điều hướng chính" className="hidden lg:flex">
-          <NavigationMenuList>
-            {/* Nút Trang chủ */}
-            <NavigationMenuItem>
-              <Link
-                to={ROUTES.HOME}
-                onClick={() => handleNavClick("all")}
-                aria-current={activeRoute === "all" ? "page" : undefined}
-                className={navigationMenuTriggerStyle({ active: activeRoute === "all" })}
-              >
-                Trang chủ
-              </Link>
-            </NavigationMenuItem>
-
-            {/* Các mục điều hướng */}
-            {NAV_ITEMS.map((item) => {
-              const isActive = activeRoute === item.id;
+        {/* Desktop Navigation (Tinh gọn 6 mục cốt lõi, không lặp Thông báo/Tin tức, không tràn ở 1024px-1280px) */}
+        <NavigationMenu aria-label="Điều hướng chính" className="hidden lg:flex shrink-0">
+          <NavigationMenuList className="gap-0.5 xl:gap-1">
+            {PRIMARY_CITIZEN_NAV.map((item) => {
+              const isActive = (item.matchIds as readonly string[]).includes(activeRoute);
               return (
                 <NavigationMenuItem key={item.id}>
                   <Link
                     to={item.path}
                     onClick={() => handleNavClick(item.id)}
                     aria-current={isActive ? "page" : undefined}
-                    className={navigationMenuTriggerStyle({ active: isActive })}
-                    title={item.description}
+                    className={cn(
+                      navigationMenuTriggerStyle({ active: isActive }),
+                      "px-2.5 xl:px-3 text-xs xl:text-[13px] whitespace-nowrap"
+                    )}
                   >
                     {item.label}
                   </Link>
@@ -157,17 +144,17 @@ export default function CitizenHeader({
         </NavigationMenu>
 
         {/* Right action area: Portal badge, Staff login Button & Mobile Sheet Trigger */}
-        <div className="flex items-center gap-2 shrink-0">
+        <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
           <a
             href="https://danguy.phuonganphu.gov.vn/"
             target="_blank"
             rel="noopener noreferrer"
-            className="hidden xl:inline-flex"
+            className="hidden 2xl:inline-flex"
             title="Mở Không Gian Số Đảng Ủy Phường An Phú (Cổng số hóa nhiệm kỳ 2025–2030)"
           >
             <Badge
               variant="destructive"
-              className="gap-1.5 h-9 px-3 text-xs font-bold border-red-200/90 bg-red-50/80 text-red-700 hover:bg-red-100 hover:text-red-800 shadow-2xs active:scale-[0.98] cursor-pointer"
+              className="gap-1.5 h-9 px-3 text-xs font-bold border-red-200/90 bg-red-50/80 text-red-700 hover:bg-red-100 hover:text-red-800 shadow-2xs active:scale-[0.98] cursor-pointer whitespace-nowrap"
             >
               <span>Đảng ủy Phường</span>
               <ExternalLink size={12} className="opacity-75 shrink-0" aria-hidden="true" />
@@ -178,8 +165,9 @@ export default function CitizenHeader({
             variant={isAdmin ? "secondary" : "outline"}
             size="sm"
             onClick={() => onOpenStaff?.()}
+            aria-label={isAdmin ? "Quản trị KP3" : "Cổng dành cho cán bộ"}
             className={cn(
-              "hidden sm:inline-flex items-center gap-2 font-semibold shadow-2xs whitespace-nowrap",
+              "inline-flex h-9 w-9 sm:w-auto px-0 sm:px-3 items-center justify-center gap-1.5 font-semibold shadow-2xs whitespace-nowrap",
               isAdmin
                 ? "border-emerald-300 bg-emerald-50 text-emerald-800 hover:bg-emerald-100 focus-visible:ring-emerald-400"
                 : "border-slate-200/90 text-slate-700 hover:text-slate-900"
@@ -188,13 +176,13 @@ export default function CitizenHeader({
           >
             {isAdmin ? (
               <span className="inline-flex items-center gap-1.5 whitespace-nowrap">
-                <LayoutDashboard size={14} className="text-emerald-700 shrink-0" aria-hidden="true" />
-                <span>Quản trị KP3</span>
+                <LayoutDashboard size={15} className="text-emerald-700 shrink-0" aria-hidden="true" />
+                <span className="hidden sm:inline">Quản trị KP3</span>
               </span>
             ) : (
               <span className="inline-flex items-center gap-1.5 whitespace-nowrap">
-                <LockKeyhole size={14} className="text-slate-500 shrink-0" aria-hidden="true" />
-                <span className="2xl:hidden">Cổng cán bộ</span>
+                <LockKeyhole size={15} className="text-slate-600 shrink-0" aria-hidden="true" />
+                <span className="hidden sm:inline 2xl:hidden">Cổng cán bộ</span>
                 <span className="hidden 2xl:inline">Cổng dành cho cán bộ</span>
               </span>
             )}
@@ -239,26 +227,9 @@ export default function CitizenHeader({
                 </SheetHeader>
 
                 <nav aria-label="Điều hướng di động" className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 pt-1">
-                  <SheetClose asChild>
-                    <Link
-                      to={ROUTES.HOME}
-                      onClick={() => handleNavClick("all")}
-                      aria-current={activeRoute === "all" ? "page" : undefined}
-                      className={cn(
-                        "flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-sm font-medium text-left cursor-pointer transition-colors",
-                        activeRoute === "all"
-                          ? "bg-slate-100 text-slate-950 font-semibold border border-slate-200/90 shadow-2xs"
-                          : "text-slate-700 hover:bg-slate-50 hover:text-slate-950 border border-transparent"
-                      )}
-                    >
-                      <Home size={16} className={activeRoute === "all" ? "text-slate-900" : "text-slate-400"} aria-hidden="true" />
-                      <span>Trang chủ</span>
-                    </Link>
-                  </SheetClose>
-
-                  {NAV_ITEMS.map((item) => {
-                    const isActive = activeRoute === item.id;
-                    const IconComp = NAV_ICONS[item.id] || FileText;
+                  {PRIMARY_CITIZEN_NAV.map((item) => {
+                    const isActive = (item.matchIds as readonly string[]).includes(activeRoute);
+                    const IconComp = item.icon;
                     return (
                       <SheetClose asChild key={item.id}>
                         <Link

@@ -38,8 +38,8 @@ const DEFAULT_FORM_STATE = {
   gender: "Nam" as "Nam" | "Nữ",
   birthDate: "",
   cccd: "",
-  idIssueDate: "10/05/2021",
-  idIssuePlace: "Cục Cảnh sát QLHC về TTXH",
+  idIssueDate: "",
+  idIssuePlace: "",
   ethnicity: "Kinh",
   religion: "Không",
   nationality: "Việt Nam",
@@ -47,17 +47,22 @@ const DEFAULT_FORM_STATE = {
   phone: "",
   status: "Thường trú" as "Thường trú" | "Tạm trú" | "Tạm vắng",
   occupation: "",
-  education: "Đại học",
+  education: "",
   workplace: "",
-  maritalStatus: "Đã kết hôn" as "Độc thân" | "Đã kết hôn" | "Ly hôn" | "Góa",
-  address: "42/3 Lương Định Của, Phường An Phú",
-  permanentAddress: "42/3 Lương Định Của, KP3, Phường An Phú, TP. Hồ Chí Minh",
-  temporaryAddress: "42/3 Lương Định Của, KP3, Phường An Phú, TP. Hồ Chí Minh",
-  householdId: "HK-301",
+  maritalStatus: "" as "" | "Độc thân" | "Đã kết hôn" | "Ly hôn" | "Góa",
+  address: "",
+  permanentAddress: "",
+  temporaryAddress: "",
+  fatherName: "",
+  motherName: "",
+  ownerName: "",
+  temporaryRegDate: "",
+  temporaryExpDate: "",
+  householdId: "",
   relationToOwner: "Thành viên",
   healthInsuranceNumber: "",
-  militaryServiceStatus: "Đã hoàn thành nghĩa vụ quân sự",
-  policyGroup: "Bình thường",
+  militaryServiceStatus: "",
+  policyGroup: "",
   emergencyContact: "",
   notes: "",
   // Foreign resident fields
@@ -95,26 +100,37 @@ function mapResidentToFormState(res: Resident): ResidentFormState {
     gender: res.gender || "Nam",
     birthDate: res.birthDate || "",
     cccd: res.cccd || "",
-    idIssueDate: res.idIssueDate || "15/05/2021",
-    idIssuePlace: res.idIssuePlace || "Cục Cảnh sát QLHC về TTXH",
+    idIssueDate: res.idIssueDate || "",
+    idIssuePlace: res.idIssuePlace || "",
     ethnicity: res.ethnicity || "Kinh",
     religion: res.religion || "Không",
     nationality: res.nationality || "Việt Nam",
     hometown: res.hometown || "",
     phone: res.phone === "N/A" ? "" : res.phone || "",
     status: res.status || "Thường trú",
-    occupation: res.occupation === "Tự do" ? "" : res.occupation || "",
-    education: res.education || "Đại học",
+    occupation: res.occupation === "Chưa cập nhật" ? "" : res.occupation || "",
+    education: res.education === "Chưa cập nhật" ? "" : res.education || "",
     workplace: res.workplace || "",
-    maritalStatus: res.maritalStatus || "Đã kết hôn",
+    maritalStatus: (res.maritalStatus as "" | "Độc thân" | "Đã kết hôn" | "Ly hôn" | "Góa") || "",
     address: res.address || "",
-    permanentAddress: res.permanentAddress || res.address || "",
-    temporaryAddress: res.temporaryAddress || res.address || "",
-    householdId: res.householdId || "HK-301",
+    permanentAddress: res.permanentAddress || "",
+    temporaryAddress: res.temporaryAddress || res.currentAddress || "",
+    fatherName: res.fatherName || "",
+    motherName: res.motherName || "",
+    ownerName: res.ownerName || "",
+    temporaryRegDate: res.temporaryRegDate || "",
+    temporaryExpDate: res.temporaryExpDate || "",
+    householdId: res.householdId || "",
     relationToOwner: res.relationToOwner || "Thành viên",
     healthInsuranceNumber: res.healthInsuranceNumber || "",
-    militaryServiceStatus: res.militaryServiceStatus || "Đã hoàn thành nghĩa vụ quân sự",
-    policyGroup: res.policyGroup || "Bình thường",
+    militaryServiceStatus:
+      res.militaryServiceStatus === "Chưa cập nhật" ? "" : res.militaryServiceStatus || "",
+    policyGroup:
+      res.policyGroup &&
+      res.policyGroup !== "Bình thường" &&
+      res.policyGroup !== "Dân cư phổ thông"
+        ? res.policyGroup
+        : "",
     emergencyContact: res.emergencyContact || "",
     notes: res.notes || "",
     isForeigner: isForeign,
@@ -233,34 +249,46 @@ export default function ResidentFormPage({
         return;
       }
 
+      const parsedBirthYear = (() => {
+        const match = String(formData.birthDate || "").match(/\b(19\d{2}|20\d{2})\b/);
+        return match ? parseInt(match[1], 10) : 0;
+      })();
+
       const updatedRes: Resident = {
         ...targetResident,
         fullName: formData.fullName,
         gender: formData.gender,
-        birthDate: formData.birthDate || "01/01/1990",
+        birthDate: formData.birthDate || "",
         cccd: finalCccd,
-        idIssueDate: formData.idIssueDate,
-        idIssuePlace: formData.idIssuePlace,
+        idIssueDate: formData.idIssueDate || undefined,
+        idIssuePlace: formData.idIssuePlace || undefined,
         ethnicity: formData.ethnicity,
         religion: formData.religion,
         nationality: formData.nationality,
         hometown: formData.hometown,
-        phone: formData.phone || "N/A",
+        phone: formData.phone || "",
         status: formData.status,
-        education: formData.education,
-        occupation: formData.occupation || "Tự do",
-        workplace: formData.workplace,
-        maritalStatus: formData.maritalStatus,
+        education: formData.education || undefined,
+        occupation: formData.occupation || "",
+        workplace: formData.workplace || undefined,
+        maritalStatus: formData.maritalStatus ? formData.maritalStatus : undefined,
         address: formData.address,
-        permanentAddress: formData.permanentAddress,
-        temporaryAddress: formData.temporaryAddress,
+        permanentAddress: formData.permanentAddress || undefined,
+        temporaryAddress: formData.temporaryAddress || undefined,
+        currentAddress:
+          (formData.temporaryAddress || formData.address || "").trim() || undefined,
+        fatherName: formData.fatherName.trim() || undefined,
+        motherName: formData.motherName.trim() || undefined,
+        ownerName: formData.ownerName.trim() || undefined,
+        temporaryRegDate: formData.temporaryRegDate.trim() || undefined,
+        temporaryExpDate: formData.temporaryExpDate.trim() || undefined,
         householdId: formData.householdId,
         relationToOwner: formData.relationToOwner,
-        healthInsuranceNumber: formData.healthInsuranceNumber,
-        militaryServiceStatus: formData.militaryServiceStatus,
-        policyGroup: formData.policyGroup,
-        emergencyContact: formData.emergencyContact,
-        notes: formData.notes,
+        healthInsuranceNumber: formData.healthInsuranceNumber || undefined,
+        militaryServiceStatus: formData.militaryServiceStatus || undefined,
+        policyGroup: formData.policyGroup || undefined,
+        emergencyContact: formData.emergencyContact || undefined,
+        notes: formData.notes || undefined,
         isForeigner: formData.isForeigner,
         passportNumber:
           formData.passportNumber || (formData.isForeigner ? finalCccd : undefined),
@@ -308,8 +336,8 @@ export default function ResidentFormPage({
                   name: formData.fullName,
                   relation: formData.relationToOwner,
                   cccd: finalCccd,
-                  phone: formData.phone || "N/A",
-                  birthYear: parseInt(formData.birthDate.split("/")[2]) || 1990,
+                  phone: formData.phone || "",
+                  birthYear: parsedBirthYear,
                 };
                 return {
                   ...hh,
@@ -329,8 +357,8 @@ export default function ResidentFormPage({
                       name: formData.fullName,
                       relation: formData.relationToOwner,
                       cccd: finalCccd,
-                      phone: formData.phone || "N/A",
-                      birthYear: parseInt(formData.birthDate.split("/")[2]) || 1990,
+                      phone: formData.phone || "",
+                      birthYear: parsedBirthYear || m.birthYear,
                     };
                   }
                   return m;
@@ -364,30 +392,37 @@ export default function ResidentFormPage({
       id: uniqueId,
       fullName: formData.fullName,
       gender: formData.gender,
-      birthDate: formData.birthDate || "01/01/1990",
+      birthDate: formData.birthDate || "",
       cccd: finalCccd,
-      idIssueDate: formData.idIssueDate,
-      idIssuePlace: formData.idIssuePlace,
+      idIssueDate: formData.idIssueDate || undefined,
+      idIssuePlace: formData.idIssuePlace || undefined,
       ethnicity: formData.ethnicity,
       religion: formData.religion,
       nationality: formData.nationality,
       hometown: formData.hometown,
-      phone: formData.phone || "N/A",
+      phone: formData.phone || "",
       status: formData.status,
-      education: formData.education,
-      occupation: formData.occupation || "Tự do",
-      workplace: formData.workplace,
-      maritalStatus: formData.maritalStatus,
+      education: formData.education || undefined,
+      occupation: formData.occupation || "",
+      workplace: formData.workplace || undefined,
+      maritalStatus: formData.maritalStatus ? formData.maritalStatus : undefined,
       address: formData.address,
-      permanentAddress: formData.permanentAddress,
-      temporaryAddress: formData.temporaryAddress,
+      permanentAddress: formData.permanentAddress || undefined,
+      temporaryAddress: formData.temporaryAddress || undefined,
+      currentAddress:
+        (formData.temporaryAddress || formData.address || "").trim() || undefined,
+      fatherName: formData.fatherName.trim() || undefined,
+      motherName: formData.motherName.trim() || undefined,
+      ownerName: formData.ownerName.trim() || undefined,
+      temporaryRegDate: formData.temporaryRegDate.trim() || undefined,
+      temporaryExpDate: formData.temporaryExpDate.trim() || undefined,
       householdId: formData.householdId,
       relationToOwner: formData.relationToOwner,
-      healthInsuranceNumber: formData.healthInsuranceNumber,
-      militaryServiceStatus: formData.militaryServiceStatus,
-      policyGroup: formData.policyGroup,
-      emergencyContact: formData.emergencyContact,
-      notes: formData.notes,
+      healthInsuranceNumber: formData.healthInsuranceNumber || undefined,
+      militaryServiceStatus: formData.militaryServiceStatus || undefined,
+      policyGroup: formData.policyGroup || undefined,
+      emergencyContact: formData.emergencyContact || undefined,
+      notes: formData.notes || undefined,
       isForeigner: formData.isForeigner,
       passportNumber:
         formData.passportNumber || (formData.isForeigner ? finalCccd : undefined),
@@ -402,7 +437,7 @@ export default function ResidentFormPage({
       workPermitNumber: formData.workPermitNumber,
       sponsoringOrganization: formData.sponsoringOrganization,
       landlordContact: formData.landlordContact,
-      avatar: "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150",
+      avatar: "",
       joinDate: new Date().toLocaleDateString("vi-VN"),
     };
 
@@ -478,7 +513,7 @@ export default function ResidentFormPage({
             type="button"
             id="btn-resident-form-back"
             onClick={goBackToList}
-            className="inline-flex items-center gap-2 min-h-[40px] bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 px-3.5 py-2 rounded-xl font-bold text-xs transition-colors cursor-pointer"
+            className="inline-flex items-center gap-2 min-h-[40px] bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 px-3.5 py-2 rounded-xl font-bold text-xs transition-colors cursor-pointer whitespace-nowrap shrink-0"
           >
             <ArrowLeft size={15} />
             <span>Quay lại danh sách</span>
@@ -513,55 +548,55 @@ export default function ResidentFormPage({
         </div>
 
         {/* Form Step Tabs */}
-        <div className="flex flex-wrap sm:flex-nowrap border-b border-slate-200 bg-slate-50 text-xs font-semibold">
+        <div className="flex flex-nowrap overflow-x-auto border-b border-slate-200 bg-slate-50 text-xs font-semibold">
           <button
             type="button"
             onClick={() => setFormActiveTab("basic")}
-            className={`flex-1 min-w-[130px] py-3 px-2 border-b-2 text-center transition-colors cursor-pointer flex items-center justify-center gap-1.5 ${
+            className={`flex-1 shrink-0 whitespace-nowrap min-w-[130px] py-3 px-3 border-b-2 text-center transition-colors cursor-pointer flex items-center justify-center gap-1.5 ${
               formActiveTab === "basic"
                 ? "border-emerald-600 text-emerald-700 bg-white font-bold"
                 : "border-transparent text-slate-500 hover:text-slate-800"
             }`}
           >
-            <CreditCard size={14} /> 1. Định danh
+            <CreditCard size={14} className="shrink-0" /> 1. Định danh
           </button>
           <button
             type="button"
             onClick={() => setFormActiveTab("residence")}
-            className={`flex-1 min-w-[130px] py-3 px-2 border-b-2 text-center transition-colors cursor-pointer flex items-center justify-center gap-1.5 ${
+            className={`flex-1 shrink-0 whitespace-nowrap min-w-[135px] py-3 px-3 border-b-2 text-center transition-colors cursor-pointer flex items-center justify-center gap-1.5 ${
               formActiveTab === "residence"
                 ? "border-emerald-600 text-emerald-700 bg-white font-bold"
                 : "border-transparent text-slate-500 hover:text-slate-800"
             }`}
           >
-            <Home size={14} /> 2. Cư trú & Hộ
+            <Home size={14} className="shrink-0" /> 2. Cư trú & Hộ
           </button>
           <button
             type="button"
             onClick={() => setFormActiveTab("career")}
-            className={`flex-1 min-w-[130px] py-3 px-2 border-b-2 text-center transition-colors cursor-pointer flex items-center justify-center gap-1.5 ${
+            className={`flex-1 shrink-0 whitespace-nowrap min-w-[130px] py-3 px-3 border-b-2 text-center transition-colors cursor-pointer flex items-center justify-center gap-1.5 ${
               formActiveTab === "career"
                 ? "border-emerald-600 text-emerald-700 bg-white font-bold"
                 : "border-transparent text-slate-500 hover:text-slate-800"
             }`}
           >
-            <GraduationCap size={14} /> 3. Việc làm
+            <GraduationCap size={14} className="shrink-0" /> 3. Việc làm
           </button>
           <button
             type="button"
             onClick={() => setFormActiveTab("policy")}
-            className={`flex-1 min-w-[130px] py-3 px-2 border-b-2 text-center transition-colors cursor-pointer flex items-center justify-center gap-1.5 ${
+            className={`flex-1 shrink-0 whitespace-nowrap min-w-[130px] py-3 px-3 border-b-2 text-center transition-colors cursor-pointer flex items-center justify-center gap-1.5 ${
               formActiveTab === "policy"
                 ? "border-emerald-600 text-emerald-700 bg-white font-bold"
                 : "border-transparent text-slate-500 hover:text-slate-800"
             }`}
           >
-            <Award size={14} /> 4. Chính sách
+            <Award size={14} className="shrink-0" /> 4. Chính sách
           </button>
           <button
             type="button"
             onClick={() => setFormActiveTab("foreigner")}
-            className={`flex-1 min-w-[150px] py-3 px-2 border-b-2 text-center transition-colors cursor-pointer flex items-center justify-center gap-1.5 ${
+            className={`flex-1 shrink-0 whitespace-nowrap min-w-[160px] py-3 px-3 border-b-2 text-center transition-colors cursor-pointer flex items-center justify-center gap-1.5 ${
               formActiveTab === "foreigner"
                 ? "border-purple-600 text-purple-700 bg-white font-bold"
                 : formData.isForeigner
@@ -773,6 +808,31 @@ export default function ResidentFormPage({
                   />
                 </div>
               </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="space-y-1">
+                  <label className="font-semibold text-slate-700 block">Họ và tên Cha</label>
+                  <input
+                    type="text"
+                    name="fatherName"
+                    placeholder="Nhập họ tên cha (phục vụ suy luận phả hệ)"
+                    value={formData.fatherName}
+                    onChange={handleInputChange}
+                    className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs focus:outline-none focus:border-emerald-500"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="font-semibold text-slate-700 block">Họ và tên Mẹ</label>
+                  <input
+                    type="text"
+                    name="motherName"
+                    placeholder="Nhập họ tên mẹ (phục vụ suy luận phả hệ)"
+                    value={formData.motherName}
+                    onChange={handleInputChange}
+                    className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs focus:outline-none focus:border-emerald-500"
+                  />
+                </div>
+              </div>
             </div>
           )}
 
@@ -808,7 +868,7 @@ export default function ResidentFormPage({
                   <input
                     type="text"
                     name="householdId"
-                    placeholder="HK-301"
+                    placeholder="HK-301 hoặc TT-0001"
                     value={formData.householdId}
                     onChange={handleInputChange}
                     className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs font-mono focus:outline-none focus:border-emerald-500"
@@ -825,6 +885,48 @@ export default function ResidentFormPage({
                     value={formData.relationToOwner}
                     onChange={handleInputChange}
                     className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs focus:outline-none focus:border-emerald-500"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div className="space-y-1">
+                  <label className="font-semibold text-slate-700 block">
+                    Chủ hộ tạm trú / Người đứng tên (CT08)
+                  </label>
+                  <input
+                    type="text"
+                    name="ownerName"
+                    placeholder="Họ tên chủ hộ tạm trú..."
+                    value={formData.ownerName}
+                    onChange={handleInputChange}
+                    className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs focus:outline-none focus:border-emerald-500"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="font-semibold text-slate-700 block">
+                    Ngày đăng ký tạm trú
+                  </label>
+                  <input
+                    type="text"
+                    name="temporaryRegDate"
+                    placeholder="DD/MM/YYYY"
+                    value={formData.temporaryRegDate}
+                    onChange={handleInputChange}
+                    className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs font-mono focus:outline-none focus:border-emerald-500"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="font-semibold text-slate-700 block">
+                    Ngày hết hạn tạm trú (Gia hạn CT08)
+                  </label>
+                  <input
+                    type="text"
+                    name="temporaryExpDate"
+                    placeholder="DD/MM/YYYY"
+                    value={formData.temporaryExpDate}
+                    onChange={handleInputChange}
+                    className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs font-mono focus:outline-none focus:border-emerald-500"
                   />
                 </div>
               </div>
@@ -893,14 +995,15 @@ export default function ResidentFormPage({
                   </label>
                   <ReportSelect
                     aria-label="Tình trạng hôn nhân"
-                    value={formData.maritalStatus || "Đã kết hôn"}
+                    value={formData.maritalStatus || ""}
                     onChange={(val) =>
                       setFormData((prev) => ({
                         ...prev,
-                        maritalStatus: val as "Độc thân" | "Đã kết hôn" | "Ly hôn" | "Góa",
+                        maritalStatus: val as "" | "Độc thân" | "Đã kết hôn" | "Ly hôn" | "Góa",
                       }))
                     }
                     options={[
+                      { value: "", label: "-- Chưa cập nhật --" },
                       { value: "Đã kết hôn", label: "Đã kết hôn" },
                       { value: "Độc thân", label: "Độc thân" },
                       { value: "Ly hôn", label: "Ly hôn" },

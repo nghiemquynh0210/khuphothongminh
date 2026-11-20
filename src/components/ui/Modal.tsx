@@ -1,4 +1,5 @@
 import React, { useEffect, useId, useRef } from "react";
+import { createPortal } from "react-dom";
 import { ChevronLeft, ChevronRight, X } from "lucide-react";
 
 export interface ModalHeaderNavigation {
@@ -108,7 +109,7 @@ export function Modal({
     "5xl": "max-w-5xl",
   }[size];
 
-  return (
+  const modalContent = (
     <div
       className={`fixed inset-0 ${zIndexClass} flex items-start justify-center ${
         compact ? "p-2.5 sm:p-4 pt-3 sm:pt-[4vh]" : "p-3 sm:p-6 pt-4 sm:pt-[6vh]"
@@ -217,4 +218,6 @@ export function Modal({
       </div>
     </div>
   );
+
+  return typeof document !== "undefined" ? createPortal(modalContent, document.body) : modalContent;
 }

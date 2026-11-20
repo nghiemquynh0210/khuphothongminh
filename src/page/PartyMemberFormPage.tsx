@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   AlertTriangle,
   ArrowLeft,
@@ -8,6 +8,7 @@ import {
   FileCheck,
   FileText,
   ImageIcon,
+  Loader2,
   Plus,
   Save,
   Search,
@@ -24,6 +25,16 @@ import { PageHeader } from "../components/common/PageHeader";
 import { LoadingFade } from "../components/common/LoadingFade";
 import { InlineNotice } from "../components/ui/ConfirmModal";
 import { ReportSelect } from "../components/ui";
+import {
+  assignMemberRoleInAssociation,
+  getAssociationRolePresets,
+} from "../utils/leadershipSync";
+import {
+  DecisionAppointeeOcr,
+  DecisionDocumentOcrResult,
+  extractDecisionDocumentViaOcr,
+} from "../utils/decisionDocumentOcr";
+import { uploadFileToStorageBucket } from "../utils/imageUpload";
 import {
   ROUTES,
   getPartyMemberDetailPath,
@@ -137,6 +148,9 @@ export default function PartyMemberFormPage({
   const [memberDecisionDate, setMemberDecisionDate] = useState("");
   const [memberAvatar, setMemberAvatar] = useState("");
   const [decisionFile, setDecisionFile] = useState<AssociationMember["decisionFile"] | null>(null);
+  const [isScanningOcr, setIsScanningOcr] = useState(false);
+  const [ocrResult, setOcrResult] = useState<DecisionDocumentOcrResult | null>(null);
+  const ocrAppliedRef = useRef(false);
 
   // Resident search filter for create mode
   const [residentSearchQuery, setResidentSearchQuery] = useState("");
@@ -150,11 +164,30 @@ export default function PartyMemberFormPage({
   } | null>(null);
 
   // Initialize form fields
+  const availableRoleOptions = useMemo(() => {
+    const presetRoles = currentAssociation
+      ? getAssociationRolePresets(currentAssociation).allSuggestedRoles
+      : [];
+    const seen = new Set<string>();
+    const combined: string[] = [];
+    for (const r of [...presetRoles, ...COMMON_MEMBER_ROLES]) {
+      if (!seen.has(r)) {
+        seen.add(r);
+        combined.push(r);
+      }
+    }
+    return combined;
+  }, [currentAssociation]);
+
   useEffect(() => {
+    if (ocrAppliedRef.current) {
+      ocrAppliedRef.current = false;
+      return;
+    }
     if (mode === "edit" && existingMember) {
       setMemberFullName(existingMember.fullName || "");
       setMemberCccd(existingMember.cccd || "");
-      if (COMMON_MEMBER_ROLES.includes(existingMember.role)) {
+      if (availableRoleOptions.includes(existingMember.role)) {
         setMemberRole(existingMember.role);
         setCustomRoleInput("");
       } else {
@@ -169,9 +202,12 @@ export default function PartyMemberFormPage({
       setMemberAvatar(existingMember.avatar || "");
       setDecisionFile(existingMember.decisionFile || null);
     } else if (mode === "create") {
+      const defMemberRole = currentAssociation
+        ? getAssociationRolePresets(currentAssociation).memberRoles[0] || "Hội viên"
+        : "Hội viên";
       setMemberFullName("");
       setMemberCccd("");
-      setMemberRole("Hội viên");
+      setMemberRole(defMemberRole);
       setCustomRoleInput("");
       setMemberPhone("");
       setMemberBirthDate("");
@@ -181,7 +217,7 @@ export default function PartyMemberFormPage({
       setMemberAvatar("");
       setDecisionFile(null);
     }
-  }, [mode, existingMember]);
+  }, [mode, existingMember, availableRoleOptions, currentAssociation]);
 
   // Filtered residents for quick picking in create mode
   const filteredResidents = useMemo(() => {
@@ -207,30 +243,112 @@ export default function PartyMemberFormPage({
     setResidentSearchQuery("");
   };
 
-  const handleProcessFileUpload = (file: File) => {
+  const applyAppointeeToForm = (person: DecisionAppointeeOcr) => {
+    if (mode === "create") {
+      if (person.fullName) setMemberFullName(person.fullName);
+      if (person.cccd) setMemberCccd(person.cccd);
+      if (person.phone) setMemberPhone(person.phone);
+      if (person.birthDate) setMemberBirthDate(person.birthDate);
+      if (person.matchedResident?.avatar) setMemberAvatar(person.matchedResident.avatar);
+    }
+    if (person.role) {
+      if (availableRoleOptions.includes(person.role)) {
+        setMemberRole(person.role);
+        setCustomRoleInput("");
+      } else {
+        setMemberRole("custom");
+        setCustomRoleInput(person.role);
+      }
+    }
+  };
+
+  const handleProcessFileUpload = async (file: File) => {
     if (!file) return;
-    const isPdf = file.type === "application/pdf" || file.name.endsWith(".pdf");
-    const isImage = file.type.startsWith("image/");
+    const isPdf = file.type === "application/pdf" || file.name.toLowerCase().endsWith(".pdf");
+    const isImage = file.type.startsWith("image/") || /\.(png|jpe?g|webp)$/i.test(file.name);
 
     if (!isPdf && !isImage) {
       setNotice({ type: "error", message: "Chỉ hỗ trợ tệp định dạng PDF hoặc hình ảnh (PNG, JPG, WebP)!" });
       return;
     }
 
-    const reader = new FileReader();
-    reader.onload = () => {
-      const result = reader.result as string;
-      const sizeStr = `${(file.size / 1024).toFixed(0)} KB`;
-      setDecisionFile({
-        name: file.name,
-        type: isPdf ? "pdf" : "image",
-        size: sizeStr,
-        url: result,
-        uploadDate: new Date().toLocaleDateString("vi-VN"),
+    const sizeStr =
+      file.size > 1024 * 1024
+        ? `${(file.size / (1024 * 1024)).toFixed(1)} MB`
+        : `${Math.max(1, Math.round(file.size / 1024))} KB`;
+
+    const dataUrl = await new Promise<string>((resolve) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(String(reader.result || ""));
+      reader.onerror = () => resolve("");
+      reader.readAsDataURL(file);
+    });
+
+    setDecisionFile({
+      name: file.name,
+      type: isPdf ? "pdf" : "image",
+      size: sizeStr,
+      url: dataUrl,
+      uploadDate: new Date().toLocaleDateString("vi-VN"),
+    });
+
+    setIsScanningOcr(true);
+    try {
+      const [uploadedUrl, scanned] = await Promise.all([
+        uploadFileToStorageBucket(file, "admin-forms", "decisions"),
+        extractDecisionDocumentViaOcr(file, associations, residents),
+      ]);
+
+      if (uploadedUrl) {
+        setDecisionFile((prev) => (prev ? { ...prev, url: uploadedUrl } : prev));
+      }
+
+      setOcrResult(scanned);
+
+      const filledFields: string[] = [];
+      if (scanned.decisionNumber) {
+        setMemberDecisionNumber(scanned.decisionNumber);
+        filledFields.push(`Số QĐ (${scanned.decisionNumber})`);
+      }
+      if (scanned.decisionDate) {
+        setMemberDecisionDate(scanned.decisionDate);
+        if (!memberJoinDate) setMemberJoinDate(scanned.decisionDate);
+        filledFields.push(`Ngày ký (${scanned.decisionDate})`);
+      }
+      if (mode === "create" && scanned.matchedAssocId) {
+        ocrAppliedRef.current = true;
+        setSelectedAssocId(scanned.matchedAssocId);
+        filledFields.push("Chi hội mục tiêu");
+      }
+
+      if (scanned.appointees.length > 0) {
+        const matchedTarget =
+          mode === "edit" && existingMember
+            ? scanned.appointees.find(
+                (p) =>
+                  (p.cccd && p.cccd === existingMember.cccd) ||
+                  p.fullName.toLowerCase() === existingMember.fullName.toLowerCase()
+              ) || scanned.appointees[0]
+            : scanned.appointees[0];
+        applyAppointeeToForm(matchedTarget);
+        filledFields.push(`Nhân sự (${matchedTarget.fullName} — ${matchedTarget.role})`);
+      }
+
+      setNotice({
+        type: "success",
+        message:
+          filledFields.length > 0
+            ? `AI OCR đã đọc "${file.name}" và tự điền: ${filledFields.join(", ")}.`
+            : `Đã đính kèm tệp "${file.name}". Vui lòng kiểm tra số hiệu Quyết định bên dưới.`,
       });
-      setNotice({ type: "success", message: `Đã đính kèm tệp "${file.name}" thành công!` });
-    };
-    reader.readAsDataURL(file);
+    } catch {
+      setNotice({
+        type: "success",
+        message: `Đã đính kèm tệp "${file.name}" (${sizeStr}).`,
+      });
+    } finally {
+      setIsScanningOcr(false);
+    }
   };
 
   const handleAvatarFile = (file: File) => {
@@ -298,7 +416,7 @@ export default function PartyMemberFormPage({
       if (onAddMember) {
         onAddMember(currentAssociation.id, memberPayload);
       } else if (onUpdateAssociations) {
-        const next = associations.map((assoc) => {
+        const baseNext = associations.map((assoc) => {
           if (assoc.id !== currentAssociation.id) return assoc;
           const prevMembers = assoc.members || [];
           const exists = prevMembers.some((m) => m.cccd === memberPayload.cccd);
@@ -315,7 +433,9 @@ export default function PartyMemberFormPage({
             members: [...prevMembers, memberPayload],
           };
         });
-        onUpdateAssociations(next);
+        onUpdateAssociations(
+          assignMemberRoleInAssociation(baseNext, currentAssociation.id, memberPayload.cccd, memberPayload.role)
+        );
       }
 
       if (onSaved) {
@@ -330,7 +450,7 @@ export default function PartyMemberFormPage({
       if (onUpdateMember) {
         onUpdateMember(currentAssociation.id, memberPayload);
       } else if (onUpdateAssociations) {
-        const next = associations.map((assoc) => {
+        const baseNext = associations.map((assoc) => {
           if (assoc.id !== currentAssociation.id) return assoc;
           return {
             ...assoc,
@@ -339,7 +459,9 @@ export default function PartyMemberFormPage({
             ),
           };
         });
-        onUpdateAssociations(next);
+        onUpdateAssociations(
+          assignMemberRoleInAssociation(baseNext, currentAssociation.id, memberPayload.cccd, memberPayload.role)
+        );
       }
 
       if (onSaved) {
@@ -353,7 +475,7 @@ export default function PartyMemberFormPage({
   };
 
   if (isDataLoading && mode === "edit" && !existingMember) {
-    return <LoadingFade text="Đang tải dữ liệu hồ sơ hội viên..." />;
+    return <LoadingFade title="Đang tải dữ liệu hồ sơ hội viên..." />;
   }
 
   return (
@@ -389,6 +511,102 @@ export default function PartyMemberFormPage({
 
       {/* Form Card */}
       <form onSubmit={handleSubmit} className="bg-white rounded-2xl border border-slate-200/80 p-5 sm:p-6 shadow-xs space-y-6">
+        {/* Khối Quét AI OCR Quyết định thông minh ngay đầu biểu mẫu */}
+        <div className="p-4 rounded-2xl border border-indigo-200/90 bg-indigo-50/45 space-y-3">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div className="space-y-0.5">
+              <div className="flex items-center gap-2 text-xs font-extrabold text-indigo-950 uppercase tracking-wide">
+                <Sparkles size={15} className="text-indigo-700 shrink-0" />
+                <span>AI Vision OCR — Đọc Quyết định &amp; Tự động điền biểu mẫu</span>
+              </div>
+              <p className="text-xs text-slate-600">
+                Tải ảnh chụp hoặc PDF Quyết định chuẩn y / công nhận nhân sự để AI tự bóc tách Số QĐ, Ngày ký, Chi hội, Họ tên, CCCD và Chức vụ.
+              </p>
+            </div>
+
+            <label
+              className={`inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold shrink-0 transition-colors cursor-pointer ${
+                isScanningOcr
+                  ? "bg-indigo-200 text-indigo-900 cursor-wait"
+                  : "bg-indigo-700 hover:bg-indigo-800 text-white shadow-2xs"
+              }`}
+            >
+              {isScanningOcr ? (
+                <>
+                  <Loader2 size={14} className="animate-spin" />
+                  <span>Đang đọc OCR Quyết định...</span>
+                </>
+              ) : (
+                <>
+                  <UploadCloud size={15} />
+                  <span>Tải Quyết định &amp; Tự điền (PDF/Ảnh)</span>
+                </>
+              )}
+              <input
+                type="file"
+                accept=".pdf,image/*"
+                disabled={isScanningOcr}
+                className="hidden"
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (file) void handleProcessFileUpload(file);
+                  e.target.value = "";
+                }}
+              />
+            </label>
+          </div>
+
+          {ocrResult && (
+            <div className="p-3 rounded-xl bg-white border border-indigo-200/90 space-y-2 text-xs">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <span className="font-bold text-indigo-900 flex items-center gap-1.5">
+                  <CheckCircle2 size={14} className="text-emerald-600 shrink-0" />
+                  <span>
+                    Kết quả trích xuất OCR ({ocrResult.source === "gemini_vision" ? "Gemini Vision AI" : "Bộ đọc văn bản"}):
+                  </span>
+                </span>
+                {ocrResult.issuingAuthority && (
+                  <span className="px-2 py-0.5 rounded bg-slate-100 text-slate-700 font-semibold">
+                    {ocrResult.issuingAuthority}
+                  </span>
+                )}
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-slate-700">
+                <div>
+                  Số QĐ: <strong className="font-mono text-slate-900">{ocrResult.decisionNumber || "Chưa rõ"}</strong>
+                </div>
+                <div>
+                  Ngày ký: <strong className="font-mono text-slate-900">{ocrResult.decisionDate || "Chưa rõ"}</strong>
+                </div>
+                <div className="truncate" title={ocrResult.summary}>
+                  Trích yếu: <strong className="text-slate-900">{ocrResult.summary || ocrResult.organizationName || "Đã nhận diện"}</strong>
+                </div>
+              </div>
+
+              {ocrResult.appointees.length > 1 && (
+                <div className="pt-1.5 border-t border-slate-100 space-y-1.5">
+                  <span className="text-[11px] font-bold text-slate-600 block">
+                    Phát hiện {ocrResult.appointees.length} nhân sự trong Quyết định (nhấp để điền):
+                  </span>
+                  <div className="flex flex-wrap gap-1.5">
+                    {ocrResult.appointees.map((p, idx) => (
+                      <button
+                        key={`${p.fullName}-${idx}`}
+                        type="button"
+                        onClick={() => applyAppointeeToForm(p)}
+                        className="px-2.5 py-1 rounded-lg bg-indigo-50 hover:bg-indigo-100 text-indigo-900 border border-indigo-200 font-semibold cursor-pointer transition-colors"
+                      >
+                        {p.fullName} — {p.role}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+
         {/* Section 1: Chi hội sinh hoạt */}
         <div className="space-y-3 pb-5 border-b border-slate-100">
           <div className="flex items-center gap-2 text-slate-900 font-bold text-xs uppercase tracking-wider">
@@ -606,7 +824,7 @@ export default function PartyMemberFormPage({
                 value={memberRole}
                 onChange={(val) => setMemberRole(val)}
                 options={[
-                  ...COMMON_MEMBER_ROLES.map((r) => ({ value: r, label: r })),
+                  ...availableRoleOptions.map((r) => ({ value: r, label: r })),
                   { value: "custom", label: "+ Chức danh khác..." },
                 ]}
               />

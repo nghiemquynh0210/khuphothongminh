@@ -538,6 +538,11 @@ export function mapFieldReportToGisPin(report: FieldReport): GisPin {
     lng,
     toNumber: toNum,
     details: `[${report.category}] ${report.description} (${report.reportedAt})`,
+    timemarkVerified: report.timemarkVerified,
+    timemarkHash: report.timemarkHash,
+    photoElevation: report.photoElevation,
+    photoHeading: report.photoDirection,
+    photoDate: report.photoTakenAt,
   };
 }
 

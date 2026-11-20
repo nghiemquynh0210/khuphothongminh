@@ -17,6 +17,8 @@ import {
 import { Modal } from "../ui/Modal";
 import { Button } from "../ui/Button";
 import { Input } from "../ui/Input";
+import { getStoredAssociations } from "../../data/associationsData";
+import { extractKeyLeadersSummary } from "../../utils/leadershipSync";
 import { DetailRow } from "../common/DetailRow";
 import {
   docSoTiengViet,
@@ -254,11 +256,11 @@ export function AddContributionModal({
         {payerType === "household" && households.length > 0 && (
           <div className="flex flex-col gap-1.5">
             <label htmlFor="thu-household-picker" className="text-xs font-semibold text-slate-700">
-              Chọn nhanh từ Sổ Hộ Khẩu KP3
+              Chọn nhanh từ Sổ Hộ Khẩu KP3 ({Math.min(households.length, 80)}/{households.length} hộ hiển thị — gõ Mã hộ/Tên chủ hộ bên dưới để lọc)
             </label>
             <select
               id="thu-household-picker"
-              defaultValue=""
+              value={households.some((h) => h.code === householdCode) ? householdCode : ""}
               onChange={(e) => {
                 const code = e.target.value;
                 if (!code) return;
@@ -272,11 +274,23 @@ export function AddContributionModal({
               className="h-9 px-3 bg-white text-slate-900 text-sm rounded-lg border border-slate-300 focus:outline-none focus:border-emerald-600"
             >
               <option value="">-- Chọn Sổ hộ khẩu để tự động điền --</option>
-              {households.map((hh) => (
-                <option key={hh.code} value={hh.code}>
-                  {hh.code} — Hộ {hh.ownerName} ({hh.address})
-                </option>
-              ))}
+              {(() => {
+                const qCode = householdCode.trim().toLowerCase();
+                const qName = ownerName.trim().toLowerCase();
+                const filtered = households.filter((hh) => {
+                  if (hh.code === householdCode) return true;
+                  if (!qCode && !qName) return true;
+                  return (
+                    (qCode && hh.code.toLowerCase().includes(qCode)) ||
+                    (qName && hh.ownerName.toLowerCase().includes(qName))
+                  );
+                });
+                return filtered.slice(0, 80).map((hh) => (
+                  <option key={hh.code} value={hh.code}>
+                    {hh.code} — Hộ {hh.ownerName} ({hh.address})
+                  </option>
+                ));
+              })()}
             </select>
           </div>
         )}
@@ -395,13 +409,19 @@ export function AddExpenditureModal({
   editingItem,
   onSubmit,
 }: AddExpenditureModalProps) {
+  const liveLeaders = useMemo(
+    () => extractKeyLeadersSummary(getStoredAssociations()),
+    [isOpen]
+  );
+  const defaultApprover = liveLeaders.partySecretary.name;
+
   const [fundName, setFundName] = useState("");
   const [title, setTitle] = useState("");
   const [amount, setAmount] = useState<string>("500000");
   const [spentAt, setSpentAt] = useState("");
   const [receiver, setReceiver] = useState("");
   const [evidence, setEvidence] = useState("");
-  const [approvedBy, setApprovedBy] = useState("Nguyễn Văn Hùng");
+  const [approvedBy, setApprovedBy] = useState(() => defaultApprover);
   const [formError, setFormError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -413,7 +433,7 @@ export function AddExpenditureModal({
       setSpentAt(editingItem.spentAt || new Date().toLocaleDateString("vi-VN"));
       setReceiver(editingItem.receiver || "");
       setEvidence(editingItem.evidence || "");
-      setApprovedBy(editingItem.approvedBy || "Nguyễn Văn Hùng");
+      setApprovedBy(editingItem.approvedBy || defaultApprover);
       setFormError(null);
       return;
     }
@@ -425,9 +445,9 @@ export function AddExpenditureModal({
     setSpentAt(new Date().toLocaleDateString("vi-VN"));
     setReceiver("");
     setEvidence("");
-    setApprovedBy("Nguyễn Văn Hùng");
+    setApprovedBy(defaultApprover);
     setFormError(null);
-  }, [isOpen, defaultFundName, categories, editingItem]);
+  }, [isOpen, defaultFundName, categories, editingItem, defaultApprover]);
 
   const selectedFundAvailableBalance = useMemo(() => {
     const cat = findCategoryByFundName(categories, fundName);
@@ -472,7 +492,7 @@ export function AddExpenditureModal({
       spentAt: spentAt.trim(),
       receiver: receiver.trim(),
       evidence: evidence.trim() || undefined,
-      approvedBy: approvedBy.trim() || "Nguyễn Văn Hùng",
+      approvedBy: approvedBy.trim() || defaultApprover,
     };
 
     onSubmit(newExp);
@@ -810,22 +830,31 @@ export function ReceiptPrintModal({ receipt, onClose }: ReceiptPrintModalProps) 
             )}
           </dl>
 
-          <div className="grid grid-cols-3 gap-4 text-center text-xs pt-4 border-t border-slate-200">
-            <div className="space-y-10">
-              <span className="font-bold text-slate-800 uppercase block">NGƯỜI LẬP PHIẾU</span>
-              <strong className="block text-slate-900 pt-2">
-                {receipt.approvedBy || "Ban Điều Hành KP3"}
-              </strong>
-            </div>
-            <div className="space-y-10">
-              <span className="font-bold text-slate-800 uppercase block">THỦ QUỸ</span>
-              <strong className="block text-slate-900 pt-2">Lê Thị Mai</strong>
-            </div>
-            <div className="space-y-10">
-              <span className="font-bold text-slate-800 uppercase block">TRƯỞNG KHU PHỐ 3</span>
-              <strong className="block text-slate-900 pt-2">Nguyễn Văn Hùng</strong>
-            </div>
-          </div>
+          {(() => {
+            const receiptLeaders = extractKeyLeadersSummary(getStoredAssociations());
+            return (
+              <div className="grid grid-cols-1 sm:grid-cols-3 print:grid-cols-3 gap-6 sm:gap-4 text-center text-xs pt-4 border-t border-slate-200">
+                <div className="space-y-10">
+                  <span className="font-bold text-slate-800 uppercase block">NGƯỜI LẬP / PHÊ DUYỆT</span>
+                  <strong className="block text-slate-900 pt-2">
+                    {receipt.approvedBy || receiptLeaders.partySecretary.name}
+                  </strong>
+                </div>
+                <div className="space-y-10">
+                  <span className="font-bold text-slate-800 uppercase block">TRƯỞNG KHU PHỐ 3</span>
+                  <strong className="block text-slate-900 pt-2">
+                    {receiptLeaders.neighborhoodHead.name}
+                  </strong>
+                </div>
+                <div className="space-y-10">
+                  <span className="font-bold text-slate-800 uppercase block">BÍ THƯ CHI BỘ KP3</span>
+                  <strong className="block text-slate-900 pt-2">
+                    {receiptLeaders.partySecretary.name}
+                  </strong>
+                </div>
+              </div>
+            );
+          })()}
 
           <div className="mt-6 pt-4 border-t border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div className="flex items-center gap-3">

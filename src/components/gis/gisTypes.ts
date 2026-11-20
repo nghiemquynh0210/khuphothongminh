@@ -31,6 +31,11 @@ export interface GisPin {
   priority?: "Bình thường" | "Cao" | "Khẩn cấp";
   reportCategory?: string;
   coverageMeters?: number;
+  timemarkVerified?: boolean;
+  timemarkHash?: string;
+  photoElevation?: string;
+  photoHeading?: string;
+  photoDate?: string;
 }
 
 export interface GisLayersState {

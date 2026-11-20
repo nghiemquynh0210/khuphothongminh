@@ -1,0 +1,27 @@
+name: Supabase Anti-Pause Keep-Alive
+
+on:
+  schedule:
+    # Chạy mỗi 15 phút trong khung giờ hành chính & tối Việt Nam (06:00 -> 21:45 ICT = 23,0-14 UTC)
+    # vừa giữ ấm Supabase vừa kích hoạt tự động nhắc lịch họp cho Cán bộ trước 60 phút
+    - cron: "*/15 23,0-14 * * *"
+  workflow_dispatch:
+
+jobs:
+  keepalive:
+    name: Ping KP3 Web App & Supabase PostgreSQL
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - name: Probe Primary Production Keep-Alive Endpoint (bdhkp3.vercel.app)
+        run: |
+          set -euo pipefail
+          echo "Probing https://bdhkp3.vercel.app/api/keepalive?check_meetings=1 ..."
+          RESPONSE=$(curl -fsSL --max-time 15 -H "Cache-Control: no-cache" "https://bdhkp3.vercel.app/api/keepalive?check_meetings=1")
+          echo "Response: $RESPONSE"
+          echo "$RESPONSE" | grep -q '"ok":true'
+
+      - name: Probe Backup Production Keep-Alive Endpoint (khuphothongminh-six.vercel.app)
+        continue-on-error: true
+        run: |
+          curl -fsSL --max-time 15 -H "Cache-Control: no-cache" "https://khuphothongminh-six.vercel.app/api/keepalive" || true

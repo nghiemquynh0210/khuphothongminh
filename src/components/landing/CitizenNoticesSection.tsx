@@ -59,17 +59,24 @@ export default function CitizenNoticesSection({
               .map(n => (
                 <li key={n.id} className="min-w-0">
                   <article
-                    className={`w-full min-w-0 overflow-hidden p-5 rounded-2xl border transition-colors flex flex-col justify-between gap-3 h-full ${
+                    role="button"
+                    tabIndex={0}
+                    aria-label={`Xem chi tiết thông báo ${n.title}`}
+                    onClick={() => setNewsDetail(n)}
+                    onKeyDown={(e) => {
+                      if (e.target !== e.currentTarget) return;
+                      if (e.key === "Enter" || e.key === " ") {
+                        e.preventDefault();
+                        setNewsDetail(n);
+                      }
+                    }}
+                    className={`w-full min-w-0 overflow-hidden p-5 rounded-2xl border transition-all flex flex-col justify-between gap-3 h-full cursor-pointer group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gov-blue ${
                       n.isPinned
-                        ? "border-gov-danger/40 bg-red-50/40 hover:border-gov-danger"
-                        : "border-slate-200 hover:border-gov-blue bg-white"
+                        ? "border-gov-danger/40 bg-red-50/40 hover:border-gov-danger hover:shadow-sm"
+                        : "border-slate-200 hover:border-gov-blue hover:shadow-sm bg-white"
                     }`}
                   >
-                    <button
-                      type="button"
-                      onClick={() => setNewsDetail(n)}
-                      className="space-y-2 min-w-0 text-left cursor-pointer"
-                    >
+                    <div className="space-y-2 min-w-0 text-left">
                       <div className="flex flex-wrap justify-between items-center gap-2 text-xs">
                         <span
                           className={`font-semibold px-2 py-0.5 rounded text-xs ${
@@ -82,14 +89,17 @@ export default function CitizenNoticesSection({
                           <Clock size={12} aria-hidden="true" /> {n.date}
                         </span>
                       </div>
-                      <h3 className="font-bold text-sm text-slate-900 line-clamp-2 leading-snug">
+                      <h3 className="font-bold text-sm text-slate-900 group-hover:text-gov-blue line-clamp-2 leading-snug transition-colors">
                         {n.title}
                       </h3>
                       <p className="text-xs text-slate-600 line-clamp-2 leading-relaxed">
                         {n.content}
                       </p>
-                    </button>
-                    <div className="flex items-center justify-between gap-2 text-xs pt-2 border-t border-slate-100 text-slate-600">
+                    </div>
+                    <div
+                      onClick={(e) => e.stopPropagation()}
+                      className="flex items-center justify-between gap-2 text-xs pt-2 border-t border-slate-100 text-slate-600"
+                    >
                       <span className="truncate min-w-0 flex-1">
                         Nguồn: <strong className="text-slate-800">{n.author}</strong>
                       </span>

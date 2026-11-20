@@ -1,7 +1,17 @@
-import React, { useRef } from "react";
-import { Download, Eye, FileText, Image as ImageIcon, Paperclip, Trash2, UploadCloud } from "lucide-react";
+import React, { useRef, useState } from "react";
+import {
+  Download,
+  Eye,
+  FileText,
+  Image as ImageIcon,
+  Loader2,
+  Paperclip,
+  Trash2,
+  UploadCloud,
+} from "lucide-react";
 import { TaskAttachment } from "../../types";
 import { detectFileType, formatFileSize } from "./tasksData";
+import { uploadFileToStorageBucket } from "../../utils/imageUpload";
 import { Button } from "../ui";
 
 interface AttachmentGalleryProps {
@@ -24,37 +34,62 @@ export const AttachmentGallery: React.FC<AttachmentGalleryProps> = ({
   label = "Tệp đính kèm (Ảnh, Word, PDF — tối đa 20MB)",
 }) => {
   const inputRef = useRef<HTMLInputElement>(null);
+  const [isUploading, setIsUploading] = useState(false);
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files;
-    if (!files || files.length === 0) return;
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const fileList = e.target.files;
+    if (!fileList || fileList.length === 0) return;
 
-    const accepted: TaskAttachment[] = [];
-    Array.from<File>(files).forEach((file: File) => {
+    const files = Array.from<File>(fileList);
+    e.target.value = "";
+
+    const validFiles: File[] = [];
+    for (const file of files) {
       if (file.size > 20 * 1024 * 1024) {
         onFileError?.(`Tệp "${file.name}" vượt quá dung lượng tối đa 20MB.`);
-        return;
+      } else {
+        validFiles.push(file);
       }
-      const fType = detectFileType(file);
-      const reader = new FileReader();
-      reader.onload = (ev) => {
-        const result = (ev.target?.result as string) || "#";
-        accepted.push({
+    }
+
+    if (validFiles.length === 0) return;
+
+    setIsUploading(true);
+    try {
+      const uploadedAttachments: TaskAttachment[] = [];
+      for (const file of validFiles) {
+        const fType = detectFileType(file);
+        const resolvedUrl = await uploadFileToStorageBucket(
+          file,
+          "task-attachments",
+          "tasks"
+        );
+
+        if (!resolvedUrl) {
+          onFileError?.(
+            `Không thể tải tệp "${file.name}" lên kho lưu trữ.`
+          );
+          continue;
+        }
+
+        uploadedAttachments.push({
           id: `ATT-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
           name: file.name,
           size: formatFileSize(file.size),
           type: fType,
-          url: result,
+          url: resolvedUrl,
           uploadedAt: new Date().toISOString(),
         });
-        if (accepted.length > 0) {
-          onAddFiles([...accepted]);
-          accepted.length = 0;
-        }
-      };
-      reader.readAsDataURL(file);
-    });
-    e.target.value = "";
+      }
+
+      if (uploadedAttachments.length > 0) {
+        onAddFiles(uploadedAttachments);
+      }
+    } catch {
+      onFileError?.("Đã xảy ra lỗi khi tải tệp đính kèm lên hệ thống.");
+    } finally {
+      setIsUploading(false);
+    }
   };
 
   return (
@@ -79,10 +114,17 @@ export const AttachmentGallery: React.FC<AttachmentGalleryProps> = ({
               type="button"
               variant="secondary"
               size="sm"
-              leftIcon={<UploadCloud size={14} />}
+              disabled={isUploading}
+              leftIcon={
+                isUploading ? (
+                  <Loader2 size={14} className="animate-spin" />
+                ) : (
+                  <UploadCloud size={14} />
+                )
+              }
               onClick={() => inputRef.current?.click()}
             >
-              Tải tệp lên
+              {isUploading ? "Đang tải lên..." : "Tải tệp lên"}
             </Button>
           </>
         )}

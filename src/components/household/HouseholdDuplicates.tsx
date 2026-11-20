@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { AlertTriangle, CheckCircle, Trash2, Users, MapPin, Sparkles, HelpCircle, ArrowRight, X } from "lucide-react";
 import { Household, Resident } from "../../types";
+import { getHouseholdDetailPath, getResidentDetailPath, navigate } from "../../routes";
 
 interface HouseholdDuplicatesProps {
   households: Household[];
@@ -144,19 +145,11 @@ export default function HouseholdDuplicates({
   return (
     <div className="space-y-6 font-sans text-xs">
       {/* Overview Block */}
-      <div className="bg-gradient-to-r from-emerald-900 to-indigo-950 p-5 rounded-2xl text-white flex items-start gap-4 shadow-md relative overflow-hidden">
-        <div className="absolute right-0 bottom-0 translate-x-4 translate-y-4 opacity-10">
-          <Sparkles size={160} />
+      <div className="bg-white px-4 py-3.5 rounded-2xl border border-slate-200 flex items-center gap-3">
+        <div className="p-2 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-xl">
+          <Sparkles size={18} />
         </div>
-        <div className="p-3 bg-white/10 rounded-xl backdrop-blur-md">
-          <Sparkles size={24} className="text-emerald-400" />
-        </div>
-        <div className="space-y-1 z-10">
-          <h3 className="font-bold text-sm">Rà soát dữ liệu & Đồng bộ Gộp Hộ</h3>
-          <p className="text-slate-300 leading-relaxed max-w-xl text-[11px]">
-            Hệ thống tự động phân tích cơ sở dữ liệu dân cư, chuẩn hóa địa chỉ (Address Normalization) và rà soát trùng lặp thông tin CCCD/Chủ hộ để đảm bảo tính đồng bộ pháp lý cao nhất cho cơ sở hành chính địa phương.
-          </p>
-        </div>
+        <h3 className="font-bold text-sm text-slate-900">Rà soát trùng lặp &amp; Gộp Sổ Hộ khẩu</h3>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -189,14 +182,28 @@ export default function HouseholdDuplicates({
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-2 gap-2">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                     {group.map(h => (
-                      <div key={h.id} className="p-2 bg-white rounded-lg border border-slate-150 space-y-1">
+                      <div
+                        key={h.id}
+                        role="button"
+                        tabIndex={0}
+                        onClick={() => navigate(getHouseholdDetailPath(h.id))}
+                        onKeyDown={(e) => {
+                          if (e.target !== e.currentTarget) return;
+                          if (e.key === "Enter" || e.key === " ") {
+                            e.preventDefault();
+                            navigate(getHouseholdDetailPath(h.id));
+                          }
+                        }}
+                        title={`Nhấn để mở sổ hộ khẩu ${h.code}`}
+                        className="group p-2 bg-white hover:bg-indigo-50/40 rounded-lg border border-slate-200/80 hover:border-indigo-300 space-y-1 transition-all cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500"
+                      >
                         <div className="flex justify-between items-center">
                           <span className="font-mono font-bold text-[10px] text-slate-500">{h.code}</span>
                           <span className="px-2 py-0.5 text-[10px] bg-indigo-50 text-indigo-600 rounded-full font-bold">{h.type}</span>
                         </div>
-                        <p className="font-bold text-slate-700 truncate">{h.ownerName}</p>
+                        <p className="font-bold text-slate-700 group-hover:text-indigo-700 transition-colors truncate">{h.ownerName}</p>
                         <p className="text-[10px] text-slate-400 flex items-center gap-1">
                           <Users size={10} /> {h.memberCount} nhân khẩu
                         </p>
@@ -235,26 +242,69 @@ export default function HouseholdDuplicates({
             </div>
           ) : (
             <div className="space-y-3 max-h-[350px] overflow-y-auto pr-1">
-              {duplicateCitizens.map((dc, idx) => (
-                <div key={idx} className="p-3 bg-rose-50/50 border border-rose-100/40 rounded-xl flex justify-between items-center gap-3">
-                  <div className="space-y-1 flex-1">
-                    <h5 className="font-bold text-slate-800 text-xs">{dc.name}</h5>
-                    <p className="text-[10px] text-slate-400 font-mono">CCCD: {dc.cccd}</p>
-                    <div className="flex gap-1.5 items-center mt-1 flex-wrap">
-                      <span className="text-[10px] text-slate-400">Hộ khẩu liên đới:</span>
-                      {dc.householdCodes.map((code, cidx) => (
-                        <span key={cidx} className="font-mono text-[10px] font-bold px-1.5 py-0.5 bg-white text-slate-600 rounded border border-slate-200">
-                          {code}
-                        </span>
-                      ))}
+              {duplicateCitizens.map((dc, idx) => {
+                const matchedResident = residents.find(
+                  (r) =>
+                    (dc.cccd && r.cccd && r.cccd.trim() === dc.cccd.trim()) ||
+                    r.fullName.trim().toLowerCase() === dc.name.trim().toLowerCase()
+                );
+                return (
+                  <div
+                    key={idx}
+                    role={matchedResident ? "button" : undefined}
+                    tabIndex={matchedResident ? 0 : undefined}
+                    onClick={() => {
+                      if (matchedResident) {
+                        navigate(getResidentDetailPath(matchedResident.id));
+                      }
+                    }}
+                    onKeyDown={(e) => {
+                      if (!matchedResident || e.target !== e.currentTarget) return;
+                      if (e.key === "Enter" || e.key === " ") {
+                        e.preventDefault();
+                        navigate(getResidentDetailPath(matchedResident.id));
+                      }
+                    }}
+                    className={`group p-3 bg-rose-50/50 border border-rose-200/60 rounded-xl flex justify-between items-center gap-3 transition-all ${
+                      matchedResident
+                        ? "cursor-pointer hover:bg-rose-50 hover:border-rose-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-500"
+                        : ""
+                    }`}
+                  >
+                    <div className="space-y-1 flex-1">
+                      <h5 className="font-bold text-slate-800 group-hover:text-rose-800 transition-colors text-xs">{dc.name}</h5>
+                      <p className="text-[10px] text-slate-400 font-mono">CCCD: {dc.cccd}</p>
+                      <div className="flex gap-1.5 items-center mt-1 flex-wrap">
+                        <span className="text-[10px] text-slate-400">Hộ khẩu liên đới:</span>
+                        {dc.householdCodes.map((code, cidx) => {
+                          const targetHh = activeHouseholds.find((h) => h.code === code);
+                          return targetHh ? (
+                            <button
+                              key={cidx}
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                navigate(getHouseholdDetailPath(targetHh.id));
+                              }}
+                              className="font-mono text-[10px] font-bold px-1.5 py-0.5 bg-white hover:bg-indigo-50 text-slate-700 hover:text-indigo-700 rounded border border-slate-200 hover:border-indigo-300 transition-colors cursor-pointer"
+                            >
+                              {code}
+                            </button>
+                          ) : (
+                            <span key={cidx} className="font-mono text-[10px] font-bold px-1.5 py-0.5 bg-white text-slate-600 rounded border border-slate-200">
+                              {code}
+                            </span>
+                          );
+                        })}
+                      </div>
+                    </div>
+
+                    <div className="p-2 bg-rose-100 text-rose-700 rounded-full font-bold text-[10px] shrink-0">
+                      Bất hợp lệ
                     </div>
                   </div>
-
-                  <div className="p-2 bg-rose-100 text-rose-700 rounded-full font-bold text-[10px] shrink-0">
-                    Bất hợp lệ
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </div>
@@ -263,14 +313,15 @@ export default function HouseholdDuplicates({
       {/* Merge Wizard Modal */}
       {selectedMergePair && (
         <div className="fixed inset-0 bg-slate-950/70 flex items-center justify-center z-50 p-4 backdrop-blur-sm animate-in fade-in duration-150">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-xl overflow-hidden border border-slate-100 animate-in zoom-in-95 duration-150">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-xl max-h-[90vh] flex flex-col overflow-hidden border border-slate-200 animate-in zoom-in-95 duration-150">
             {/* Modal Header */}
-            <div className="p-4 bg-slate-900 text-white flex justify-between items-center">
+            <div className="p-4 bg-slate-900 text-white flex justify-between items-center shrink-0">
               <div className="flex items-center gap-2">
                 <Sparkles size={16} className="text-amber-400" />
                 <h3 className="font-bold text-sm">Trình Gộp sổ hộ khẩu chuẩn hóa địa phương</h3>
               </div>
               <button 
+                type="button"
                 onClick={() => setSelectedMergePair(null)}
                 className="text-slate-400 hover:text-white bg-slate-800 p-1.5 rounded-lg transition-colors cursor-pointer"
               >
@@ -279,13 +330,13 @@ export default function HouseholdDuplicates({
             </div>
 
             {mergeSuccess ? (
-              <div className="p-8 text-center flex flex-col items-center justify-center space-y-2.5">
+              <div className="p-8 text-center flex flex-col items-center justify-center space-y-2.5 overflow-y-auto flex-1">
                 <CheckCircle size={44} className="text-emerald-500 animate-bounce" />
                 <h4 className="font-bold text-slate-800 text-sm">Đã gộp dữ liệu thành công!</h4>
                 <p className="text-slate-500 text-xs">Cơ sở dữ liệu hộ tịch đã được cấu trúc lại, đang tải lại...</p>
               </div>
             ) : (
-              <div className="p-6 space-y-5 text-xs text-slate-600">
+              <div className="p-4 sm:p-6 space-y-5 text-xs text-slate-600 overflow-y-auto flex-1">
                 <p className="text-slate-500 leading-relaxed text-[11px]">
                   Hai hộ tịch sau đây có địa chỉ trùng khớp tuyệt đối. Hãy lựa chọn <strong>Sổ hộ khẩu chính (Primary Book)</strong> để lưu giữ. Toàn bộ thành viên của sổ còn lại sẽ được chuyển sang sổ chính một cách an toàn. Sổ thứ hai sẽ tự động được <strong>Soft Delete (Đánh dấu lưu trữ)</strong>.
                 </p>
@@ -297,7 +348,7 @@ export default function HouseholdDuplicates({
                     className={`p-4 border rounded-2xl cursor-pointer transition-all space-y-3 relative overflow-hidden ${
                       primaryId === selectedMergePair.h1.id 
                         ? "border-indigo-600 ring-2 ring-indigo-500/10 bg-indigo-50/20" 
-                        : "border-slate-150 hover:border-slate-200"
+                        : "border-slate-200 hover:border-slate-200"
                     }`}
                   >
                     {primaryId === selectedMergePair.h1.id && (
@@ -325,7 +376,7 @@ export default function HouseholdDuplicates({
                     className={`p-4 border rounded-2xl cursor-pointer transition-all space-y-3 relative overflow-hidden ${
                       primaryId === selectedMergePair.h2.id 
                         ? "border-indigo-600 ring-2 ring-indigo-500/10 bg-indigo-50/20" 
-                        : "border-slate-150 hover:border-slate-200"
+                        : "border-slate-200 hover:border-slate-200"
                     }`}
                   >
                     {primaryId === selectedMergePair.h2.id && (

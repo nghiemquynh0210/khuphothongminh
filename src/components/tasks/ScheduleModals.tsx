@@ -1,6 +1,8 @@
-import React, { useEffect, useState } from "react";
-import { Edit2, Plus, Trash2 } from "lucide-react";
-import { ScheduleEvent, TaskAttachment } from "../../types";
+import React, { useEffect, useMemo, useState } from "react";
+import { Edit2, History, Plus, RefreshCw, Trash2, UserCheck } from "lucide-react";
+import { Association, ScheduleEvent, TaskAttachment } from "../../types";
+import { getStoredAssociations } from "../../data/associationsData";
+import { extractKeyLeadersSummary } from "../../utils/leadershipSync";
 import { SCHEDULE_TYPES } from "./tasksData";
 import { getScheduleTypeBadge } from "./taskBadges";
 import { AttachmentGallery } from "./AttachmentGallery";
@@ -8,21 +10,13 @@ import { AttachmentPreviewModal } from "./TaskModals";
 import { Button, Input, Modal, ReportSelect } from "../ui";
 import { DetailRow } from "../common/DetailRow";
 
-const DEFAULT_HOSTS = [
-  "Đ/c Nguyễn Văn Hùng - Bí thư Chi bộ KP3",
-  "Ông Nguyễn Trung Huy - Trưởng Ban điều hành KP3",
-  "Ông Lê Văn Sơn - Phó Trưởng Ban điều hành KP3",
-  "Bà Lê Thị Mai - Phó Ban điều hành KP3",
-  "Ông Trần Quốc Tuấn - Trưởng ban ĐHKP",
-  "Đ/c Trung úy CSKV Khu phố 3",
-];
-
 interface CreateScheduleModalProps {
   isOpen: boolean;
   onClose: () => void;
   onCreate: (sch: ScheduleEvent) => void;
   existingCount: number;
   editingSchedule?: ScheduleEvent | null;
+  associationsList?: Association[];
 }
 
 export const CreateScheduleModal: React.FC<CreateScheduleModalProps> = ({
@@ -31,19 +25,87 @@ export const CreateScheduleModal: React.FC<CreateScheduleModalProps> = ({
   onCreate,
   existingCount,
   editingSchedule = null,
+  associationsList,
 }) => {
+  const hostOptions = useMemo(() => {
+    const assocs =
+      associationsList && associationsList.length > 0
+        ? associationsList
+        : getStoredAssociations();
+    const kl = extractKeyLeadersSummary(assocs);
+    const items: Array<{ value: string; label: string; description?: string }> = [];
+    const seenValues = new Set<string>();
+
+    const pushHost = (name: string, roleLabel: string, prefix = "Đ/c ") => {
+      if (!name || name === "Chưa phân công") return;
+      const fullVal = `${prefix}${name} - ${roleLabel}`.trim();
+      if (seenValues.has(fullVal.toLowerCase())) return;
+      seenValues.add(fullVal.toLowerCase());
+      items.push({
+        value: fullVal,
+        label: `${prefix}${name}`.trim(),
+        description: roleLabel,
+      });
+    };
+
+    pushHost(kl.partySecretary.name, "Bí thư Chi bộ KP3");
+    pushHost(kl.neighborhoodHead.name, "Trưởng Ban điều hành KP3");
+    if (kl.deputyPartySecretary) {
+      pushHost(kl.deputyPartySecretary.name, "Phó Bí thư Chi bộ KP3");
+    }
+    if (kl.deputyNeighborhoodHead) {
+      pushHost(kl.deputyNeighborhoodHead.name, "Phó Trưởng BĐH KP3");
+    }
+    if (kl.frontHead) {
+      pushHost(kl.frontHead.name, "Trưởng Ban CTMT KP3");
+    }
+    pushHost(kl.policeOfficer.name, "Công an khu vực KP3", "");
+
+    // Bổ sung tự động Trưởng các Chi hội & Đoàn thể khác từ Quản lý Chi hội
+    for (const assoc of assocs) {
+      if (["ASC_DANG", "ASC_BDH", "ASC_MT"].includes(assoc.id)) continue;
+      if (assoc.leaderName && assoc.leaderName !== "Chưa phân công") {
+        const headMem = assoc.members?.find(
+          (m) => m.fullName.toLowerCase() === assoc.leaderName.toLowerCase()
+        );
+        const roleDesc = headMem?.role
+          ? `${headMem.role} (${assoc.name})`
+          : `Trưởng ${assoc.name}`;
+        pushHost(assoc.leaderName, roleDesc);
+      }
+    }
+
+    items.push({
+      value: "Thường trực Đảng ủy Phường An Phú",
+      label: "Thường trực Đảng ủy Phường An Phú",
+      description: "Cấp trên chủ trì",
+    });
+    items.push({
+      value: "Lãnh đạo HĐND - UBND Phường An Phú",
+      label: "Lãnh đạo HĐND - UBND Phường An Phú",
+      description: "Cấp trên chủ trì",
+    });
+
+    return items;
+  }, [associationsList]);
+
+  const dynamicHosts = useMemo(() => hostOptions.map((o) => o.value), [hostOptions]);
+
+  const todayIso = () => new Date().toISOString().slice(0, 10);
+
   const [title, setTitle] = useState("");
   const [titleError, setTitleError] = useState("");
   const [type, setType] = useState<string>("Họp Ban Điều hành KP3");
   const [customType, setCustomType] = useState("");
-  const [date, setDate] = useState("2026-10-22");
+  const [date, setDate] = useState(todayIso);
   const [time, setTime] = useState("08:30 - 10:30");
   const [location, setLocation] = useState("Văn phòng Ban Điều hành KP3");
-  const [host, setHost] = useState(DEFAULT_HOSTS[1]);
+  const [host, setHost] = useState(dynamicHosts[0]);
   const [customHost, setCustomHost] = useState("");
   const [attendees, setAttendees] = useState("Ban Điều hành KP3 & Đại diện cụm dân cư");
   const [desc, setDesc] = useState("");
   const [notes, setNotes] = useState("");
+  const [isPublicCitizenVisible, setIsPublicCitizenVisible] = useState(false);
   const [attachments, setAttachments] = useState<TaskAttachment[]>([]);
   const [fileError, setFileError] = useState("");
   const [previewAtt, setPreviewAtt] = useState<TaskAttachment | null>(null);
@@ -63,7 +125,7 @@ export const CreateScheduleModal: React.FC<CreateScheduleModalProps> = ({
       setDate(editingSchedule.date);
       setTime(editingSchedule.time);
       setLocation(editingSchedule.location);
-      if (DEFAULT_HOSTS.includes(editingSchedule.host)) {
+      if (dynamicHosts.includes(editingSchedule.host)) {
         setHost(editingSchedule.host);
         setCustomHost("");
       } else {
@@ -73,6 +135,12 @@ export const CreateScheduleModal: React.FC<CreateScheduleModalProps> = ({
       setAttendees(editingSchedule.attendees);
       setDesc(editingSchedule.description || editingSchedule.content || "");
       setNotes(editingSchedule.notes || "");
+      setIsPublicCitizenVisible(
+        Boolean(
+          (editingSchedule as ScheduleEvent & { isPublicCitizenVisible?: boolean })
+            .isPublicCitizenVisible
+        )
+      );
       setAttachments(editingSchedule.attachments || []);
       setFileError("");
       return;
@@ -81,17 +149,18 @@ export const CreateScheduleModal: React.FC<CreateScheduleModalProps> = ({
     setTitleError("");
     setType("Họp Ban Điều hành KP3");
     setCustomType("");
-    setDate("2026-10-22");
+    setDate(todayIso());
     setTime("08:30 - 10:30");
     setLocation("Văn phòng Ban Điều hành KP3");
-    setHost(DEFAULT_HOSTS[1]);
+    setHost(dynamicHosts[0]);
     setCustomHost("");
     setAttendees("Ban Điều hành KP3 & Đại diện cụm dân cư");
     setDesc("");
     setNotes("");
+    setIsPublicCitizenVisible(false);
     setAttachments([]);
     setFileError("");
-  }, [isOpen, editingSchedule]);
+  }, [isOpen, editingSchedule, dynamicHosts]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -103,7 +172,8 @@ export const CreateScheduleModal: React.FC<CreateScheduleModalProps> = ({
     const finalType = type === "__CUSTOM__" ? customType.trim() || "Sự kiện khác" : type;
     const finalHost = host === "__CUSTOM__" ? customHost.trim() || "Chủ trì cuộc họp" : host;
 
-    const newSch: ScheduleEvent = {
+    const newSch: ScheduleEvent & { isPublicCitizenVisible?: boolean } = {
+      ...(editingSchedule || {}),
       id: editingSchedule?.id || `SCH-${String(existingCount + 1).padStart(3, "0")}`,
       title: title.trim(),
       type: finalType,
@@ -116,6 +186,7 @@ export const CreateScheduleModal: React.FC<CreateScheduleModalProps> = ({
       description: desc.trim() || undefined,
       content: desc.trim() || undefined,
       notes: notes.trim() || undefined,
+      isPublicCitizenVisible,
       attachments: attachments.length > 0 ? attachments : undefined,
     };
 
@@ -137,7 +208,6 @@ export const CreateScheduleModal: React.FC<CreateScheduleModalProps> = ({
         isOpen={isOpen}
         onClose={onClose}
         title={editingSchedule ? "Cập nhật lịch họp & sự kiện" : "Tạo lịch họp & sự kiện mới"}
-        description="Thiết lập lịch giao ban KP3, họp cư dân hoặc hoạt động cộng đồng"
         size="lg"
         footer={
           <div className="flex justify-end gap-2">
@@ -194,7 +264,7 @@ export const CreateScheduleModal: React.FC<CreateScheduleModalProps> = ({
                 value={host}
                 onChange={setHost}
                 options={[
-                  ...DEFAULT_HOSTS.map((h) => ({ value: h, label: h })),
+                  ...hostOptions,
                   { value: "__CUSTOM__", label: "+ Nhập người chủ trì khác..." },
                 ]}
               />
@@ -271,6 +341,23 @@ export const CreateScheduleModal: React.FC<CreateScheduleModalProps> = ({
             placeholder="Ví dụ: Chuẩn bị máy chiếu, biên bản..."
           />
 
+          <label className="flex items-start gap-2.5 p-3 rounded-xl bg-emerald-50/70 border border-emerald-200 cursor-pointer select-none">
+            <input
+              type="checkbox"
+              checked={isPublicCitizenVisible}
+              onChange={(e) => setIsPublicCitizenVisible(e.target.checked)}
+              className="mt-0.5 h-4 w-4 rounded border-emerald-300 accent-emerald-700 cursor-pointer shrink-0"
+            />
+            <span className="space-y-0.5">
+              <span className="block text-xs font-bold text-emerald-950">
+                Công khai lịch này trên Cổng Cư dân (Lịch tiếp dân / Sinh hoạt khu phố)
+              </span>
+              <span className="block text-[11px] text-emerald-800">
+                Đồng bộ hiển thị trực tiếp tại trang /schedule của Cổng Dịch vụ Cư dân số KP3.
+              </span>
+            </span>
+          </label>
+
           {fileError && (
             <p className="text-xs font-medium text-rose-700 bg-rose-50 border border-rose-200 rounded-lg px-3 py-2">
               {fileError}
@@ -300,6 +387,10 @@ interface ScheduleDetailModalProps {
   onRemoveAttachment: (id: string, attId: string) => void;
   onRequestDelete: (schedule: ScheduleEvent) => void;
   onRequestEdit?: (schedule: ScheduleEvent) => void;
+  onRequestReschedule?: (
+    schedule: ScheduleEvent,
+    mode?: "reschedule" | "delegate" | "postpone"
+  ) => void;
 }
 
 export const ScheduleDetailModal: React.FC<ScheduleDetailModalProps> = ({
@@ -310,6 +401,7 @@ export const ScheduleDetailModal: React.FC<ScheduleDetailModalProps> = ({
   onRemoveAttachment,
   onRequestDelete,
   onRequestEdit,
+  onRequestReschedule,
 }) => {
   const [previewAtt, setPreviewAtt] = useState<TaskAttachment | null>(null);
   const [fileError, setFileError] = useState("");
@@ -323,9 +415,9 @@ export const ScheduleDetailModal: React.FC<ScheduleDetailModalProps> = ({
         onClose={onClose}
         title={schedule.title}
         description={`Mã lịch: ${schedule.id} • ${schedule.date}`}
-        size="lg"
+        size="2xl"
         footer={
-          <div className="flex flex-wrap items-center justify-between gap-2">
+          <div className="flex flex-wrap items-center justify-between gap-2 w-full">
             <Button
               variant="destructive"
               size="sm"
@@ -334,10 +426,33 @@ export const ScheduleDetailModal: React.FC<ScheduleDetailModalProps> = ({
             >
               Xóa
             </Button>
-            <div className="flex items-center gap-2">
-              <Button variant="secondary" size="sm" onClick={onClose}>
-                Đóng
-              </Button>
+            <div className="flex flex-wrap items-center gap-2">
+              {onRequestReschedule && (
+                <>
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    leftIcon={<RefreshCw size={14} />}
+                    onClick={() => {
+                      onClose();
+                      onRequestReschedule(schedule, "reschedule");
+                    }}
+                  >
+                    Dời / Đổi giờ
+                  </Button>
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    leftIcon={<UserCheck size={14} />}
+                    onClick={() => {
+                      onClose();
+                      onRequestReschedule(schedule, "delegate");
+                    }}
+                  >
+                    Cử đi thay
+                  </Button>
+                </>
+              )}
               {onRequestEdit && (
                 <Button
                   variant="primary"
@@ -359,6 +474,11 @@ export const ScheduleDetailModal: React.FC<ScheduleDetailModalProps> = ({
               <span className="px-2.5 py-0.5 rounded-full border border-slate-200 bg-slate-100 text-slate-900 text-xs font-semibold">
                 {schedule.status}
               </span>
+              {schedule.rescheduleCount && schedule.rescheduleCount > 0 ? (
+                <span className="px-2.5 py-0.5 rounded-full border border-teal-200 bg-teal-50 text-teal-900 text-xs font-bold">
+                  Đã dời lịch ({schedule.rescheduleCount} lần)
+                </span>
+              ) : null}
             </div>
             <div className="w-48">
               <ReportSelect
@@ -377,19 +497,68 @@ export const ScheduleDetailModal: React.FC<ScheduleDetailModalProps> = ({
 
           <dl className="@container divide-y divide-slate-100 rounded-xl border border-slate-200 bg-white px-4 py-1">
             <DetailRow
-              label="Thời gian"
-              value={`${schedule.date} • ${schedule.time}`}
+              label="Thời gian hiện tại"
+              value={`${schedule.date.split("-").reverse().join("/")} • ${schedule.time}`}
               isMono
             />
+            {(schedule.originalDate || schedule.originalTime) && (
+              <DetailRow
+                label="Lịch gốc ban đầu"
+                value={`${
+                  schedule.originalDate
+                    ? schedule.originalDate.split("-").reverse().join("/")
+                    : schedule.date.split("-").reverse().join("/")
+                } • ${schedule.originalTime || schedule.time}`}
+                isMono
+              />
+            )}
             <DetailRow label="Địa điểm" value={schedule.location} />
-            <DetailRow label="Người chủ trì" value={schedule.host} />
-            <DetailRow label="Thành phần tham dự" value={schedule.attendees} />
-            {schedule.notes && <DetailRow label="Ghi chú hậu cần" value={schedule.notes} />}
+            <DetailRow label="Chủ trì / Cấp trên" value={schedule.host} />
+            <DetailRow label="Thành phần KP3" value={schedule.attendees} />
+            {schedule.sourceDocNumber && (
+              <DetailRow label="Văn bản nguồn" value={schedule.sourceDocNumber} />
+            )}
+            {schedule.notes && <DetailRow label="Ghi chú / Chỉ đạo" value={schedule.notes} />}
           </dl>
 
           {(schedule.description || schedule.content) && (
-            <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200 text-sm text-slate-800 leading-relaxed whitespace-pre-line">
+            <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200 text-xs sm:text-sm text-slate-800 leading-relaxed whitespace-pre-line">
               {schedule.description || schedule.content}
+            </div>
+          )}
+
+          {schedule.adjustmentLogs && schedule.adjustmentLogs.length > 0 && (
+            <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200 space-y-2 text-xs">
+              <h5 className="font-bold text-slate-900 flex items-center gap-1.5">
+                <History size={14} className="text-indigo-700" />
+                <span>Nhật ký Nguồn lịch, Điều chỉnh &amp; Cử đi thay ({schedule.adjustmentLogs.length})</span>
+              </h5>
+              <div className="space-y-1.5 max-h-40 overflow-y-auto">
+                {schedule.adjustmentLogs.map((log) => (
+                  <div
+                    key={log.id}
+                    className="p-2 rounded-lg bg-white border border-slate-200/90 space-y-0.5"
+                  >
+                    <div className="flex flex-wrap items-center justify-between gap-2 font-semibold text-slate-800">
+                      <span>{log.reason}</span>
+                      <span className="font-mono text-[11px] text-slate-500">
+                        {new Date(log.changedAt).toLocaleString("vi-VN")}
+                      </span>
+                    </div>
+                    {log.previousDate && log.newDate && log.actionType === "reschedule" && (
+                      <div className="text-[11px] font-mono text-emerald-800">
+                        {log.previousDate.split("-").reverse().join("/")} ({log.previousTime}) →{" "}
+                        {log.newDate.split("-").reverse().join("/")} ({log.newTime})
+                      </div>
+                    )}
+                    {log.delegatedFrom && log.delegatedTo && (
+                      <div className="text-[11px] text-indigo-800 font-medium">
+                        Ủy quyền: {log.delegatedFrom} → {log.delegatedTo}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
             </div>
           )}
 

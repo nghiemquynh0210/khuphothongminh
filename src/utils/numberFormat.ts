@@ -29,9 +29,16 @@ export function formatVNNumber(val: number | string | undefined | null): string 
  */
 export function formatTextNumbers(text: string): string {
   if (!text || typeof text !== "string") return text;
-  return text.replace(/(?<![/\-\w])\d{4,}(?![/\-\w])/g, (match) => {
-    // If it starts with 0 and has multiple digits, it's a phone number or citizen CCCD/ID
-    if (match.startsWith("0") && match.length > 1) return match;
+  return text.replace(/(?<![/\-\w])\d{4,}(?![/\-\w])/g, (match, offset, fullStr) => {
+    // Preserve phone numbers / CCCDs starting with 0 and official hotline 1022
+    if ((match.startsWith("0") && match.length > 1) || match === "1022") return match;
+    // Preserve 4-digit calendar/legal years when preceded by year/law keywords
+    if (match.length === 4 && /^(19|20)\d{2}$/.test(match)) {
+      const prefix = String(fullStr).slice(Math.max(0, offset - 16), offset).toLowerCase();
+      if (/(?:năm|luật|khóa|kỳ|giai đoạn|tháng\s*\d{1,2})\s*$/i.test(prefix)) {
+        return match;
+      }
+    }
     const n = Number(match);
     return isNaN(n) ? match : n.toLocaleString("vi-VN");
   });

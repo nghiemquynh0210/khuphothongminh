@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
   AlertTriangle,
   ArrowLeft,
@@ -8,6 +8,7 @@ import {
   ChevronRight,
   Edit3,
   MapPin,
+  Printer,
   Share2,
   Trash2,
   Users,
@@ -19,6 +20,7 @@ import { LoadingFade } from "../components/common/LoadingFade";
 import { PageHeader } from "../components/common/PageHeader";
 import { ConfirmModal, InlineNotice } from "../components/ui/ConfirmModal";
 import { formatShortRecordId } from "../utils/kp3Utils";
+import { loadPortalSetting, savePortalSetting } from "../utils/supabaseSync";
 import {
   ROUTES,
   getEventDetailPath,
@@ -68,6 +70,23 @@ export default function EventDetailPage({
     } catch {}
     return {};
   });
+
+  useEffect(() => {
+    let active = true;
+    loadPortalSetting<Record<string, { registered: boolean; extraCount: number }>>(
+      "event_rsvp_map"
+    ).then((cloudMap) => {
+      if (active && cloudMap && typeof cloudMap === "object") {
+        setEventRsvpMap(cloudMap);
+        try {
+          localStorage.setItem(EVENT_RSVP_KEY, JSON.stringify(cloudMap));
+        } catch {}
+      }
+    });
+    return () => {
+      active = false;
+    };
+  }, []);
 
   const currentIdx = useMemo(() => {
     if (!event) return -1;
@@ -122,6 +141,7 @@ export default function EventDetailPage({
     try {
       localStorage.setItem(EVENT_RSVP_KEY, JSON.stringify(nextMap));
     } catch {}
+    savePortalSetting("event_rsvp_map", nextMap, true);
 
     setNotice({
       type: "success",
@@ -241,47 +261,13 @@ export default function EventDetailPage({
         description="Lịch hội họp, phong trào & Hoạt động văn hóa - cộng đồng Khu phố 3"
         badgeText={`Sự kiện KP3 • ${event.status}`}
         actions={
-          <div className="flex flex-wrap items-center gap-2">
-            {events.length > 1 && currentIdx >= 0 && (
-              <div className="hidden sm:inline-flex items-center rounded-xl border border-slate-200 bg-white p-0.5 shadow-sm">
-                <button
-                  type="button"
-                  onClick={handlePrev}
-                  disabled={!hasPrev}
-                  title="Sự kiện trước"
-                  className="p-1.5 text-slate-600 hover:text-slate-900 hover:bg-slate-50 rounded-lg disabled:opacity-30 disabled:pointer-events-none cursor-pointer"
-                >
-                  <ChevronLeft size={16} />
-                </button>
-                <span className="px-2 text-xs font-mono font-medium text-slate-500">
-                  {currentIdx + 1}/{events.length}
-                </span>
-                <button
-                  type="button"
-                  onClick={handleNext}
-                  disabled={!hasNext}
-                  title="Sự kiện tiếp theo"
-                  className="p-1.5 text-slate-600 hover:text-slate-900 hover:bg-slate-50 rounded-lg disabled:opacity-30 disabled:pointer-events-none cursor-pointer"
-                >
-                  <ChevronRight size={16} />
-                </button>
-              </div>
-            )}
-
+          <div className="flex flex-wrap items-center gap-2 shrink-0">
             <button
               type="button"
               onClick={handleBack}
-              className="inline-flex items-center gap-1.5 px-3 py-2 text-xs sm:text-sm font-bold text-slate-700 bg-white border border-slate-200 rounded-xl hover:bg-slate-50 cursor-pointer transition-colors shadow-sm"
+              className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-bold text-slate-700 bg-white border border-slate-200 rounded-xl hover:bg-slate-50 cursor-pointer transition-colors shadow-sm whitespace-nowrap shrink-0"
             >
-              <ArrowLeft size={15} /> Quay lại
-            </button>
-
-            <button
-              type="button"
-              onClick={handleShare}
-              className="inline-flex items-center gap-1.5 px-3 py-2 text-xs sm:text-sm font-bold text-slate-700 bg-white border border-slate-200 rounded-xl hover:bg-slate-50 cursor-pointer transition-colors shadow-sm"
-            >
-              <Share2 size={15} /> Chia sẻ
+              <ArrowLeft size={14} /> Quay lại
             </button>
 
             <button
@@ -293,24 +279,73 @@ export default function EventDetailPage({
                   navigate(getEventEditPath(event.id, basePath));
                 }
               }}
-              className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs sm:text-sm font-bold text-white bg-emerald-700 hover:bg-emerald-800 rounded-xl shadow-sm cursor-pointer transition-colors"
+              className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-bold text-white bg-emerald-700 hover:bg-emerald-800 rounded-xl shadow-sm cursor-pointer transition-colors whitespace-nowrap shrink-0"
             >
-              <Edit3 size={15} /> Sửa sự kiện
+              <Edit3 size={14} /> Sửa sự kiện
             </button>
 
             <button
               type="button"
               onClick={() => setDeleteTarget(event)}
-              className="inline-flex items-center gap-1.5 px-3 py-2 text-xs sm:text-sm font-bold text-rose-700 bg-rose-50 border border-rose-200 hover:bg-rose-100 rounded-xl cursor-pointer transition-colors"
+              className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-bold text-rose-700 bg-rose-50 border border-rose-200 hover:bg-rose-100 rounded-xl cursor-pointer transition-colors whitespace-nowrap shrink-0"
             >
-              <Trash2 size={15} /> Xóa
+              <Trash2 size={14} /> Xóa
             </button>
           </div>
         }
       />
 
       {/* Main Container */}
-      <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden space-y-6 p-6 sm:p-8">
+      <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+        {/* Event Utility Toolbar (Navigation, Share & Print) */}
+        <div className="px-6 sm:px-8 py-3 bg-slate-50/80 border-b border-slate-100 flex flex-wrap items-center justify-between gap-2 text-xs print:hidden">
+          <div className="flex items-center gap-2">
+            {events.length > 1 && currentIdx >= 0 && (
+              <div className="inline-flex items-center rounded-xl border border-slate-200 bg-white p-0.5">
+                <button
+                  type="button"
+                  onClick={handlePrev}
+                  disabled={!hasPrev}
+                  title="Sự kiện trước"
+                  className="p-1.5 text-slate-600 hover:text-slate-900 hover:bg-slate-50 rounded-lg disabled:opacity-30 disabled:pointer-events-none cursor-pointer"
+                >
+                  <ChevronLeft size={15} />
+                </button>
+                <span className="px-2 text-[11px] font-mono font-medium text-slate-600">
+                  Sự kiện {currentIdx + 1}/{events.length}
+                </span>
+                <button
+                  type="button"
+                  onClick={handleNext}
+                  disabled={!hasNext}
+                  title="Sự kiện tiếp theo"
+                  className="p-1.5 text-slate-600 hover:text-slate-900 hover:bg-slate-50 rounded-lg disabled:opacity-30 disabled:pointer-events-none cursor-pointer"
+                >
+                  <ChevronRight size={15} />
+                </button>
+              </div>
+            )}
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              onClick={handleShare}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-slate-700 bg-white border border-slate-200 rounded-xl hover:bg-slate-50 cursor-pointer transition-colors whitespace-nowrap"
+            >
+              <Share2 size={13} /> Chia sẻ
+            </button>
+            <button
+              type="button"
+              onClick={() => window.print()}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-slate-700 bg-white border border-slate-200 rounded-xl hover:bg-slate-50 cursor-pointer transition-colors whitespace-nowrap"
+            >
+              <Printer size={13} /> In sự kiện
+            </button>
+          </div>
+        </div>
+
+        <div className="space-y-6 p-6 sm:p-8">
         {/* Banner Cover Image */}
         <div className="relative rounded-2xl overflow-hidden border border-slate-200 aspect-[21/9] sm:aspect-[24/9] bg-slate-900 group">
           <img
@@ -411,6 +446,7 @@ export default function EventDetailPage({
               Quay lại danh sách
             </button>
           </div>
+        </div>
         </div>
       </div>
 

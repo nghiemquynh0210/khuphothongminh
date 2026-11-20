@@ -48,7 +48,7 @@ export default function TaskFormPage({
   tasks,
   isDataLoading = false,
   basePath = ROUTES.DASHBOARD_TASKS,
-  creatorLabel = "Đ/c Nguyễn Văn Hùng (Bí thư Chi bộ)",
+  creatorLabel,
   associationsList: customAssociations,
   onAddTask,
   onUpdateTask,
@@ -60,6 +60,14 @@ export default function TaskFormPage({
       ? customAssociations
       : getStoredAssociations();
   }, [customAssociations]);
+
+  const resolvedCreatorLabel = useMemo(() => {
+    if (creatorLabel) return creatorLabel;
+    const partyAssoc = associationsList.find((a) => a.id === "ASC_DANG");
+    return partyAssoc?.leaderName
+      ? `${partyAssoc.leaderName} (Bí thư Chi bộ)`
+      : "Bí thư Chi bộ KP3";
+  }, [creatorLabel, associationsList]);
 
   const [directTask, setDirectTask] = useState<TaskItem | null>(null);
   const [isFetchingDirect, setIsFetchingDirect] = useState<boolean>(false);
@@ -110,7 +118,8 @@ export default function TaskFormPage({
     }
   }, [mode, normalizedTaskId, targetTask]);
 
-  const initialAssoc = associationsList[0];
+  const initialAssoc =
+    associationsList.find((a) => a.id === "ASC_BDH") || associationsList[0];
   const initialLeader = initialAssoc?.members?.[0];
 
   const [title, setTitle] = useState("");
@@ -118,14 +127,24 @@ export default function TaskFormPage({
   const [desc, setDesc] = useState("");
   const [associationId, setAssociationId] = useState(initialAssoc?.id || "ASC_BDH");
   const [unit, setUnit] = useState(initialAssoc?.name || "Ban điều hành khu phố");
-  const [assigneeName, setAssigneeName] = useState(initialLeader?.fullName || "Nguyễn Trung Huy");
-  const [assigneeRole, setAssigneeRole] = useState(initialLeader?.role || "Trưởng Ban điều hành");
-  const [assigneePhone, setAssigneePhone] = useState(initialLeader?.phone || "0909123888");
+  const [assigneeName, setAssigneeName] = useState(
+    initialAssoc?.leaderName || initialLeader?.fullName || "Chưa phân công"
+  );
+  const [assigneeRole, setAssigneeRole] = useState(
+    initialLeader?.role || "Trưởng Khu phố"
+  );
+  const [assigneePhone, setAssigneePhone] = useState(initialLeader?.phone || "");
   const [isCustomAssignee, setIsCustomAssignee] = useState(false);
+  const getDefaultTaskDeadline = () => {
+    const d = new Date();
+    d.setDate(d.getDate() + 7);
+    return d.toISOString().split("T")[0];
+  };
+
   const [priority, setPriority] = useState<TaskItem["priority"]>("Cao");
   const [status, setStatus] = useState<TaskItem["status"]>("Chờ xử lý");
   const [progressPercent, setProgressPercent] = useState<number>(0);
-  const [deadline, setDeadline] = useState("2026-10-25");
+  const [deadline, setDeadline] = useState(getDefaultTaskDeadline);
   const [attachments, setAttachments] = useState<TaskAttachment[]>([]);
   const [fileError, setFileError] = useState("");
   const [previewAtt, setPreviewAtt] = useState<TaskAttachment | null>(null);
@@ -151,28 +170,29 @@ export default function TaskFormPage({
       setPriority(targetTask.priority || "Cao");
       setStatus(targetTask.status || "Chờ xử lý");
       setProgressPercent(targetTask.progressPercent ?? 0);
-      setDeadline(targetTask.deadline || "2026-10-25");
+      setDeadline(targetTask.deadline || getDefaultTaskDeadline());
       setAttachments(targetTask.attachments || []);
       setFileError("");
       return;
     }
 
     if (mode === "create") {
-      const defAssoc = associationsList[0];
+      const defAssoc =
+        associationsList.find((a) => a.id === "ASC_BDH") || associationsList[0];
       const defLeader = defAssoc?.members?.[0];
       setTitle("");
       setTitleError("");
       setDesc("");
       setAssociationId(defAssoc?.id || "ASC_BDH");
       setUnit(defAssoc?.name || "Ban điều hành khu phố");
-      setAssigneeName(defLeader?.fullName || "Nguyễn Trung Huy");
-      setAssigneeRole(defLeader?.role || "Trưởng Ban điều hành");
-      setAssigneePhone(defLeader?.phone || "0909123888");
+      setAssigneeName(defAssoc?.leaderName || defLeader?.fullName || "Chưa phân công");
+      setAssigneeRole(defLeader?.role || "Trưởng Khu phố");
+      setAssigneePhone(defLeader?.phone || "");
       setIsCustomAssignee(false);
       setPriority("Cao");
       setStatus("Chờ xử lý");
       setProgressPercent(0);
-      setDeadline("2026-10-25");
+      setDeadline(getDefaultTaskDeadline());
       setAttachments([]);
       setFileError("");
     }
@@ -272,7 +292,10 @@ export default function TaskFormPage({
       return;
     }
 
-    const newId = `TASK-${String(tasks.length + 1).padStart(3, "0")}`;
+    const newId =
+      typeof crypto !== "undefined" && typeof crypto.randomUUID === "function"
+        ? crypto.randomUUID()
+        : `00000000-0000-4000-8000-${Date.now().toString(16).padStart(12, "0").slice(-12)}`;
     const newTask: TaskItem = {
       id: newId,
       title: title.trim(),
@@ -285,7 +308,7 @@ export default function TaskFormPage({
         unit,
         phone: assigneePhone.trim() || undefined,
       },
-      creator: creatorLabel,
+      creator: resolvedCreatorLabel,
       priority,
       status: "Chờ xử lý",
       progressPercent: 0,

@@ -121,7 +121,7 @@ Tất cả các phân hệ và tính năng trong dự án **phải tuân thủ 1
 - **Giao diện GovTech Chuẩn mực:** Thay thế hoàn toàn giao diện tối (Dark Neon) bằng phông sáng công vụ cao cấp (`bg-slate-50` pha sắc ngọc bích `emerald`), huy hiệu số KP3 và quốc hiệu đầy đủ: `KHU PHỐ THÔNG MINH AN PHÚ • ỦY BAN NHÂN DÂN PHƯỜNG AN PHÚ • KHU PHỐ 3`.
 - **Tuyệt đối không để lộ mật khẩu hay công cụ demo:** Không hiển thị tài khoản mẫu, mật khẩu mẫu, nút bypass một chạm hay thanh huy hiệu/hướng dẫn rườm rà trên card đăng nhập. Thẻ đăng nhập chỉ tập trung vào các trường nghiệp vụ cốt lõi: Chọn vai trò -> Tài khoản/CCCD -> Mật khẩu -> Ghi nhớ -> Nút Đăng nhập hệ thống.
 - **Xác thực Thật & Phân hệ 2 Vai trò:**
-  + Cán bộ / Quản trị: Xác thực Supabase Auth thật (`bdhkhupho3.ap@gmail.com` / `Trunghuy741`), hỗ trợ alias `admin`, `canbo` và kiểm tra trạng thái phê duyệt danh tính `approval_status` trong `user_profiles`.
+  + Cán bộ / Quản trị: Xác thực Supabase Auth thật (`bdhkhupho3.ap@gmail.com`, mật khẩu lưu bảo mật trong `.env.local`), kiểm tra trạng thái phê duyệt danh tính `approval_status` trong `user_profiles`.
   + Cư dân Khu phố: Đăng nhập bằng số CCCD 12 chữ số hoặc SĐT tra cứu trực tiếp từ CSDL 11.632 nhân khẩu.
 - **Duy trì Phiên làm việc (Session Persistence):** Lưu định danh tài khoản vào `localStorage` (`kp3_auth_user`). Khi F5 / tải lại trang không bị mất phiên đăng nhập. Nút Đăng xuất trên Header và Sidebar xóa sạch phiên và đưa về `/login` an toàn.
 

@@ -1,7 +1,7 @@
 import React from "react";
-import AiAssistant from "../components/AiAssistant";
+import AiAssistant, { AiAssistantProps } from "../components/AiAssistant";
 
-export default function AiPage() {
-  return <AiAssistant />;
+export default function AiPage(props: AiAssistantProps) {
+  return <AiAssistant {...props} />;
 }
 

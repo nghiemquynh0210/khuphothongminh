@@ -2536,7 +2536,7 @@ export const initialNewsList: LocalNews[] = [
     date: "01/10/2026",
     author: "Tổ liên gia PCCC & Công an Phường An Phú",
     summary: "Thực tập thuần thục kỹ năng báo động chuông liên gia, sử dụng bình chữa cháy mini dập lửa khí gas và thoát hiểm an toàn trong hẻm sâu.",
-    content: "Tổ liên gia an toàn PCCC số 1 phối hợp lực lượng Cảnh sát PCCC và cứu nạn cứu hộ Công an TP Thủ Đức tổ chức buổi diễn tập thực binh chữa cháy tại ngõ hẹp.\n\nTình huống giả định xảy ra chập điện dẫn đến cháy tại tầng trệt nhà dân trong hẻm sâu. Chỉ sau 2 phút từ khi bấm chuông báo cháy liên gia, các hộ dân xung quanh đã có mặt cùng bình bọt chữa cháy, cứu thoát 2 người an toàn và khống chế ngọn lửa trước khi lực lượng chuyên nghiệp tiếp cận.",
+    content: "Tổ liên gia an toàn PCCC số 1 phối hợp lực lượng Cảnh sát PCCC và cứu nạn cứu hộ Công an TP. Hồ Chí Minh cùng Công an Phường An Phú tổ chức buổi diễn tập thực binh chữa cháy tại ngõ hẹp.\n\nTình huống giả định xảy ra chập điện dẫn đến cháy tại tầng trệt nhà dân trong hẻm sâu. Chỉ sau 2 phút từ khi bấm chuông báo cháy liên gia, các hộ dân xung quanh đã có mặt cùng bình bọt chữa cháy, cứu thoát 2 người an toàn và khống chế ngọn lửa trước khi lực lượng chuyên nghiệp tiếp cận.",
     isPinned: false,
     imageUrl: "https://images.unsplash.com/photo-1508847154043-be5407fcaa5a?w=1200&auto=format&fit=crop&q=80",
     readTime: "3 phút đọc",

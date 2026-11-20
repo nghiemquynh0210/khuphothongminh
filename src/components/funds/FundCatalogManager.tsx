@@ -14,6 +14,7 @@ import {
   Landmark,
   ShieldAlert,
   Coins,
+  Search,
 } from "lucide-react";
 import {
   FundAudience,
@@ -258,6 +259,7 @@ export default function FundCatalogManager({
     setCampaignFund(cat);
     setCampaignAmount(cat.defaultAmount || 100000);
     setOnlyMissingHouseholds(true);
+    setCampaignHouseholdSearch("");
 
     const existingHouseholdCodes = new Set(
       contributions
@@ -285,6 +287,8 @@ export default function FundCatalogManager({
     return categoryStats.find((s) => s.category.id === deleteTarget.id) || null;
   }, [deleteTarget, categoryStats]);
 
+  const [campaignHouseholdSearch, setCampaignHouseholdSearch] = useState("");
+
   const eligibleCampaignHouseholds = useMemo(() => {
     if (!campaignFund) return [];
     const existingCodes = new Set(
@@ -298,9 +302,19 @@ export default function FundCatalogManager({
     }));
   }, [campaignFund, households, contributions, categories]);
 
-  const visibleCampaignHouseholds = onlyMissingHouseholds
-    ? eligibleCampaignHouseholds.filter((item) => !item.alreadyAssigned)
-    : eligibleCampaignHouseholds;
+  const visibleCampaignHouseholds = useMemo(() => {
+    const base = onlyMissingHouseholds
+      ? eligibleCampaignHouseholds.filter((item) => !item.alreadyAssigned)
+      : eligibleCampaignHouseholds;
+    const q = campaignHouseholdSearch.trim().toLowerCase();
+    if (!q) return base;
+    return base.filter(
+      ({ household }) =>
+        household.code.toLowerCase().includes(q) ||
+        household.ownerName.toLowerCase().includes(q) ||
+        household.address.toLowerCase().includes(q)
+    );
+  }, [eligibleCampaignHouseholds, onlyMissingHouseholds, campaignHouseholdSearch]);
 
   return (
     <div className="space-y-5 animate-in fade-in duration-200">
@@ -353,7 +367,7 @@ export default function FundCatalogManager({
           onAction={!readOnly ? openCreateModal : undefined}
         />
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 2xl:grid-cols-3 gap-4">
           {filteredStats.map((stat) => {
             const { category } = stat;
             const badgeStatus =
@@ -366,7 +380,18 @@ export default function FundCatalogManager({
             return (
               <article
                 key={category.id}
-                className="bg-white rounded-xl border border-slate-200 p-5 flex flex-col justify-between gap-4 hover:border-slate-300 transition-colors"
+                role="button"
+                tabIndex={0}
+                aria-label={`Xem sổ thu của quỹ ${category.name}`}
+                onClick={() => onNavigateToLedger(category.name, "thu")}
+                onKeyDown={(e) => {
+                  if (e.target !== e.currentTarget) return;
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    onNavigateToLedger(category.name, "thu");
+                  }
+                }}
+                className="bg-white rounded-xl border border-slate-200 p-5 flex flex-col justify-between gap-4 hover:border-[#073B72]/50 hover:shadow-sm transition-all cursor-pointer group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#073B72]"
               >
                 {/* Header */}
                 <div className="space-y-2.5">
@@ -414,29 +439,29 @@ export default function FundCatalogManager({
 
                 {/* Live Balances */}
                 <div className="bg-slate-50 rounded-xl border border-slate-200/80 p-3.5 space-y-2.5">
-                  <div className="grid grid-cols-3 gap-2 text-xs">
-                    <div>
-                      <span className="text-[11px] font-semibold text-slate-600 block">
+                  <div className="space-y-1.5 text-xs">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="text-xs font-semibold text-slate-600">
                         Thực thu
                       </span>
-                      <span className="font-mono font-bold text-emerald-700 tabular-nums">
+                      <span className="font-mono font-bold text-emerald-700 tabular-nums whitespace-nowrap">
                         +{stat.paidTotal.toLocaleString("vi-VN")}đ
                       </span>
                     </div>
-                    <div>
-                      <span className="text-[11px] font-semibold text-slate-600 block">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="text-xs font-semibold text-slate-600">
                         Đã chi
                       </span>
-                      <span className="font-mono font-bold text-rose-700 tabular-nums">
+                      <span className="font-mono font-bold text-rose-700 tabular-nums whitespace-nowrap">
                         -{stat.spentTotal.toLocaleString("vi-VN")}đ
                       </span>
                     </div>
-                    <div className="text-right">
-                      <span className="text-[11px] font-semibold text-slate-600 block">
+                    <div className="flex items-center justify-between gap-2 pt-1.5 border-t border-slate-200/80">
+                      <span className="text-xs font-bold text-slate-700">
                         Tồn hiện tại
                       </span>
                       <span
-                        className={`font-mono font-extrabold tabular-nums ${
+                        className={`font-mono font-extrabold tabular-nums whitespace-nowrap ${
                           stat.endingBalance >= 0 ? "text-slate-900" : "text-rose-700"
                         }`}
                       >
@@ -462,7 +487,10 @@ export default function FundCatalogManager({
                 </div>
 
                 {/* Footer Actions */}
-                <div className="pt-2 border-t border-slate-100 flex flex-wrap items-center justify-between gap-2">
+                <div
+                  onClick={(e) => e.stopPropagation()}
+                  className="pt-2 border-t border-slate-100 flex flex-wrap items-center justify-between gap-2"
+                >
                   <div className="flex items-center gap-1.5">
                     <button
                       type="button"
@@ -923,11 +951,21 @@ export default function FundCatalogManager({
               </div>
             </div>
 
-            <div className="flex items-center justify-between text-xs">
+            <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
               <span className="font-semibold text-slate-700">
                 Chọn hộ khẩu áp dụng ({selectedHouseholdCodes.length}/{visibleCampaignHouseholds.length})
               </span>
-              <div className="flex items-center gap-2">
+              <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
+                <div className="relative w-full sm:w-48">
+                  <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+                  <input
+                    type="search"
+                    value={campaignHouseholdSearch}
+                    onChange={(e) => setCampaignHouseholdSearch(e.target.value)}
+                    placeholder="Tìm mã hộ, chủ hộ..."
+                    className="w-full h-8 pl-8 pr-2.5 bg-white border border-slate-300 rounded-lg text-xs text-slate-900 focus:outline-none focus:border-emerald-600"
+                  />
+                </div>
                 <button
                   type="button"
                   onClick={() =>
@@ -935,7 +973,7 @@ export default function FundCatalogManager({
                       visibleCampaignHouseholds.map((item) => item.household.code)
                     )
                   }
-                  className="text-xs font-semibold text-[#073B72] hover:underline cursor-pointer"
+                  className="text-xs font-semibold text-[#073B72] hover:underline cursor-pointer shrink-0"
                 >
                   Chọn tất cả
                 </button>
@@ -943,7 +981,7 @@ export default function FundCatalogManager({
                 <button
                   type="button"
                   onClick={() => setSelectedHouseholdCodes([])}
-                  className="text-xs font-semibold text-slate-600 hover:underline cursor-pointer"
+                  className="text-xs font-semibold text-slate-600 hover:underline cursor-pointer shrink-0"
                 >
                   Bỏ chọn
                 </button>
@@ -956,44 +994,51 @@ export default function FundCatalogManager({
                   Tất cả các hộ trong danh sách đã được lập phiếu thu cho quỹ này.
                 </div>
               ) : (
-                visibleCampaignHouseholds.map(({ household, alreadyAssigned }) => {
-                  const checked = selectedHouseholdCodes.includes(household.code);
-                  return (
-                    <label
-                      key={household.code}
-                      className="flex items-center justify-between gap-3 px-3.5 py-2.5 hover:bg-slate-50 cursor-pointer text-xs"
-                    >
-                      <div className="flex items-center gap-2.5 min-w-0">
-                        <input
-                          type="checkbox"
-                          checked={checked}
-                          onChange={(e) => {
-                            if (e.target.checked) {
-                              setSelectedHouseholdCodes((prev) => [...prev, household.code]);
-                            } else {
-                              setSelectedHouseholdCodes((prev) =>
-                                prev.filter((code) => code !== household.code)
-                              );
-                            }
-                          }}
-                          className="rounded border-slate-300 text-emerald-600 shrink-0"
-                        />
-                        <div className="min-w-0">
-                          <div className="font-bold text-slate-900 truncate">
-                            {household.ownerName}{" "}
-                            <span className="font-mono text-slate-600 font-semibold">
-                              ({household.code})
-                            </span>
+                <>
+                  {visibleCampaignHouseholds.slice(0, 100).map(({ household, alreadyAssigned }) => {
+                    const checked = selectedHouseholdCodes.includes(household.code);
+                    return (
+                      <label
+                        key={household.code}
+                        className="flex items-center justify-between gap-3 px-3.5 py-2.5 hover:bg-slate-50 cursor-pointer text-xs"
+                      >
+                        <div className="flex items-center gap-2.5 min-w-0">
+                          <input
+                            type="checkbox"
+                            checked={checked}
+                            onChange={(e) => {
+                              if (e.target.checked) {
+                                setSelectedHouseholdCodes((prev) => [...prev, household.code]);
+                              } else {
+                                setSelectedHouseholdCodes((prev) =>
+                                  prev.filter((code) => code !== household.code)
+                                );
+                              }
+                            }}
+                            className="rounded border-slate-300 text-emerald-600 shrink-0"
+                          />
+                          <div className="min-w-0">
+                            <div className="font-bold text-slate-900 truncate">
+                              {household.ownerName}{" "}
+                              <span className="font-mono text-slate-600 font-semibold">
+                                ({household.code})
+                              </span>
+                            </div>
+                            <div className="text-slate-600 truncate">{household.address}</div>
                           </div>
-                          <div className="text-slate-600 truncate">{household.address}</div>
                         </div>
-                      </div>
-                      {alreadyAssigned && (
-                        <StatusBadge status="info" label="Đã có phiếu" size="sm" showIcon={false} />
-                      )}
-                    </label>
-                  );
-                })
+                        {alreadyAssigned && (
+                          <StatusBadge status="info" label="Đã có phiếu" size="sm" showIcon={false} />
+                        )}
+                      </label>
+                    );
+                  })}
+                  {visibleCampaignHouseholds.length > 100 && (
+                    <div className="px-3.5 py-2.5 bg-slate-50 text-[11px] text-slate-600 text-center font-medium">
+                      Đang hiển thị 100 / {visibleCampaignHouseholds.length.toLocaleString("vi-VN")} hộ khớp điều kiện để tối ưu tốc độ. Dùng ô tìm kiếm để lọc hộ cụ thể hoặc bấm <strong>Chọn tất cả</strong> để chọn toàn bộ {visibleCampaignHouseholds.length.toLocaleString("vi-VN")} hộ.
+                    </div>
+                  )}
+                </>
               )}
             </div>
           </div>

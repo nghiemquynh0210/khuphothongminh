@@ -3,6 +3,7 @@
  */
 import { describe, it, expect } from "vitest";
 import {
+  formatReportCoordinates,
   getAfterImages,
   getBeforeImages,
   getSlaStatus,
@@ -101,6 +102,22 @@ describe("reportConfig utilities", () => {
 
     const plainParsed = parseReportMetadataFromResponse("Đã dọn rác lúc 14h.");
     expect(plainParsed.note).toBe("Đã dọn rác lúc 14h.");
+  });
+
+  it("formats FieldReport coordinates safely as string and never leaks {x, y} object into JSX", () => {
+    expect(formatReportCoordinates({ coordinates: { x: 50, y: 50 } })).toBeUndefined();
+    expect(
+      formatReportCoordinates({
+        coordinates: { x: 50, y: 50 },
+        lat: 10.935188,
+        lng: 106.743917,
+      })
+    ).toBe("10.935188, 106.743917");
+    expect(
+      formatReportCoordinates({
+        coordinates: "10.793500, 106.744500" as unknown as { x: number; y: number },
+      })
+    ).toBe("10.793500, 106.744500");
   });
 });
 

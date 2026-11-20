@@ -28,6 +28,7 @@ import {
   CITIZEN_QUICK_REPLIES,
   KP3_TEAMS,
   REPORT_PRIORITY_CONFIG,
+  dispatchQuickKp3TaskFromReport,
   formatNowVNString,
   getAfterImages,
   getBeforeImages,
@@ -99,6 +100,19 @@ export function ReportDetailModal({
   const [ratingComment, setRatingComment] = useState("");
   const [reopenReason, setReopenReason] = useState("");
   const [showReopenBox, setShowReopenBox] = useState(false);
+  const [modalToast, setModalToast] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!modalToast) return;
+    const t = window.setTimeout(() => setModalToast(null), 4000);
+    return () => window.clearTimeout(t);
+  }, [modalToast]);
+
+  useEffect(() => {
+    if (readOnly && chatChannel === "internal") {
+      setChatChannel("public");
+    }
+  }, [readOnly, chatChannel]);
 
   useEffect(() => {
     if (!report) return;
@@ -143,10 +157,30 @@ export function ReportDetailModal({
     })),
   ];
 
-  const publicMessages = (report.messages || []).filter((m) => !m.isInternal);
-  const internalMessages = (report.messages || []).filter((m) => Boolean(m.isInternal));
+  const allMessages = readOnly
+    ? (report.messages || []).filter((m) => m.isInternal !== true)
+    : report.messages || [];
+  const publicMessages = allMessages.filter((m) => m.isInternal !== true);
+  const internalMessages = readOnly ? [] : allMessages.filter((m) => m.isInternal === true);
   const displayedMessages =
-    !readOnly && chatChannel === "internal" ? internalMessages : publicMessages;
+    !readOnly && chatChannel === "internal"
+      ? internalMessages
+      : publicMessages.filter((m) => m.isInternal !== true);
+
+  const handleQuickCreateKp3Task = () => {
+    if (readOnly) return;
+    if (onCreateTask) {
+      onCreateTask(report);
+      setModalToast(
+        `Đã giao thành Nhiệm vụ KP3 cho đơn vị "${report.assignedUnit || "Ban Điều hành KP3"}"!`
+      );
+      return;
+    }
+    const created = dispatchQuickKp3TaskFromReport(report, currentActorName);
+    setModalToast(
+      `Đã tạo Nhiệm vụ KP3 [${created.id}] giao cho "${created.unit}" và đồng bộ CSDL!`
+    );
+  };
 
   const handleAttachMessagePhotos = async (fileList: FileList | null) => {
     if (!fileList || fileList.length === 0) return;
@@ -227,18 +261,15 @@ export function ReportDetailModal({
                 Định vị trên Bản đồ GIS
               </Button>
             )}
-            {!readOnly && onCreateTask && (
+            {!readOnly && (
               <Button
                 type="button"
                 variant="outline"
                 size="sm"
                 leftIcon={<CheckSquare size={14} className="text-indigo-700" />}
-                onClick={() => {
-                  onCreateTask(report);
-                  onClose();
-                }}
+                onClick={handleQuickCreateKp3Task}
               >
-                Giao việc
+                Giao thành Nhiệm vụ KP3
               </Button>
             )}
             {!readOnly && (
@@ -304,6 +335,17 @@ export function ReportDetailModal({
       }
     >
       <div className="space-y-3">
+        {modalToast && (
+          <div
+            role="status"
+            aria-live="polite"
+            className="flex items-center gap-2 px-3.5 py-2.5 rounded-xl bg-emerald-50 border border-emerald-300 text-emerald-950 text-xs font-bold shadow-2xs"
+          >
+            <CheckCircle2 size={15} className="text-emerald-700 shrink-0" />
+            <span>{modalToast}</span>
+          </div>
+        )}
+
         {/* Top Metadata & Badges */}
         <div className="flex flex-wrap items-center justify-between gap-2 p-2.5 sm:p-3 rounded-xl bg-slate-50 border border-slate-200">
           <div className="space-y-1 min-w-0 flex-1">
@@ -637,7 +679,7 @@ export function ReportDetailModal({
                       aria-hidden="true"
                     />
                     <p className="text-xs font-semibold text-slate-700">
-                      {chatChannel === "internal"
+                      {!readOnly && chatChannel === "internal"
                         ? "Chưa có ghi chú nội bộ giữa các cán bộ."
                         : "Chưa có tin nhắn trao đổi trực tiếp."}
                     </p>

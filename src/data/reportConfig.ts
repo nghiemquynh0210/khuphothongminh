@@ -5,8 +5,11 @@ import {
   ReportMessage,
   ReportPriority,
   TargetGisItem,
+  TaskItem,
 } from "../types";
 import { KP3_CENTER, decimalToDMS } from "../utils/gisUtils";
+import { loadStoredTasks, saveStoredTasks } from "../components/tasks/tasksData";
+import { syncTasksDiffToDb } from "../utils/supabaseSync";
 
 export const REPORT_STORAGE_KEY = "kp3_field_reports_v2";
 
@@ -317,6 +320,21 @@ export function maskPhoneForCitizen(phone: string | undefined, readOnly: boolean
   return `${cleaned.slice(0, 4)}***${cleaned.slice(-3)}`;
 }
 
+/**
+ * Safely formats FieldReport GPS coordinates into a displayable string.
+ * Prevents rendering `{ x, y }` grid objects directly as React children.
+ */
+export function formatReportCoordinates(report: Pick<FieldReport, "lat" | "lng" | "coordinates">): string | undefined {
+  if (typeof report.lat === "number" && typeof report.lng === "number" && !Number.isNaN(report.lat) && !Number.isNaN(report.lng)) {
+    return `${report.lat.toFixed(6)}, ${report.lng.toFixed(6)}`;
+  }
+  const rawCoords = report.coordinates as unknown;
+  if (typeof rawCoords === "string" && rawCoords.trim()) {
+    return rawCoords.trim();
+  }
+  return undefined;
+}
+
 export function reportToTargetGisItem(report: FieldReport): TargetGisItem {
   // Quy đổi tọa độ phần trăm bản đồ lưới sang quanh KP3_CENTER nếu chưa có lat/lng chuẩn
   const lat =
@@ -386,4 +404,83 @@ export function serializeReportMetadata(report: FieldReport, latestNote?: string
   };
   return JSON.stringify(payload);
 }
+
+export const KP3_TASKS_DATA_V2_KEY = "kp3_tasks_data_v2";
+
+export function dispatchQuickKp3TaskFromReport(
+  report: FieldReport,
+  actorName?: string
+): TaskItem {
+  let prevTasks: TaskItem[] = [];
+  try {
+    const savedV2 = localStorage.getItem(KP3_TASKS_DATA_V2_KEY);
+    if (savedV2) {
+      const parsed = JSON.parse(savedV2);
+      if (Array.isArray(parsed)) {
+        prevTasks = parsed as TaskItem[];
+      }
+    }
+  } catch {
+    // Ignore storage read error
+  }
+  if (prevTasks.length === 0) {
+    prevTasks = loadStoredTasks();
+  }
+
+  const now = new Date();
+  const pad = (n: number) => String(n).padStart(2, "0");
+  const todayIso = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
+
+  const fallbackDeadline = (() => {
+    const d = new Date(now);
+    const daysToAdd =
+      report.priority === "Khẩn cấp" ? 1 : report.priority === "Cao" ? 3 : 7;
+    d.setDate(d.getDate() + daysToAdd);
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+  })();
+
+  const deadlineIso =
+    report.slaDeadline && /^\d{4}-\d{2}-\d{2}/.test(report.slaDeadline)
+      ? report.slaDeadline.slice(0, 10)
+      : fallbackDeadline;
+
+  const assignedUnit =
+    report.assignedUnit || getCategoryMeta(report.category).defaultUnit || "Ban Điều hành KP3";
+
+  const newTask: TaskItem = {
+    id: `TASK-1022-${Date.now().toString().slice(-5)}`,
+    title: `[1022] ${report.title}`,
+    description: `Xử lý phản ánh hiện trường (${report.id}) tại ${report.location}.\nNội dung: ${report.description}`,
+    unit: assignedUnit,
+    assignee: {
+      name: report.assignedOfficer || assignedUnit,
+      role: "Đơn vị xử lý hiện trường",
+      unit: assignedUnit,
+    },
+    creator: actorName || "Ban Điều hành KP3",
+    priority:
+      report.priority === "Khẩn cấp"
+        ? "Khẩn cấp"
+        : report.priority === "Cao"
+        ? "Cao"
+        : "Trung bình",
+    status: "Chờ xử lý",
+    progressPercent: 0,
+    startDate: todayIso,
+    deadline: deadlineIso,
+    notes: `Giao nhanh từ hồ sơ Phản ánh 1022 (${report.id})`,
+  };
+
+  const nextTasks = [newTask, ...prevTasks];
+  try {
+    localStorage.setItem(KP3_TASKS_DATA_V2_KEY, JSON.stringify(nextTasks));
+  } catch {
+    // Ignore storage quota error
+  }
+  saveStoredTasks(nextTasks);
+  syncTasksDiffToDb(prevTasks, nextTasks);
+
+  return newTask;
+}
+
 

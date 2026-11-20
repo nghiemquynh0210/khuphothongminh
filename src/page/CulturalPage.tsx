@@ -8,6 +8,7 @@ import { LoadingFade } from "../components/common/LoadingFade";
 import { InlineNotice } from "../components/ui/ConfirmModal";
 import { CommunityEvent, LocalNews } from "../types";
 import { initialNewsList } from "../mockData";
+import { normalizeNewsItem } from "../components/news/newsHelpers";
 import {
   ROUTES,
   getEventCreatePath,
@@ -31,6 +32,7 @@ export interface CulturalPageProps {
   onAddNews?: (newNews: LocalNews) => void;
   onUpdateNews?: (updatedNews: LocalNews) => void;
   onDeleteNews?: (newsId: string) => void;
+  onRefreshNews?: () => void;
   isDataLoading?: boolean;
 }
 
@@ -46,25 +48,41 @@ export default function CulturalPage(props: CulturalPageProps) {
 
   const [localNewsList, setLocalNewsList] = useState<LocalNews[]>(() => {
     if (props.newsList && props.newsList.length > 0) {
-      return props.newsList;
+      return props.newsList.map(normalizeNewsItem);
     }
     try {
       const saved = localStorage.getItem("kp3_local_news");
-      if (saved) return JSON.parse(saved);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed)) return parsed.map(normalizeNewsItem);
+      }
     } catch {}
-    return initialNewsList;
+    return initialNewsList.map(normalizeNewsItem);
   });
 
   useEffect(() => {
     if (props.newsList && props.newsList.length > 0) {
-      setLocalNewsList(props.newsList);
+      setLocalNewsList(props.newsList.map(normalizeNewsItem));
     }
   }, [props.newsList]);
+
+  const [preselectedVenue, setPreselectedVenue] = useState<string | undefined>(undefined);
 
   const [notice, setNotice] = useState<{
     type: "success" | "error" | "warning";
     message: string;
   } | null>(null);
+  const [activeSubTab, setActiveSubTab] = useState<"news" | "events">(() =>
+    routeMatch?.type === "event" ? "events" : "news"
+  );
+
+  useEffect(() => {
+    if (routeMatch?.type === "event") {
+      setActiveSubTab("events");
+    } else if (routeMatch?.type === "news") {
+      setActiveSubTab("news");
+    }
+  }, [routeMatch?.type]);
 
   useEffect(() => {
     if (!notice) return;
@@ -224,11 +242,16 @@ export default function CulturalPage(props: CulturalPageProps) {
       <EventFormPage
         mode="create"
         events={props.events}
+        initialVenue={preselectedVenue}
         isDataLoading={props.isDataLoading}
         basePath={basePath}
         onAddEvent={props.onAddEvent}
-        onCancel={() => navigate(basePath)}
+        onCancel={() => {
+          setPreselectedVenue(undefined);
+          navigate(basePath);
+        }}
         onSaved={(saved) => {
+          setPreselectedVenue(undefined);
           setNotice({
             type: "success",
             message: `Đã lên lịch sự kiện "${saved.title}" thành công!`,
@@ -256,6 +279,8 @@ export default function CulturalPage(props: CulturalPageProps) {
           {...props}
           newsList={localNewsList}
           basePath={basePath}
+          activeSubTab={activeSubTab}
+          onActiveSubTabChange={setActiveSubTab}
           onOpenCreateNews={() => navigate(getNewsCreatePath(basePath))}
           onOpenEditNews={(news) =>
             navigate(getNewsEditPath(news.id, basePath))
@@ -263,7 +288,10 @@ export default function CulturalPage(props: CulturalPageProps) {
           onOpenDetailNews={(news) =>
             navigate(getNewsDetailPath(news.id, basePath))
           }
-          onOpenCreateEvent={() => navigate(getEventCreatePath(basePath))}
+          onOpenCreateEvent={(venueName) => {
+            setPreselectedVenue(venueName);
+            navigate(getEventCreatePath(basePath));
+          }}
           onOpenEditEvent={(ev) =>
             navigate(getEventEditPath(ev.id, basePath))
           }

@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import {
   Search,
   Home,
@@ -6,6 +6,8 @@ import {
   QrCode,
   Printer,
   FileCheck,
+  ShieldCheck,
+  Send,
 } from "lucide-react";
 import { FundCategory, FundContribution } from "../../types";
 import { Button } from "../ui/Button";
@@ -13,6 +15,34 @@ import { StatusBadge } from "../ui/StatusBadge";
 import { EmptyState } from "../ui/EmptyState";
 import VietQrModal from "./VietQrModal";
 import { findCategoryByFundName, formatReceiptCode } from "./fundCatalog";
+import { loadPortalSetting, savePortalSetting } from "../../utils/supabaseSync";
+
+interface PendingFundConfirmation {
+  id: string;
+  contributionId: string;
+  householdCode: string;
+  ownerName: string;
+  fundName: string;
+  amount: number;
+  transferMemo: string;
+  reportedAt: string;
+  status: "pending_review" | "verified";
+}
+
+const PENDING_FUND_CONFIRMATIONS_KEY = "kp3_pending_fund_confirmations";
+
+function maskHouseholdOwnerName(fullName: string): string {
+  const clean = (fullName || "").trim();
+  if (!clean) return "Chủ hộ";
+  const parts = clean.split(/\s+/);
+  if (parts.length >= 3) {
+    return `${parts[0]} *** ${parts[parts.length - 1]}`;
+  }
+  if (parts.length === 2) {
+    return `${parts[0]} ***`;
+  }
+  return `${clean.charAt(0)}***`;
+}
 
 interface HouseholdFundLookupProps {
   contributions: FundContribution[];
@@ -39,6 +69,45 @@ export default function HouseholdFundLookup({
   const [selectedHouseholdCode, setSelectedHouseholdCode] = useState<string>("HK-301");
   const [activeQrContribution, setActiveQrContribution] =
     useState<FundContribution | null>(null);
+  const [pendingConfirmations, setPendingConfirmations] = useState<
+    PendingFundConfirmation[]
+  >(() => {
+    try {
+      const raw = localStorage.getItem(PENDING_FUND_CONFIRMATIONS_KEY);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed)) return parsed;
+      }
+    } catch {
+      // ignore
+    }
+    return [];
+  });
+  const [confirmBannerMessage, setConfirmBannerMessage] = useState<string | null>(
+    null
+  );
+
+  useEffect(() => {
+    let active = true;
+    loadPortalSetting<PendingFundConfirmation[]>("pending_fund_confirmations").then(
+      (rows) => {
+        if (active && Array.isArray(rows)) {
+          setPendingConfirmations(rows);
+          try {
+            localStorage.setItem(
+              PENDING_FUND_CONFIRMATIONS_KEY,
+              JSON.stringify(rows)
+            );
+          } catch {
+            // ignore
+          }
+        }
+      }
+    );
+    return () => {
+      active = false;
+    };
+  }, []);
 
   const uniqueHouseholds = useMemo(() => {
     const map = new Map<
@@ -108,12 +177,91 @@ export default function HouseholdFundLookup({
     (c) => c.status !== "Đã nộp"
   );
 
+  const isExactCodeMatch = (code?: string) =>
+    Boolean(
+      code && searchQuery.trim().toLowerCase() === code.trim().toLowerCase()
+    );
+
+  useEffect(() => {
+    const q = searchQuery.trim().toLowerCase();
+    if (!q) return;
+    const exact = uniqueHouseholds.find((h) => h.code.trim().toLowerCase() === q);
+    if (exact && exact.code !== selectedHouseholdCode) {
+      setSelectedHouseholdCode(exact.code);
+    }
+  }, [searchQuery, uniqueHouseholds, selectedHouseholdCode]);
+
+  const getDisplayOwnerName = (code: string, ownerName: string) =>
+    isExactCodeMatch(code) ? ownerName : maskHouseholdOwnerName(ownerName);
+
+  const isContributionReported = (contId: string, hhCode?: string) =>
+    pendingConfirmations.some(
+      (item) =>
+        item.status === "pending_review" &&
+        (item.contributionId === contId ||
+          (hhCode && item.contributionId === `BUNDLE-${hhCode}`))
+    );
+
+  const handleReportVietQrTransfer = (
+    cont: FundContribution,
+    customMemo?: string
+  ) => {
+    if (!currentHousehold) return;
+    const cat = findCategoryByFundName(categories, cont.fundName);
+    const shortTag =
+      cat?.code || cont.fundName.replace(/[^a-zA-Z0-9]/g, "").slice(0, 12);
+    const memo =
+      customMemo ||
+      `KP3 ${currentHousehold.code} ${shortTag}`.toUpperCase();
+    const newRecord: PendingFundConfirmation = {
+      id: `CONF-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+      contributionId: cont.id,
+      householdCode: currentHousehold.code,
+      ownerName: currentHousehold.ownerName,
+      fundName: cont.fundName,
+      amount: cont.amount,
+      transferMemo: memo,
+      reportedAt: new Date().toLocaleString("vi-VN"),
+      status: "pending_review",
+    };
+
+    const filteredPrev = pendingConfirmations.filter(
+      (item) =>
+        !(
+          item.contributionId === cont.id &&
+          item.householdCode === currentHousehold.code &&
+          item.status === "pending_review"
+        )
+    );
+    const nextList = [newRecord, ...filteredPrev];
+    setPendingConfirmations(nextList);
+    try {
+      localStorage.setItem(
+        PENDING_FUND_CONFIRMATIONS_KEY,
+        JSON.stringify(nextList)
+      );
+    } catch {
+      // ignore
+    }
+    savePortalSetting("pending_fund_confirmations", nextList, true);
+    setConfirmBannerMessage(
+      `Đã ghi nhận báo chuyển khoản VietQR (${cont.amount.toLocaleString(
+        "vi-VN"
+      )}đ — ${cont.fundName}) cho hộ ${
+        currentHousehold.code
+      }. Thủ quỹ Khu phố 3 sẽ đối soát sao kê và cập nhật biên lai!`
+    );
+  };
+
   const handlePayAllQr = () => {
     if (unpaidContributions.length === 0 || !currentHousehold) return;
     const bundleCont: FundContribution = {
       id: `BUNDLE-${currentHousehold.code}`,
       householdCode: currentHousehold.code,
-      ownerName: currentHousehold.ownerName,
+      ownerName: getDisplayOwnerName(
+        currentHousehold.code,
+        currentHousehold.ownerName
+      ),
       fundName: "Tổng hợp các Quỹ năm 2026",
       amount: totalRemaining,
       status: "Chưa nộp",
@@ -126,16 +274,10 @@ export default function HouseholdFundLookup({
       {/* Search Banner — Clean Flat Government Navy */}
       <div className="bg-slate-900 text-white p-5 sm:p-6 rounded-xl border border-slate-800 space-y-4">
         <div className="max-w-2xl space-y-2">
-          <div className="inline-flex items-center gap-2 px-2.5 py-0.5 rounded-md bg-emerald-950 border border-emerald-700/70 text-emerald-300 font-bold text-xs uppercase tracking-wider">
-            Cổng Dịch Vụ Công Dân Số Khu Phố 3
-          </div>
-          <h2 className="text-xl sm:text-2xl font-black text-white flex items-center gap-2.5">
-            <QrCode className="text-emerald-400 shrink-0" size={24} />
-            <span>Tra Cứu Đóng Nộp & Thanh Toán Quỹ VietQR</span>
+          <h2 className="text-lg sm:text-xl font-bold text-white flex items-center gap-2.5">
+            <QrCode className="text-emerald-400 shrink-0" size={22} />
+            <span>Tra Cứu Đóng Nộp &amp; Thanh Toán Quỹ VietQR</span>
           </h2>
-          <p className="text-xs sm:text-sm text-slate-300 leading-relaxed">
-            Cư dân tra cứu nghĩa vụ đóng góp theo Mã sổ hộ khẩu và thanh toán nhanh bằng mã QR chuẩn NAPAS 24/7.
-          </p>
 
           <search className="pt-2 block">
             <label htmlFor="household-fund-search-input" className="sr-only">
@@ -162,6 +304,7 @@ export default function HouseholdFundLookup({
           </span>
           {filteredHouseholdList.slice(0, 6).map((h) => {
             const active = currentHousehold?.code === h.code;
+            const displayOwner = getDisplayOwnerName(h.code, h.ownerName);
             return (
               <button
                 key={h.code}
@@ -173,12 +316,28 @@ export default function HouseholdFundLookup({
                     : "bg-slate-800 text-slate-200 border-slate-700 hover:bg-slate-700"
                 }`}
               >
-                <Home size={12} /> {h.code} — {h.ownerName}
+                <Home size={12} /> {h.code} — {displayOwner}
               </button>
             );
           })}
         </div>
       </div>
+
+      {confirmBannerMessage && (
+        <div className="p-3.5 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-900 text-xs sm:text-sm font-medium flex flex-wrap items-center justify-between gap-2">
+          <div className="flex items-center gap-2">
+            <CheckCircle2 size={18} className="text-emerald-600 shrink-0" />
+            <span>{confirmBannerMessage}</span>
+          </div>
+          <button
+            type="button"
+            onClick={() => setConfirmBannerMessage(null)}
+            className="text-xs font-bold text-emerald-700 hover:underline cursor-pointer shrink-0"
+          >
+            Đóng
+          </button>
+        </div>
+      )}
 
       {/* Household Detail & Contributions */}
       {currentHousehold ? (
@@ -194,11 +353,26 @@ export default function HouseholdFundLookup({
                   showIcon={false}
                 />
                 <h3 className="text-lg font-bold text-slate-900 mt-2 truncate">
-                  {currentHousehold.ownerName}
+                  {getDisplayOwnerName(
+                    currentHousehold.code,
+                    currentHousehold.ownerName
+                  )}
                 </h3>
                 <p className="text-xs font-mono text-slate-600 font-semibold mt-0.5">
                   Mã hộ khẩu: {currentHousehold.code}
                 </p>
+                {!isExactCodeMatch(currentHousehold.code) && (
+                  <p className="text-[11px] text-slate-500 mt-1 flex items-center gap-1">
+                    <ShieldCheck size={12} className="text-emerald-600 shrink-0" />
+                    <span>
+                      Đã ẩn chữ lót bảo vệ dữ liệu cá nhân (nhập đúng{" "}
+                      <strong className="font-mono text-slate-700">
+                        {currentHousehold.code}
+                      </strong>{" "}
+                      để xem đầy đủ)
+                    </span>
+                  </p>
+                )}
               </div>
               <div className="w-11 h-11 rounded-xl bg-slate-100 border border-slate-200 text-[#073B72] flex items-center justify-center font-bold text-base shrink-0">
                 {currentHousehold.ownerName.charAt(0)}
@@ -294,10 +468,21 @@ export default function HouseholdFundLookup({
                   return (
                     <div
                       key={cont.id}
-                      className={`p-3.5 rounded-xl border transition-colors flex flex-col sm:flex-row sm:items-center justify-between gap-3 ${
+                      role="button"
+                      tabIndex={0}
+                      aria-label={`Xem biên lai ${shortCode}`}
+                      onClick={() => onOpenReceipt("THU", cont)}
+                      onKeyDown={(e) => {
+                        if (e.target !== e.currentTarget) return;
+                        if (e.key === "Enter" || e.key === " ") {
+                          e.preventDefault();
+                          onOpenReceipt("THU", cont);
+                        }
+                      }}
+                      className={`p-3.5 rounded-xl border transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-3 cursor-pointer group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600 ${
                         isPaid
-                          ? "bg-slate-50/70 border-slate-200"
-                          : "bg-emerald-50/40 border-emerald-200"
+                          ? "bg-slate-50/70 border-slate-200 hover:border-slate-400"
+                          : "bg-emerald-50/40 border-emerald-200 hover:border-emerald-400"
                       }`}
                     >
                       <div className="space-y-1 min-w-0">
@@ -329,12 +514,15 @@ export default function HouseholdFundLookup({
                         </div>
                       </div>
 
-                      <div className="flex items-center justify-between sm:justify-end gap-3 pt-2 sm:pt-0 border-t sm:border-t-0 border-slate-200 shrink-0">
+                      <div className="flex flex-wrap items-center justify-between sm:justify-end gap-3 pt-2 sm:pt-0 border-t sm:border-t-0 border-slate-200 shrink-0">
                         <span className="font-mono font-bold text-sm text-slate-900 tabular-nums">
                           {cont.amount.toLocaleString("vi-VN")}đ
                         </span>
 
-                        <div className="flex items-center gap-2">
+                        <div
+                          onClick={(e) => e.stopPropagation()}
+                          className="flex flex-wrap items-center gap-2"
+                        >
                           <button
                             type="button"
                             onClick={() => onOpenReceipt("THU", cont)}
@@ -346,14 +534,43 @@ export default function HouseholdFundLookup({
                           </button>
 
                           {!isPaid ? (
-                            <Button
-                              variant="emerald"
-                              size="sm"
-                              leftIcon={<QrCode size={13} />}
-                              onClick={() => setActiveQrContribution(cont)}
-                            >
-                              Quét QR
-                            </Button>
+                            <>
+                              {isContributionReported(
+                                cont.id,
+                                currentHousehold.code
+                              ) ? (
+                                <StatusBadge
+                                  status="info"
+                                  label="Đã báo CK • Chờ đối soát"
+                                  size="sm"
+                                />
+                              ) : (
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  leftIcon={<Send size={13} />}
+                                  onClick={() => handleReportVietQrTransfer(cont)}
+                                >
+                                  Báo đã chuyển khoản VietQR
+                                </Button>
+                              )}
+                              <Button
+                                variant="emerald"
+                                size="sm"
+                                leftIcon={<QrCode size={13} />}
+                                onClick={() =>
+                                  setActiveQrContribution({
+                                    ...cont,
+                                    ownerName: getDisplayOwnerName(
+                                      currentHousehold.code,
+                                      cont.ownerName || currentHousehold.ownerName
+                                    ),
+                                  })
+                                }
+                              >
+                                Quét QR
+                              </Button>
+                            </>
                           ) : (
                             <StatusBadge
                               status="info"
@@ -387,6 +604,11 @@ export default function HouseholdFundLookup({
           )}
           readOnly={readOnly}
           onClose={() => setActiveQrContribution(null)}
+          isTransferReported={isContributionReported(
+            activeQrContribution.id,
+            currentHousehold?.code
+          )}
+          onReportTransfer={(cont, memo) => handleReportVietQrTransfer(cont, memo)}
           onConfirmPaid={
             readOnly
               ? undefined

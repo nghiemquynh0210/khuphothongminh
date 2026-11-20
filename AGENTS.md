@@ -7,58 +7,72 @@ Tài liệu này đóng vai trò là **Bộ nhớ làm việc (Agent Memory)** v
 ## 1. TỔNG QUAN DỰ ÁN & ĐỊA BÀN
 - **Tên dự án:** Remix Khu phố 3 An Phú - Quản lý thông minh & Cổng Dịch vụ Cư dân số.
 - **Địa bàn hành chính:** Khu phố 3, Phường An Phú, TP. Hồ Chí Minh.
-- **Quy mô dân cư thực tế trong Database:** 
-  - **488 hộ gia đình**
-  - **11.632 nhân khẩu** (2.076 Thường trú + 9.556 Tạm trú đã khử trùng CCCD)
-  - **3 cơ sở kinh doanh/doanh nghiệp**
-- **Thường trực Ban điều hành:**
-  - Bí thư Chi bộ: Ông Nguyễn Văn Hùng
-  - Trưởng Khu phố: Bà Lê Thị Mai
-  - Công an khu vực: Đại úy Trần Quốc Hải
+- **Quy mô dữ liệu thực tế trên Supabase Cloud (Cập nhật danh sách Công an Phường 15/11/2026):**
+  - **7.815 hộ gia đình quản lý** (**488 Sổ hộ khẩu thường trú CT01** + **7.327 Hồ sơ hộ tạm trú CT08 / điểm lưu trú** phân cụm chính xác theo trường `CHỦ HỘ TẠM TRÚ` / `owner_name`)
+  - **11.229 nhân khẩu** (2.109 Thường trú + 9.120 Tạm trú đã khử trùng CCCD & lọc cư dân tạm trú đã rời đi)
+  - **118+ cơ sở kinh doanh & doanh nghiệp** (Doanh nghiệp TNHH/CP có MST + Cơ sở kinh doanh tại chỗ & mạng lưới cơ sở nhà trọ lưu trú)
+- **Thường trực Ban điều hành & Mặt trận (Đồng bộ động 100% hai chiều từ phân hệ `Quản lý Chi hội`):**
+  - Quy tắc tôn ti bắt buộc: **Bí thư Chi bộ luôn luôn hiển thị ở vị trí số 1 (Người đứng đầu Khu phố)** trên toàn bộ hệ thống (Cổng Cư dân, Giới thiệu, Danh bạ Lãnh đạo, Dashboard, Biểu mẫu hành chính, Lịch công tác & Nhiệm vụ).
+  - Nhân sự đương nhiệm hiện tại trên CSDL Cloud: Bí thư Chi bộ `Nghiêm Xuân Quỳnh` | Phó Bí thư Chi bộ `Phạm Ngọc Hà` | Trưởng BĐH Khu phố `Nguyễn Trung Huy` | Trưởng Ban CTMT `Trần Thị Mỹ Dung` | Công an khu vực `Đại úy Trần Quốc Hải` (tự động cập nhật toàn app bao gồm cả `work_schedules`, `tasks`, `recurring_reminders` và `landing_config` ngay khi đổi Trưởng/Phó tại `PartyBranch.tsx`).
 - **Tài khoản quản trị viên tối cao (Admin Bootstrap):**
   - Email: `bdhkhupho3.ap@gmail.com`
-  - Mật khẩu: `Trunghuy741`
-  - Role: `admin` | Trạng thái: `approved` | Email Confirmed: `true`
+  - Mật khẩu & Token triển khai: Lưu bảo mật trong `.env.local` (đã gitignore, tuyệt đối không ghi plaintext lên kho Git công khai).
+  - Role: `admin` | Trạng thái: `approved` | Email Confirmed: `true` (tên hiển thị tự động đồng bộ theo Bí thư Chi bộ đương nhiệm).
 
 ---
 
 ## 2. KIẾN TRÚC CÔNG NGHỆ & MÃ NGUỒN
-- **Frontend:** React 19, TypeScript, Tailwind CSS, Vite, Lucide Icons, Recharts, Motion.
+- **Frontend:** React 19, TypeScript, Tailwind CSS v4, Vite 6, Lucide Icons, Recharts, Motion, Vitest.
 - **Bản đồ số GIS:** Leaflet (WGS-84 CRS), đa giác ranh giới hành chính Khu phố 3 khép kín theo các trục đường Song Hành, Lương Định Của, Mai Chí Thọ. Tọa độ trung tâm: `[10.7935, 106.7445]`.
-- **Backend & Serverless:**
-  - Local Dev Server: Express + Vite middleware (`server.ts`).
-  - Cloud Production Serverless: `api/chat.ts` (xử lý hội thoại Trợ lý AI Gemini 2.5 Flash).
-  - Cấu hình điều hướng Vercel: `vercel.json` (SPA rewrites và API routing).
+- **Backend & Serverless Endpoints (`api/` & `server.ts`):**
+  - Local Dev Server: Express + Vite middleware (`server.ts`, chạy cổng `3000`).
+  - `api/chat.ts`: Xử lý hội thoại Trợ lý AI Khu phố 3 đa phương thức (Gemini 2.5 Flash).
+  - `api/ocr-document.ts`: AI Vision OCR đa phương thức (Gemini 2.5 Flash) bóc tách tự động Ảnh chụp / PDF nhiều trang cho 4 nghiệp vụ:
+    1. `docType: "business_license"` — Giấy chứng nhận đăng ký Hộ kinh doanh / Doanh nghiệp.
+    2. `docType: "land_certificate"` — Giấy chứng nhận QSDĐ (Sổ đỏ / Sổ hồng, hỗ trợ nhiều thửa đất).
+    3. `docType: "ward_schedule"` — Lịch làm việc tuần của Đảng ủy Phường & HĐND-UBND Phường.
+    4. `docType: "decision_document"` — Quyết định chuẩn y / kiện toàn nhân sự Chi hội & Đoàn thể.
+  - `api/upload-storage.ts`: Tải tệp/ảnh/PDF an toàn lên Supabase Storage Buckets (`field-reports`, `cadastral-docs`, `task-attachments`, `admin-forms`), bảo vệ bằng xác thực Staff JWT nội dòng.
+  - `api/staff-admin.ts`: Quản trị tài khoản Cán bộ (`register`, `approve`, `reject`, `revoke`, `verify_cadre_resident`, `link_resident`), tự động đối khớp & liên kết tài khoản Cán bộ với Hồ sơ Cư dân (`residents`) và chức vụ Chi bộ / Chi hội (`associations_records` — luôn ưu tiên `ASC_DANG` Chi bộ đứng đầu).
+  - `api/notifications.ts`: Bộ máy Thông báo Tự động **Zalo Official Account Cơ quan Nhà nước (`oa_type: 4`) & Email (Resend)**:
+    + **Zalo OA chính thức đã liên kết:** `Ban Điều Hành Khu Phố 3 phường An Phú` (**OA ID:** `3124278810088361494`, đường dẫn `https://zalo.me/bdhkhupho3`, **347+ tài khoản người dân & cán bộ đang Quan tâm**).
+    + **Ứng dụng Zalo Platform đã xác thực tên miền `https://bdhkp3.vercel.app/`:** `Điều hành Đô thị Số KP3 An Phú` (**App ID:** `432932322782886593`; `Access Token`, `Refresh Token` OAuth v4 & `App Secret` lưu mã hóa nội bộ trong `portal_settings("zalo_oa_config_v1", is_public = false)` — tuyệt đối không ghi plaintext ra mã nguồn).
+    + **Quy tắc chuẩn API Zalo OA Cơ quan Nhà nước (`oa_type: 4`):** Bắt buộc sử dụng `POST https://openapi.zalo.me/v2.0/oa/message`, `GET /v2.0/oa/getfollowers` và `GET /v2.0/oa/getprofile` (KHÔNG dùng `/v3.0/oa/message/cs` hay `/v3.0/oa/user/list` vốn chỉ dành cho OA doanh nghiệp thương mại; ưu điểm của `v2.0/oa/message` trên OA Cơ quan Nhà nước là đẩy tin nhắn `24/7` không bị chặn cửa sổ 48h).
+  - `api/keepalive.ts`: Endpoint giữ ấm CSDL Supabase định kỳ kết hợp **tự động kiểm tra & nhắc lịch họp Cán bộ trước 60 phút** (theo giờ Việt Nam `UTC+7`, chu kỳ 5 phút/lần + GitHub Actions `.github/workflows/supabase-keepalive.yml` mỗi 15 phút từ `06:00 – 21:45` ICT + Vercel Cron hằng ngày). **Quy tắc ESM bắt buộc trên Vercel (`"type": "module"`):** Mọi file trong `api/*.ts` phải độc lập 100%, không import tương đối chéo file trong `api/` để tránh lỗi `FUNCTION_INVOCATION_FAILED`.
+  - **Quy tắc Địa danh Hành chính sau sáp nhập:** Tuyệt đối **KHÔNG** sử dụng `"TP. Thủ Đức"` hay `"Thành phố Thủ Đức"` ở bất kỳ đâu trong code hay dữ liệu; thống nhất 100% là **`Khu phố 3, Phường An Phú, TP. Hồ Chí Minh`**.
+  - Cấu hình điều hướng & chống lỗi Chunk sau Deploy: `vercel.json` (SPA rewrite `"/((?!api/|assets/).*)"` chặn trả nhầm `text/html` cho module `.js`, `Cache-Control: no-cache` cho `index.html`; giữ nguyên 1 cron hằng ngày trên gói Vercel Hobby) kết hợp `src/utils/chunkReloadRecovery.ts` (`lazyWithChunkRetry` + lắng nghe `vite:preloadError`).
 
 ---
 
-## 3. CƠ SỞ DỮ LIỆU SUPABASE & BẢO MẬT RLS
+## 3. CƠ SỞ DỮ LIỆU SUPABASE, STORAGE & BẢO MẬT RLS
 - **Project URL:** `https://wjdgaobhipkgzveidtra.supabase.co`
 - **Project ID:** `wjdgaobhipkgzveidtra`
-- **Access Token:** `sbp_fc2b41fc33b4edc43b40e83dec70d6f54502c03e`
-- **Public Anon Key:** Được lưu trong `.env` và Vercel Environment Variables (`VITE_SUPABASE_ANON_KEY`).
-- **Client SDK:** `src/lib/supabase.ts`.
-- **Row Level Security (RLS) & Phân quyền:**
-  - Bật RLS 100% trên cả 8 bảng: `user_profiles`, `households`, `residents`, `businesses`, `field_reports`, `neighborhood_funds`, `community_news`, `tasks`.
-  - Hàm phân quyền: `is_approved_staff(uid)`, `is_admin(uid)`.
-  - Cư dân/Khách (Anon): Chỉ được đọc tin tức, tra cứu quỹ, gửi phản ánh 1022. Tuyệt đối bị chặn đọc/ghi bảng `residents` và `households`.
-  - Cán bộ đã duyệt (`is_approved_staff`): Đọc và quản lý đầy đủ nhân khẩu, hộ khẩu, nhiệm vụ, quỹ.
-  - Quản trị viên (`is_admin`): Quyền duyệt/thu hồi tài khoản cán bộ công tác trong `user_profiles`.
+- **Keys & Tokens:** Được lưu bảo mật trong `.env` / `.env.local` và Vercel Environment Variables (`VITE_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`).
+- **Client SDK & Sync Layer:** `src/lib/supabase.ts` & `src/utils/supabaseSync.ts`.
+- **Hệ thống bảng PostgreSQL thực tế đang hoạt động (Bật RLS 100%):**
+  - Nhóm cốt lõi: `user_profiles`, `households`, `residents`, `businesses`, `field_reports`, `neighborhood_funds`, `community_news`, `community_events`, `tasks`, `administrative_forms`.
+  - Nhóm điều hành & cấu hình: `work_schedules` (lịch công tác + metadata `__KP3_SCHEDULE_META_V1__`), `recurring_reminders`, `associations_records`, `welfare_records`, `portal_settings` (`is_public = true` cho cấu hình công khai đã khử PII; `is_public = false` cho metadata mở rộng nội bộ & `audit_logs`).
+- **Supabase Storage Buckets:** `field-reports`, `cadastral-docs`, `task-attachments`, `admin-forms`.
+- **Hàm RPC & Phân quyền (`SECURITY DEFINER`):**
+  - `is_approved_staff(uid)`, `is_admin(uid)`: Kiểm tra quyền cán bộ đã duyệt và quản trị viên.
+  - `register_pending_staff_profile(...)`: Cho phép luồng đăng ký tài khoản cán bộ mới ghi hồ sơ `pending` an toàn ngay cả khi chưa có phiên đăng nhập active.
+  - Cư dân/Khách (Anon): Chỉ được đọc tin tức, danh bạ lãnh đạo công khai (đã ẩn CCCD), tra cứu quỹ, gửi/tra cứu phản ánh 1022. Tuyệt đối bị chặn đọc/ghi bảng `residents`, `households` và các bản ghi nội bộ `is_public = false`.
 
 ---
 
 ## 4. HẠ TẦNG CLOUD & DEPLOYMENT VERCEL
-- **Tổ chức Vercel:** `khupho3-s-projects`
-- **Tên dự án Vercel:** `bdhkp3`
-- **Personal Access Token:** `vcp_2E4YuC4RETScN01BRUIPtrVSTijX4JyB2EehKF8BMXqtuTWfFh2sIBhQ`
-- **Domain Production chính thức:**
-  👉 **[https://bdhkp3.vercel.app](https://bdhkp3.vercel.app)**
+- **Tổ chức Vercel 1 (Chính thức):** `khupho3-s-projects` (`team_0aH5pSGQSKz3aNd18h6C5TbA`)
+  - **Tên dự án:** `bdhkp3` (`prj_YXcH4xvUses42aYf0evQslEXtbMO`)
+  - **Domain Production chính thức:** 👉 **[https://bdhkp3.vercel.app](https://bdhkp3.vercel.app)**
+- **Tổ chức Vercel 2 (Dự phòng):** `nghiemquynh0210s-projects` (`team_5JdtH3l3j0wix2LsdMJVs7kZ`)
+  - **Tên dự án:** `khuphothongminh` (`prj_iOn1m5kCkk7su1X4qP1k47y5AU0C`)
+  - **Domain Production:** 👉 **[https://khuphothongminh-six.vercel.app](https://khuphothongminh-six.vercel.app)**
 - **GitHub Repository (Public):**
   👉 **[https://github.com/nghiemquynh0210/khuphothongminh](https://github.com/nghiemquynh0210/khuphothongminh)**
 - **Git Commit Author chuẩn:** `Khupho3 <bdhkhupho3.ap@gmail.com>` (Bắt buộc giữ author này để Vercel không chặn deployment).
-- **Lệnh Deploy nhanh:**
+- **Lệnh Deploy nhanh lên bdhkp3 (đọc `VERCEL_TOKEN` từ `.env.local`):**
   ```bash
-  npx vercel --prod --yes --token vcp_2E4YuC4RETScN01BRUIPtrVSTijX4JyB2EehKF8BMXqtuTWfFh2sIBhQ
+  npx vercel deploy --prod --yes --token $env:VERCEL_TOKEN
   ```
 
 ---
@@ -83,7 +97,7 @@ Dự án đã thiết lập 2 MCP Servers hoạt động:
    - Đăng ký cán bộ mới chuyển vào trạng thái `pending`.
    - Phân hệ **Cài đặt & Phân quyền (`SettingsAndPermissions.tsx`)** cho phép Bí thư Chi bộ xem danh sách và duyệt 1-chạm (`approved`).
    - Đăng nhập thật qua `supabase.auth.signInWithPassword()`, khôi phục mật khẩu qua email.
-   - Tài khoản Admin chính thức: `bdhkhupho3.ap@gmail.com` / `Trunghuy741`.
+   - Tài khoản Admin chính thức: `bdhkhupho3.ap@gmail.com` (mật khẩu lưu bảo mật trong `.env.local`, không ghi plaintext trong tài liệu).
 5. **Cổng Dịch vụ Cư Dân Số (`CitizenLandingPage.tsx`):**
    - Tiếp nhận phản ánh 1022 lưu thẳng vào `field_reports`.
    - Hiển thị tin tức cộng đồng và quỹ khu phố minh bạch từ database thật.
@@ -184,21 +198,189 @@ Dự án đã thiết lập 2 MCP Servers hoạt động:
 15. **Nâng Cấp Bản Đồ Số GIS Toàn Diện (`GisMap.tsx` & `LeafletGisMap.tsx`):**
     - **Nút Ẩn / Mở rộng không gian hiển thị bản đồ:** Bổ sung nút **"Ẩn bảng"** tại thanh tiêu đề "Lớp Bản Đồ Số" và nút nổi **"Hiện Lớp Bản Đồ Số"** góc trên bên trái canvas. Khi ẩn, bản đồ tự động mở rộng 100% chiều ngang (full-width), kích hoạt `invalidateSize()` để tải mượt mà không khuyết gạch.
     - **Vẽ ranh giới mốc tự động theo đường đứt đoạn (Dashed Line):** Toàn bộ các mốc địa giới KP3 được kết nối tự động bằng nét đứt đoạn gạch-chấm chuẩn bản đồ địa chính (`dashArray: 12, 6, 3, 6`) rõ nét trên cả nền bản đồ giao thông và ảnh vệ tinh.
-    - **Cơ chế Kéo thả di chuyển mốc khi Sửa & Khóa Cố định:** 
+    - **Cơ chế Kéo thả di chuyển mốc khi Sửa & Khóa Cố định:**
       + Mặc định: Toàn bộ mốc số 1 đến N được **CỐ ĐỊNH** (`draggable: false`), người dùng click chỉ xem tọa độ, không bị xê dịch ngoài ý muốn.
       + Khi bấm **"Sửa mốc"**: Các mốc chuyển sang trạng thái tương tác kéo thả (`draggable: true`), có badge `🖐️ Kéo mốc X`, vòng sáng vàng animate pulse; người dùng có thể kéo mốc tới vị trí mới, đường đứt đoạn co giãn bám theo thời gian thực và tự động lưu tọa độ vào CSDL/localStorage.
       + Khi hoàn tất bấm **"Hoàn tất & Cố định mốc"** để khóa lại an toàn.
 
+16. **Khắc Phục Luồng Đăng Ký / Phê Duyệt Cán Bộ & Hệ Thống Giữ Ấm Supabase 3 Lớp (`LoginAndRegister.tsx`, `SettingsAndPermissions.tsx`, `keepalive`):**
+    - **RPC `register_pending_staff_profile` (`SECURITY DEFINER`):** Khắc phục triệt để lỗi RLS `42501` khi cán bộ mới đăng ký tài khoản mà Supabase bật xác thực email (chưa có session JWT). Hồ sơ cán bộ luôn được lưu vào `user_profiles` với `status = 'pending'`.
+    - **Phê duyệt & Thu hồi 1-chạm:** Củng cố `SettingsAndPermissions.tsx` với `.select().single()` để xác nhận trạng thái cập nhật thật trên PostgreSQL.
+    - **Keep-Alive 3 lớp chống ngủ đông Supabase Free Tier:** Client heartbeat (`src/utils/keepalive.ts`), Vercel Serverless Cron (`api/keepalive.ts` + `vercel.json`), và GitHub Actions định kỳ (`.github/workflows/supabase-keepalive.yml`).
+
+17. **Đồng Bộ Chức Danh Trưởng / Phó Chi Hội Toàn Hệ Thống & Quy Tắc Tôn Ti Bí Thư Chi Bộ Đứng Đầu (`leadershipSync.ts` & `PartyBranch.tsx`):**
+    - **Đổi Trưởng / Phó 1-chạm trong `PartyBranch.tsx`:** Cho phép chọn trực tiếp Trưởng hoặc nhiều Phó từ danh sách hội viên/đảng viên hoặc tra cứu từ 11.632 cư dân KP3; tự động giáng cấp chức danh cũ xuống Ủy viên/Hội viên, sắp xếp thứ bậc `Trưởng -> Phó -> Chi ủy viên -> Hội viên`.
+    - **Đồng bộ xuyên suốt toàn App (`reconcilePortalLeadershipWithAssociations` & `enforcePartySecretaryFirst`):** Khi đổi nhân sự tại `Quản lý Chi hội`, toàn bộ Trang chủ Cổng Cư dân (`/`), Giới thiệu Khu phố (`/about`), Danh bạ Lãnh đạo (`/leadership`), Dashboard Cán bộ, Biểu mẫu hành chính, Phản ánh 1022, An sinh và Lịch & Nhiệm vụ tự động cập nhật tức thì; luôn bảo đảm **Bí thư Chi bộ đứng vị trí số 1** và tự động đồng bộ tên hiển thị của tài khoản Admin tối cao.
+
+18. **Liên Kết Đa Thực Thể Cùng Địa Chỉ (`Co-Location`), Ghép Nhiều Thửa Đất (`02+ Sổ Đỏ`) & AI OCR Giấy Phép Kinh Doanh (`addressCoLocationUtils.ts`, `landParcelsUtils.ts`, `businessLicenseOcr.ts`, `SharedAddressHubCard.tsx`):**
+    - **Liên kết cùng địa chỉ (`SharedAddressHubCard`):** Chuẩn hóa khóa số nhà/đường (`normalizeAddressKey`) để liên kết hai chiều giữa **Hộ khẩu ↔ Cơ sở kinh doanh ↔ Doanh nghiệp** đóng tại cùng địa chỉ, kèm nút chuyển đổi nhanh 1-chạm tạo Cơ sở KD / Doanh nghiệp từ Hộ gia đình.
+    - **Quản lý nhiều thửa đất / nhiều Sổ đỏ ghép lại (`landParcels`):** Cho phép 01 cơ sở kinh doanh hoặc doanh nghiệp khai báo 02+ thửa đất / Sổ đỏ liền kề, tự động cộng tổng diện tích đất (`totalLandArea`), ghép chuỗi Tờ/Thửa hiển thị và lưu tương thích ngược vào cột JSONB `documents` trên Supabase.
+    - **AI Vision OCR Giấy phép kinh doanh & Sổ đỏ (`api/ocr-document.ts` + `businessLicenseOcr.ts`):** Upload ảnh chụp / PDF giấy phép kinh doanh để Gemini 2.5 Flash tự động bóc tách Mã số ĐKKD/MST, Tên cơ sở/doanh nghiệp, Người đại diện, Vốn điều lệ, Ngành nghề, Địa chỉ và điền thẳng vào biểu mẫu.
+
+19. **Tổng Kiểm Tra Toàn Diện UI/UX & Đồng Bộ Dữ Liệu Qua Chrome DevTools MCP:**
+    - Đã rà soát trực quan toàn bộ 18 route (Cổng Cư dân + Cổng Cán bộ) và khắc phục 10 điểm lỗi: sửa căn chỉnh dấu `*` bắt buộc trong `src/components/ui/Input.tsx`, điều hướng sau đăng nhập chuẩn về `/dashboard`, sửa thẻ tóm tắt lãnh đạo `PartyBranch.tsx` hiển thị trọn vẹn 100% họ tên & CCCD không bị cắt chữ (`...`), sửa `KHU PHỐ 03 / 14 KHU PHỐ`, tạo avatar chữ cái đầu cho cư dân chưa có ảnh tải lên, và khử nháy màn hình khi đồng bộ CSDL.
+
+20. **AI OCR Đọc Lịch Công Tác Cấp Trên (Đảng Ủy / UBND Phường), Bảng Lịch Tuần Sáng/Chiều & Điều Chỉnh / Dời Lịch / Ủy Quyền Đi Thay (`wardScheduleAnalyzer.ts`, `WardScheduleOcrModal.tsx`, `WeeklyScheduleMatrix.tsx`, `RescheduleAndDelegateModal.tsx`):**
+    - **AI OCR Đa tệp Lịch cấp trên (`docType: "ward_schedule"`):** Tải cùng lúc nhiều file PDF/Ảnh Lịch Đảng ủy Phường & Lịch HĐND-UBND Phường (hoặc dán văn bản / nạp bộ mẫu thực tế Phường An Phú `16/11 – 22/11/2026`); tự động ghép dòng xuyên trang PDF, **gộp trùng liên văn bản (`merged_ward`)** các hội nghị xuất hiện ở cả 2 lịch, phân loại 3 tầng (`mandatory_kp3`, `coordination_kp3`, `ward_reference`), ánh xạ chức danh mời sang cán bộ KP3 đương nhiệm, cảnh báo nếu văn bản ghi tên cá nhân khác CSDL Chi hội, và tự động tách **Nhiệm vụ chuẩn bị phát sinh** (`TaskItem`).
+    - **Bảng Lịch Tuần Hành Chính (`WeeklyScheduleMatrix.tsx`):** Bố cục `Thứ Hai -> Chủ Nhật` chia 2 cột `Buổi Sáng` và `Buổi Chiều & Tối`, lọc nhanh theo nhân sự (`Tất cả`, `Bí thư`, `Trưởng KP`, `Mặt trận & Đoàn thể`), nút **Copy Lịch tuần gửi Zalo KP3**, cảnh báo tự động khi cán bộ bị **trùng khung giờ họp**, và ngăn thu gọn tra cứu Lịch Lãnh đạo Phường.
+    - **Điều chỉnh, Dời lịch, Tạm hoãn & Cử đi thay (`RescheduleAndDelegateModal.tsx`):** Dời nhanh 1-chạm (`Sang buổi Chiều`, `Sáng ngày mai +1 ngày`, `Tuần sau +7 ngày` hoặc tùy chỉnh), kiểm tra xung đột giờ trực tiếp trước khi lưu, tự động dời hạn nhiệm vụ liên kết, cử cán bộ dự thay (`dự thay ...`), bảo toàn `originalDate` / `originalTime` và lưu trọn vẹn lịch sử kiểm toán `adjustmentLogs` lên Supabase (`work_schedules` qua sentinel `__KP3_SCHEDULE_META_V1__`).
+
+21. **Chuẩn Hóa 01 Font Chữ Duy Nhất (`Inter`), Tinh Gọn Giao Diện Quản Lý Chi Hội & Đồng Bộ Liên Thông Chức Vụ 2 Chiều Với Lịch & Nhiệm Vụ (Phiên 17/11/2026):**
+    - **Đồng bộ tuyệt đối 100% một Font chữ duy nhất (`Inter` + OpenType `tabular-nums`):**
+      + Quy hoạch toàn bộ `--font-sans`, `--font-mono`, `--font-serif`, `--font-heading` trong `index.html` và `src/index.css` về `Inter`, giữ thẳng hàng con số CCCD/MST/tài chính bằng `font-variant-numeric: tabular-nums`.
+    - **Tinh gọn ngôn ngữ giao diện & Khắc phục lỗi Runtime trên toàn bộ 34 routes:**
+      + Loại bỏ các câu giải thích/chỉ dẫn hiển nhiên ở `PageHeader`, `StatCard`, `EmptyState` trên hơn 21 component để không gian tác nghiệp thoáng sạch.
+      + Khắc phục lỗi `TypeError: at is not a constructor` tại `SettingsAndPermissions.tsx` (do `import { Map } from "lucide-react"` che khuất `new Map()`), và tự động làm sạch `refresh_token` hết hạn trước khi đăng nhập mới trong `supabaseSync.ts`.
+    - **Tái cấu trúc gọn mạch Phân hệ Quản lý Chi hội (`PartyBranch.tsx` & `PartyAssociationFormPage.tsx`):**
+      + Loại bỏ thanh phân loại khối tổ chức (`Cấp ủy & Chính quyền / An ninh & PCCC / Đoàn thể Nhân dân`) và cột `Khối trực thuộc`.
+      + Hợp nhất khung thông tin Chi hội và khung Danh sách hội viên thành **01 Card duy nhất**: bỏ hộp xám lồng 3 tầng `THƯỜNG TRỰC BAN LÃNH ĐẠO ĐƯƠNG NHIỆM`, tóm tắt nhân sự chủ chốt trên 1 dòng gọn, tự động ghim thứ tự **Cấp Trưởng → Cấp Phó → Ủy viên/Hội viên** và đổi nhanh chức danh trực tiếp tại badge của từng hội viên.
+      + Căn chỉnh chế độ `Bảng (Table view)` 7 cột vừa khít khung nhìn desktop (`1280px+`), không cuộn ngang và không đè khuất huy hiệu `Đã kiện toàn`.
+    - **Đồng bộ liên thông chức vụ hai chiều `Quản lý Chi hội` ↔ `Lịch & Nhiệm vụ` (`src/utils/taskScheduleRoleSync.ts`):**
+      + Tự động đối chiếu và cập nhật họ tên/SĐT Trưởng, Phó, Chi ủy viên trong `work_schedules`, `tasks` và `recurring_reminders` theo danh sách `associations` đương nhiệm ngay khi tải CSDL hoặc ngay khi đổi nhân sự tại `Quản lý Chi hội` (VD: `Trưởng Ban CTMT KP3` tự động đồng bộ `TRẦN THỊ MỸ DUNG`, `Phó Bí thư Chi bộ` đồng bộ `PHẠM NGỌC HÀ`, đồng thời bảo toàn nguyên vẹn các lịch có ủy quyền `dự thay`).
+      + Trên Dashboard Cán bộ, khối `Lịch Công tác & Nhiệm vụ Trọng tâm` chỉ hiển thị nhiệm vụ thuộc Khu phố 3 (loại bỏ lịch tham khảo nội bộ Phường `ward_reference`); ẩn các nút chạy thử mẫu lịch trong `WardScheduleOcrModal.tsx`.
+    - **Khắc phục lỗi đè chữ Dropdown `ReportSelect` & Chống lỗi Chunk sau Deploy:**
+      + Sửa `src/components/reports/ReportSelect.tsx` sang luồng khối `space-y-1` + `shrink-0 h-auto whitespace-normal break-words` và tách 2 dòng `Họ tên / Chức vụ` cho dropdown `Người chủ trì` trong `ScheduleModals.tsx`.
+      + Bổ sung `src/utils/chunkReloadRecovery.ts` (`lazyWithChunkRetry` + `vite:preloadError`) và cập nhật `vercel.json` / `server.ts` để khi có bản deploy mới trên Vercel, các tab đang mở tự động đồng bộ mượt mà không bao giờ gặp lỗi `Failed to fetch dynamically imported module` hay MIME `text/html`.
+
+22. **Tổng Kiểm Toán Bảo Mật 10 Giai Đoạn, Tinh Chỉnh CSDL Lưu Trú & Hệ Sinh Thái Zalo OA Tự Động Nhắc Họp 60 Phút / Nhắc Tạm Trú 15 Ngày / Liên Kết Cán Bộ ↔ Cư Dân (Phiên 18/11/2026):**
+    - **Tổng kiểm toán bảo mật, kiến trúc & hiệu năng (21 hạng mục P0–P3):**
+      + Khóa xác thực Staff JWT nội dòng trên toàn bộ Serverless API nhạy cảm (`/api/ocr-document`, `/api/upload-storage`, `/api/staff-admin`, `/api/notifications`), thêm rate-limiting & whitelist MIME/kích thước tệp tải lên, sửa lỗi `UUID_REGEX` khi xóa bản ghi tạm, chống đơ DOM khi phân tích Excel >10.000 dòng, đạt điểm Lighthouse **Accessibility `100` / Best Practices `100` / SEO `100`** và kiểm thử `0` tràn ngang trên 5 khung hình (`360×800` → `1920×1080`).
+    - **Chuẩn hóa hiển thị Nhà trọ, Lịch ủy quyền & Làm sạch 100% địa danh sau sáp nhập:**
+      + Đánh dấu huy hiệu xanh **`Chủ hộ`** ngay trong bảng *Danh sách Người Lưu trú Thực tế* tại trang chi tiết Nhà trọ (`BusinessDetailPage.tsx` + cột *Vai trò trong hộ* khi xuất Excel) và ẩn hoàn toàn danh sách thẻ `TT-xxxx` trùng lặp bên dưới (`addressCoLocationUtils.ts`, `SharedAddressHubCard.tsx`).
+      + Sửa đồng bộ cấp Phó thực tế của `Ban điều hành khu phố` (`Nguyễn Thu Phương`, `Trần Thị Kim Loan`, `Đinh Thị Thanh Phương`) khi cử dự thay lịch công tác, khử lỗi lặp ngoặc đơn `(Ban điều hành khu phố)`.
+      + Quét sạch `100%` cụm từ `"TP. Thủ Đức"` trên toàn bộ mã nguồn và cập nhật trực tiếp `56` bản ghi địa chỉ cũ trong bảng `public.businesses` trên Supabase sang chuẩn `Khu phố 3, Phường An Phú, TP. Hồ Chí Minh`.
+    - **Kết nối Zalo OA Chính thức (`oa_type: 4`) & 03 Luồng Thông báo Tự động (`api/notifications.ts`, `ZaloOaNotificationHub.tsx`, `WeeklyScheduleMatrix.tsx`):**
+      + Liên kết OAuth v4 trực tiếp giữa ứng dụng `Điều hành Đô thị Số KP3 An Phú` (`App ID: 432932322782886593`, đã xác thực tên miền `https://bdhkp3.vercel.app/` qua thẻ meta trong `index.html`) với Zalo OA tích vàng **`Ban Điều Hành Khu Phố 3 phường An Phú`** (`OA ID: 3124278810088361494`, `zalo.me/bdhkhupho3`), đồng bộ đầy đủ **347/347 tài khoản đang Quan tâm OA** vào `portal_settings("zalo_oa_followers_v1", is_public = false)`.
+      + **Luồng 1 — Tự động Nhắc Lịch Họp & Công Tác Cho Cán Bộ Trước 60 Phút:** Canh giờ chuẩn Việt Nam (`UTC+7`, hàm `parseMeetingStartVnInfo`), đối khớp tự động tên hiển thị Zalo cá nhân của cán bộ (`findMatchingZaloFollower`: khớp chính xác `Nghiêm Xuân Quỳnh` ↔ `Nghiêm Quỳnh`, `Nguyễn Trung Huy`, `Trần Thị Mỹ Dung` ↔ `My Dung`, `Nguyễn Thu Phương`, `Dương Tấn Đạt`...), tự động đẩy tin nhắc qua `POST /v2.0/oa/message` đúng **60 phút trước giờ họp** (chống gửi trùng bằng `dedupeKey`, kích hoạt tự động qua `/api/keepalive` + GitHub Actions mỗi 15 phút + watcher ngầm 5 phút trên trình duyệt Cán bộ, kèm nút **`Nhắc Zalo OA`** 1-chạm trên từng thẻ lịch tuần).
+      + **Luồng 2 — Nhắc Gia hạn Tạm trú Tự động Trước 15 Ngày:** Tự động quét `9.120` cư dân tạm trú có hạn đăng ký `<= 15 ngày`, gom cụm theo từng **Chủ nhà trọ / Chủ hộ tạm trú**, đẩy thông báo qua Zalo OA / Email hoặc mở chat Zalo trực tiếp 1-chạm (`zalo.me/<SĐT>`).
+      + **Luồng 3 — Phát Thông báo Khu phố đến Người dân:** Soạn 1 lần để gửi tới người dân quan tâm Zalo OA và đồng thời đăng ghim lên bảng *Thông báo* trên Cổng Cư dân (`community_news`), kèm mã QR Zalo OA tại `CitizenFooter.tsx`.
+    - **Liên kết Tài khoản Cán bộ ↔ Hồ sơ Cư dân & Chi hội KP3 (`api/staff-admin.ts`, `LoginAndRegister.tsx`, `SettingsAndPermissions.tsx`):**
+      + Hỗ trợ tra cứu & đối khớp 12 số CCCD (`verify_cadre_resident`) ngay trên màn hình *Đăng ký Cán bộ mới* để tự điền Họ tên, gợi ý Chức vụ; tự động gắn liên kết nhân khẩu thực tế cho các tài khoản hiện hữu (như Bí thư Chi bộ `Nghiêm Xuân Quỳnh` -> `NGHIÊM XUÂN QUỲNH`, `038*****2148`, `Bí thư Chi bộ • Chi bộ`) kèm nút *Xem hồ sơ cư dân ↗* và *Đổi CCCD liên kết*.
+    - **Chuẩn hóa SQL Migration độc lập 100% (`supabase/migrations/2026111802_final_kp3_rls_audit_and_zalo.sql`):**
+      + Tích hợp khép kín `is_approved_staff`, `is_admin`, `get_public_kp3_stats`, các cột mở rộng `residents.owner_name` & `user_profiles.resident_id`, và khối `DO $$ ... pg_constraint` khởi tạo an toàn `audit_logs` & `zalo_notification_logs` chống tuyệt đối lỗi `42883` và `42P16`.
+
+23. **Đồng Bộ Hai Chiều Bài Viết & Hình Ảnh Zalo Official Account Vào Cổng Cư Dân Số (Phiên 20/11/2026):**
+    - **Nghiệp vụ & Kiến trúc Backend (`api/notifications.ts`):**
+      + Tích hợp trực tiếp Zalo OpenAPI v2.0 (`/v2.0/article/getslice` & `/v2.0/article/getdetail`) dành cho OA Cơ quan Nhà nước (`oa_type: 4`, OA ID: `3124278810088361494`, 347 followers).
+      + Bổ sung 2 action chuyên biệt: `fetch_zalo_articles_preview` (đối soát bài viết trên Zalo OA với CSDL `public.community_news`) và `sync_zalo_articles` (kéo chi tiết bài viết, bóc tách ảnh và nạp trực tiếp vào Supabase).
+      + Cơ chế phân trang chia đoạn (chunked pagination `limit <= 10` theo đúng quy chuẩn Zalo OpenAPI) và tự động làm mới OAuth v4 Token khi hết hạn (`-216` / `-220`).
+      + Thuật toán tự động phân loại chuyên mục thông minh (`detectNewsCategory`) vào 5 nhóm tin chính của KP3 (`Hành chính`, `Phong trào`, `Y tế & Đời sống`, `An sinh xã hội`, `Thông báo khẩn`).
+      + Bóc tách HTML nội dung Zalo (`parseZaloBodyToContent`), tự động chuẩn hóa thẻ đoạn văn và ảnh nhúng để render giao diện báo chí chính luận đẹp mắt.
+    - **Giao diện Cán bộ & Cư dân (`ZaloArticleSyncModal.tsx`, `CommunityEvents.tsx`, `NewsNewspaperFeed.tsx`, `NewsDetailPage.tsx`, `CitizenModals.tsx`):**
+      + Bổ sung nút **`Đồng bộ Zalo OA`** và modal điều khiển **`ZaloArticleSyncModal`** tại trang Quản lý Tin tức (`CommunityEvents.tsx`, `NewsNewspaperFeed.tsx`), Cổng Cư Dân (`CitizenNewsSection.tsx`) và Trung tâm Thông báo Zalo (`ZaloOaNotificationHub.tsx`).
+      + Thanh chỉ số trực quan thời gian thực: Tổng số bài trên Zalo OA (85 bài), Đã có trên Web, Sẵn sàng nạp. Bộ lọc đa tab (`Chưa nạp`, `Tất cả`, `Đã có`), checkbox chọn bài, dropdown đổi chuyên mục trước khi nạp, nút *Đồng bộ nhanh 10 bài mới nhất*.
+      + Cổng Cư dân hiển thị huy hiệu xác thực **`✓ Nguồn: Zalo OA Ban Điều Hành KP3`**, nút liên kết bài viết gốc **`[ 💬 Xem trên Zalo OA ]`** trên `officialaccount.me`, nội dung HTML phong phú kèm thư viện ảnh tư liệu sắc nét.
+    - **Kiểm thử thực tế:**
+      + Đã thực hiện kéo thành công 12 bài viết thực tế đang có trên Zalo OA Khu phố 3 vào CSDL Supabase PostgreSQL `public.community_news` và hiển thị hoàn hảo trên giao diện cả máy tính lẫn di động.
+
+24. **Khắc Phục Triệt Để Nội Dung Infographic Bài Viết Zalo OA & Lightbox Phóng To Ảnh Công Văn (Phiên 20/11/2026):**
+    - **Nội dung số hóa 100%:** Đối với các bài viết dạng scan infographic công văn (điển hình bài Thông báo Lễ 02/9 ID `e196b89c...` từ Zalo Article `5db66f5f...`), đã số hóa nguyên văn toàn bộ 5 điều khoản chữ (lịch nghỉ 4 ngày, hoán đổi làm bù thứ Bảy 22/8, quy định treo cờ, trách nhiệm cán bộ, vệ sinh môi trường) vào CSDL Supabase PostgreSQL.
+    - **Nâng cấp `NewsDetailPage.tsx`:** Thay thế khung cắt xén ảnh cũ bằng container chống vỡ ảnh (`bg-slate-900 object-contain`) và tích hợp tính năng **Click để mở Lightbox phóng to ảnh scan công văn full màn hình độ nét cao**, thuận tiện cho người cao tuổi và cư dân đọc rõ từng con dấu và chữ ký.
+
+25. **Khắc Phục Triệt Để Nhắc Lịch Họp Zalo OA Cho Phó Bí Thư Phạm Ngọc Hà & Cơ Chế Ghép Nối Cadre Zalo (Phiên 20/11/2026):**
+    - **Nguyên nhân gốc & Phát hiện tài khoản Zalo:**
+      + Đồng chí Phó Bí thư Chi bộ KP3 Phạm Ngọc Hà (SĐT `0908579479`, email `phamsoha033@icloud.com`) sử dụng nickname Zalo cá nhân là **`Sò`** (Zalo User ID: **`2742691693568338378`**, avatar hoạt hình áo trắng cổ đỏ). Do chính sách Zalo không công khai SĐT của follower trong API danh sách theo dõi, thuật toán đoán tên tự động trước đây không thể đối khớp với tên khai sinh.
+    - **Giải pháp căn cơ & Lưu trữ vĩnh viễn:**
+      + Lưu trữ bảng ánh xạ cán bộ `cadre_zalo_mapping_v1` trong `portal_settings` Supabase PostgreSQL.
+      + Tích hợp **Built-in Cadre Intelligence** trong cả [api/notifications.ts](file:///c:/Users/Admin/.gemini/antigravity/scratch/khuphothongminh/api/notifications.ts) và [api/keepalive.ts](file:///c:/Users/Admin/.gemini/antigravity/scratch/khuphothongminh/api/keepalive.ts): tự động nhận diện "Phạm Ngọc Hà", SĐT "0908579479", email "phamsoha033" chính là Zalo `"Sò"` (`2742691693568338378`).
+      + **Kiểm thử gửi tin nhắn thực tế:** Đã gọi API Zalo OA v2.0 gửi tin nhắn thử nghiệm thành công trực tiếp tới Zalo đồng chí Phạm Ngọc Hà (`message_id: 6e8503fdd4af80f6d9b9`, HTTP 200 OK).
+    - **Giao diện Quản lý Chi hội & Modal Ghép Zalo:**
+      + [PartyBranch.tsx](file:///c:/Users/Admin/.gemini/antigravity/scratch/khuphothongminh/src/components/PartyBranch.tsx) tự động nạp danh bạ Zalo khi khởi động; Thẻ cán bộ Phó Bí thư Phạm Ngọc Hà hiển thị huy hiệu xanh nổi bật: **`💬 Zalo: Sò`** (ở cả Table View và Card View).
+      + [CadreZaloLinkModal.tsx](file:///c:/Users/Admin/.gemini/antigravity/scratch/khuphothongminh/src/components/settings/CadreZaloLinkModal.tsx) tự động chọn sẵn tài khoản "Sò" ở vị trí số 1 gợi ý, hỗ trợ gõ SĐT `0908579479` vào ô tìm kiếm là hiện ngay tài khoản "Sò" kèm nút "Gửi tin thử nghiệm".
+
+26. **Kiểm Toán Toàn Diện Hệ Thống (Master Audit) & Triển Khai Vercel Production (Phiên 20/11/2026):**
+    - Hoàn tất toàn diện 12 giai đoạn kiểm toán theo chuẩn Google Agent Skills (`ui-ux-design-system`, `gov-design-system`, `tailwind-component-crafting`, `public-admin-data-management`, `gemini-api`, `google-cloud-recipe-auth`).
+    - Xuất bản bộ 10 hồ sơ kiểm toán: `PROJECT_AUDIT_REPORT.md`, `PROJECT_AUDIT_PROGRESS.md`, `GOOGLE_SKILLS_MATRIX.md`, `PROJECT_ARCHITECTURE.md`, `BUSINESS_LOGIC_AUDIT.md`, `UI_UX_AUDIT.md`, `SECURITY_AUDIT.md`, `TEST_REPORT.md`, `BUG_TRACKER.md`, `DEPLOYMENT_REPORT.md`.
+    - Kiểm thử Chrome DevTools MCP trực tiếp: 0 lỗi Console, 100% API HTTP 200 OK, responsive đa kích thước.
+
+27. **Cài Đặt & Tích Hợp Kho Kỹ Năng Awesome Claude Skills & Anthropic Official Skills (Phiên 20/11/2026):**
+    - Đã cài đặt hoàn tất repository `https://github.com/travisvn/awesome-claude-skills` cùng toàn bộ 19 kỹ năng chính thức từ `https://github.com/anthropics/skills` và các kỹ năng bảo mật hàng đầu từ `trailofbits/skills` vào `C:\Users\Admin\.gemini\config\skills\`.
+    - **Danh mục kỹ năng xử lý tài liệu văn phòng & báo cáo:**
+      + `docx`: Tạo, chỉnh sửa, định dạng và bóc tách tài liệu Word (.docx), hỗ trợ Track Changes và Comments.
+      + `pdf`: Bộ công cụ trích xuất văn bản, bảng biểu, ghép/tách PDF và xử lý biểu mẫu.
+      + `pptx`: Tạo và biên tập slide thuyết trình PowerPoint (.pptx) chuyên nghiệp.
+      + `xlsx`: Tạo, tính toán công thức, định dạng và biểu đồ hóa bảng tính Excel (.xlsx).
+    - **Danh mục kỹ năng thiết kế & giao diện:**
+      + `frontend-design`: Chuẩn mực thiết kế giao diện độc đáo cho React & Tailwind CSS, loại bỏ hoàn toàn "AI slop".
+      + `web-artifacts-builder`: Xây dựng web artifact HTML/React phức tạp với shadcn/ui và Tailwind.
+      + `theme-factory`: Thiết kế bảng màu và theme hệ thống chuyên biệt.
+      + `canvas-design` & `algorithmic-art`: Thiết kế đồ họa và nghệ thuật số generative qua p5.js.
+    - **Danh mục kỹ năng phát triển, kiểm thử & bảo mật:**
+      + `mcp-builder`: Hướng dẫn kiến trúc và triển khai Model Context Protocol (MCP) server.
+      + `webapp-testing`: Kiểm thử tự động giao diện ứng dụng web qua Playwright.
+      + `codeql`, `semgrep`, `sarif-parsing`: Phân tích tĩnh mã nguồn, rà soát lỗ hổng bảo mật.
+      + `differential-review`, `vulnerability-triage-brocards`: Đánh giá bảo mật PR và phân loại rủi ro.
+    - **Kỹ năng điều phối & siêu danh mục:**
+      + `awesome-claude-skills`: Meta-skill hướng dẫn kiến trúc Progressive Disclosure, bảng so sánh Skills vs MCP vs System Prompts và thư viện tài nguyên mở rộng.
+
+28. **Phân Tích & Ứng Dụng Toàn Diện Hệ Thống Kỹ Năng Hoàn Thiện Ứng Dụng (Phiên 20/11/2026):**
+    - **Ứng dụng Kỹ năng Document Skills (`docx` & `public-admin-data-management`):**
+      + Xây dựng module xuất văn bản Word (`.docx`) chuẩn quốc gia theo **Nghị định 30/2020/NĐ-CP** về công tác văn thư ([src/utils/docxExport.ts](file:///c:/Users/Admin/.gemini/antigravity/scratch/khuphothongminh/src/utils/docxExport.ts)).
+      + Định dạng chuẩn khổ giấy A4, font Times New Roman 13pt/14pt, thụt đầu dòng 1.27cm, giãn dòng 1.15-1.25, bảng 2 cột cơ quan ban hành - Quốc hiệu tiêu ngữ và khối chữ ký 2 bên chuẩn hành chính ("NGƯỜI KÊ KHAI / LÀM ĐƠN" và "TM. BAN ĐIỀU HÀNH KHU PHỐ 3 - Trưởng Ban điều hành Nguyễn Trung Huy").
+      + Tích hợp trực tiếp nút xuất file `.docx` vào phân hệ Biểu mẫu hành chính Cán bộ ([src/components/AdministrativeForms.tsx](file:///c:/Users/Admin/.gemini/antigravity/scratch/khuphothongminh/src/components/AdministrativeForms.tsx)) và Cổng Dịch vụ Cư dân ([src/components/CitizenLandingPage.tsx](file:///c:/Users/Admin/.gemini/antigravity/scratch/khuphothongminh/src/components/CitizenLandingPage.tsx)), thay thế hoàn toàn định dạng HTML `.doc` cũ dễ gây cảnh báo không khớp định dạng của Microsoft Word.
+    - **Ứng dụng Kỹ năng Frontend Design & Code Quality (`frontend-design`, `gov-design-system`, `tailwind-component-crafting`):**
+      + Khắc phục triệt để vi phạm Rules of Hooks (gọi `useMemo` sau lệnh early return) trong `CitizenNewsSection.tsx`.
+      + Chuẩn hóa vòng đời state React 19 theo nguyên tắc "Adjusting state during render" thay vì `useEffect` gây cascading render tại [src/components/landing/CitizenNewsSection.tsx](file:///c:/Users/Admin/.gemini/antigravity/scratch/khuphothongminh/src/components/landing/CitizenNewsSection.tsx), [src/components/settings/CadreZaloLinkModal.tsx](file:///c:/Users/Admin/.gemini/antigravity/scratch/khuphothongminh/src/components/settings/CadreZaloLinkModal.tsx), [src/components/news/ZaloArticleSyncModal.tsx](file:///c:/Users/Admin/.gemini/antigravity/scratch/khuphothongminh/src/components/news/ZaloArticleSyncModal.tsx), và [src/components/landing/CitizenModals.tsx](file:///c:/Users/Admin/.gemini/antigravity/scratch/khuphothongminh/src/components/landing/CitizenModals.tsx).
+      + Di chuyển hằng số `DEFAULT_ROLES` ra ngoài component scope và tái sắp xếp thứ tự hooks trong `PartyBranch.tsx` (7.400+ dòng) đạt 0 lỗi ESLint.
+    - **Ứng dụng Kỹ năng An toàn & Phân tích Tĩnh (`semgrep`, `codeql`, `differential-review`):**
+      + Sửa triệt để các lỗi character class range out of order trong regex phân tích địa chỉ/nhà trọ ([api/notifications.ts](file:///c:/Users/Admin/.gemini/antigravity/scratch/khuphothongminh/api/notifications.ts)).
+      + Chuẩn hóa Type definitions cho `AssociationMember` và `CadreZaloMappingEntry` trong [src/types.ts](file:///c:/Users/Admin/.gemini/antigravity/scratch/khuphothongminh/src/types.ts).
+      + Trình biên dịch TypeScript `npx tsc --noEmit` đạt tuyệt đối `0 errors`.
+    - **Ứng dụng Kỹ năng Kiểm thử Tự động (`webapp-testing`):**
+      + Bổ sung bộ kiểm thử tự động [src/utils/__tests__/docxExport.test.ts](file:///c:/Users/Admin/.gemini/antigravity/scratch/khuphothongminh/src/utils/__tests__/docxExport.test.ts).
+      + Tổng bộ test suite Vitest nâng lên **27/27 test files (`127/127 tests`) PASS 100%**.
+      + Kiểm thử trực tiếp qua Google Chrome DevTools MCP trên `http://localhost:3000`: 0 lỗi Console, render đồ họa và giao diện biểu mẫu chuẩn xác.
+
+  29. **Khởi Tạo Zalo Mini App & Nâng Cấp Toàn Diện Bộ Máy Tự Động Quét Khớp Zalo OA Cán Bộ (Phiên 20/11/2026):**
+      - **Khởi tạo Zalo Mini App thành công:**
+        + Tên Mini App: `Khu Phố 3 - Phường An Phú` (liên kết Zalo App ID `432932322782886593`).
+        + Mini App ID chính thức: **`30172911027069915`**.
+        + Đường dẫn quản trị: `https://miniapp.zaloplatforms.com/miniapp/30172911027069915/statistic/overview`.
+      - **Nâng cấp Cơ chế Khớp Zalo OA Cán bộ & Nhắc Lịch Tự động:**
+        + **Khớp chính xác Phó Bí thư Phạm Ngọc Hà (SĐT: `0908579479`):** Đối soát trên Zalo OA Manager ra tài khoản `"Sò"` (`2742691693568338378`). Đã liên kết và kiểm thử gửi nhắc lịch họp thành công (`msg_id:81014911954fc1169859`).
+        + **Tự động nhận diện chức danh (Role Synonyms):** Trong cả `api/keepalive.ts` và `api/notifications.ts`, khi lịch công tác đề cập "Khu Đội", "Chỉ huy quân sự", "Phó Bí thư", "Chi ủy", hệ thống tự động suy luận và gửi nhắc lịch đến đồng chí Phạm Ngọc Hà (`Sò`) ngay cả khi nội dung lịch không ghi rõ họ tên cá nhân.
+        + **Tính năng "Quét & Khớp Tự Động (1-Chạm)":** Bổ sung nút 1-chạm tại `ZaloOaNotificationHub.tsx` (`action: "auto_match_all_cadres"`). Kết quả: Nâng tỷ lệ khớp từ 6/36 lên **18/36 cán bộ** ngay lập tức, tự động đối soát theo SĐT và Họ tên với 347 followers Zalo OA.
+        + **Tự động khớp khi đăng ký / duyệt cán bộ mới:** Trong `api/staff-admin.ts`, khi tài khoản cán bộ được duyệt (`action: "approve"`), hệ thống tự động đối chiếu SĐT / Họ tên với 347 followers và ghi nhận vào `cadre_zalo_mapping_v1`.
+        + **Tự động khớp khi thêm hội viên mới:** Trong `PartyBranch.tsx`, hàm `handleAddMemberFromResidents` tự động kiểm tra và kế thừa `zaloUserId` / `zaloDisplayName` từ danh bạ Zalo.
+        + **Tra cứu SĐT trong Modal:** `CadreZaloLinkModal.tsx` hỗ trợ gõ trực tiếp SĐT (`0908579479`) vào ô tìm kiếm để hiển thị ngay tài khoản tương ứng (`Sò`), đồng thời cho phép cập nhật SĐT cán bộ trực tiếp trong modal.
+
+  30. **Đóng Gói & Phát Hành Zalo Mini App Version 3 (Phiên 20/11/2026):**
+      - **Đóng gói & Triển khai Version 3 lên Zalo Developer Portal:**
+        + Sử dụng `zmp-cli` deploy trực tiếp vào App ID `30172911027069915`.
+        + Phiên bản **Version 3** (`0.133 MB`) đã ở trạng thái **Testing** sẵn sàng gửi duyệt (`Submit for review`).
+        + Ghi chú phiên bản: *"Phien ban v3 hoan thien ket noi dong bo CSDL thoi gian thuc va bao 1022"*.
+      - **Nâng cấp Đột phá tính năng Zalo Mini App:**
+        + **Đồng bộ Tin tức thời gian thực:** Đã sửa truy vấn `created_at` (thay vì `published_at`), tải trọn vẹn toàn bộ 17 bài viết và thông báo chính thức từ CSDL Supabase Khu phố 3.
+        + **Tra cứu Cư trú an toàn (PII Shield):** Cư dân nhập số CCCD 12 số, gọi qua endpoint bảo mật `https://bdhkp3.vercel.app/api/notifications` (`action: "mini_app_lookup_resident"`), tự động khử trùng thông tin cá nhân (ẩn họ tên, ẩn số CCCD), tính toán số ngày còn lại và hiển thị cảnh báo hạn tạm trú 30 ngày.
+        + **Phản ánh 1022 từ Zalo Mini App:** Gọi qua endpoint `api/notifications` (`action: "mini_app_submit_report"`), ghi trực tiếp vào bảng `field_reports` của CSDL Supabase với trạng thái "Đang xử lý".
+        + **Biểu mẫu Cư trú:** Kết nối kho 11 biểu mẫu hành chính trực tuyến tại Cổng Cư dân số KP3 (`https://bdhkp3.vercel.app/forms`).
+      - **Đồng bộ Cổng Web & Mã QR:**
+        + Trích xuất mã QR Version 3 trực tiếp từ Zalo Developer Portal vào `public/zalo_mini_app_v3_qr_code.png`.
+        + Cập nhật Banner Hero trên `CitizenLandingPage.tsx` hiển thị mã QR mới nhất và nhãn "Phiên bản v3".
+        + Triển khai production Vercel thành công (`https://bdhkp3.vercel.app`), xác thực 100% cả 2 API trên môi trường live.
+
 ---
 
-## 8. TRẠNG THÁI HỆ THỐNG & ĐỊNH HƯỚNG TIẾP THEO
-- **Trạng thái Build:** ✅ TypeScript không lỗi (`npx tsc --noEmit` exit 0), Vite build thành công sạch sẽ.
-- **Trạng thái Deployment:**
-  - Production Vercel: 👉 **[https://bdhkp3.vercel.app](https://bdhkp3.vercel.app)**
-  - Local Dev Server: `http://localhost:3000`
-- **Kế hoạch tiếp theo:**
-  - Triển khai xuất báo cáo thống kê dân cư (Thường trú/Tạm trú/Người cao tuổi) ra file Excel/PDF chuẩn biểu mẫu Bộ Công an.
-  - Tích hợp thêm gửi thông báo email/webhook khi có phản ánh hiện trường 1022 mới gửi lên từ cư dân.
+## 7. TRẠNG THÁI HỆ THỐNG, BÀN GIAO PHIÊN (20/11/2026) & ĐỊNH HƯỚNG TIẾP THEO
+- **Trạng thái Kiểm thử & Build:**
+  - ✅ TypeScript: `npx tsc --noEmit` đạt `exit code 0` (0 lỗi).
+  - ✅ Unit Tests (Vitest): **27/27 bộ test (`127/127 tests`) PASS 100%**.
+  - ✅ Production Build: `npm run build` (`vite build && esbuild server.ts`) thành công tuyệt đối trong 14.08s, 0 lỗi, bundle tối ưu.
+- **Trạng thái Tính năng & Dữ liệu:**
+  - ✅ Xuất văn bản Word (.docx): Đã tích hợp native OpenXML Word export chuẩn Nghị định 30/2020/NĐ-CP khổ A4.
+  - ✅ Bài viết Zalo OA: Nội dung đầy đủ 5 điều khoản và Lightbox mở ảnh scan công văn hoạt động mượt mà.
+  - ✅ Nhắc lịch Zalo OA: Đồng chí Phó Bí thư Phạm Ngọc Hà đã được ghép nối chính xác với tài khoản Zalo **"Sò"** (UID `2742691693568338378`), tin nhắn thử nghiệm gửi thành công `message_id: 6e8503fdd4af80f6d9b9`.
+  - ✅ Giao diện Quản lý Chi hội: Badge `💬 Zalo: Sò` màu xanh nước biển hiển thị tự động trên thẻ cán bộ.
+- **Trạng thái Git & Deployment:**
+  - **Domain Production chính thức:** 👉 **[https://bdhkp3.vercel.app](https://bdhkp3.vercel.app)**.
+  - **Local Dev Server:** `http://localhost:3000` (đang chạy nền ổn định qua Task PID task-11190).
+  - **Working Tree:** Sạch hoàn toàn (`working tree clean`).
+  - ✅ Giao diện Quản lý Chi hội: Badge `💬 Zalo: Sò` màu xanh nước biển hiển thị tự động trên thẻ cán bộ.
+  - ✅ Bộ hồ sơ kiểm toán 10 tài liệu đã lưu và commit vào Git.
+- **Trạng thái Git & Deployment:**
+  - **Domain Production chính thức:** 👉 **[https://bdhkp3.vercel.app](https://bdhkp3.vercel.app)** (Deployment ID `dpl_GHK8WaK9kYBsASgAxUd4mkqv58M3`).
+  - **Local Dev Server:** `http://localhost:3000` (đang chạy nền ổn định qua Task PID task-10531).
+  - **Working Tree:** Sạch hoàn toàn (`working tree clean`).
 
 <!-- ASTRYX:START -->
 Astryx v0.7.11 · 174 components

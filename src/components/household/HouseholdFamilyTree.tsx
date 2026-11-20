@@ -47,77 +47,94 @@ export default function HouseholdFamilyTree({ household, onClose, onSelectMember
 
   return (
     <div className="fixed inset-0 bg-slate-950/75 flex items-center justify-center z-50 p-4 backdrop-blur-md animate-in fade-in duration-150">
-      <div className="bg-slate-900 border border-slate-800 text-slate-100 rounded-2xl shadow-2xl w-full max-w-3xl overflow-hidden animate-in zoom-in-95 duration-150">
+      <div className="bg-slate-900 border border-slate-800 text-slate-100 rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] flex flex-col overflow-hidden animate-in zoom-in-95 duration-150">
         
         {/* Header */}
-        <div className="p-4 border-b border-slate-800 flex justify-between items-center bg-slate-950">
-          <div className="flex items-center gap-2">
-            <GitBranch size={18} className="text-emerald-400 animate-pulse" />
-            <div>
-              <h3 className="font-bold text-white text-sm">Sơ đồ phả hệ thành viên Hộ tịch - {household.code}</h3>
+        <div className="p-4 border-b border-slate-800 flex justify-between items-center bg-slate-950 shrink-0">
+          <div className="flex items-center gap-2 min-w-0">
+            <GitBranch size={18} className="text-emerald-400 animate-pulse shrink-0" />
+            <div className="min-w-0">
+              <h3 className="font-bold text-white text-sm truncate">Sơ đồ phả hệ thành viên Hộ tịch - {household.code}</h3>
               <p className="text-[10px] text-slate-400">Nhấp chọn thành viên để xem hồ sơ điện tử chi tiết</p>
             </div>
           </div>
           <button 
+            type="button"
             onClick={onClose}
-            className="text-slate-400 hover:text-white bg-slate-800/50 hover:bg-slate-800 p-1.5 rounded-lg transition-colors cursor-pointer"
+            className="text-slate-400 hover:text-white bg-slate-800/50 hover:bg-slate-800 p-1.5 rounded-lg transition-colors cursor-pointer shrink-0"
+            aria-label="Đóng sơ đồ phả hệ"
           >
             <X size={18} />
           </button>
         </div>
 
-        {/* Tree Workspace Diagram */}
-        <div className="p-10 flex flex-col items-center justify-center bg-slate-950/40 min-h-[400px] overflow-x-auto select-none">
-          
-          {/* Root Node: Owner (Chủ hộ) */}
-          <div className="flex flex-col items-center shrink-0">
-            <div 
-              onClick={() => {
-                if (owner) onSelectMember(owner.name, "Chủ hộ", owner.cccd);
-              }}
-              className="relative bg-emerald-600 border-2 border-emerald-400 hover:border-white transition-all rounded-2xl p-4 text-center shadow-lg w-52 text-white cursor-pointer transform hover:scale-105 duration-150"
-            >
-              <span className="absolute -top-3 left-1/2 -translate-x-1/2 bg-emerald-500 font-mono text-[10px] px-2.5 py-0.5 rounded-full font-bold uppercase text-white border border-emerald-400 tracking-wider">
-                CHỦ HỘ
-              </span>
-              <div className="font-bold text-sm mt-1">{household.ownerName}</div>
-              <div className="text-[10px] text-emerald-100 mt-0.5 font-mono">Sinh năm: {owner?.birthYear || "N/A"}</div>
+        {/* Tree Workspace Diagram - no items-center on overflow-x-auto so leftmost members are never clipped */}
+        <div className="flex-1 overflow-x-auto overflow-y-auto py-8 px-4 sm:px-6 bg-slate-950/40 min-h-[280px] select-none">
+          <div className="w-fit mx-auto flex flex-col items-center">
+            {/* Root Node: Owner (Chủ hộ) */}
+            <div className="flex flex-col items-center shrink-0">
+              <div 
+                onClick={() => {
+                  if (owner) onSelectMember(owner.name, "Chủ hộ", owner.cccd);
+                }}
+                className="relative bg-emerald-600 border-2 border-emerald-400 hover:border-white transition-all rounded-2xl p-4 text-center shadow-lg w-52 text-white cursor-pointer transform hover:scale-105 duration-150"
+              >
+                <span className="absolute -top-3 left-1/2 -translate-x-1/2 bg-emerald-500 font-mono text-[10px] px-2.5 py-0.5 rounded-full font-bold uppercase text-white border border-emerald-400 tracking-wider">
+                  CHỦ HỘ
+                </span>
+                <div className="font-bold text-sm mt-1 truncate" title={household.ownerName}>{household.ownerName}</div>
+                <div className="text-[10px] text-emerald-100 mt-0.5 font-mono">
+                  Sinh năm: {owner?.birthYear || "Chưa cập nhật"}
+                </div>
+              </div>
+
+              {/* Connecting Vertical Trunk Down */}
+              {members.length > 0 && (
+                <div className="w-0.5 h-7 bg-slate-700" />
+              )}
             </div>
 
-            {/* Connecting Vertical Trunk Down */}
+            {/* Child Nodes Block with exact per-node horizontal connectors */}
             {members.length > 0 && (
-              <>
-                <div className="w-0.5 h-8 bg-slate-700"></div>
-                <div className="h-0.5 bg-slate-700" style={{ width: `${Math.max(0, (members.length - 1) * 160)}px` }}></div>
-              </>
+              <div className="flex items-start mt-0 shrink-0">
+                {members.map((m, idx) => {
+                  const colors = getRelationColor(m.relation);
+                  return (
+                    <div key={`${m.cccd || m.name}-${idx}`} className="relative px-2.5 sm:px-3 flex flex-col items-center">
+                      {members.length > 1 && (
+                        <div
+                          className={`absolute top-0 h-0.5 bg-slate-700 ${
+                            idx === 0
+                              ? "left-1/2 right-0"
+                              : idx === members.length - 1
+                              ? "left-0 right-1/2"
+                              : "left-0 right-0"
+                          }`}
+                        />
+                      )}
+                      <div className="w-0.5 h-6 bg-slate-700" />
+                      <div 
+                        onClick={() => onSelectMember(m.name, m.relation, m.cccd)}
+                        className={`border hover:border-white transition-all rounded-xl p-3.5 text-center shadow-md w-40 cursor-pointer transform hover:-translate-y-1 duration-150 ${colors.bg}`}
+                      >
+                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full text-white inline-block mb-1.5 uppercase tracking-wide ${colors.labelBg}`}>
+                          {m.relation}
+                        </span>
+                        <div className="font-bold text-slate-800 text-xs truncate leading-tight" title={m.name}>{m.name}</div>
+                        <div className="text-[10px] text-slate-500 mt-1 font-mono">
+                          {m.cccd ? `CCCD: ...${m.cccd.slice(-4)}` : "Chưa cập nhật CCCD"}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
             )}
-          </div>
-
-          {/* Child Nodes Block */}
-          <div className="flex justify-center gap-6 mt-0 shrink-0">
-            {members.map((m) => {
-              const colors = getRelationColor(m.relation);
-              return (
-                <div key={m.cccd} className="flex flex-col items-center">
-                  <div className="w-0.5 h-6 bg-slate-700"></div>
-                  <div 
-                    onClick={() => onSelectMember(m.name, m.relation, m.cccd)}
-                    className={`border hover:border-white transition-all rounded-xl p-3.5 text-center shadow-md w-38 cursor-pointer transform hover:-translate-y-1 duration-150 ${colors.bg}`}
-                  >
-                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full text-white inline-block mb-1.5 uppercase tracking-wide ${colors.labelBg}`}>
-                      {m.relation}
-                    </span>
-                    <div className="font-bold text-slate-800 text-xs truncate leading-tight">{m.name}</div>
-                    <div className="text-[10px] text-slate-400 mt-1 font-mono">CCCD: ...{m.cccd.slice(-4)}</div>
-                  </div>
-                </div>
-              );
-            })}
           </div>
         </div>
 
         {/* Footer */}
-        <div className="p-4 border-t border-slate-800 bg-slate-950 flex justify-between items-center text-[10px] text-slate-500 font-mono">
+        <div className="p-4 border-t border-slate-800 bg-slate-950 flex flex-wrap justify-between items-center gap-2 text-[10px] text-slate-500 font-mono shrink-0">
           <span>Hệ thống cây phả hệ số tự động đồng bộ</span>
           <span>Phường An Phú, TP. Hồ Chí Minh</span>
         </div>

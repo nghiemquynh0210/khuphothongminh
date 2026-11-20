@@ -1,8 +1,10 @@
-import React from "react";
-import { Download, Globe, MapPin, Printer, X } from "lucide-react";
+import React, { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
+import { Download, ExternalLink, Globe, MapPin, Printer, Search, X } from "lucide-react";
 import { Household, Resident } from "../../types";
 import { getCountryFlag, getVisaExpiryStatus } from "../../utils/residentHelpers";
 import { maskCccd } from "../../utils/kp3Utils";
+import { getHouseholdDetailPath, getResidentDetailPath, navigate } from "../../routes";
 
 export function downloadNA17Doc(res: Resident) {
   const docContent = `
@@ -66,9 +68,23 @@ export function CT07Modal({
   resident: Resident;
   onClose: () => void;
 }) {
-  return (
-    <div className="fixed inset-0 bg-slate-900/50 flex items-center justify-center z-50 p-4 backdrop-blur-xs">
-      <div className="bg-white rounded-2xl border border-slate-200 w-full max-w-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-150 flex flex-col max-h-[92vh]">
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onClose]);
+
+  const content = (
+    <div
+      className="fixed inset-0 bg-slate-900/50 flex items-center justify-center z-50 p-4 backdrop-blur-xs"
+      onClick={onClose}
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        className="bg-white rounded-2xl border border-slate-200 w-full max-w-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-150 flex flex-col max-h-[92vh]"
+      >
         <div className="bg-slate-50 border-b border-slate-200 text-slate-900 p-4 flex justify-between items-center shrink-0">
           <div className="flex items-center gap-2">
             <Printer className="text-emerald-600" size={18} />
@@ -116,15 +132,15 @@ export function CT07Modal({
                 {resident.fullName}
               </span>
             </p>
-            <div className="grid grid-cols-2 gap-2">
+            <div className="grid grid-cols-1 sm:grid-cols-2 print:grid-cols-2 gap-2">
               <p>
-                <strong>2. Ngày, tháng, năm sinh:</strong> {resident.birthDate}
+                <strong>2. Ngày, tháng, năm sinh:</strong> {resident.birthDate || "Chưa cập nhật"}
               </p>
               <p>
                 <strong>3. Giới tính:</strong> {resident.gender}
               </p>
             </div>
-            <div className="grid grid-cols-2 gap-2">
+            <div className="grid grid-cols-1 sm:grid-cols-2 print:grid-cols-2 gap-2">
               <p>
                 <strong>4. Số định danh cá nhân / CCCD:</strong>{" "}
                 <span className="font-mono font-bold">{resident.cccd}</span>
@@ -142,27 +158,27 @@ export function CT07Modal({
             </p>
             <p>
               <strong>8. Nơi thường trú:</strong>{" "}
-              {resident.permanentAddress || resident.address}
+              {resident.permanentAddress || resident.address || "Chưa cập nhật"}
             </p>
             <p>
               <strong>9. Nơi ở hiện tại:</strong>{" "}
-              {resident.temporaryAddress || resident.address}
+              {resident.currentAddress || resident.temporaryAddress || resident.address || "Chưa cập nhật"}
             </p>
-            <div className="grid grid-cols-2 gap-2">
+            <div className="grid grid-cols-1 sm:grid-cols-2 print:grid-cols-2 gap-2">
               <p>
                 <strong>10. Mã số hộ khẩu:</strong>{" "}
-                <span className="font-mono font-semibold">{resident.householdId}</span>
+                <span className="font-mono font-semibold">{resident.householdId || "Chưa cập nhật"}</span>
               </p>
               <p>
-                <strong>11. Quan hệ với chủ hộ:</strong> {resident.relationToOwner}
+                <strong>11. Quan hệ với chủ hộ:</strong> {resident.relationToOwner || "Chưa cập nhật"}
               </p>
             </div>
-            <div className="grid grid-cols-2 gap-2">
+            <div className="grid grid-cols-1 sm:grid-cols-2 print:grid-cols-2 gap-2">
               <p>
-                <strong>12. Trình độ học vấn:</strong> {resident.education || "12/12"}
+                <strong>12. Trình độ học vấn:</strong> {resident.education || "Chưa cập nhật"}
               </p>
               <p>
-                <strong>13. Nghề nghiệp:</strong> {resident.occupation || "Tự do"}
+                <strong>13. Nghề nghiệp:</strong> {resident.occupation || "Chưa cập nhật"}
               </p>
             </div>
             {resident.healthInsuranceNumber && (
@@ -171,7 +187,7 @@ export function CT07Modal({
                 <span className="font-mono">{resident.healthInsuranceNumber}</span>
               </p>
             )}
-            {resident.policyGroup && resident.policyGroup !== "Bình thường" && (
+            {resident.policyGroup && resident.policyGroup !== "Bình thường" && resident.policyGroup !== "Dân cư phổ thông" && (
               <p>
                 <strong>15. Diện chính sách / Đoàn thể:</strong>{" "}
                 <span className="font-semibold text-rose-700">
@@ -181,7 +197,7 @@ export function CT07Modal({
             )}
           </div>
 
-          <div className="pt-4 border-t border-slate-200 flex justify-between items-start text-xs font-sans">
+          <div className="pt-4 border-t border-slate-200 flex flex-col sm:flex-row print:flex-row justify-between items-center sm:items-start gap-4 text-xs font-sans">
             <div className="text-center space-y-1">
               <p className="font-bold">NGƯỜI YÊU CẦU XÁC NHẬN</p>
               <p className="text-[10px] text-slate-400 italic">(Ký, ghi rõ họ tên)</p>
@@ -200,12 +216,12 @@ export function CT07Modal({
                   ĐÃ XÁC NHẬN ĐIỆN TỬ
                 </span>
               </div>
-              <p className="font-semibold">Trung tá Lê Văn Sơn</p>
+              <p className="font-semibold">Đại úy Trần Quốc Hải</p>
             </div>
           </div>
         </div>
 
-        <div className="bg-slate-50 p-4 border-t border-slate-200 flex justify-between items-center shrink-0">
+        <div className="bg-slate-50 p-4 border-t border-slate-200 flex flex-wrap justify-between items-center gap-2 shrink-0">
           <button
             type="button"
             onClick={onClose}
@@ -224,6 +240,7 @@ export function CT07Modal({
       </div>
     </div>
   );
+  return typeof document !== "undefined" ? createPortal(content, document.body) : content;
 }
 
 export function NA17Modal({
@@ -233,9 +250,23 @@ export function NA17Modal({
   resident: Resident;
   onClose: () => void;
 }) {
-  return (
-    <div className="fixed inset-0 bg-slate-900/50 flex items-center justify-center z-50 p-3 sm:p-4 backdrop-blur-xs">
-      <div className="bg-white rounded-2xl border border-slate-200 w-full max-w-3xl overflow-hidden animate-in fade-in zoom-in-95 duration-150 flex flex-col max-h-[92vh]">
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onClose]);
+
+  const content = (
+    <div
+      className="fixed inset-0 bg-slate-900/50 flex items-center justify-center z-50 p-3 sm:p-4 backdrop-blur-xs"
+      onClick={onClose}
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        className="bg-white rounded-2xl border border-slate-200 w-full max-w-3xl overflow-hidden animate-in fade-in zoom-in-95 duration-150 flex flex-col max-h-[92vh]"
+      >
         <div className="bg-purple-50 text-slate-900 p-4 flex justify-between items-center shrink-0 border-b border-purple-200">
           <div className="flex items-center gap-2.5">
             <div className="p-1.5 bg-purple-100 rounded-lg text-purple-700 border border-purple-200">
@@ -301,7 +332,7 @@ export function NA17Modal({
               </span>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+            <div className="grid grid-cols-1 sm:grid-cols-3 print:grid-cols-3 gap-2">
               <div>
                 <strong>2. Giới tính / Sex:</strong> {resident.gender} (
                 {resident.gender === "Nam" ? "Male" : "Female"})
@@ -315,7 +346,7 @@ export function NA17Modal({
               </div>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 pt-1">
+            <div className="grid grid-cols-1 sm:grid-cols-3 print:grid-cols-3 gap-2 pt-1">
               <div>
                 <strong>5. Hộ chiếu số / Passport No.:</strong>{" "}
                 <span className="font-mono font-bold text-slate-900">
@@ -334,7 +365,7 @@ export function NA17Modal({
               </div>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1 border-t border-slate-100">
+            <div className="grid grid-cols-1 sm:grid-cols-2 print:grid-cols-2 gap-2 pt-1 border-t border-slate-100">
               <div>
                 <strong>6. Nghề nghiệp / Occupation:</strong>{" "}
                 {resident.occupation || "Chuyên gia / Lao động nước ngoài"}
@@ -361,7 +392,7 @@ export function NA17Modal({
                   {resident.visaOrCardType || "Thẻ tạm trú (TRC)"}
                 </span>
               </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-[11px]">
+              <div className="grid grid-cols-1 sm:grid-cols-2 print:grid-cols-2 gap-2 text-[11px]">
                 <div>
                   <strong>Số thẻ / Số thị thực:</strong>{" "}
                   <span className="font-mono font-semibold">
@@ -411,7 +442,7 @@ export function NA17Modal({
               </p>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1 border-t border-slate-100">
+            <div className="grid grid-cols-1 sm:grid-cols-2 print:grid-cols-2 gap-2 pt-1 border-t border-slate-100">
               <div>
                 <strong>9. Mã hồ sơ khai báo trực tuyến (Cổng DVC):</strong>{" "}
                 <span className="font-mono font-bold text-emerald-700">
@@ -439,7 +470,7 @@ export function NA17Modal({
             </div>
           </div>
 
-          <div className="pt-6 border-t border-slate-200 grid grid-cols-3 gap-2 text-center text-xs font-sans">
+          <div className="pt-6 border-t border-slate-200 grid grid-cols-1 sm:grid-cols-3 print:grid-cols-3 gap-4 sm:gap-2 text-center text-xs font-sans">
             <div className="space-y-1">
               <p className="font-bold text-[11px]">NGƯỜI NƯỚC NGOÀI</p>
               <p className="text-[10px] text-slate-400 italic">
@@ -476,7 +507,7 @@ export function NA17Modal({
                 </span>
               </div>
               <p className="font-semibold text-slate-800 text-[11px]">
-                Trung tá Lê Văn Sơn
+                Đại úy Trần Quốc Hải
               </p>
             </div>
           </div>
@@ -511,27 +542,51 @@ export function NA17Modal({
       </div>
     </div>
   );
+  return typeof document !== "undefined" ? createPortal(content, document.body) : content;
 }
 
 export function QuickHouseholdModal({
   household,
+  residents = [],
   showFullCccd,
   onClose,
 }: {
   household: Household;
+  residents?: Resident[];
   showFullCccd: boolean;
   onClose: () => void;
 }) {
-  return (
+  const [memberSearch, setMemberSearch] = useState("");
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onClose]);
+
+  const allMembers = household.members || [];
+  const q = memberSearch.trim().toLowerCase();
+  const filteredMembers = q
+    ? allMembers.filter(
+        (m) =>
+          (m.name || "").toLowerCase().includes(q) ||
+          (m.cccd || "").toLowerCase().includes(q) ||
+          String(m.birthYear || "").includes(q) ||
+          (m.relation || "").toLowerCase().includes(q)
+      )
+    : allMembers;
+
+  const content = (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/60 backdrop-blur-xs animate-in fade-in duration-200"
       onClick={onClose}
     >
       <div
         onClick={(e) => e.stopPropagation()}
-        className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-lg overflow-hidden animate-in zoom-in-95 duration-200 text-slate-800"
+        className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-lg max-h-[90vh] flex flex-col overflow-hidden animate-in zoom-in-95 duration-200 text-slate-800"
       >
-        <div className="bg-gradient-to-r from-slate-50 via-white to-emerald-50/30 px-5 py-4 border-b border-slate-200 flex items-center justify-between">
+        <div className="bg-gradient-to-r from-slate-50 via-white to-emerald-50/30 px-5 py-4 border-b border-slate-200 flex items-center justify-between shrink-0">
           <div className="flex items-center gap-2">
             <span className="font-mono text-xs font-bold px-2.5 py-0.5 rounded-md bg-emerald-100 text-emerald-800 border border-emerald-300">
               {household.code}
@@ -550,7 +605,7 @@ export function QuickHouseholdModal({
           </button>
         </div>
 
-        <div className="p-5 space-y-4 text-xs">
+        <div className="p-5 space-y-4 text-xs overflow-y-auto flex-1">
           <div>
             <h3 className="text-base font-extrabold text-slate-900">
               Hộ gia đình: {household.ownerName}
@@ -570,54 +625,127 @@ export function QuickHouseholdModal({
             <div className="flex justify-between items-center">
               <span className="text-[11px] font-bold text-slate-700 uppercase tracking-wider block">
                 Danh sách nhân khẩu trong hộ (
-                {household.members?.length || household.memberCount || 0} người)
+                {allMembers.length || household.memberCount || 0} người)
               </span>
               <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-50 text-emerald-800 border border-emerald-200">
                 {household.type || "Thường trú"}
               </span>
             </div>
+
+            {allMembers.length > 3 && (
+              <div className="relative">
+                <Search
+                  size={13}
+                  className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none"
+                />
+                <input
+                  type="text"
+                  value={memberSearch}
+                  onChange={(e) => setMemberSearch(e.target.value)}
+                  placeholder="Tìm nhanh thành viên theo họ tên, CCCD..."
+                  aria-label="Tìm nhanh thành viên trong sổ hộ tịch"
+                  className="w-full pl-7 pr-7 py-1.5 rounded-lg border border-slate-200 bg-white text-xs text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500"
+                />
+                {memberSearch && (
+                  <button
+                    type="button"
+                    onClick={() => setMemberSearch("")}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 cursor-pointer"
+                  >
+                    <X size={12} />
+                  </button>
+                )}
+              </div>
+            )}
+
             <div className="space-y-1.5 max-h-56 overflow-y-auto">
-              {(household.members || []).map((m, idx) => (
-                <div
-                  key={idx}
-                  className="flex justify-between items-center p-2.5 rounded-lg bg-white border border-slate-200 text-xs"
-                >
-                  <div>
-                    <strong className="text-slate-900 block">{m.name}</strong>
-                    <span className="text-slate-600 font-mono text-xs">
-                      Sinh: {m.birthYear || "—"} • CCCD:{" "}
-                      {maskCccd(m.cccd, showFullCccd)}
-                    </span>
-                  </div>
-                  <span
-                    className={`px-2 py-0.5 rounded text-xs font-bold ${
-                      m.relation === "Chủ hộ"
-                        ? "bg-emerald-100 text-emerald-800"
-                        : "bg-slate-100 text-slate-700"
+              {filteredMembers.map((m, idx) => {
+                const matchedRes = residents.find(
+                  (r) =>
+                    (m.cccd && r.cccd && r.cccd.trim() === m.cccd.trim()) ||
+                    (r.fullName.trim().toLowerCase() === m.name.trim().toLowerCase() &&
+                      r.householdId === household.code)
+                );
+                return (
+                  <div
+                    key={idx}
+                    role={matchedRes ? "button" : undefined}
+                    tabIndex={matchedRes ? 0 : undefined}
+                    onClick={() => {
+                      if (matchedRes) {
+                        onClose();
+                        navigate(getResidentDetailPath(matchedRes.id));
+                      }
+                    }}
+                    onKeyDown={(e) => {
+                      if (!matchedRes || e.target !== e.currentTarget) return;
+                      if (e.key === "Enter" || e.key === " ") {
+                        e.preventDefault();
+                        onClose();
+                        navigate(getResidentDetailPath(matchedRes.id));
+                      }
+                    }}
+                    className={`group flex justify-between items-center p-2.5 rounded-lg bg-white border border-slate-200 text-xs transition-all ${
+                      matchedRes
+                        ? "cursor-pointer hover:border-emerald-400 hover:bg-emerald-50/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500"
+                        : ""
                     }`}
                   >
-                    {m.relation}
-                  </span>
-                </div>
-              ))}
+                    <div>
+                      <strong className="text-slate-900 group-hover:text-emerald-800 transition-colors block">
+                        {m.name}
+                      </strong>
+                      <span className="text-slate-600 font-mono text-xs">
+                        Sinh: {m.birthYear || "—"} • CCCD:{" "}
+                        {maskCccd(m.cccd, showFullCccd)}
+                      </span>
+                    </div>
+                    <span
+                      className={`px-2 py-0.5 rounded text-xs font-bold ${
+                        m.relation === "Chủ hộ"
+                          ? "bg-emerald-100 text-emerald-800"
+                          : "bg-slate-100 text-slate-700"
+                      }`}
+                    >
+                      {m.relation}
+                    </span>
+                  </div>
+                );
+              })}
             </div>
           </div>
         </div>
 
-        <div className="px-5 py-3.5 bg-slate-50 border-t border-slate-200 flex justify-between items-center">
+        <div className="px-5 py-3.5 bg-slate-50 border-t border-slate-200 flex flex-wrap justify-between items-center gap-2 shrink-0">
           <span className="text-xs text-slate-600 font-medium">
             Đồng bộ cơ sở dữ liệu Khu phố 3
           </span>
-          <button
-            type="button"
-            onClick={onClose}
-            className="px-4 py-1.5 bg-slate-200 hover:bg-slate-300 text-slate-800 rounded-xl text-xs font-bold transition-colors cursor-pointer"
-          >
-            Đóng
-          </button>
+          <div className="flex items-center gap-2">
+            {household.id && (
+              <button
+                type="button"
+                onClick={() => {
+                  onClose();
+                  navigate(getHouseholdDetailPath(household.id));
+                }}
+                className="px-3.5 py-1.5 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl text-xs font-bold inline-flex items-center gap-1.5 transition-colors cursor-pointer"
+              >
+                <ExternalLink size={13} />
+                <span>Mở Sổ Hộ Khẩu đầy đủ</span>
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={onClose}
+              className="px-4 py-1.5 bg-slate-200 hover:bg-slate-300 text-slate-800 rounded-xl text-xs font-bold transition-colors cursor-pointer"
+            >
+              Đóng
+            </button>
+          </div>
         </div>
       </div>
     </div>
   );
+  return typeof document !== "undefined" ? createPortal(content, document.body) : content;
 }
 

@@ -141,7 +141,7 @@ export function ReportSelect({
         <div
           id={listboxId}
           role="listbox"
-          className="absolute left-0 right-0 mt-1.5 min-w-[200px] max-h-[460px] overflow-y-auto evon-scroll rounded-xl border border-slate-900/[0.08] bg-white p-1.5 shadow-lg flex flex-col gap-1 z-40 origin-top transition-all duration-150"
+          className="absolute left-0 right-0 mt-1.5 min-w-full max-w-[calc(100vw-2rem)] max-h-64 sm:max-h-72 overflow-y-auto evon-scroll rounded-xl border border-slate-200 bg-white p-1.5 shadow-lg space-y-1 z-50 origin-top transition-all duration-150"
         >
           {options.map((opt, idx) => {
             const selected = opt.value === value;
@@ -157,19 +157,19 @@ export function ReportSelect({
                   onChange(opt.value);
                   setIsOpen(false);
                 }}
-                className={`w-full min-h-10 flex items-center justify-between gap-2 rounded-lg px-2.5 py-2 text-left text-xs sm:text-sm transition-colors cursor-pointer ${
+                className={`w-full shrink-0 h-auto min-h-9 flex items-start justify-between gap-2 rounded-lg px-2.5 py-2 text-left text-xs sm:text-sm transition-colors cursor-pointer ${
                   highlighted ? "bg-slate-100 text-slate-900" : "text-slate-700"
                 } ${selected ? "font-semibold text-emerald-800 bg-emerald-50/70" : ""}`}
               >
-                <div className="min-w-0 flex-1">
+                <div className="min-w-0 flex-1 whitespace-normal break-words">
                   <div className="leading-snug">{opt.label}</div>
                   {opt.description && (
-                    <div className="text-xs text-slate-600 font-normal mt-0.5">
+                    <div className="text-xs text-slate-500 font-normal leading-snug mt-0.5">
                       {opt.description}
                     </div>
                   )}
                 </div>
-                {selected && <Check size={14} className="shrink-0 text-emerald-700" aria-hidden="true" />}
+                {selected && <Check size={14} className="shrink-0 mt-0.5 text-emerald-700" aria-hidden="true" />}
               </button>
             );
           })}

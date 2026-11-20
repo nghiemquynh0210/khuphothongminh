@@ -17,6 +17,12 @@ export interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElemen
   isLoading?: boolean;
   leftIcon?: React.ReactNode;
   rightIcon?: React.ReactNode;
+  children?: React.ReactNode;
+  className?: string;
+  disabled?: boolean;
+  type?: "button" | "submit" | "reset";
+  onClick?: React.MouseEventHandler<HTMLButtonElement>;
+  title?: string;
 }
 
 export function buttonVariants({
@@ -70,8 +76,8 @@ export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
       disabled,
       type = "button",
       ...props
-    },
-    ref
+    }: ButtonProps,
+    ref: React.ForwardedRef<HTMLButtonElement>
   ) => {
     return (
       <button

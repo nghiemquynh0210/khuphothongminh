@@ -87,7 +87,7 @@ const CustomCheckboxRow: React.FC<CustomCheckboxRowProps> = ({
           {label} ({formatVNNumber(count)})
         </span>
       </label>
-      {rightActions && <div className="flex items-center gap-1 shrink-0">{rightActions}</div>}
+      {rightActions && <div className="flex flex-wrap items-center gap-1 shrink-0">{rightActions}</div>}
     </div>
   );
 };
@@ -209,9 +209,9 @@ export default function GisPinListPanel({
     <div className="space-y-4 min-w-0">
       {/* Layers panel */}
       <div className="bg-white rounded-2xl border border-slate-200 p-4 space-y-2.5">
-        <div className="flex items-center justify-between gap-2 pb-1.5 border-b border-slate-100">
+        <div className="flex flex-wrap items-center justify-between gap-2 pb-1.5 border-b border-slate-100">
           <h3 className="font-bold text-slate-900 text-xs uppercase tracking-wider flex items-center gap-1.5">
-            <Layers size={14} className="text-emerald-700" /> Lớp bản đồ (Layers)
+            <Layers size={14} className="text-emerald-700 shrink-0" /> Lớp bản đồ (Layers)
           </h3>
           {!readOnly && missingCoordCount > 0 && onOpenSyncModal && (
             <button
@@ -277,9 +277,9 @@ export default function GisPinListPanel({
 
       {/* Filter & Pin List */}
       <div className="bg-white rounded-2xl border border-slate-200 p-4 space-y-3">
-        <div className="flex items-center justify-between gap-2">
+        <div className="flex flex-wrap items-center justify-between gap-2">
           <h3 className="font-bold text-slate-900 text-xs uppercase tracking-wider flex items-center gap-1.5">
-            <MapPin size={14} className="text-emerald-700" /> Tra cứu điểm địa bàn
+            <MapPin size={14} className="text-emerald-700 shrink-0" /> Tra cứu điểm địa bàn
           </h3>
           <span className="text-xs font-bold text-slate-700">
             {formatVNNumber(filteredPins.length)} điểm

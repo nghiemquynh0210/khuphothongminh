@@ -50,24 +50,47 @@ import {
   Settings,
   ChevronLeft,
   ChevronRight,
+  ChevronDown,
   Building2,
   Flag,
   ShieldAlert,
   Briefcase,
   ArrowRight,
   Filter,
-  Network
+  Loader2,
+  Network,
+  MessageCircle,
 } from "lucide-react";
+import CadreZaloLinkModal, {
+  CadreZaloItem,
+  ZaloFollowerItem,
+} from "./settings/CadreZaloLinkModal";
 import { Resident, PartyMember, Association, AssociationMember, TaskItem } from "../types";
 import Pagination from "./Pagination";
 import { DetailRow, DetailGrid } from "./common/DetailRow";
 import { StatCard } from "./common/StatCard";
+import {
+  DecisionDocumentOcrResult,
+  extractDecisionDocumentViaOcr,
+  isRealDecisionDocumentUrl,
+  downloadDecisionDocument,
+} from "../utils/decisionDocumentOcr";
+import { uploadFileToStorageBucket, getStaffAuthHeaders } from "../utils/imageUpload";
 import { ReportSelect } from "./reports/ReportSelect";
+import {
+  assignMemberRoleInAssociation,
+  classifyMemberRoleTier,
+  extractKeyLeadersSummary,
+  getAssociationRolePresets,
+  previewRoleAssignment,
+  sortAssociationsAndMembers,
+} from "../utils/leadershipSync";
 import { ConfirmModal, InlineNotice } from "./ui/ConfirmModal";
 import { Modal } from "./ui/Modal";
 import { KP3_AREA_LIST, extractKp3Area } from "../utils/kp3Utils";
 import { loadAssociationRecord, saveAssociationRecord } from "../utils/supabaseSync";
 import { formatVNNumber } from "../utils/numberFormat";
+import { getResidentDetailPath, navigate } from "../routes";
 import {
   INITIAL_ASSOCIATIONS,
   getStoredAssociations,
@@ -137,18 +160,23 @@ export interface TargetGroupConfig {
   category: "Chính trị - Xã hội" | "Chính quyền cơ sở" | "An ninh - Quốc phòng" | "Đoàn thể nhân dân" | "Hội quần chúng" | "Chính sách xã hội" | "Phong trào tự quản";
 }
 
-// Group Types & Configuration for Chi hội & Đoàn thể
-export type AssocGroupKey = "all" | "gov_party" | "security" | "mass_orgs" | "social_welfare";
+export type AssocGroupKey = "all" | "gov_party" | "security" | "mass_orgs";
 
-export const ASSOC_GROUPS: { key: AssocGroupKey; label: string; icon: any }[] = [
-  { key: "all", label: "Tất cả", icon: Layers },
-  { key: "gov_party", label: "Cấp ủy & Chính quyền", icon: Building2 },
-  { key: "security", label: "An ninh & PCCC", icon: ShieldAlert },
-  { key: "mass_orgs", label: "Đoàn thể Nhân dân", icon: Users },
-  { key: "social_welfare", label: "An sinh & Tự quản", icon: Heart },
-];
+export const isSocialWelfareAssoc = (category: string = "", name: string = ""): boolean => {
+  const cat = (category || "").toLowerCase();
+  const n = (name || "").toLowerCase();
+  return (
+    cat.includes("chính sách") ||
+    n.includes("nghèo") ||
+    n.includes("người có công") ||
+    n.includes("liệt sĩ") ||
+    n.includes("anh hùng") ||
+    n.includes("khuyết tật") ||
+    n.includes("trẻ em")
+  );
+};
 
-export const getAssocGroupKey = (category: string = "", name: string = ""): AssocGroupKey => {
+const getAssocGroupKey = (category: string = "", name: string = ""): AssocGroupKey => {
   const cat = (category || "").toLowerCase();
   const n = (name || "").toLowerCase();
 
@@ -173,22 +201,10 @@ export const getAssocGroupKey = (category: string = "", name: string = ""): Asso
   ) {
     return "gov_party";
   }
-  if (
-    cat.includes("chính sách") ||
-    n.includes("nghèo") ||
-    n.includes("người có công") ||
-    n.includes("liệt sĩ") ||
-    n.includes("anh hùng") ||
-    n.includes("khuyết tật") ||
-    n.includes("trẻ em") ||
-    cat.includes("tự quản")
-  ) {
-    return "social_welfare";
-  }
   return "mass_orgs";
 };
 
-export const getAssocBadgeStyle = (assoc: Association) => {
+const getAssocBadgeStyle = (assoc: Association) => {
   const group = getAssocGroupKey(assoc.category, assoc.name);
   const n = (assoc.name || "").toLowerCase();
 
@@ -288,7 +304,7 @@ export const getAssocBadgeStyle = (assoc: Association) => {
       groupLabel: "Chữ Thập Đỏ"
     };
   }
-  if (group === "social_welfare") {
+  if (isSocialWelfareAssoc(assoc.category, assoc.name)) {
     return {
       icon: Heart,
       iconColor: "text-teal-600",
@@ -304,7 +320,7 @@ export const getAssocBadgeStyle = (assoc: Association) => {
   };
 };
 
-export const TARGET_GROUPS: TargetGroupConfig[] = [
+const TARGET_GROUPS: TargetGroupConfig[] = [
   // 1. Nhóm Đảng
   {
     id: "ASC_DANG",
@@ -574,6 +590,8 @@ export interface PartyBranchProps {
   residents?: Resident[];
   associations?: Association[];
   onAssociationsChange?: (next: Association[]) => void;
+  selectedAssociationId?: string;
+  onSelectedAssociationIdChange?: (id: string) => void;
   onCreateTask?: (task: TaskItem) => void;
   onNavigate?: (tab: string) => void;
   basePath?: string;
@@ -582,13 +600,44 @@ export interface PartyBranchProps {
   onOpenAddMember?: (assoc: Association) => void;
   onOpenMemberDetail?: (member: AssociationMember, assoc: Association) => void;
   onOpenEditMember?: (member: AssociationMember, assoc: Association) => void;
+  activeSubTab?: "associations" | "meetings" | "multi_role" | "decisions" | "org_chart";
+  onActiveSubTabChange?: (tab: "associations" | "meetings" | "multi_role" | "decisions" | "org_chart") => void;
+  assocViewMode?: "card" | "table";
+  onAssocViewModeChange?: (mode: "card" | "table") => void;
 }
+
+const DEFAULT_ROLES = [
+  "Chi hội trưởng",
+  "Chi hội phó",
+  "Ủy viên Ban chấp hành",
+  "Bí thư Chi bộ",
+  "Phó Bí thư Chi bộ",
+  "Tổ trưởng",
+  "Tổ phó",
+  "Thư ký",
+  "Hội viên",
+  "Hội viên tích cực",
+  "Hội viên nòng cốt",
+  "Đội viên ANTT cơ sở",
+  "Chiến sĩ Dân quân tự vệ",
+  "Chỉ huy trưởng DQTV",
+  "Hòa giải viên cơ sở",
+  "Trưởng Ban điều hành",
+  "Phó Ban điều hành",
+  "Cán bộ Đoàn thanh niên",
+  "Cán bộ Hội phụ nữ",
+  "Cán bộ Hội Cựu chiến binh",
+  "Cán bộ Hội Nông dân",
+  "Cộng tác viên Dân số"
+];
 
 export default function PartyBranch({
   partyMembers,
   residents = [],
   associations: externalAssociations,
   onAssociationsChange,
+  selectedAssociationId: externalSelectedAssociationId,
+  onSelectedAssociationIdChange,
   onCreateTask,
   onNavigate,
   basePath,
@@ -597,6 +646,10 @@ export default function PartyBranch({
   onOpenAddMember,
   onOpenMemberDetail,
   onOpenEditMember,
+  activeSubTab: activeSubTabProp,
+  onActiveSubTabChange,
+  assocViewMode: assocViewModeProp,
+  onAssocViewModeChange,
 }: PartyBranchProps) {
   // Pre-populated default associations (Chi hội) loaded from shared data and synchronized with local storage & Supabase
   const [internalAssociations, setInternalAssociations] = useState<Association[]>(() => getStoredAssociations());
@@ -604,7 +657,8 @@ export default function PartyBranch({
   const assocDbHydratedRef = useRef(false);
 
   const setAssociations = (updater: Association[] | ((prev: Association[]) => Association[])) => {
-    const next = typeof updater === "function" ? updater(associations) : updater;
+    const rawNext = typeof updater === "function" ? updater(associations) : updater;
+    const next = sortAssociationsAndMembers(rawNext);
     if (onAssociationsChange) {
       onAssociationsChange(next);
     } else {
@@ -617,37 +671,62 @@ export default function PartyBranch({
   };
 
   useEffect(() => {
+    if (externalAssociations) {
+      assocDbHydratedRef.current = true;
+      return;
+    }
     let active = true;
     loadAssociationRecord<Association[]>("associations").then((rows) => {
       if (active && Array.isArray(rows) && rows.length > 0) {
-        setAssociations(rows);
-        saveStoredAssociations(rows);
+        const sorted = sortAssociationsAndMembers(rows);
+        setAssociations(sorted);
+        saveStoredAssociations(sorted);
       }
       assocDbHydratedRef.current = true;
     });
     return () => {
       active = false;
     };
-  }, []);
+  }, [Boolean(externalAssociations)]);
 
   useEffect(() => {
+    if (externalAssociations) return;
     saveStoredAssociations(associations);
     if (assocDbHydratedRef.current) {
       saveAssociationRecord("associations", associations);
     }
-  }, [associations]);
+  }, [associations, Boolean(externalAssociations)]);
 
-  const [selectedAssociationId, setSelectedAssociationId] = useState<string>("ASC_BDH");
+  const [internalSelectedAssociationId, setInternalSelectedAssociationId] = useState<string>("ASC_DANG");
+  const selectedAssociationId = externalSelectedAssociationId ?? internalSelectedAssociationId;
+  const setSelectedAssociationId = (nextId: string) => {
+    if (onSelectedAssociationIdChange) {
+      onSelectedAssociationIdChange(nextId);
+    } else {
+      setInternalSelectedAssociationId(nextId);
+    }
+  };
   const [mobileAssocDetailOpen, setMobileAssocDetailOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
-  const [selectedGroupFilter, setSelectedGroupFilter] = useState<AssocGroupKey>("all");
-  const [activeSubTab, setActiveSubTab] = useState<"associations" | "meetings" | "multi_role" | "decisions" | "org_chart">("associations");
+  const [internalSubTab, setInternalSubTab] = useState<"associations" | "meetings" | "multi_role" | "decisions" | "org_chart">("associations");
+  const activeSubTab = activeSubTabProp ?? internalSubTab;
+  const setActiveSubTab = (tab: "associations" | "meetings" | "multi_role" | "decisions" | "org_chart") => {
+    setInternalSubTab(tab);
+    onActiveSubTabChange?.(tab);
+  };
   // View mode for Associations in Sub-tab 1: "card" (Master-Detail 2-column) or "table" (Comprehensive full-width Table View)
-  const [assocViewMode, setAssocViewMode] = useState<"card" | "table">("card");
+  const [internalAssocViewMode, setInternalAssocViewMode] = useState<"card" | "table">("card");
+  const assocViewMode = assocViewModeProp ?? internalAssocViewMode;
+  const setAssocViewMode = (mode: "card" | "table") => {
+    setInternalAssocViewMode(mode);
+    onAssocViewModeChange?.(mode);
+  };
   const [decisionSearch, setDecisionSearch] = useState("");
   const [decisionAssocFilter, setDecisionAssocFilter] = useState("all");
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 8;
+
+  const liveKeyLeaders = useMemo(() => extractKeyLeadersSummary(associations), [associations]);
 
   // Party resolutions & 213 party member Tổ 1-14 filter
   const [resolutions, setResolutions] = useState<PartyResolution[]>(() => {
@@ -663,12 +742,127 @@ export default function PartyBranch({
   const [newResTitle, setNewResTitle] = useState("");
   const [newResSummary, setNewResSummary] = useState("");
   const [newResUnit, setNewResUnit] = useState("Ban Điều hành Khu phố 3");
-  const [newResAssignee, setNewResAssignee] = useState("Nguyễn Trung Huy");
+  const [newResAssignee, setNewResAssignee] = useState(() => liveKeyLeaders.neighborhoodHead.name);
   const [newResDeadline, setNewResDeadline] = useState("2026-11-30");
   const [showAddResolutionForm, setShowAddResolutionForm] = useState(false);
   const [to213Filter, setTo213Filter] = useState<string>("all");
+  const [search213Query, setSearch213Query] = useState<string>("");
   const [confirmResetRoles, setConfirmResetRoles] = useState(false);
   const [roleToDelete, setRoleToDelete] = useState<string | null>(null);
+
+  const [customRoles, setCustomRoles] = useState<string[]>(() => {
+    try {
+      const saved = localStorage.getItem("kp3_association_roles");
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+    } catch {
+      // ignore
+    }
+    return DEFAULT_ROLES;
+  });
+
+  // Cadre Zalo Linking state
+  const [cadreForZaloLink, setCadreForZaloLink] = useState<CadreZaloItem | null>(null);
+  const [zaloFollowersList, setZaloFollowersList] = useState<ZaloFollowerItem[]>([]);
+  const [cadreZaloMapping, setCadreZaloMapping] = useState<Record<string, CadreZaloItem>>({});
+
+  useEffect(() => {
+    let active = true;
+    getStaffAuthHeaders().then((authHeaders) => {
+      fetch("/api/notifications", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", ...authHeaders },
+        body: JSON.stringify({ action: "get_cadre_zalo_directory" }),
+      })
+        .then((r) => (r.ok ? r.json() : null))
+        .then((json) => {
+          if (!active || !json) return;
+          if (Array.isArray(json.followers)) setZaloFollowersList(json.followers);
+          if (Array.isArray(json.cadres)) {
+            const map: Record<string, CadreZaloItem> = {};
+            json.cadres.forEach((c: CadreZaloItem) => {
+              if (c.cadreKey) map[c.cadreKey] = c;
+            });
+            setCadreZaloMapping(map);
+          }
+        })
+        .catch(() => {});
+    });
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  const getMemberCadreKey = (name?: string) =>
+    (name || "")
+      .replace(/^(?:Bí thư|Phó Bí thư|Trưởng Khu phố|Phó Trưởng Khu phố|Đ\/c|Đồng chí|Đại úy)\s+/i, "")
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .replace(/đ/gi, "d")
+      .toLowerCase()
+      .replace(/\s+/g, " ")
+      .trim();
+
+  const getMemberZaloInfo = (member: AssociationMember) => {
+    const key = getMemberCadreKey(member.fullName);
+    const mapped = cadreZaloMapping[key];
+    const isSo = key === "pham ngoc ha" || (member.phone && member.phone.includes("0908579479"));
+    const zaloUserId = mapped?.zaloUserId || (isSo ? "2742691693568338378" : member.zaloUserId);
+    const zaloDisplayName = mapped?.zaloDisplayName || (isSo ? "Sò" : member.zaloDisplayName);
+    return {
+      key,
+      isLinked: Boolean(zaloUserId),
+      zaloUserId,
+      zaloDisplayName,
+    };
+  };
+
+  const handleOpenZaloLinkForMember = async (member: AssociationMember, currentAssoc?: Association) => {
+    const key = getMemberCadreKey(member.fullName);
+    const isSo = key === "pham ngoc ha" || (member.phone && member.phone.includes("0908579479"));
+
+    let followers = zaloFollowersList;
+    if (followers.length === 0) {
+      try {
+        const authHeaders = await getStaffAuthHeaders();
+        const res = await fetch("/api/notifications", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", ...authHeaders },
+          body: JSON.stringify({ action: "get_cadre_zalo_directory" }),
+        });
+        const json = await res.json();
+        if (json?.ok && Array.isArray(json.followers)) {
+          followers = json.followers;
+          setZaloFollowersList(followers);
+          if (Array.isArray(json.cadres)) {
+            const map: Record<string, CadreZaloItem> = {};
+            json.cadres.forEach((c: CadreZaloItem) => {
+              if (c.cadreKey) map[c.cadreKey] = c;
+            });
+            setCadreZaloMapping(map);
+          }
+        }
+      } catch {}
+    }
+
+    const existing = cadreZaloMapping[key];
+    const uid = existing?.zaloUserId || (isSo ? "2742691693568338378" : member.zaloUserId);
+    const dName = existing?.zaloDisplayName || (isSo ? "Sò" : member.zaloDisplayName);
+
+    setCadreForZaloLink({
+      cadreKey: key,
+      fullName: member.fullName,
+      role: member.role || member.position || "",
+      phone: member.phone || "",
+      email: member.email || "",
+      org: currentAssoc?.name || "Chi hội KP3",
+      zaloUserId: uid,
+      zaloDisplayName: dName,
+      isLinked: Boolean(uid),
+    });
+  };
 
   const persistResolutions = (next: PartyResolution[]) => {
     setResolutions(next);
@@ -703,7 +897,10 @@ export default function PartyBranch({
 
   const handleDispatchResolutionTask = (res: PartyResolution) => {
     const newTask: TaskItem = {
-      id: `TASK-NQ-${Date.now().toString(36).toUpperCase()}`,
+      id:
+        typeof crypto !== "undefined" && typeof crypto.randomUUID === "function"
+          ? crypto.randomUUID()
+          : `00000000-0000-4000-8000-${Date.now().toString(16).padStart(12, "0").slice(-12)}`,
       title: `[Nghị quyết Chi bộ] ${res.title}`,
       description: `${res.sessionTitle} (${res.attendance}) — ${res.summary}`,
       unit: res.assigneeUnit,
@@ -748,7 +945,7 @@ export default function PartyBranch({
       title: newResTitle.trim(),
       summary: newResSummary.trim() || "Triển khai thực hiện nghị quyết Chi bộ Khu phố 3.",
       assigneeUnit: newResUnit.trim() || "Ban Điều hành Khu phố 3",
-      assigneeName: newResAssignee.trim() || "Nguyễn Trung Huy",
+      assigneeName: newResAssignee.trim() || liveKeyLeaders.neighborhoodHead.name,
       deadline: newResDeadline || "2026-11-30"
     };
     persistResolutions([created, ...resolutions]);
@@ -788,19 +985,109 @@ export default function PartyBranch({
   const [memberSearchTerm, setMemberSearchTerm] = useState("");
   const [memberRoleFilter, setMemberRoleFilter] = useState<string>("Tất cả");
 
-  // Fallback safe association to guarantee no undefined access
+  // Fallback safe association to guarantee no undefined access (Chi bộ Đảng luôn đứng đầu)
   const fallbackAssociation: Association = {
-    id: "ASC_BDH",
-    name: "Ban điều hành khu phố",
-    category: "Chính quyền cơ sở",
-    description: "Tổ chức tự quản trực tiếp điều hành mọi hoạt động dân cư và đời sống cơ sở tại Khu phố 3.",
-    leaderName: "Nguyễn Trung Huy",
-    leaderCccd: "079080009988",
+    id: "ASC_DANG",
+    name: "Chi bộ Đảng (Đảng viên)",
+    category: "Chính trị - Xã hội",
+    description: "Tổ chức hạt nhân lãnh đạo chính trị toàn diện tại cơ sở Khu phố 3.",
+    leaderName: liveKeyLeaders.partySecretary.name,
+    leaderCccd: liveKeyLeaders.partySecretary.cccd || "079075001868",
     members: []
   };
 
   // Selected association derived from ID for single source of truth and instant reactivity
   const selectedAssociation = associations.find(a => a.id === selectedAssociationId) || associations[0] || fallbackAssociation;
+  const selectedAssocPresets = useMemo(
+    () => getAssociationRolePresets(selectedAssociation),
+    [selectedAssociation]
+  );
+
+  // Quick Role Switcher & Smart Handover State
+  const [quickRoleMenuCccd, setQuickRoleMenuCccd] = useState<string | null>(null);
+  const [pendingHandover, setPendingHandover] = useState<{
+    assocId: string;
+    assocName: string;
+    member: AssociationMember;
+    nextRole: string;
+    currentHead: AssociationMember;
+    previousHeadNextRole: string;
+    fallbackOptions: string[];
+  } | null>(null);
+
+  const [prevSelectedAssocId, setPrevSelectedAssocId] = useState(selectedAssociationId);
+  if (selectedAssociationId !== prevSelectedAssocId) {
+    setPrevSelectedAssocId(selectedAssociationId);
+    setQuickRoleMenuCccd(null);
+  }
+
+  const handleQuickRoleChangeRequest = (
+    member: AssociationMember,
+    nextRole: string,
+    targetAssoc: Association = selectedAssociation
+  ) => {
+    setQuickRoleMenuCccd(null);
+    const trimmed = nextRole.trim();
+    if (!trimmed || member.role === trimmed) return;
+
+    const preview = previewRoleAssignment(targetAssoc, member.cccd, trimmed);
+    if (preview.requiresHandover && preview.currentHead) {
+      const presets = getAssociationRolePresets(targetAssoc);
+      const fallbackOpts = Array.from(
+        new Set([
+          presets.handoverFallbackRole,
+          presets.deputyRole,
+          ...presets.committeeRoles,
+          ...presets.memberRoles,
+        ])
+      );
+      setPendingHandover({
+        assocId: targetAssoc.id,
+        assocName: targetAssoc.name,
+        member,
+        nextRole: trimmed,
+        currentHead: preview.currentHead,
+        previousHeadNextRole: preview.suggestedPreviousHeadRole,
+        fallbackOptions: fallbackOpts,
+      });
+      return;
+    }
+
+    const updated = assignMemberRoleInAssociation(associations, targetAssoc.id, member.cccd, trimmed);
+    setAssociations(updated);
+    showToast(
+      `Đã cập nhật chức danh "${trimmed}" cho ${member.fullName} — Đã đồng bộ toàn hệ thống!`,
+      "success"
+    );
+  };
+
+  const confirmPendingHandover = () => {
+    if (!pendingHandover) return;
+    const updated = assignMemberRoleInAssociation(
+      associations,
+      pendingHandover.assocId,
+      pendingHandover.member.cccd,
+      pendingHandover.nextRole,
+      { previousHeadNextRole: pendingHandover.previousHeadNextRole }
+    );
+    setAssociations(updated);
+    showToast(
+      `Đã bổ nhiệm Đ/c ${pendingHandover.member.fullName} giữ chức "${pendingHandover.nextRole}" (bàn giao từ Đ/c ${pendingHandover.currentHead.fullName}) và đồng bộ toàn hệ thống!`,
+      "success"
+    );
+    setPendingHandover(null);
+  };
+
+  const handleTriggerMemberDetail = (
+    member: AssociationMember,
+    assoc: Association = selectedAssociation
+  ) => {
+    if (onOpenMemberDetail) {
+      onOpenMemberDetail(member, assoc);
+    } else {
+      setSelectedMemberForDetail(member);
+    }
+  };
 
   // Modern Toast alert system for cross-origin iframe compliance (replaces window.alert)
   const [toast, setToast] = useState<{ message: string; type: "success" | "error" } | null>(null);
@@ -845,10 +1132,24 @@ export default function PartyBranch({
     };
   } | null>(null);
 
-  // File upload processing (Image & PDF supported)
+  // File upload processing (Image & PDF supported + AI Vision OCR auto-fill)
+  const [isScanningDecisionOcr, setIsScanningDecisionOcr] = useState(false);
+  const [showDecisionOcrModal, setShowDecisionOcrModal] = useState(false);
+  const [decisionModalOcrResult, setDecisionModalOcrResult] = useState<DecisionDocumentOcrResult | null>(null);
+  const [decisionModalFile, setDecisionModalFile] = useState<{
+    name: string;
+    url: string;
+    type: "image" | "pdf";
+    size: string;
+  } | null>(null);
+  const [decisionModalAssocId, setDecisionModalAssocId] = useState<string>("ASC_DANG");
+  const [decisionModalNumber, setDecisionModalNumber] = useState<string>("");
+  const [decisionModalDate, setDecisionModalDate] = useState<string>("");
+
   const handleProcessFileUpload = (
     file: File,
-    onSuccess: (fileObj: { name: string; url: string; type: "image" | "pdf"; size: string }) => void
+    onSuccess: (fileObj: { name: string; url: string; type: "image" | "pdf"; size: string }) => void,
+    ocrMode?: "add_member" | "edit_member" | "standalone_modal"
   ) => {
     const isPdf = file.type === "application/pdf" || file.name.toLowerCase().endsWith(".pdf");
     const isImage = file.type.startsWith("image/") || /\.(png|jpe?g|webp|gif)$/i.test(file.name);
@@ -865,17 +1166,95 @@ export default function PartyBranch({
 
     const formattedSize = file.size > 1024 * 1024
       ? `${(file.size / (1024 * 1024)).toFixed(1)} MB`
-      : `${Math.round(file.size / 1024)} KB`;
+      : `${Math.max(1, Math.round(file.size / 1024))} KB`;
 
     const reader = new FileReader();
-    reader.onload = () => {
+    reader.onload = async () => {
+      const localUrl = reader.result as string;
       onSuccess({
         name: file.name,
-        url: reader.result as string,
+        url: localUrl,
         type: isPdf ? "pdf" : "image",
         size: formattedSize
       });
-      showToast(`Đã tải lên tệp: ${file.name} (${formattedSize})`, "success");
+
+      if (!ocrMode) {
+        showToast(`Đã tải lên tệp: ${file.name} (${formattedSize})`, "success");
+        return;
+      }
+
+      setIsScanningDecisionOcr(true);
+      try {
+        const [uploadedUrl, ocr] = await Promise.all([
+          uploadFileToStorageBucket(file, "admin-forms", "decisions"),
+          extractDecisionDocumentViaOcr(file, associations, residents),
+        ]);
+
+        if (uploadedUrl) {
+          onSuccess({
+            name: file.name,
+            url: uploadedUrl,
+            type: isPdf ? "pdf" : "image",
+            size: formattedSize,
+          });
+        }
+
+        if (ocrMode === "add_member") {
+          if (ocr.decisionNumber) setMemberDecisionNumber(ocr.decisionNumber);
+          if (ocr.decisionDate) {
+            setMemberDecisionDate(ocr.decisionDate);
+            if (!memberJoinDate) setMemberJoinDate(ocr.decisionDate);
+          }
+          if (ocr.appointees.length > 0) {
+            const first = ocr.appointees[0];
+            if (first.role) setMemberRole(first.role);
+            if (first.matchedResident?.cccd) {
+              setSelectedResidentCccd(first.matchedResident.cccd);
+            }
+          }
+          showToast(
+            ocr.decisionNumber || ocr.appointees.length > 0
+              ? `AI OCR đã tự điền thông tin Quyết định ${ocr.decisionNumber || file.name}!`
+              : `Đã đính kèm tệp Quyết định: ${file.name}`,
+            "success"
+          );
+        } else if (ocrMode === "edit_member") {
+          if (ocr.decisionNumber) setEditMemberDecisionNumber(ocr.decisionNumber);
+          if (ocr.decisionDate) setEditMemberDecisionDate(ocr.decisionDate);
+          if (ocr.appointees.length > 0) {
+            const matched =
+              (editingMember &&
+                ocr.appointees.find(
+                  (a) =>
+                    (a.cccd && a.cccd === editingMember.cccd) ||
+                    a.fullName.toLowerCase() === editingMember.fullName.toLowerCase()
+                )) ||
+              ocr.appointees[0];
+            if (matched?.role) setEditMemberRole(matched.role);
+          }
+          showToast(
+            ocr.decisionNumber
+              ? `AI OCR đã tự điền Số QĐ ${ocr.decisionNumber} & ngày ban hành!`
+              : `Đã cập nhật tệp Quyết định: ${file.name}`,
+            "success"
+          );
+        } else if (ocrMode === "standalone_modal") {
+          setDecisionModalOcrResult(ocr);
+          setDecisionModalNumber(ocr.decisionNumber || "");
+          setDecisionModalDate(ocr.decisionDate || new Date().toLocaleDateString("vi-VN"));
+          if (ocr.matchedAssocId) {
+            setDecisionModalAssocId(ocr.matchedAssocId);
+          }
+          showToast(
+            `AI OCR đã đọc văn bản "${file.name}" (${ocr.appointees.length} nhân sự nhận diện)!`,
+            "success"
+          );
+        }
+      } catch {
+        showToast(`Đã tải lên tệp: ${file.name} (${formattedSize})`, "success");
+      } finally {
+        setIsScanningDecisionOcr(false);
+      }
     };
     reader.onerror = () => {
       showToast("Không thể đọc tệp tin đã chọn!", "error");
@@ -883,14 +1262,115 @@ export default function PartyBranch({
     reader.readAsDataURL(file);
   };
 
+  const handleApplyStandaloneDecisionOcr = () => {
+    const targetAssoc = associations.find((a) => a.id === decisionModalAssocId);
+    if (!targetAssoc) {
+      showToast("Vui lòng chọn Chi hội / Tổ chức áp dụng Quyết định!", "error");
+      return;
+    }
+    if (!decisionModalNumber.trim()) {
+      showToast("Vui lòng nhập Số hiệu Quyết định!", "error");
+      return;
+    }
+
+    const appointees = decisionModalOcrResult?.appointees || [];
+    let nextAssociations = [...associations];
+
+    if (appointees.length > 0) {
+      for (const p of appointees) {
+        const cccdKey = p.cccd || p.matchedResident?.cccd || `QD-${Date.now()}-${Math.floor(Math.random() * 999)}`;
+        nextAssociations = nextAssociations.map((a) => {
+          if (a.id !== targetAssoc.id) return a;
+          const exists = a.members.some(
+            (m) => m.cccd === cccdKey || m.fullName.trim().toLowerCase() === p.fullName.trim().toLowerCase()
+          );
+          if (exists) {
+            return {
+              ...a,
+              members: a.members.map((m) =>
+                m.cccd === cccdKey || m.fullName.trim().toLowerCase() === p.fullName.trim().toLowerCase()
+                  ? {
+                      ...m,
+                      role: p.role || m.role,
+                      decisionNumber: decisionModalNumber.trim(),
+                      decisionDate: decisionModalDate.trim() || m.decisionDate,
+                      decisionFile: decisionModalFile || m.decisionFile,
+                    }
+                  : m
+              ),
+            };
+          }
+          return {
+            ...a,
+            members: [
+              ...a.members,
+              {
+                id: `M-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+                fullName: p.fullName,
+                cccd: cccdKey,
+                role: p.role || "Hội viên",
+                phone: p.phone || p.matchedResident?.phone,
+                birthDate: p.birthDate || p.matchedResident?.birthDate,
+                joinDate: decisionModalDate.trim() || new Date().toLocaleDateString("vi-VN"),
+                decisionNumber: decisionModalNumber.trim(),
+                decisionDate: decisionModalDate.trim() || new Date().toLocaleDateString("vi-VN"),
+                decisionFile: decisionModalFile || undefined,
+              },
+            ],
+          };
+        });
+
+        const updatedTarget = nextAssociations.find((a) => a.id === targetAssoc.id);
+        const matchedMember = updatedTarget?.members.find(
+          (m) => m.fullName.trim().toLowerCase() === p.fullName.trim().toLowerCase()
+        );
+        if (matchedMember && p.role) {
+          nextAssociations = assignMemberRoleInAssociation(
+            nextAssociations,
+            targetAssoc.id,
+            matchedMember.cccd,
+            p.role,
+            {
+              decisionNumber: decisionModalNumber.trim(),
+              decisionDate: decisionModalDate.trim() || undefined,
+            }
+          );
+        }
+      }
+    } else if (targetAssoc.members.length > 0) {
+      const leaderCccd = targetAssoc.leaderCccd || targetAssoc.members[0].cccd;
+      nextAssociations = nextAssociations.map((a) =>
+        a.id !== targetAssoc.id
+          ? a
+          : {
+              ...a,
+              members: a.members.map((m) =>
+                m.cccd === leaderCccd
+                  ? {
+                      ...m,
+                      decisionNumber: decisionModalNumber.trim(),
+                      decisionDate: decisionModalDate.trim() || m.decisionDate,
+                      decisionFile: decisionModalFile || m.decisionFile,
+                    }
+                  : m
+              ),
+            }
+      );
+    }
+
+    setAssociations(nextAssociations);
+    setShowDecisionOcrModal(false);
+    setDecisionModalOcrResult(null);
+    setDecisionModalFile(null);
+    showToast(
+      `Đã lưu Quyết định ${decisionModalNumber.trim()} vào "${targetAssoc.name}" và đồng bộ nhân sự!`,
+      "success"
+    );
+  };
+
   // Download attached decision file
-  const handleDownloadFile = (fileObj: { name: string; url: string }) => {
-    const link = document.createElement("a");
-    link.href = fileObj.url;
-    link.download = fileObj.name;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+  const handleDownloadFile = (fileObj: { name: string; url: string; type?: string }) => {
+    downloadDecisionDocument({ url: fileObj.url, name: fileObj.name, type: fileObj.type || "pdf" });
     showToast(`Đang tải xuống tệp: ${fileObj.name}`, "success");
   };
 
@@ -952,44 +1432,6 @@ export default function PartyBranch({
   const [selectedMemberForDetail, setSelectedMemberForDetail] = useState<AssociationMember | null>(null);
 
   // Dynamic Customizable Roles List (Thêm, Sửa, Xóa chức danh trong dropdown)
-  const DEFAULT_ROLES = [
-    "Chi hội trưởng",
-    "Chi hội phó",
-    "Ủy viên Ban chấp hành",
-    "Bí thư Chi bộ",
-    "Phó Bí thư Chi bộ",
-    "Tổ trưởng",
-    "Tổ phó",
-    "Thư ký",
-    "Hội viên",
-    "Hội viên tích cực",
-    "Hội viên nòng cốt",
-    "Đội viên ANTT cơ sở",
-    "Chiến sĩ Dân quân tự vệ",
-    "Chỉ huy trưởng DQTV",
-    "Hòa giải viên cơ sở",
-    "Trưởng Ban điều hành",
-    "Phó Ban điều hành",
-    "Cán bộ Đoàn thanh niên",
-    "Cán bộ Hội phụ nữ",
-    "Cán bộ Hội Cựu chiến binh",
-    "Cán bộ Hội Nông dân",
-    "Cộng tác viên Dân số"
-  ];
-
-  const [customRoles, setCustomRoles] = useState<string[]>(() => {
-    try {
-      const saved = localStorage.getItem("kp3_association_roles");
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
-      }
-    } catch (e) {
-      // ignore
-    }
-    return DEFAULT_ROLES;
-  });
-
   // Role Manager Modal State (cho phép thêm, sửa, xóa chức danh linh hoạt)
   const [showRoleManagerModal, setShowRoleManagerModal] = useState(false);
   const [newRoleInput, setNewRoleInput] = useState("");
@@ -1344,7 +1786,7 @@ export default function PartyBranch({
       : (editAssocLeaderCccd ? assocToEdit.leaderName : "Chưa xác định");
 
     // Update members list: if new leader is from residents, sync leadership role
-    let updatedMembers = [...assocToEdit.members];
+    const updatedMembers = [...assocToEdit.members];
     if (leaderResident) {
       const idx = updatedMembers.findIndex(m => m.cccd === leaderResident.cccd);
       if (idx >= 0) {
@@ -1424,39 +1866,48 @@ export default function PartyBranch({
     const residentObj = residents.find(r => r.cccd === selectedResidentCccd);
     if (!residentObj) return;
 
+    const k = getMemberCadreKey(residentObj.fullName);
+    const existingZalo = cadreZaloMapping[k];
+    const isSo = k === "pham ngoc ha" || (residentObj.phone && residentObj.phone.includes("0908579479"));
+    const autoZaloUid = existingZalo?.zaloUserId || (isSo ? "2742691693568338378" : undefined);
+    const autoZaloName = existingZalo?.zaloDisplayName || (isSo ? "Sò" : undefined);
+
     const newMember: AssociationMember = {
       id: "M" + Date.now(),
       fullName: residentObj.fullName,
       role: memberRole,
       cccd: residentObj.cccd,
-      phone: residentObj.phone || "N/A",
+      phone: residentObj.phone || (isSo ? "0908579479" : "N/A"),
       birthDate: residentObj.birthDate,
       joinDate: memberJoinDate.trim() || new Date().toLocaleDateString("vi-VN"),
       decisionNumber: memberDecisionNumber.trim() || undefined,
       decisionDate: memberDecisionDate.trim() || undefined,
-      decisionFile: memberDecisionFile || undefined
+      decisionFile: memberDecisionFile || undefined,
+      zaloUserId: autoZaloUid,
+      zaloDisplayName: autoZaloName,
     };
 
-    const updatedMembers = [...selectedAssociation.members, newMember];
+    const baseAssociations = associations.map((a) =>
+      a.id === selectedAssociation.id
+        ? { ...a, members: [...a.members, newMember] }
+        : a
+    );
 
-    // Check if the role is a main leader role and we want to auto-assign leadership
-    let updatedLeaderName = selectedAssociation.leaderName;
-    let updatedLeaderCccd = selectedAssociation.leaderCccd;
-    if (["Bí thư", "Chi hội trưởng", "Tổ trưởng", "Chỉ huy trưởng"].includes(memberRole)) {
-      updatedLeaderName = residentObj.fullName;
-      updatedLeaderCccd = residentObj.cccd;
-    }
-
-    const updatedAssociation: Association = {
-      ...selectedAssociation,
-      leaderName: updatedLeaderName,
-      leaderCccd: updatedLeaderCccd,
-      members: updatedMembers
-    };
-
-    const updatedAssociations = associations.map(a => a.id === selectedAssociation.id ? updatedAssociation : a);
-    setAssociations(updatedAssociations);
-    showToast(`Đã ghi danh ${newMember.fullName} vào ${selectedAssociation.name} thành công!`, "success");
+    const syncedAssociations = assignMemberRoleInAssociation(
+      baseAssociations,
+      selectedAssociation.id,
+      newMember.cccd,
+      memberRole,
+      {
+        decisionNumber: memberDecisionNumber.trim() || undefined,
+        decisionDate: memberDecisionDate.trim() || undefined,
+      }
+    );
+    setAssociations(syncedAssociations);
+    showToast(
+      `Đã ghi danh ${newMember.fullName} (${memberRole}) vào ${selectedAssociation.name} — Đồng bộ toàn hệ thống!`,
+      "success"
+    );
     setShowAddMemberModal(false);
 
     // Reset Form
@@ -1477,13 +1928,16 @@ export default function PartyBranch({
   const performRemoveMember = (memberCccd: string) => {
     const updatedMembers = selectedAssociation.members.filter(m => m.cccd !== memberCccd);
 
-    // If the leader is deleted, update leader details
+    // If the leader is deleted, promote remaining head/deputy or first member
     let updatedLeaderName = selectedAssociation.leaderName;
     let updatedLeaderCccd = selectedAssociation.leaderCccd;
     if (selectedAssociation.leaderCccd === memberCccd) {
-      const nextLeader = updatedMembers[0];
-      updatedLeaderName = nextLeader ? nextLeader.fullName : "Chưa phân công";
-      updatedLeaderCccd = nextLeader ? nextLeader.cccd : "N/A";
+      const nextHead =
+        updatedMembers.find((m) => classifyMemberRoleTier(m.role) === "head") ||
+        updatedMembers.find((m) => classifyMemberRoleTier(m.role) === "deputy") ||
+        updatedMembers[0];
+      updatedLeaderName = nextHead ? nextHead.fullName : "Chưa phân công";
+      updatedLeaderCccd = nextHead ? nextHead.cccd : "N/A";
     }
 
     const updatedAssociation: Association = {
@@ -1495,7 +1949,7 @@ export default function PartyBranch({
 
     const updatedAssociations = associations.map(a => a.id === selectedAssociation.id ? updatedAssociation : a);
     setAssociations(updatedAssociations);
-    showToast("Đã xóa thành viên khỏi Chi hội thành công!", "success");
+    showToast("Đã xóa thành viên khỏi Chi hội & cập nhật đồng bộ toàn hệ thống!", "success");
   };
 
   const handleOpenEditMember = (member: AssociationMember) => {
@@ -1515,72 +1969,58 @@ export default function PartyBranch({
       return;
     }
 
-    const updatedMembers = selectedAssociation.members.map(m => {
-      if (m.cccd === editingMember.cccd) {
-        return {
-          ...m,
-          role: editMemberRole.trim(),
-          joinDate: editMemberJoinDate.trim() || undefined,
-          decisionNumber: editMemberDecisionNumber.trim() || undefined,
-          decisionDate: editMemberDecisionDate.trim() || undefined,
-          decisionFile: editMemberDecisionFile || undefined
-        };
-      }
-      return m;
+    const baseUpdated = associations.map((a) => {
+      if (a.id !== selectedAssociation.id) return a;
+      return {
+        ...a,
+        members: a.members.map((m) => {
+          if (m.cccd === editingMember.cccd) {
+            return {
+              ...m,
+              role: editMemberRole.trim(),
+              joinDate: editMemberJoinDate.trim() || undefined,
+              decisionNumber: editMemberDecisionNumber.trim() || undefined,
+              decisionDate: editMemberDecisionDate.trim() || undefined,
+              decisionFile: editMemberDecisionFile || undefined,
+            };
+          }
+          return m;
+        }),
+      };
     });
 
-    // Check if we need to update association leadership
-    let updatedLeaderName = selectedAssociation.leaderName;
-    let updatedLeaderCccd = selectedAssociation.leaderCccd;
-
-    const leaderRoles = ["Bí thư Chi bộ", "Chi hội trưởng", "Tổ trưởng", "Chỉ huy trưởng DQTV", "Phó Bí thư", "Chi hội phó"];
-    const isNewRoleLeader = leaderRoles.includes(editMemberRole.trim());
-
-    if (isNewRoleLeader) {
-      // Promptly promote them as the current leader
-      updatedLeaderName = editingMember.fullName;
-      updatedLeaderCccd = editingMember.cccd;
-    } else if (selectedAssociation.leaderCccd === editingMember.cccd) {
-      // If this member was the leader and we demoted them, we can find a new leader from remaining leader-role members or keep it as is
-      const alternativeLeader = updatedMembers.find(m => leaderRoles.includes(m.role));
-      updatedLeaderName = alternativeLeader ? alternativeLeader.fullName : "Chưa phân công";
-      updatedLeaderCccd = alternativeLeader ? alternativeLeader.cccd : "N/A";
-    }
-
-    const updatedAssociation: Association = {
-      ...selectedAssociation,
-      leaderName: updatedLeaderName,
-      leaderCccd: updatedLeaderCccd,
-      members: updatedMembers
-    };
-
-    const updatedAssociations = associations.map(a => a.id === selectedAssociation.id ? updatedAssociation : a);
-    setAssociations(updatedAssociations);
-    showToast(`Đã cập nhật thông tin & hồ sơ của ${editingMember.fullName} thành công!`, "success");
+    const syncedAssociations = assignMemberRoleInAssociation(
+      baseUpdated,
+      selectedAssociation.id,
+      editingMember.cccd,
+      editMemberRole.trim(),
+      {
+        decisionNumber: editMemberDecisionNumber.trim() || undefined,
+        decisionDate: editMemberDecisionDate.trim() || undefined,
+      }
+    );
+    setAssociations(syncedAssociations);
+    showToast(
+      `Đã cập nhật chức danh & hồ sơ của ${editingMember.fullName} — Đồng bộ toàn hệ thống!`,
+      "success"
+    );
     setEditingMember(null);
   };
 
-  // Filter Associations (with category group filter)
+  // Filter Associations by search query
   const filteredAssociations = useMemo(() => {
+    const query = searchTerm.trim().toLowerCase();
+    if (!query) return associations;
     return associations.filter(a => {
-      // 1. Group Filter
-      if (selectedGroupFilter !== "all") {
-        const grp = getAssocGroupKey(a.category, a.name);
-        if (grp !== selectedGroupFilter) return false;
-      }
-      // 2. Search Query
-      const query = searchTerm.trim().toLowerCase();
-      if (!query) return true;
       return a.name.toLowerCase().includes(query) ||
         (a.description || "").toLowerCase().includes(query) ||
-        (a.leaderName || "").toLowerCase().includes(query) ||
-        (a.category || "").toLowerCase().includes(query);
+        (a.leaderName || "").toLowerCase().includes(query);
     });
-  }, [associations, selectedGroupFilter, searchTerm]);
+  }, [associations, searchTerm]);
 
   // Executive KPI Metrics (separating An sinh policy groups from Political/Mass Organizations)
   const coreAssociations = useMemo(() => {
-    return associations.filter(a => getAssocGroupKey(a.category, a.name) !== "social_welfare");
+    return associations.filter(a => !isSocialWelfareAssoc(a.category, a.name));
   }, [associations]);
   const welfareLinkedCount = associations.length - coreAssociations.length;
   const totalAssocCount = coreAssociations.length;
@@ -2050,29 +2490,41 @@ export default function PartyBranch({
     };
   };
 
-  // Filter members of selectedAssociation
-  const filteredMembers = (selectedAssociation?.members || []).filter(member => {
-    if (!member) return false;
-    const query = memberSearchTerm.trim().toLowerCase();
-    const matchesSearch = !query ||
-      (member.fullName || "").toLowerCase().includes(query) ||
-      (member.cccd || "").includes(query) ||
-      (member.phone || "").includes(query) ||
-      (member.role || "").toLowerCase().includes(query) ||
-      (member.decisionNumber || "").toLowerCase().includes(query);
+  // Filter & sort members of selectedAssociation (Head -> Deputy -> Member)
+  const filteredMembers = useMemo(() => {
+    const tierOrder = (role?: string) => {
+      const tier = classifyMemberRoleTier(role || "");
+      if (tier === "head") return 0;
+      if (tier === "deputy") return 1;
+      return 2;
+    };
 
-    const isLeaderRole = getMemberRoleStyle(member.role).isLeader;
-    let matchesRole = true;
-    if (memberRoleFilter === "Lãnh đạo / Trưởng phó") {
-      matchesRole = isLeaderRole;
-    } else if (memberRoleFilter === "Hội viên") {
-      matchesRole = !isLeaderRole;
-    } else if (memberRoleFilter === "Có Quyết định") {
-      matchesRole = Boolean(member.decisionNumber || member.decisionFile);
-    }
+    return (selectedAssociation?.members || [])
+      .filter((member) => {
+        if (!member) return false;
+        const query = memberSearchTerm.trim().toLowerCase();
+        const matchesSearch =
+          !query ||
+          (member.fullName || "").toLowerCase().includes(query) ||
+          (member.cccd || "").includes(query) ||
+          (member.phone || "").includes(query) ||
+          (member.role || "").toLowerCase().includes(query) ||
+          (member.decisionNumber || "").toLowerCase().includes(query);
 
-    return matchesSearch && matchesRole;
-  });
+        const isLeaderRole = getMemberRoleStyle(member.role).isLeader;
+        let matchesRole = true;
+        if (memberRoleFilter === "Lãnh đạo / Trưởng phó") {
+          matchesRole = isLeaderRole;
+        } else if (memberRoleFilter === "Hội viên") {
+          matchesRole = !isLeaderRole;
+        } else if (memberRoleFilter === "Có Quyết định") {
+          matchesRole = Boolean(member.decisionNumber || member.decisionFile);
+        }
+
+        return matchesSearch && matchesRole;
+      })
+      .sort((a, b) => tierOrder(a.role) - tierOrder(b.role));
+  }, [selectedAssociation, memberSearchTerm, memberRoleFilter]);
 
   // Helper to normalize and synchronize association name typography & casing
   const formatAssocName = (name: string): string => {
@@ -2086,21 +2538,12 @@ export default function PartyBranch({
   };
 
   return (
-    <div id="association-management-view" className="space-y-6 animate-in fade-in duration-200">
-      {/* Top Banner Header: Executive Government Portal Theme (Light Slate Gradient) */}
-      <div className="bg-gradient-to-r from-slate-50 via-white to-emerald-50/40 p-5 md:p-6 rounded-2xl text-slate-800 shadow-xs flex flex-col xl:flex-row justify-between items-start xl:items-center gap-4 border border-slate-200/60">
-        <div className="space-y-1.5 min-w-0">
-          <div className="inline-flex flex-wrap items-center gap-x-2 gap-y-1 px-2.5 py-1 rounded-md bg-emerald-50 border border-emerald-200/80 text-emerald-900 text-xs font-bold tracking-wide uppercase">
-            <span className="w-2 h-2 rounded-full bg-emerald-600 shrink-0"></span>
-            <ShieldCheck size={13} className="text-emerald-700 shrink-0" />
-            <span>BỘ MÁY CHÍNH TRỊ - XÃ HỘI &amp; ĐOÀN&nbsp;THỂ</span>
-            <span aria-hidden="true" className="text-emerald-700 hidden sm:inline">·</span>
-            <span className="font-semibold text-xs text-emerald-800 hidden sm:inline">KHU PHỐ 3, AN&nbsp;PHÚ</span>
-          </div>
-          <h1 className="text-xl md:text-2xl font-black tracking-tight text-slate-900 text-balance">
-            Quản lý Chi bộ Đảng &amp; Khối Đoàn&nbsp;thể
-          </h1>
-        </div>
+    <div id="association-management-view" className="space-y-6">
+      {/* Top Banner Header */}
+      <div className="bg-white px-4 py-3.5 sm:px-5 sm:py-4 rounded-2xl text-slate-800 shadow-2xs flex flex-col xl:flex-row justify-between items-start xl:items-center gap-3 border border-slate-200/90">
+        <h1 className="text-base sm:text-lg md:text-xl font-bold tracking-tight text-slate-900 text-balance">
+          Quản lý Chi bộ Đảng &amp; Khối Đoàn&nbsp;thể
+        </h1>
 
         <div className="flex flex-wrap items-center gap-2.5 shrink-0 w-full md:w-auto">
           <button
@@ -2139,49 +2582,51 @@ export default function PartyBranch({
             className="w-full sm:w-auto flex items-center justify-center gap-2 bg-emerald-700 hover:bg-emerald-800 text-white px-4 py-2 rounded-xl font-semibold text-xs transition-colors shadow-xs cursor-pointer whitespace-nowrap"
           >
             <FolderPlus size={15} className="shrink-0" />
-            <span>+ Thêm Chi hội mới</span>
+            <span>Thêm Chi hội mới</span>
           </button>
         </div>
       </div>
 
-      {/* 4 Top KPI StatCards: Responsive & Actionable Metrics */}
+      {/* 4 Top KPI StatCards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
         <StatCard
           label="Tổ chức & Chi hội"
           value={totalAssocCount}
-          badge={welfareLinkedCount > 0 ? `+${welfareLinkedCount} nhóm An sinh` : "100% kiện toàn"}
-          highlighted={true}
+          badge="đơn vị"
+          highlighted={activeSubTab === "associations"}
           icon={Building2}
           color="emerald"
-          subtext="Cấp ủy, Chính quyền & Đoàn thể"
-          subtextRight="An sinh tách riêng"
+          onClick={() => setActiveSubTab("associations")}
         />
         <StatCard
           label="Tổng số Hội viên"
           value={totalMembersCount}
-          badge="hội viên cơ sở"
+          badge="hội viên"
+          highlighted={activeSubTab === "associations" && assocViewMode === "table"}
           icon={Users}
           color="blue"
-          subtext="Cán bộ, đảng viên & đoàn viên"
-          subtextRight="Đã số hóa hồ sơ"
+          onClick={() => {
+            setActiveSubTab("associations");
+            setAssocViewMode("table");
+          }}
         />
         <StatCard
-          label="Hồ sơ & Quyết định"
+          label="Quyết định chuẩn y"
           value={totalDecisionsCount}
-          badge="văn bản pháp lý"
+          badge="văn bản"
+          highlighted={activeSubTab === "decisions"}
           icon={FileCheck}
           color="indigo"
-          subtext="Quyết định phê chuẩn nhân sự"
-          subtextRight="Có tệp PDF đính kèm"
+          onClick={() => setActiveSubTab("decisions")}
         />
         <StatCard
           label="Cán bộ Đa vai trò"
           value={multiRoleResidentsCount}
-          badge="đồng chí kiêm nhiệm"
+          badge="cán bộ"
+          highlighted={activeSubTab === "multi_role"}
           icon={Sparkles}
           color="amber"
-          subtext="Đảm nhiệm từ 2 vai trò trở lên"
-          subtextRight="Theo dõi chéo"
+          onClick={() => setActiveSubTab("multi_role")}
         />
       </div>
 
@@ -2189,14 +2634,14 @@ export default function PartyBranch({
       <div
         role="tablist"
         aria-label="Phân mục quản lý Chi bộ và Đoàn thể"
-        className="grid grid-cols-1 sm:grid-cols-2 lg:flex lg:flex-nowrap items-stretch lg:items-center gap-1.5 bg-slate-100/90 p-1.5 rounded-2xl border border-slate-200 overflow-x-auto"
+        className="flex items-center gap-1.5 overflow-x-auto whitespace-nowrap p-1.5 bg-slate-100/90 rounded-2xl border border-slate-200 evon-scroll"
       >
         <button
           type="button"
           role="tab"
           aria-selected={activeSubTab === "associations"}
           onClick={() => setActiveSubTab("associations")}
-          className={`px-3 py-2 min-h-10 rounded-xl text-xs font-bold transition-colors cursor-pointer flex items-center justify-center lg:justify-start gap-1.5 border whitespace-nowrap shrink-0 ${activeSubTab === "associations"
+          className={`px-3 py-2 min-h-10 rounded-xl text-xs font-bold transition-colors cursor-pointer flex items-center justify-start gap-1.5 border whitespace-nowrap shrink-0 ${activeSubTab === "associations"
               ? "bg-white text-emerald-800 border-emerald-600/25"
               : "border-transparent text-slate-700 hover:text-slate-950 hover:bg-white"
             }`}
@@ -2210,7 +2655,7 @@ export default function PartyBranch({
           role="tab"
           aria-selected={activeSubTab === "meetings"}
           onClick={() => setActiveSubTab("meetings")}
-          className={`px-3 py-2 min-h-10 rounded-xl text-xs font-bold transition-colors cursor-pointer flex items-center justify-center lg:justify-start gap-1.5 border whitespace-nowrap shrink-0 ${activeSubTab === "meetings"
+          className={`px-3 py-2 min-h-10 rounded-xl text-xs font-bold transition-colors cursor-pointer flex items-center justify-start gap-1.5 border whitespace-nowrap shrink-0 ${activeSubTab === "meetings"
               ? "bg-white text-rose-800 border-rose-600/25"
               : "border-transparent text-slate-700 hover:text-slate-950 hover:bg-white"
             }`}
@@ -2224,7 +2669,7 @@ export default function PartyBranch({
           role="tab"
           aria-selected={activeSubTab === "multi_role"}
           onClick={() => setActiveSubTab("multi_role")}
-          className={`px-3 py-2 min-h-10 rounded-xl text-xs font-bold transition-colors cursor-pointer flex items-center justify-center lg:justify-start gap-1.5 border whitespace-nowrap shrink-0 ${activeSubTab === "multi_role"
+          className={`px-3 py-2 min-h-10 rounded-xl text-xs font-bold transition-colors cursor-pointer flex items-center justify-start gap-1.5 border whitespace-nowrap shrink-0 ${activeSubTab === "multi_role"
               ? "bg-white text-amber-800 border-amber-600/25"
               : "border-transparent text-slate-700 hover:text-slate-950 hover:bg-white"
             }`}
@@ -2238,7 +2683,7 @@ export default function PartyBranch({
           role="tab"
           aria-selected={activeSubTab === "decisions"}
           onClick={() => setActiveSubTab("decisions")}
-          className={`px-3 py-2 min-h-10 rounded-xl text-xs font-bold transition-colors cursor-pointer flex items-center justify-center lg:justify-start gap-1.5 border whitespace-nowrap shrink-0 ${activeSubTab === "decisions"
+          className={`px-3 py-2 min-h-10 rounded-xl text-xs font-bold transition-colors cursor-pointer flex items-center justify-start gap-1.5 border whitespace-nowrap shrink-0 ${activeSubTab === "decisions"
               ? "bg-white text-indigo-800 border-indigo-600/25"
               : "border-transparent text-slate-700 hover:text-slate-950 hover:bg-white"
             }`}
@@ -2252,7 +2697,7 @@ export default function PartyBranch({
           role="tab"
           aria-selected={activeSubTab === "org_chart"}
           onClick={() => setActiveSubTab("org_chart")}
-          className={`sm:col-span-2 lg:col-span-1 px-3 py-2 min-h-10 rounded-xl text-xs font-bold transition-colors cursor-pointer flex items-center justify-center lg:justify-start gap-1.5 border whitespace-nowrap shrink-0 ${activeSubTab === "org_chart"
+          className={`px-3 py-2 min-h-10 rounded-xl text-xs font-bold transition-colors cursor-pointer flex items-center justify-start gap-1.5 border whitespace-nowrap shrink-0 ${activeSubTab === "org_chart"
               ? "bg-white text-blue-800 border-blue-600/25"
               : "border-transparent text-slate-700 hover:text-slate-950 hover:bg-white"
             }`}
@@ -2267,121 +2712,71 @@ export default function PartyBranch({
       {/* ========================================================================= */}
       {activeSubTab === "associations" && (
         <div className="space-y-4">
-          {/* Thanh công cụ hợp nhất: Lọc Khối + Tìm kiếm + Chuyển chế độ */}
-          <div className="bg-white p-3 rounded-2xl border border-slate-200/80 flex flex-col gap-3">
-            <div
-              role="tablist"
-              aria-label="Lọc theo khối chi hội"
-              className="grid grid-cols-2 sm:grid-cols-3 lg:flex lg:flex-wrap items-center gap-1.5 py-0.5 min-w-0"
-            >
-              {ASSOC_GROUPS.map((grp) => {
-                const isGrpActive = selectedGroupFilter === grp.key;
-                const count =
-                  grp.key === "all"
-                    ? associations.length
-                    : associations.filter((a) => getAssocGroupKey(a.category, a.name) === grp.key).length;
-                return (
-                  <button
-                    key={grp.key}
-                    type="button"
-                    role="tab"
-                    aria-selected={isGrpActive}
-                    onClick={() => setSelectedGroupFilter(grp.key)}
-                    className={`group min-h-9 px-3 py-1 rounded-xl text-xs font-semibold transition-colors cursor-pointer flex items-center gap-1.5 border ${isGrpActive
-                        ? "bg-emerald-700 text-white border-emerald-700"
-                        : "bg-slate-50 hover:bg-slate-200 hover:border-slate-300 text-slate-700 border-slate-200"
-                      }`}
-                  >
-                    <span>{grp.label}</span>
-                    <span
-                      className={`px-1.5 py-0.5 rounded-full text-xs font-mono font-bold tabular-nums transition-colors ${isGrpActive
-                          ? "bg-emerald-900 text-white"
-                          : "bg-slate-200/80 text-slate-700 group-hover:bg-white"
-                        }`}
-                    >
-                      {count}
-                    </span>
-                  </button>
-                );
-              })}
-              {onNavigate && (
+          {/* Thanh công cụ hợp nhất: Tìm kiếm + Chuyển chế độ */}
+          <div className="bg-white p-3 rounded-2xl border border-slate-200/80 flex flex-wrap items-center justify-between gap-2.5">
+            {/* Search Box in Unified Toolbar (single source of truth) */}
+            <div className="relative flex-1 sm:flex-initial sm:w-72 md:w-80">
+              <label htmlFor="party-search-input" className="sr-only">
+                Tìm kiếm chi hội, trưởng ban, CCCD
+              </label>
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 pointer-events-none" size={14} />
+              <input
+                id="party-search-input"
+                name="partySearch"
+                type="text"
+                placeholder="Tìm chi hội, cán bộ..."
+                value={searchTerm}
+                onChange={(e) => handleSearchChange(e.target.value)}
+                className="w-full h-9 pl-9 pr-8 border border-slate-300 rounded-xl text-xs text-slate-900 placeholder:text-slate-500 focus:outline-none focus:border-emerald-600 bg-white transition-colors"
+              />
+              {searchTerm && (
                 <button
                   type="button"
-                  onClick={() => onNavigate("welfare")}
-                  className="min-h-9 px-3 py-1 rounded-xl text-xs font-bold bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 flex items-center gap-1.5 cursor-pointer transition-colors"
-                  title="Chuyển sang phân hệ An sinh Xã hội KP3"
+                  onClick={() => handleSearchChange("")}
+                  aria-label="Xóa từ khóa tìm kiếm"
+                  className="absolute right-1.5 top-1/2 -translate-y-1/2 w-7 h-7 inline-flex items-center justify-center rounded-md text-slate-500 hover:text-slate-800 hover:bg-slate-100 cursor-pointer"
                 >
-                  <Heart size={13} />
-                  <span>An sinh Xã hội →</span>
+                  <X size={13} />
                 </button>
               )}
             </div>
 
-            <div className="flex flex-wrap items-center gap-2.5 shrink-0 justify-between xl:justify-end">
-              {/* Search Box in Unified Toolbar (single source of truth) */}
-              <div className="relative flex-1 sm:flex-initial sm:w-64 md:w-72">
-                <label htmlFor="party-search-input" className="sr-only">
-                  Tìm kiếm chi hội, trưởng ban, CCCD
-                </label>
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 pointer-events-none" size={14} />
-                <input
-                  id="party-search-input"
-                  name="partySearch"
-                  type="text"
-                  placeholder="Tìm chi hội, cán bộ..."
-                  value={searchTerm}
-                  onChange={(e) => handleSearchChange(e.target.value)}
-                  className="w-full h-9 pl-9 pr-8 border border-slate-300 rounded-xl text-xs text-slate-900 placeholder:text-slate-500 focus:outline-none focus:border-emerald-600 bg-white transition-colors"
-                />
-                {searchTerm && (
-                  <button
-                    type="button"
-                    onClick={() => handleSearchChange("")}
-                    aria-label="Xóa từ khóa tìm kiếm"
-                    className="absolute right-1.5 top-1/2 -translate-y-1/2 w-7 h-7 inline-flex items-center justify-center rounded-md text-slate-500 hover:text-slate-800 hover:bg-slate-100 cursor-pointer"
-                  >
-                    <X size={13} />
-                  </button>
-                )}
-              </div>
-
-              {/* View Mode Toggle: Card / Master-Detail vs Table View */}
-              <div className="flex items-center border border-slate-200 rounded-xl p-0.5 bg-slate-100 gap-0.5 shrink-0">
-                <button
-                  type="button"
-                  onClick={() => setAssocViewMode("card")}
-                  className={`flex items-center gap-1.5 h-8 px-3 rounded-lg text-xs font-semibold transition-colors cursor-pointer whitespace-nowrap ${assocViewMode === "card"
-                      ? "bg-white text-emerald-800 shadow-2xs font-bold"
-                      : "text-slate-600 hover:text-slate-900"
-                    }`}
-                  title="Chế độ xem Thẻ & Chi tiết (2 Cột)"
-                >
-                  <LayoutGrid size={14} />
-                  <span>Thẻ & Chi tiết</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setAssocViewMode("table")}
-                  className={`flex items-center gap-1.5 h-8 px-3 rounded-lg text-xs font-semibold transition-colors cursor-pointer whitespace-nowrap ${assocViewMode === "table"
-                      ? "bg-white text-emerald-800 shadow-2xs font-bold"
-                      : "text-slate-600 hover:text-slate-900"
-                    }`}
-                  title="Chế độ xem Bảng tổng hợp (Table view)"
-                >
-                  <List size={14} />
-                  <span>Bảng (Table view)</span>
-                </button>
-              </div>
+            {/* View Mode Toggle: Card / Master-Detail vs Table View */}
+            <div className="flex items-center border border-slate-200 rounded-xl p-0.5 bg-slate-100 gap-0.5 shrink-0">
+              <button
+                type="button"
+                onClick={() => setAssocViewMode("card")}
+                className={`flex items-center gap-1.5 h-8 px-3 rounded-lg text-xs font-semibold transition-colors cursor-pointer whitespace-nowrap ${assocViewMode === "card"
+                    ? "bg-white text-emerald-800 shadow-2xs font-bold"
+                    : "text-slate-600 hover:text-slate-900"
+                  }`}
+                title="Chế độ xem Thẻ & Chi tiết (2 Cột)"
+              >
+                <LayoutGrid size={14} />
+                <span>Thẻ & Chi tiết</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setAssocViewMode("table")}
+                className={`flex items-center gap-1.5 h-8 px-3 rounded-lg text-xs font-semibold transition-colors cursor-pointer whitespace-nowrap ${assocViewMode === "table"
+                    ? "bg-white text-emerald-800 shadow-2xs font-bold"
+                    : "text-slate-600 hover:text-slate-900"
+                  }`}
+                title="Chế độ xem Bảng tổng hợp (Table view)"
+              >
+                <List size={14} />
+                <span>Bảng (Table view)</span>
+              </button>
             </div>
           </div>
 
           {/* CHẾ ĐỘ 1: THẺ & CHI TIẾT 2 CỘT TRONG MỘT BỀ MẶT THỐNG NHẤT */}
           {assocViewMode === "card" && (
-            <div className="bg-white rounded-2xl border border-slate-200/80 overflow-hidden flex flex-col lg:flex-row lg:items-stretch">
+            <div className="bg-white rounded-2xl border border-slate-200/80 overflow-hidden flex flex-col xl:flex-row xl:items-stretch">
               {/* LEFT COLUMN (Master Directory) */}
               <div
-                className={`${mobileAssocDetailOpen ? "hidden lg:flex" : "flex"
-                  } w-full lg:w-[344px] xl:w-[364px] shrink-0 flex-col border-b lg:border-b-0 lg:border-r border-slate-200/80 bg-white`}
+                className={`${mobileAssocDetailOpen ? "hidden md:flex" : "flex"
+                  } w-full xl:w-[310px] 2xl:w-[350px] shrink-0 flex-col border-b xl:border-b-0 xl:border-r border-slate-200/80 bg-white`}
               >
                 {/* Slim Directory Subheader (no duplicated + Thêm, search, or pill tabs) */}
                 <div className="px-3.5 py-2.5 bg-slate-50/75 border-b border-slate-100 flex items-center justify-between gap-2">
@@ -2393,21 +2788,14 @@ export default function PartyBranch({
                       {filteredAssociations.length}
                     </span>
                   </div>
-                  {(searchTerm || selectedGroupFilter !== "all") ? (
+                  {searchTerm && (
                     <button
                       type="button"
-                      onClick={() => {
-                        setSearchTerm("");
-                        setSelectedGroupFilter("all");
-                      }}
+                      onClick={() => setSearchTerm("")}
                       className="text-xs font-semibold text-emerald-700 hover:text-emerald-800 cursor-pointer shrink-0"
                     >
                       Xóa lọc
                     </button>
-                  ) : (
-                    <span className="hidden lg:inline text-xs text-slate-500">
-                      ↑ ↓ chọn nhanh
-                    </span>
                   )}
                 </div>
 
@@ -2436,25 +2824,19 @@ export default function PartyBranch({
                         ?.scrollIntoView({ block: "nearest" });
                     }
                   }}
-                  className="divide-y divide-slate-100 max-h-[calc(100vh-270px)] min-h-[420px] lg:min-h-[560px] overflow-y-auto evon-scroll focus:outline-none"
+                  className="divide-y divide-slate-100 max-h-[340px] xl:max-h-[calc(100vh-270px)] min-h-[240px] xl:min-h-[560px] overflow-y-auto evon-scroll focus:outline-none"
                 >
                   {filteredAssociations.length === 0 ? (
                     <div className="p-8 text-center space-y-2.5">
                       <p className="text-sm font-semibold text-slate-800">
                         Không tìm thấy chi hội nào
                       </p>
-                      <p className="text-xs text-slate-500">
-                        Thử đổi từ khóa hoặc chọn lại tất cả khối.
-                      </p>
                       <button
                         type="button"
-                        onClick={() => {
-                          setSearchTerm("");
-                          setSelectedGroupFilter("all");
-                        }}
+                        onClick={() => setSearchTerm("")}
                         className="inline-flex items-center justify-center min-h-8 px-3 py-1.5 rounded-lg border border-slate-300 bg-white hover:bg-slate-50 text-xs font-semibold text-slate-700 cursor-pointer"
                       >
-                        Xóa bộ lọc
+                        Xóa từ khóa
                       </button>
                     </div>
                   ) : (
@@ -2514,41 +2896,15 @@ export default function PartyBranch({
                                 ) : (
                                   <span className="font-medium text-amber-700">Chưa kiện toàn</span>
                                 )}
-                                {selectedGroupFilter === "all" && (
-                                  <span className="text-slate-500"> · {badgeStyle.groupLabel}</span>
-                                )}
                               </span>
                             </span>
                           </button>
 
-                          {/* Non-shifting sibling right column: Quick Edit/Delete + Tabular Member Count */}
-                          <div className="flex items-center gap-1 shrink-0 relative">
-                            <div
-                              className={`flex items-center gap-0.5 lg:opacity-0 lg:pointer-events-none lg:group-hover:opacity-100 lg:group-hover:pointer-events-auto lg:group-focus-within:opacity-100 lg:group-focus-within:pointer-events-auto lg:absolute lg:right-0 lg:top-1/2 lg:-translate-y-1/2 lg:rounded-lg lg:border lg:border-slate-200 lg:px-0.5 lg:py-0.5 lg:shadow-xs transition-opacity ${isSelected ? "lg:bg-emerald-50/95" : "lg:bg-white/95"
-                                }`}
-                            >
-                              <button
-                                type="button"
-                                onClick={() => handleOpenEditAssoc(assoc)}
-                                className="w-8 h-8 inline-flex items-center justify-center text-slate-600 hover:text-emerald-950 hover:bg-emerald-200/80 rounded-md transition-colors cursor-pointer"
-                                title={`Sửa ${displayName}`}
-                                aria-label={`Sửa ${displayName}`}
-                              >
-                                <Pencil size={13} />
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => handleOpenDeleteAssoc(assoc)}
-                                className="w-8 h-8 inline-flex items-center justify-center text-slate-600 hover:text-rose-800 hover:bg-rose-100 rounded-md transition-colors cursor-pointer"
-                                title={`Xóa ${displayName}`}
-                                aria-label={`Xóa ${displayName}`}
-                              >
-                                <Trash2 size={13} />
-                              </button>
-                            </div>
-
+                          {/* Action & Member Count column: Switches cleanly from badge to Quick Edit/Delete on Hover */}
+                          <div className="flex items-center shrink-0 min-w-[56px] justify-end">
+                            {/* Normal state: Tabular Member Count */}
                             <span
-                              className={`px-2.5 py-0.5 rounded-full text-xs font-bold font-mono tabular-nums transition-colors ${memberCount === 0
+                              className={`group-hover:hidden group-focus-within:hidden px-2.5 py-0.5 rounded-full text-xs font-bold font-mono tabular-nums transition-colors shrink-0 ${memberCount === 0
                                   ? "bg-rose-50 text-rose-700 border border-rose-200"
                                   : isSelected
                                     ? "bg-emerald-700 text-white"
@@ -2557,6 +2913,36 @@ export default function PartyBranch({
                             >
                               {memberCount} tv
                             </span>
+
+                            {/* Hover / Focus state: Quick Action Buttons (Replaces badge cleanly, no overlapping) */}
+                            <div
+                              className="hidden group-hover:flex group-focus-within:flex items-center gap-0.5 bg-white border border-slate-200 shadow-2xs rounded-lg px-0.5 py-0.5 animate-in fade-in duration-100"
+                            >
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleOpenEditAssoc(assoc);
+                                }}
+                                className="w-7 h-7 inline-flex items-center justify-center text-slate-500 hover:text-emerald-700 hover:bg-emerald-50 rounded-md transition-colors cursor-pointer"
+                                title={`Sửa ${displayName}`}
+                                aria-label={`Sửa ${displayName}`}
+                              >
+                                <Pencil size={13} />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleOpenDeleteAssoc(assoc);
+                                }}
+                                className="w-7 h-7 inline-flex items-center justify-center text-slate-500 hover:text-rose-700 hover:bg-rose-50 rounded-md transition-colors cursor-pointer"
+                                title={`Xóa ${displayName}`}
+                                aria-label={`Xóa ${displayName}`}
+                              >
+                                <Trash2 size={13} />
+                              </button>
+                            </div>
                           </div>
                         </div>
                       );
@@ -2567,54 +2953,113 @@ export default function PartyBranch({
 
               {/* RIGHT COLUMN (Detail Workspace integrated in same surface) */}
               <div
-                className={`${mobileAssocDetailOpen ? "flex" : "hidden lg:flex"
+                className={`${mobileAssocDetailOpen ? "flex" : "hidden md:flex"
                   } flex-1 min-w-0 flex-col bg-slate-50/35 p-4 md:p-5 space-y-4`}
               >
                 {/* Mobile Back Navigation */}
                 <button
                   type="button"
                   onClick={() => setMobileAssocDetailOpen(false)}
-                  className="lg:hidden inline-flex items-center gap-1.5 self-start min-h-9 px-3 py-1.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-xs font-semibold text-slate-700 cursor-pointer"
+                  className="md:hidden inline-flex items-center gap-1.5 self-start min-h-9 px-3 py-1.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-xs font-semibold text-slate-700 cursor-pointer"
                 >
                   <ChevronLeft size={15} />
                   <span>Danh sách Chi hội ({filteredAssociations.length})</span>
                 </button>
 
-                {/* Card Thông tin Chi hội được chọn */}
-                <div className="bg-white rounded-2xl border border-slate-200/80 p-5 space-y-4">
-                  {/* Top row: Category, Code, Title & Actions (never squeezes heading vertically) */}
-                  <div className="flex flex-col 2xl:flex-row justify-between items-start gap-3.5 pb-4 border-b border-slate-100">
+                {/* Card Hồ sơ & Danh sách Hội viên Chi hội hợp nhất */}
+                <div className="bg-white rounded-2xl border border-slate-200/80 p-4 sm:p-5 space-y-4">
+                  {/* Header Chi hội: Tiêu đề + Dòng tóm tắt 1 hàng + Nút thao tác */}
+                  <div className="flex flex-col 2xl:flex-row justify-between items-start gap-3 pb-3.5 border-b border-slate-100">
                     <div className="flex items-start gap-3 min-w-0 w-full 2xl:flex-1">
                       {(() => {
                         const selStyle = getAssocBadgeStyle(selectedAssociation);
                         const SelIcon = selStyle.icon;
+                        const isPartyCell = selectedAssociation.id === "ASC_DANG";
+                        const leaderMember =
+                          selectedAssociation.members.find(
+                            (m) => classifyMemberRoleTier(m.role) === "head"
+                          ) ||
+                          selectedAssociation.members.find(
+                            (m) =>
+                              (selectedAssociation.leaderCccd &&
+                                selectedAssociation.leaderCccd !== "N/A" &&
+                                m.cccd === selectedAssociation.leaderCccd) ||
+                              (selectedAssociation.leaderName &&
+                                selectedAssociation.leaderName !== "Chưa phân công" &&
+                                m.fullName === selectedAssociation.leaderName)
+                          );
+                        const deputyMembers = selectedAssociation.members.filter(
+                          (m) => classifyMemberRoleTier(m.role) === "deputy"
+                        );
+                        const headName =
+                          leaderMember?.fullName ||
+                          (selectedAssociation.leaderName &&
+                          selectedAssociation.leaderName !== "Chưa phân công"
+                            ? selectedAssociation.leaderName
+                            : "");
+                        const headLabel = isPartyCell ? "Bí thư" : "Trưởng";
+
                         return (
-                          <span
-                            className={`w-11 h-11 rounded-xl flex items-center justify-center shrink-0 mt-0.5 ${selStyle.iconBg} ${selStyle.iconColor}`}
-                          >
-                            <SelIcon size={20} />
-                          </span>
+                          <>
+                            <span
+                              className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 mt-0.5 ${selStyle.iconBg} ${selStyle.iconColor}`}
+                            >
+                              <SelIcon size={19} />
+                            </span>
+                            <div className="space-y-1 min-w-0 flex-1">
+                              <div className="flex flex-wrap items-center gap-2 min-w-0">
+                                <h2 className="text-lg sm:text-xl font-black text-slate-900 tracking-tight text-balance">
+                                  {formatAssocName(selectedAssociation.name)}
+                                </h2>
+                                {isPartyCell && (
+                                  <span className="text-[11px] font-extrabold text-amber-900 bg-amber-100 border border-amber-300 px-2 py-0.5 rounded-md whitespace-nowrap">
+                                    ★ Đứng đầu KP3
+                                  </span>
+                                )}
+                              </div>
+                              <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-slate-600">
+                                <span className="font-mono text-slate-500 whitespace-nowrap">
+                                  Mã: {selectedAssociation.id}
+                                </span>
+                                <span aria-hidden="true" className="text-slate-300">·</span>
+                                <span className="font-semibold text-slate-800 tabular-nums whitespace-nowrap">
+                                  {formatVNNumber(selectedAssociation.members.length)} thành viên
+                                </span>
+                                {headName ? (
+                                  <>
+                                    <span aria-hidden="true" className="text-slate-300">·</span>
+                                    <span className="whitespace-nowrap">
+                                      <span className="text-slate-500">{headLabel}: </span>
+                                      <strong className="font-semibold text-slate-900">{headName}</strong>
+                                    </span>
+                                  </>
+                                ) : (
+                                  <>
+                                    <span aria-hidden="true" className="text-slate-300">·</span>
+                                    <span className="font-semibold text-amber-700 whitespace-nowrap">
+                                      Chưa kiện toàn
+                                    </span>
+                                  </>
+                                )}
+                                {deputyMembers.length > 0 && (
+                                  <>
+                                    <span aria-hidden="true" className="text-slate-300">·</span>
+                                    <span className="truncate max-w-[260px]" title={deputyMembers.map((d) => d.fullName).join(", ")}>
+                                      <span className="text-slate-500">Phó: </span>
+                                      <span className="font-medium text-slate-800">
+                                        {deputyMembers.map((d) => d.fullName).join(", ")}
+                                      </span>
+                                    </span>
+                                  </>
+                                )}
+                              </div>
+                            </div>
+                          </>
                         );
                       })()}
-                      <div className="space-y-1 min-w-0 flex-1">
-                        <div className="flex items-center gap-2 flex-wrap text-xs text-slate-600">
-                          <span className="font-mono whitespace-nowrap">Mã: {selectedAssociation.id}</span>
-                          <span aria-hidden="true">·</span>
-                          <span className="inline-flex items-center gap-1 font-semibold text-emerald-700 whitespace-nowrap">
-                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-600"></span>
-                            Đang hoạt động
-                          </span>
-                        </div>
-                        <h2 className="text-xl font-black text-slate-900 tracking-tight text-balance">
-                          {formatAssocName(selectedAssociation.name)}
-                        </h2>
-                        <p className="text-xs font-medium text-slate-600">
-                          Khối trực thuộc: <span className="text-slate-800 font-semibold">{selectedAssociation.category}</span>
-                        </p>
-                      </div>
                     </div>
 
-                    {/* Action Buttons */}
+                    {/* Action Buttons: 1 Primary + Uniform Secondary Actions */}
                     <div className="flex flex-wrap items-center gap-1.5 sm:gap-2 shrink-0 w-full 2xl:w-auto">
                       <button
                         type="button"
@@ -2625,25 +3070,15 @@ export default function PartyBranch({
                             setShowAddMemberModal(true);
                           }
                         }}
-                        className="h-9 flex-1 sm:flex-initial flex items-center justify-center gap-1.5 bg-emerald-700 hover:bg-emerald-800 text-white px-3 rounded-xl text-xs font-semibold transition-colors cursor-pointer whitespace-nowrap"
+                        className="h-9 flex-1 sm:flex-initial flex items-center justify-center gap-1.5 bg-emerald-700 hover:bg-emerald-800 text-white px-3.5 rounded-xl text-xs font-semibold transition-colors cursor-pointer whitespace-nowrap"
                       >
                         <UserPlus size={14} className="shrink-0" />
-                        <span>+ Thêm Hội viên</span>
+                        <span>Thêm Hội viên</span>
                       </button>
 
                       <button
                         type="button"
-                        onClick={() => handleOpenQuickAssignModal()}
-                        className="h-9 flex items-center justify-center gap-1.5 bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-300 px-3 rounded-xl text-xs font-semibold transition-colors cursor-pointer whitespace-nowrap"
-                        title="Phân công cán bộ kiêm nhiệm & đa vai trò vào chi hội này"
-                      >
-                        <Sparkles size={13} className="text-amber-700 shrink-0" />
-                        <span>Đa vai trò</span>
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={handleExportToExcel}
+                        onClick={() => handleExportToExcel()}
                         className="h-9 flex items-center justify-center gap-1.5 bg-white hover:bg-slate-100 hover:border-slate-300 text-slate-700 border border-slate-200 px-3 rounded-xl text-xs font-semibold transition-colors cursor-pointer whitespace-nowrap"
                         title="Xuất file danh sách thành viên ra Excel"
                       >
@@ -2680,88 +3115,11 @@ export default function PartyBranch({
                     </div>
                   </div>
 
-                  {/* Leader Card & Summary */}
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 bg-slate-50/90 p-4 rounded-xl border border-slate-200/80">
-                    <div className="sm:col-span-2 flex items-center gap-3.5 min-w-0">
-                      <div className="w-11 h-11 rounded-xl bg-emerald-700 text-white flex items-center justify-center font-black text-base shadow-2xs shrink-0">
-                        {selectedAssociation.leaderName ? selectedAssociation.leaderName.split(" ").slice(-1)[0][0] : "★"}
-                      </div>
-                      <div className="min-w-0">
-                        <div className="flex flex-wrap items-center gap-2">
-                          <span className="text-xs text-emerald-900 uppercase tracking-wide font-extrabold px-2 py-0.5 rounded bg-emerald-100 border border-emerald-200 whitespace-nowrap">
-                            Người đứng đầu
-                          </span>
-                          <span className="text-xs text-slate-600 font-mono whitespace-nowrap">
-                            CCCD: {selectedAssociation.leaderCccd || "Chưa cập nhật"}
-                          </span>
-                        </div>
-                        <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5 mt-1">
-                          <span className="font-black text-slate-900 text-base">{selectedAssociation.leaderName || "Chưa kiện toàn"}</span>
-                          <span className="text-xs text-slate-600 font-medium">({selectedAssociation.category})</span>
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="flex sm:justify-end items-center gap-5 sm:border-l sm:border-slate-200/80 sm:pl-5 pt-2 sm:pt-0 border-t sm:border-t-0 border-slate-200/60">
-                      <div>
-                        <span className="text-xs text-slate-600 font-semibold block">Tổng số hội viên</span>
-                        <span className="text-lg font-black text-emerald-800 tabular-nums">{selectedAssociation.members.length} người</span>
-                      </div>
-                      <div>
-                        <span className="text-xs text-slate-600 font-semibold block">Phạm vi địa bàn</span>
-                        <span className="text-xs font-bold text-slate-800 block mt-0.5">Khu phố 3, An Phú</span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Members Workspace Card */}
-                <div className="bg-white rounded-2xl border border-slate-200/90 shadow-2xs p-4 sm:p-5 space-y-4">
-
-                  {/* Toolbar */}
-                  <div className="flex flex-col md:flex-row md:flex-wrap items-stretch md:items-center justify-between gap-2.5 pb-3 border-b border-slate-100">
-                    <div className="flex items-center gap-2 shrink-0">
-                      <h3 className="text-sm font-bold text-slate-900 uppercase tracking-wider">
-                        Danh sách hội viên ({formatVNNumber(selectedAssociation.members.length)})
-                      </h3>
-                      {filteredMembers.length !== selectedAssociation.members.length && (
-                        <span className="text-xs text-slate-600 font-normal">
-                          (Lọc: {formatVNNumber(filteredMembers.length)})
-                        </span>
-                      )}
-                    </div>
-
-                    <div className="flex flex-wrap items-center gap-2">
-                      {/* View Mode Toggle: Table vs Cards */}
-                      <div className="flex items-center bg-slate-100 p-0.5 rounded-lg border border-slate-200 shrink-0">
-                        <button
-                          type="button"
-                          onClick={() => setMemberViewMode("list")}
-                          className={`flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-semibold transition-all cursor-pointer ${memberViewMode === "list"
-                              ? "bg-white text-emerald-800 shadow-2xs font-bold"
-                              : "text-slate-600 hover:text-slate-900"
-                            }`}
-                          title="Hiển thị dạng bảng (Table)"
-                        >
-                          <List size={13} />
-                          <span>Bảng</span>
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setMemberViewMode("card")}
-                          className={`flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-semibold transition-all cursor-pointer ${memberViewMode === "card"
-                              ? "bg-white text-emerald-800 shadow-2xs font-bold"
-                              : "text-slate-600 hover:text-slate-900"
-                            }`}
-                          title="Hiển thị dạng thẻ (Cards)"
-                        >
-                          <LayoutGrid size={13} />
-                          <span>Thẻ</span>
-                        </button>
-                      </div>
-
+                  {/* Thanh tìm lọc & chuyển chế độ xem Hội viên (nằm liền mạch trong cùng Card) */}
+                  <div className="flex flex-col sm:flex-row sm:flex-wrap items-stretch sm:items-center justify-between gap-2.5">
+                    <div className="flex flex-wrap items-center gap-2 flex-1 min-w-0">
                       {/* Member Search */}
-                      <div className="relative flex-1 min-w-[180px] sm:w-52">
+                      <div className="relative flex-1 min-w-[180px] sm:max-w-[240px]">
                         <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-500 pointer-events-none" size={13} />
                         <input
                           id="party-member-search"
@@ -2775,7 +3133,7 @@ export default function PartyBranch({
                       </div>
 
                       {/* Role Filter */}
-                      <div className="min-w-[160px] shrink-0">
+                      <div className="w-full sm:w-[168px] shrink-0">
                         <ReportSelect
                           aria-label="Lọc chức danh thành viên"
                           value={memberRoleFilter}
@@ -2789,6 +3147,40 @@ export default function PartyBranch({
                           className="text-xs"
                         />
                       </div>
+
+                      {filteredMembers.length !== selectedAssociation.members.length && (
+                        <span className="text-xs text-slate-600 font-medium tabular-nums">
+                          Đang hiển thị {formatVNNumber(filteredMembers.length)}/{formatVNNumber(selectedAssociation.members.length)}
+                        </span>
+                      )}
+                    </div>
+
+                    {/* View Mode Toggle: Table vs Cards */}
+                    <div className="flex items-center bg-slate-100 p-0.5 rounded-lg border border-slate-200 shrink-0 self-end sm:self-auto">
+                      <button
+                        type="button"
+                        onClick={() => setMemberViewMode("list")}
+                        className={`flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-semibold transition-all cursor-pointer ${memberViewMode === "list"
+                            ? "bg-white text-emerald-800 shadow-2xs font-bold"
+                            : "text-slate-600 hover:text-slate-900"
+                          }`}
+                        title="Hiển thị dạng bảng (Table)"
+                      >
+                        <List size={13} />
+                        <span>Bảng</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setMemberViewMode("card")}
+                        className={`flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-semibold transition-all cursor-pointer ${memberViewMode === "card"
+                            ? "bg-white text-emerald-800 shadow-2xs font-bold"
+                            : "text-slate-600 hover:text-slate-900"
+                          }`}
+                        title="Hiển thị dạng thẻ (Cards)"
+                      >
+                        <LayoutGrid size={13} />
+                        <span>Thẻ</span>
+                      </button>
                     </div>
                   </div>
 
@@ -2813,7 +3205,7 @@ export default function PartyBranch({
                     /* LIST (TABLE) VIEW */
                     <div className="bg-white rounded-xl border border-slate-200/90 shadow-2xs overflow-hidden">
                       <div className="overflow-x-auto">
-                        <table className="w-full text-left text-xs border-collapse">
+                        <table className="w-full min-w-[860px] text-left text-xs border-collapse">
                           <thead>
                             <tr className="bg-slate-50 text-slate-600 border-b border-slate-200/80 text-xs font-bold uppercase tracking-wider">
                               <th className="py-2.5 px-3 w-10 text-center">STT</th>
@@ -2822,7 +3214,7 @@ export default function PartyBranch({
                               <th className="py-2.5 px-3 w-28">Năm sinh & SĐT</th>
                               <th className="py-2.5 px-3 min-w-[170px]">Địa chỉ cư trú</th>
                               <th className="py-2.5 px-3 w-36">Hồ sơ / Quyết định</th>
-                              <th className="py-2.5 px-3 w-28 text-right">Thao tác</th>
+                              <th className="py-2.5 px-3 w-28 text-right sticky right-0 bg-white z-10">Thao tác</th>
                             </tr>
                           </thead>
                           <tbody className="divide-y divide-slate-100">
@@ -2833,7 +3225,12 @@ export default function PartyBranch({
                               const memberAvatar = member.avatar || matchedRes?.avatar || "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150";
 
                               return (
-                                <tr key={`${member.cccd}-${mIdx}`} className="hover:bg-slate-50/80 transition-colors">
+                                <tr
+                                  key={`${member.cccd}-${mIdx}`}
+                                  onClick={() => handleTriggerMemberDetail(member, selectedAssociation)}
+                                  title={`Nhấp để mở thông tin chi tiết: ${member.fullName}`}
+                                  className="hover:bg-emerald-50/50 transition-colors cursor-pointer group"
+                                >
                                   <td className="py-2.5 px-3 text-center text-slate-600 font-mono text-xs">
                                     {mIdx + 1}
                                   </td>
@@ -2858,14 +3255,11 @@ export default function PartyBranch({
                                       <div>
                                         <button
                                           type="button"
-                                          onClick={() => {
-                                            if (onOpenMemberDetail) {
-                                              onOpenMemberDetail(member, selectedAssociation);
-                                            } else {
-                                              setSelectedMemberForDetail(member);
-                                            }
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            handleTriggerMemberDetail(member, selectedAssociation);
                                           }}
-                                          className="font-bold text-slate-900 hover:text-emerald-700 text-xs text-left cursor-pointer transition-colors block"
+                                          className="font-bold text-slate-900 group-hover:text-emerald-700 hover:text-emerald-800 text-xs text-left cursor-pointer transition-colors block"
                                         >
                                           {member.fullName}
                                         </button>
@@ -2875,10 +3269,118 @@ export default function PartyBranch({
                                       </div>
                                     </div>
                                   </td>
-                                  <td className="py-2.5 px-3">
-                                    <span className={`inline-block px-2 py-0.5 rounded text-xs whitespace-nowrap border ${roleStyle.badgeClass}`}>
-                                      {member.role}
-                                    </span>
+                                  <td className="py-2.5 px-3 relative" onClick={(e) => e.stopPropagation()}>
+                                    <div className="flex flex-wrap items-center gap-1.5">
+                                      <button
+                                        type="button"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          setQuickRoleMenuCccd((prev) =>
+                                            prev === member.cccd ? null : member.cccd
+                                          );
+                                        }}
+                                        title="Nhấp để đổi nhanh chức danh Trưởng / Phó / Hội viên"
+                                        className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs whitespace-nowrap border cursor-pointer hover:ring-2 hover:ring-emerald-500/30 transition-all ${roleStyle.badgeClass}`}
+                                      >
+                                        <span>{member.role}</span>
+                                        <ChevronDown size={11} className="opacity-75 shrink-0" />
+                                      </button>
+                                      {selectedAssociation.id === "ASC_DANG" && classifyMemberRoleTier(member.role) === "head" && (
+                                        <span className="text-[11px] font-bold text-amber-900 bg-amber-100 border border-amber-300 px-1.5 py-0.5 rounded whitespace-nowrap">
+                                          ★KP3
+                                        </span>
+                                      )}
+                                      {(() => {
+                                        const zaloInfo = getMemberZaloInfo(member);
+                                        return (
+                                          <button
+                                            type="button"
+                                            onClick={(e) => {
+                                              e.stopPropagation();
+                                              handleOpenZaloLinkForMember(member, selectedAssociation);
+                                            }}
+                                            className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold border transition-colors cursor-pointer ${
+                                              zaloInfo.isLinked
+                                                ? "bg-blue-50 text-blue-800 border-blue-200 hover:bg-blue-100"
+                                                : "bg-amber-50 text-amber-800 border-amber-200 hover:bg-amber-100"
+                                            }`}
+                                            title={
+                                              zaloInfo.isLinked
+                                                ? `Đã liên kết Zalo OA: ${zaloInfo.zaloDisplayName || zaloInfo.zaloUserId} - Nhấn để kiểm tra hoặc nhắn thử`
+                                                : "Nhấn để liên kết tài khoản Zalo OA nhận tin nhắc lịch họp"
+                                            }
+                                          >
+                                            <MessageCircle size={10} className={zaloInfo.isLinked ? "text-blue-600" : "text-amber-600"} />
+                                            <span>{zaloInfo.isLinked ? (zaloInfo.zaloDisplayName ? `Zalo: ${zaloInfo.zaloDisplayName}` : "Đã gắn Zalo") : "Ghép Zalo"}</span>
+                                          </button>
+                                        );
+                                      })()}
+                                    </div>
+
+                                    {quickRoleMenuCccd === member.cccd && (
+                                      <div
+                                        className={`absolute left-3 ${
+                                          mIdx > 0 && mIdx >= filteredMembers.length - 2
+                                            ? "bottom-full mb-1"
+                                            : "top-full mt-1"
+                                        } z-30 w-56 bg-white rounded-xl border border-slate-200 shadow-lg p-1.5 space-y-0.5`}
+                                      >
+                                        <div className="px-2 py-1 text-[10px] font-extrabold uppercase tracking-wider text-slate-500 border-b border-slate-100 flex items-center justify-between">
+                                          <span>Đổi nhanh chức danh</span>
+                                          <button
+                                            type="button"
+                                            onClick={() => setQuickRoleMenuCccd(null)}
+                                            className="text-slate-400 hover:text-slate-700 cursor-pointer"
+                                          >
+                                            ✕
+                                          </button>
+                                        </div>
+                                        {selectedAssocPresets.allSuggestedRoles.map((roleOpt) => {
+                                          const tier = classifyMemberRoleTier(roleOpt);
+                                          const isCurrent = member.role === roleOpt;
+                                          return (
+                                            <button
+                                              key={roleOpt}
+                                              type="button"
+                                              onClick={() => handleQuickRoleChangeRequest(member, roleOpt)}
+                                              className={`w-full text-left px-2.5 py-1.5 rounded-lg text-xs flex items-center justify-between gap-2 transition-colors cursor-pointer ${
+                                                isCurrent
+                                                  ? "bg-emerald-50 text-emerald-900 font-bold"
+                                                  : "hover:bg-slate-50 text-slate-800 font-medium"
+                                              }`}
+                                            >
+                                              <span className="truncate">{roleOpt}</span>
+                                              {tier === "head" && (
+                                                <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-rose-50 text-rose-700 border border-rose-200 shrink-0">
+                                                  Trưởng
+                                                </span>
+                                              )}
+                                              {tier === "deputy" && (
+                                                <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-blue-50 text-blue-700 border border-blue-200 shrink-0">
+                                                  Phó
+                                                </span>
+                                              )}
+                                            </button>
+                                          );
+                                        })}
+                                        <div className="pt-1 mt-1 border-t border-slate-100">
+                                          <button
+                                            type="button"
+                                            onClick={() => {
+                                              setQuickRoleMenuCccd(null);
+                                              if (onOpenEditMember) {
+                                                onOpenEditMember(member, selectedAssociation);
+                                              } else {
+                                                handleOpenEditMember(member);
+                                              }
+                                            }}
+                                            className="w-full text-left px-2.5 py-1.5 rounded-lg text-xs font-semibold text-emerald-700 hover:bg-emerald-50 cursor-pointer"
+                                          >
+                                            ✎ Sửa chi tiết & Số Quyết định...
+                                          </button>
+                                        </div>
+                                      </div>
+                                    )}
                                   </td>
                                   <td className="py-2.5 px-3">
                                     <div className="text-xs text-slate-800 font-mono">
@@ -2902,16 +3404,19 @@ export default function PartyBranch({
                                         {member.decisionFile && (
                                           <button
                                             type="button"
-                                            onClick={() => setViewingDecisionDoc({
-                                              memberName: member.fullName,
-                                              memberRole: member.role,
-                                              memberCccd: member.cccd,
-                                              associationName: selectedAssociation.name,
-                                              decisionNumber: member.decisionNumber,
-                                              decisionDate: member.decisionDate,
-                                              joinDate: member.joinDate,
-                                              file: member.decisionFile!
-                                            })}
+                                            onClick={(e) => {
+                                              e.stopPropagation();
+                                              setViewingDecisionDoc({
+                                                memberName: member.fullName,
+                                                memberRole: member.role,
+                                                memberCccd: member.cccd,
+                                                associationName: selectedAssociation.name,
+                                                decisionNumber: member.decisionNumber,
+                                                decisionDate: member.decisionDate,
+                                                joinDate: member.joinDate,
+                                                file: member.decisionFile!
+                                              });
+                                            }}
                                             className="text-xs text-emerald-700 font-semibold hover:underline flex items-center gap-1 cursor-pointer"
                                           >
                                             <FileText size={10} /> Xem tệp
@@ -2924,16 +3429,13 @@ export default function PartyBranch({
                                       </span>
                                     )}
                                   </td>
-                                  <td className="py-2.5 px-3 text-right">
+                                  <td className="py-2.5 px-3 text-right sticky right-0 bg-white group-hover:bg-emerald-50 z-10" onClick={(e) => e.stopPropagation()}>
                                     <div className="flex items-center justify-end gap-1">
                                       <button
                                         type="button"
-                                        onClick={() => {
-                                          if (onOpenMemberDetail) {
-                                            onOpenMemberDetail(member, selectedAssociation);
-                                          } else {
-                                            setSelectedMemberForDetail(member);
-                                          }
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          handleTriggerMemberDetail(member, selectedAssociation);
                                         }}
                                         className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-md transition-colors cursor-pointer"
                                         title="Xem chi tiết hồ sơ thành viên"
@@ -2942,7 +3444,8 @@ export default function PartyBranch({
                                       </button>
                                       <button
                                         type="button"
-                                        onClick={() => {
+                                        onClick={(e) => {
+                                          e.stopPropagation();
                                           if (onOpenEditMember) {
                                             onOpenEditMember(member, selectedAssociation);
                                           } else {
@@ -2956,7 +3459,10 @@ export default function PartyBranch({
                                       </button>
                                       <button
                                         type="button"
-                                        onClick={() => handleRemoveMember(member.cccd, member.fullName)}
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          handleRemoveMember(member.cccd, member.fullName);
+                                        }}
                                         className="p-1.5 text-slate-600 hover:text-rose-600 hover:bg-rose-50 rounded-md transition-colors cursor-pointer"
                                         title="Xóa khỏi Chi hội"
                                       >
@@ -2983,7 +3489,19 @@ export default function PartyBranch({
                         return (
                           <div
                             key={`${member.cccd}-${mIdx}`}
-                            className={`p-3.5 rounded-xl border relative transition-colors hover:border-slate-300 flex flex-col justify-between gap-2.5 ${roleStyle.cardBorder}`}
+                            role="button"
+                            tabIndex={0}
+                            aria-label={`Xem thông tin chi tiết hội viên ${member.fullName}`}
+                            title={`Nhấp để mở thông tin chi tiết: ${member.fullName}`}
+                            onClick={() => handleTriggerMemberDetail(member, selectedAssociation)}
+                            onKeyDown={(e) => {
+                              if (e.target !== e.currentTarget) return;
+                              if (e.key === "Enter" || e.key === " ") {
+                                e.preventDefault();
+                                handleTriggerMemberDetail(member, selectedAssociation);
+                              }
+                            }}
+                            className={`group p-3.5 rounded-xl border relative transition-all cursor-pointer hover:border-emerald-500/80 hover:shadow-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/40 flex flex-col justify-between gap-2.5 ${roleStyle.cardBorder}`}
                           >
                             <div className="space-y-2.5">
                               {/* Member Header with Avatar (Full width for Full Name, zero squeezing) */}
@@ -3006,25 +3524,128 @@ export default function PartyBranch({
                                 </div>
 
                                 <div className="space-y-1 min-w-0 flex-1">
-                                  <button
-                                    type="button"
-                                    onClick={() => {
-                                      if (onOpenMemberDetail) {
-                                        onOpenMemberDetail(member, selectedAssociation);
-                                      } else {
-                                        setSelectedMemberForDetail(member);
-                                      }
-                                    }}
-                                    className="font-bold text-slate-900 text-sm truncate hover:text-emerald-700 cursor-pointer block text-left w-full leading-tight"
+                                  <span
+                                    className="font-bold text-slate-900 text-sm truncate group-hover:text-emerald-700 transition-colors block text-left w-full leading-tight"
                                     title={member.fullName}
                                   >
                                     {member.fullName}
-                                  </button>
+                                  </span>
 
-                                  <div className="flex flex-wrap items-center gap-1.5">
-                                    <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs whitespace-nowrap border ${roleStyle.badgeClass}`}>
-                                      {member.role}
-                                    </span>
+                                  <div
+                                    className="flex flex-wrap items-center gap-1.5 relative"
+                                    onClick={(e) => e.stopPropagation()}
+                                  >
+                                    <div className="flex flex-wrap items-center gap-1.5">
+                                      <button
+                                        type="button"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          setQuickRoleMenuCccd((prev) =>
+                                            prev === member.cccd ? null : member.cccd
+                                          );
+                                        }}
+                                        title="Nhấp để đổi nhanh chức danh Trưởng / Phó / Hội viên"
+                                        className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs whitespace-nowrap border cursor-pointer hover:ring-2 hover:ring-emerald-500/30 transition-all ${roleStyle.badgeClass}`}
+                                      >
+                                        <span>{member.role}</span>
+                                        <ChevronDown size={11} className="opacity-75 shrink-0" />
+                                      </button>
+                                      {selectedAssociation.id === "ASC_DANG" && classifyMemberRoleTier(member.role) === "head" && (
+                                        <span className="text-[11px] font-bold text-amber-900 bg-amber-100 border border-amber-300 px-1.5 py-0.5 rounded whitespace-nowrap">
+                                          ★KP3
+                                        </span>
+                                      )}
+                                      {(() => {
+                                        const zaloInfo = getMemberZaloInfo(member);
+                                        return (
+                                          <button
+                                            type="button"
+                                            onClick={(e) => {
+                                              e.stopPropagation();
+                                              handleOpenZaloLinkForMember(member, selectedAssociation);
+                                            }}
+                                            className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold border transition-colors cursor-pointer ${
+                                              zaloInfo.isLinked
+                                                ? "bg-blue-50 text-blue-800 border-blue-200 hover:bg-blue-100"
+                                                : "bg-amber-50 text-amber-800 border-amber-200 hover:bg-amber-100"
+                                            }`}
+                                            title={
+                                              zaloInfo.isLinked
+                                                ? `Đã liên kết Zalo OA: ${zaloInfo.zaloDisplayName || zaloInfo.zaloUserId} - Nhấn để kiểm tra hoặc nhắn thử`
+                                                : "Nhấn để liên kết tài khoản Zalo OA nhận tin nhắc lịch họp"
+                                            }
+                                          >
+                                            <MessageCircle size={10} className={zaloInfo.isLinked ? "text-blue-600" : "text-amber-600"} />
+                                            <span>{zaloInfo.isLinked ? (zaloInfo.zaloDisplayName ? `Zalo: ${zaloInfo.zaloDisplayName}` : "Đã gắn Zalo") : "Ghép Zalo"}</span>
+                                          </button>
+                                        );
+                                      })()}
+                                    </div>
+
+                                    {quickRoleMenuCccd === member.cccd && (
+                                      <div
+                                        className={`absolute left-0 ${
+                                          mIdx > 0 && mIdx >= filteredMembers.length - 2
+                                            ? "bottom-full mb-1"
+                                            : "top-full mt-1"
+                                        } z-30 w-56 bg-white rounded-xl border border-slate-200 shadow-lg p-1.5 space-y-0.5`}
+                                      >
+                                        <div className="px-2 py-1 text-[10px] font-extrabold uppercase tracking-wider text-slate-500 border-b border-slate-100 flex items-center justify-between">
+                                          <span>Đổi nhanh chức danh</span>
+                                          <button
+                                            type="button"
+                                            onClick={() => setQuickRoleMenuCccd(null)}
+                                            className="text-slate-400 hover:text-slate-700 cursor-pointer"
+                                          >
+                                            ✕
+                                          </button>
+                                        </div>
+                                        {selectedAssocPresets.allSuggestedRoles.map((roleOpt) => {
+                                          const tier = classifyMemberRoleTier(roleOpt);
+                                          const isCurrent = member.role === roleOpt;
+                                          return (
+                                            <button
+                                              key={roleOpt}
+                                              type="button"
+                                              onClick={() => handleQuickRoleChangeRequest(member, roleOpt)}
+                                              className={`w-full text-left px-2.5 py-1.5 rounded-lg text-xs flex items-center justify-between gap-2 transition-colors cursor-pointer ${
+                                                isCurrent
+                                                  ? "bg-emerald-50 text-emerald-900 font-bold"
+                                                  : "hover:bg-slate-50 text-slate-800 font-medium"
+                                              }`}
+                                            >
+                                              <span className="truncate">{roleOpt}</span>
+                                              {tier === "head" && (
+                                                <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-rose-50 text-rose-700 border border-rose-200 shrink-0">
+                                                  Trưởng
+                                                </span>
+                                              )}
+                                              {tier === "deputy" && (
+                                                <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-blue-50 text-blue-700 border border-blue-200 shrink-0">
+                                                  Phó
+                                                </span>
+                                              )}
+                                            </button>
+                                          );
+                                        })}
+                                        <div className="pt-1 mt-1 border-t border-slate-100">
+                                          <button
+                                            type="button"
+                                            onClick={() => {
+                                              setQuickRoleMenuCccd(null);
+                                              if (onOpenEditMember) {
+                                                onOpenEditMember(member, selectedAssociation);
+                                              } else {
+                                                handleOpenEditMember(member);
+                                              }
+                                            }}
+                                            className="w-full text-left px-2.5 py-1.5 rounded-lg text-xs font-semibold text-emerald-700 hover:bg-emerald-50 cursor-pointer"
+                                          >
+                                            ✎ Sửa chi tiết & Số Quyết định...
+                                          </button>
+                                        </div>
+                                      </div>
+                                    )}
                                   </div>
 
                                   <div className="text-xs text-slate-600 font-mono whitespace-nowrap">
@@ -3063,7 +3684,10 @@ export default function PartyBranch({
                             <div className="space-y-2 pt-2 border-t border-slate-100">
                               {/* File Attachment / Upload Area */}
                               {member.decisionFile ? (
-                                <div className="flex items-center justify-between w-full bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-lg px-2.5 py-1.5 transition-colors">
+                                <div
+                                  onClick={(e) => e.stopPropagation()}
+                                  className="flex items-center justify-between w-full bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-lg px-2.5 py-1.5 transition-colors cursor-default"
+                                >
                                   <div className="flex items-center gap-1.5 min-w-0 pr-1.5">
                                     {member.decisionFile.type === "pdf" ? (
                                       <FileText size={13} className="text-rose-600 shrink-0" />
@@ -3078,16 +3702,19 @@ export default function PartyBranch({
                                   <div className="flex items-center gap-1 shrink-0">
                                     <button
                                       type="button"
-                                      onClick={() => setViewingDecisionDoc({
-                                        memberName: member.fullName,
-                                        memberRole: member.role,
-                                        memberCccd: member.cccd,
-                                        associationName: selectedAssociation.name,
-                                        decisionNumber: member.decisionNumber,
-                                        decisionDate: member.decisionDate,
-                                        joinDate: member.joinDate,
-                                        file: member.decisionFile!
-                                      })}
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        setViewingDecisionDoc({
+                                          memberName: member.fullName,
+                                          memberRole: member.role,
+                                          memberCccd: member.cccd,
+                                          associationName: selectedAssociation.name,
+                                          decisionNumber: member.decisionNumber,
+                                          decisionDate: member.decisionDate,
+                                          joinDate: member.joinDate,
+                                          file: member.decisionFile!
+                                        });
+                                      }}
                                       className="text-emerald-800 hover:text-emerald-950 bg-white hover:bg-emerald-100 border border-slate-200 px-2 py-0.5 rounded text-xs font-bold transition-colors cursor-pointer whitespace-nowrap"
                                       title="Xem trước văn bản"
                                     >
@@ -3095,7 +3722,10 @@ export default function PartyBranch({
                                     </button>
                                     <button
                                       type="button"
-                                      onClick={() => handleDownloadFile(member.decisionFile!)}
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        handleDownloadFile(member.decisionFile!);
+                                      }}
                                       className="text-slate-600 hover:text-slate-900 hover:bg-slate-200 p-1 rounded transition-colors cursor-pointer"
                                       title="Tải về"
                                       aria-label={`Tải về ${member.decisionFile.name}`}
@@ -3107,7 +3737,8 @@ export default function PartyBranch({
                               ) : (
                                 <button
                                   type="button"
-                                  onClick={() => {
+                                  onClick={(e) => {
+                                    e.stopPropagation();
                                     if (onOpenEditMember) {
                                       onOpenEditMember(member, selectedAssociation);
                                     } else {
@@ -3125,23 +3756,21 @@ export default function PartyBranch({
                               <div className="flex items-center justify-between gap-2 pt-0.5">
                                 <button
                                   type="button"
-                                  onClick={() => {
-                                    if (onOpenMemberDetail) {
-                                      onOpenMemberDetail(member, selectedAssociation);
-                                    } else {
-                                      setSelectedMemberForDetail(member);
-                                    }
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleTriggerMemberDetail(member, selectedAssociation);
                                   }}
-                                  className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 hover:text-slate-900 transition-colors cursor-pointer whitespace-nowrap"
+                                  className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold text-slate-700 bg-slate-100 group-hover:bg-emerald-50 group-hover:text-emerald-800 group-hover:border-emerald-200 border border-transparent hover:bg-emerald-100 hover:text-emerald-900 transition-colors cursor-pointer whitespace-nowrap"
                                 >
-                                  <Eye size={13} className="text-blue-700 shrink-0" />
+                                  <Eye size={13} className="text-blue-700 group-hover:text-emerald-700 shrink-0" />
                                   <span>Hồ sơ chi tiết</span>
                                 </button>
 
-                                <div className="flex items-center gap-1 shrink-0">
+                                <div className="flex items-center gap-1 shrink-0" onClick={(e) => e.stopPropagation()}>
                                   <button
                                     type="button"
-                                    onClick={() => {
+                                    onClick={(e) => {
+                                      e.stopPropagation();
                                       if (onOpenEditMember) {
                                         onOpenEditMember(member, selectedAssociation);
                                       } else {
@@ -3156,7 +3785,10 @@ export default function PartyBranch({
                                   </button>
                                   <button
                                     type="button"
-                                    onClick={() => handleRemoveMember(member.cccd, member.fullName)}
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleRemoveMember(member.cccd, member.fullName);
+                                    }}
                                     className="p-1.5 text-slate-600 hover:text-rose-800 hover:bg-rose-100 rounded-md transition-colors cursor-pointer"
                                     title="Xóa khỏi Chi hội"
                                     aria-label={`Xóa ${member.fullName}`}
@@ -3187,14 +3819,11 @@ export default function PartyBranch({
                   </div>
                   <div>
                     <h3 className="font-black text-slate-900 text-sm tracking-tight flex items-center gap-2">
-                      <span>Bảng Tổng Hợp Chi Hội & Khối Đoàn Thể Cơ Sở</span>
+                      <span>Bảng Tổng Hợp Chi Hội</span>
                       <span className="px-2 py-0.5 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800 font-mono">
                         {filteredAssociations.length}/{associations.length} tổ chức
                       </span>
                     </h3>
-                    <p className="text-xs text-slate-500 mt-0.5">
-                      Danh bạ 23 tổ chức, đơn vị cơ sở trực thuộc Khu phố 3, Phường An Phú (Nhấp vào hàng để xem chi tiết & danh sách hội viên)
-                    </p>
                   </div>
                 </div>
 
@@ -3232,33 +3861,26 @@ export default function PartyBranch({
                     <Search size={20} />
                   </div>
                   <h4 className="font-bold text-slate-800 text-sm">Không tìm thấy chi hội phù hợp</h4>
-                  <p className="text-xs text-slate-500 max-w-sm mx-auto">
-                    Không có tổ chức chi hội nào khớp với từ khóa tìm kiếm "{searchTerm}" hoặc bộ lọc khối hiện tại.
-                  </p>
                   <button
                     type="button"
-                    onClick={() => {
-                      setSearchTerm("");
-                      setSelectedGroupFilter("all");
-                    }}
+                    onClick={() => setSearchTerm("")}
                     className="px-3.5 py-1.5 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl text-xs font-bold cursor-pointer transition-colors"
                   >
-                    Đặt lại bộ lọc
+                    Xóa từ khóa
                   </button>
                 </div>
               ) : (
                 <div className="overflow-x-auto">
-                  <table className="w-full text-left text-xs border-collapse">
+                  <table className="w-full min-w-[780px] text-left text-xs border-collapse">
                     <thead>
                       <tr className="bg-slate-50/80 text-slate-600 border-b border-slate-200/90 text-xs font-bold uppercase tracking-wider">
-                        <th className="py-3 px-3.5 w-12 text-center">STT</th>
-                        <th className="py-3 px-4 min-w-[240px]">Tổ chức & Chi hội</th>
-                        <th className="py-3 px-4 min-w-[140px]">Khối trực thuộc</th>
-                        <th className="py-3 px-4 min-w-[210px]">Người đứng đầu / Trưởng ban</th>
-                        <th className="py-3 px-4 w-28 text-center">Hội viên</th>
-                        <th className="py-3 px-4 min-w-[160px]">Quyết định chuẩn y</th>
-                        <th className="py-3 px-4 w-32 text-center">Tình trạng</th>
-                        <th className="py-3 px-4 w-40 text-center">Thao tác</th>
+                        <th className="py-3 px-3 w-14 text-center">STT</th>
+                        <th className="py-3 px-3">Tổ chức & Chi hội</th>
+                        <th className="py-3 px-3">Người đứng đầu</th>
+                        <th className="py-3 px-3 w-24 text-center">Hội viên</th>
+                        <th className="py-3 px-3">Quyết định chuẩn y</th>
+                        <th className="py-3 px-3 w-32 text-center">Tình trạng</th>
+                        <th className="py-3 px-3 w-40 text-center">Thao tác</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100">
@@ -3287,7 +3909,7 @@ export default function PartyBranch({
                               <span className="font-mono text-slate-600 font-bold text-xs block">
                                 {(idx + 1).toString().padStart(2, "0")}
                               </span>
-                              <span className="font-mono text-xs font-bold text-slate-500 bg-slate-100 px-1 py-0.2 rounded border border-slate-200 mt-0.5 inline-block">
+                              <span className="font-mono text-xs font-bold text-slate-500 bg-slate-100 px-1 py-0.5 rounded border border-slate-200 mt-0.5 inline-block">
                                 {assoc.id}
                               </span>
                             </td>
@@ -3303,20 +3925,12 @@ export default function PartyBranch({
                                     {displayName}
                                   </div>
                                   {assoc.description && (
-                                    <p className="text-xs text-slate-500 truncate max-w-[280px] mt-0.5">
+                                    <p className="text-xs text-slate-500 truncate max-w-[300px] mt-0.5">
                                       {assoc.description}
                                     </p>
                                   )}
                                 </div>
                               </div>
-                            </td>
-
-                            {/* Khối trực thuộc */}
-                            <td className="py-3 px-4">
-                              <span className={`inline-flex items-center gap-1.5 text-xs font-bold px-2.5 py-1 rounded-full border ${badgeStyle.iconBg} ${badgeStyle.iconColor}`}>
-                                <span className="w-1.5 h-1.5 rounded-full bg-current"></span>
-                                <span>{badgeStyle.groupLabel}</span>
-                              </span>
                             </td>
 
                             {/* Người đứng đầu */}
@@ -3331,8 +3945,6 @@ export default function PartyBranch({
                                       {assoc.leaderName}
                                     </span>
                                     <div className="flex items-center gap-1.5 text-xs text-slate-500 font-mono mt-0.5">
-                                      <span className="text-emerald-700 font-semibold">{assoc.category}</span>
-                                      <span>•</span>
                                       <span>{assoc.leaderCccd ? `CCCD: ${assoc.leaderCccd.substring(0, 6)}***` : "Chưa có CCCD"}</span>
                                     </div>
                                   </div>
@@ -3346,9 +3958,9 @@ export default function PartyBranch({
                             </td>
 
                             {/* Số lượng hội viên */}
-                            <td className="py-3 px-4 text-center">
-                              <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold font-mono bg-emerald-50 text-emerald-800 border border-emerald-200">
-                                <Users size={12} className="text-emerald-600" />
+                            <td className="py-3 px-4 text-center whitespace-nowrap">
+                              <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold font-mono bg-emerald-50 text-emerald-800 border border-emerald-200 whitespace-nowrap">
+                                <Users size={12} className="text-emerald-600 shrink-0" />
                                 <span>{memberCount} tv</span>
                               </span>
                             </td>
@@ -3371,22 +3983,22 @@ export default function PartyBranch({
                             </td>
 
                             {/* Tình trạng kiện toàn */}
-                            <td className="py-3 px-4 text-center">
+                            <td className="py-3 px-4 text-center whitespace-nowrap">
                               {hasLeader && memberCount > 0 ? (
-                                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-50 text-emerald-800 border border-emerald-200">
-                                  <CheckCircle2 size={11} className="text-emerald-600" />
+                                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-50 text-emerald-800 border border-emerald-200 whitespace-nowrap">
+                                  <CheckCircle2 size={11} className="text-emerald-600 shrink-0" />
                                   <span>Đã kiện toàn</span>
                                 </span>
                               ) : (
-                                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-amber-50 text-amber-800 border border-amber-200">
-                                  <AlertCircle size={11} className="text-amber-600" />
+                                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-amber-50 text-amber-800 border border-amber-200 whitespace-nowrap">
+                                  <AlertCircle size={11} className="text-amber-600 shrink-0" />
                                   <span>Cần bổ sung</span>
                                 </span>
                               )}
                             </td>
 
                             {/* Thao tác */}
-                            <td className="py-3 px-4 text-center" onClick={(e) => e.stopPropagation()}>
+                            <td className="py-3 px-3 text-center whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
                               <div className="flex items-center justify-center gap-1">
                                 <button
                                   type="button"
@@ -3503,10 +4115,19 @@ export default function PartyBranch({
             }
           });
         const all213List = Array.from(merged213Map.values());
+        const q213 = search213Query.trim().toLowerCase();
         const filtered213List = all213List.filter(item => {
-          if (to213Filter === "all") return true;
-          const areaLabel = extractKp3Area(item.address);
-          return areaLabel === to213Filter;
+          if (to213Filter !== "all") {
+            const areaLabel = extractKp3Area(item.address);
+            if (areaLabel !== to213Filter) return false;
+          }
+          if (!q213) return true;
+          return (
+            item.fullName.toLowerCase().includes(q213) ||
+            item.cccd.toLowerCase().includes(q213) ||
+            item.address.toLowerCase().includes(q213) ||
+            item.role.toLowerCase().includes(q213)
+          );
         });
 
         return (
@@ -3519,9 +4140,6 @@ export default function PartyBranch({
                     <Flag size={16} className="text-rose-600" />
                     <span>Điểm danh &amp; Nghị quyết Sinh hoạt Chi bộ KP3</span>
                   </h3>
-                  <p className="text-xs text-slate-600 mt-1">
-                    Lưu trữ biên bản sinh hoạt Chi bộ định kỳ, tỷ lệ đảng viên dự họp và giao việc trực tiếp sang bảng Nhiệm vụ KP3.
-                  </p>
                 </div>
                 <button
                   type="button"
@@ -3647,17 +4265,29 @@ export default function PartyBranch({
                     Tổng số {all213List.length} đảng viên đang công tác sinh hoạt hai chiều tại KP3.
                   </p>
                 </div>
-                <div className="min-w-[165px] shrink-0">
-                  <ReportSelect
-                    aria-label="Lọc Đảng viên 213 theo khu vực KP3"
-                    value={to213Filter}
-                    onChange={val => setTo213Filter(val)}
-                    options={[
-                      { value: "all", label: `Toàn địa bàn KP3 (${all213List.length})` },
-                      ...KP3_AREA_LIST.map(area => ({ value: area, label: area }))
-                    ]}
-                    className="text-xs"
-                  />
+                <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full sm:w-auto">
+                  <div className="relative min-w-[210px]">
+                    <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 pointer-events-none" />
+                    <input
+                      type="search"
+                      value={search213Query}
+                      onChange={e => setSearch213Query(e.target.value)}
+                      placeholder="Tìm tên, CCCD, địa chỉ..."
+                      className="w-full h-9 pl-9 pr-3 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600"
+                    />
+                  </div>
+                  <div className="min-w-[165px] shrink-0">
+                    <ReportSelect
+                      aria-label="Lọc Đảng viên 213 theo khu vực KP3"
+                      value={to213Filter}
+                      onChange={val => setTo213Filter(val)}
+                      options={[
+                        { value: "all", label: `Toàn địa bàn KP3 (${all213List.length})` },
+                        ...KP3_AREA_LIST.map(area => ({ value: area, label: area }))
+                      ]}
+                      className="text-xs"
+                    />
+                  </div>
                 </div>
               </div>
 
@@ -3675,15 +4305,50 @@ export default function PartyBranch({
                     {filtered213List.length === 0 ? (
                       <tr>
                         <td colSpan={4} className="py-8 text-center text-slate-600">
-                          Không có Đảng viên 213 thuộc khu vực KP3 đang chọn.
+                          Không có Đảng viên 213 thuộc bộ lọc đang chọn.
                         </td>
                       </tr>
                     ) : (
                       filtered213List.map((m, idx) => {
                         const areaLabel = extractKp3Area(m.address);
+                        const matchedAssocMember = assoc213?.members.find(x => x.cccd === m.cccd);
+                        const matchedRes = residents.find(r => r.cccd === m.cccd || r.fullName === m.fullName);
+                        const open213Detail = () => {
+                          if (matchedAssocMember && assoc213) {
+                            handleTriggerMemberDetail(matchedAssocMember, assoc213);
+                          } else if (matchedRes) {
+                            navigate(getResidentDetailPath(matchedRes.id));
+                          } else if (assoc213) {
+                            handleTriggerMemberDetail(
+                              {
+                                id: `213-${m.cccd}`,
+                                cccd: m.cccd,
+                                fullName: m.fullName,
+                                role: m.role,
+                                joinDate: m.joinDate || "2024-01-01",
+                              },
+                              assoc213
+                            );
+                          }
+                        };
                         return (
-                          <tr key={`${m.cccd}-${idx}`} className="hover:bg-slate-50/70">
-                            <td className="py-2.5 px-3 font-bold text-slate-900">{m.fullName}</td>
+                          <tr
+                            key={`${m.cccd}-${idx}`}
+                            tabIndex={0}
+                            onClick={open213Detail}
+                            onKeyDown={(e) => {
+                              if (e.target !== e.currentTarget) return;
+                              if (e.key === "Enter" || e.key === " ") {
+                                e.preventDefault();
+                                open213Detail();
+                              }
+                            }}
+                            className="cursor-pointer hover:bg-emerald-50/50 transition-colors group"
+                            title={`Xem hồ sơ chi tiết ${m.fullName}`}
+                          >
+                            <td className="py-2.5 px-3 font-bold text-slate-900 group-hover:text-emerald-800 transition-colors">
+                              {m.fullName}
+                            </td>
                             <td className="py-2.5 px-3 font-mono text-slate-700">{m.cccd}</td>
                             <td className="py-2.5 px-3">
                               <span className="px-2 py-0.5 rounded-full bg-rose-50 text-rose-800 border border-rose-200 font-semibold text-xs">
@@ -3726,9 +4391,6 @@ export default function PartyBranch({
                   Ma Trận Cán Bộ Đa Vai Trò & Phân Công Kiêm Nhiệm
                 </h3>
               </div>
-              <p className="text-xs text-slate-600 mt-1">
-                Theo dõi 100% cán bộ đang nắm giữ từ 2 chức danh trở lên tại KP3, đánh giá mức độ cân đối khối lượng công việc.
-              </p>
             </div>
 
             <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto shrink-0">
@@ -3750,7 +4412,7 @@ export default function PartyBranch({
                 className="flex-1 sm:flex-initial flex items-center justify-center gap-1.5 px-3.5 py-2 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl text-xs font-bold shadow-xs transition-colors cursor-pointer"
               >
                 <Plus size={14} />
-                <span>+ Phân công kiêm nhiệm</span>
+                <span>Phân công kiêm nhiệm</span>
               </button>
             </div>
           </div>
@@ -3804,10 +4466,47 @@ export default function PartyBranch({
               {filteredMultiRoleSummary.map(item => {
                 const isOverloaded = item.rolesCount >= 4;
                 const isMulti = item.rolesCount >= 2;
+                const primaryAssoc =
+                  associations.find(a => a.members?.some(m => m.cccd === item.resident.cccd)) ||
+                  selectedAssociation;
+                const primaryMember = primaryAssoc?.members?.find(m => m.cccd === item.resident.cccd);
+
                 return (
                   <div
                     key={item.resident.id || item.resident.cccd}
-                    className={`bg-white rounded-2xl border transition-all hover:shadow-md p-4 flex flex-col justify-between ${isOverloaded
+                    role={primaryMember ? "button" : undefined}
+                    tabIndex={primaryMember ? 0 : undefined}
+                    aria-label={
+                      primaryMember
+                        ? `Xem thông tin chi tiết hội viên ${item.resident.fullName}`
+                        : undefined
+                    }
+                    title={
+                      primaryMember
+                        ? `Nhấp để mở thông tin chi tiết: ${item.resident.fullName}`
+                        : undefined
+                    }
+                    onClick={
+                      primaryMember
+                        ? () => handleTriggerMemberDetail(primaryMember, primaryAssoc)
+                        : undefined
+                    }
+                    onKeyDown={
+                      primaryMember
+                        ? (e) => {
+                            if (e.target !== e.currentTarget) return;
+                            if (e.key === "Enter" || e.key === " ") {
+                              e.preventDefault();
+                              handleTriggerMemberDetail(primaryMember, primaryAssoc);
+                            }
+                          }
+                        : undefined
+                    }
+                    className={`group bg-white rounded-2xl border transition-all hover:shadow-md p-4 flex flex-col justify-between ${
+                      primaryMember
+                        ? "cursor-pointer hover:border-emerald-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/40"
+                        : ""
+                    } ${isOverloaded
                         ? "border-rose-300 bg-rose-50/20 shadow-rose-100"
                         : isMulti
                           ? "border-amber-200/80 shadow-2xs"
@@ -3827,7 +4526,7 @@ export default function PartyBranch({
                             {item.resident.fullName.trim().split(" ").pop()?.slice(0, 2).toUpperCase() || "CB"}
                           </div>
                           <div className="min-w-0">
-                            <h4 className="text-sm font-black text-slate-900 truncate">
+                            <h4 className="text-sm font-black text-slate-900 group-hover:text-emerald-700 transition-colors truncate">
                               {item.resident.fullName}
                             </h4>
                             <div className="flex items-center gap-2 mt-0.5 text-xs text-slate-500 font-mono">
@@ -3860,22 +4559,43 @@ export default function PartyBranch({
                         <span className="text-xs font-bold text-slate-600 uppercase tracking-wider block">
                           Các vị trí kiêm nhiệm:
                         </span>
-                        {item.roles.map((r, rIdx) => (
-                          <div
-                            key={rIdx}
-                            className="flex items-center justify-between gap-2 p-2 rounded-xl bg-slate-50 border border-slate-100 text-xs"
-                          >
-                            <div className="flex items-center gap-1.5 min-w-0">
-                              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0" />
-                              <span className="font-semibold text-slate-800 truncate text-xs">
-                                {r.groupName}
+                        {item.roles.map((r, rIdx) => {
+                          const roleAssoc = associations.find(a => a.id === r.groupId);
+                          const roleMember = roleAssoc?.members?.find(m => m.cccd === item.resident.cccd);
+                          return (
+                            <div
+                              key={rIdx}
+                              onClick={
+                                roleMember && roleAssoc
+                                  ? (e) => {
+                                      e.stopPropagation();
+                                      handleTriggerMemberDetail(roleMember, roleAssoc);
+                                    }
+                                  : undefined
+                              }
+                              title={
+                                roleMember && roleAssoc
+                                  ? `Xem hồ sơ tại ${roleAssoc.name}`
+                                  : undefined
+                              }
+                              className={`flex items-center justify-between gap-2 p-2 rounded-xl bg-slate-50 border border-slate-100 text-xs transition-colors ${
+                                roleMember && roleAssoc
+                                  ? "cursor-pointer hover:bg-emerald-50/70 hover:border-emerald-200"
+                                  : ""
+                              }`}
+                            >
+                              <div className="flex items-center gap-1.5 min-w-0">
+                                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0" />
+                                <span className="font-semibold text-slate-800 truncate text-xs">
+                                  {r.groupName}
+                                </span>
+                              </div>
+                              <span className="px-2 py-0.5 bg-white border border-slate-200 text-emerald-800 font-bold rounded-lg text-xs shrink-0">
+                                {r.role}
                               </span>
                             </div>
-                            <span className="px-2 py-0.5 bg-white border border-slate-200 text-emerald-800 font-bold rounded-lg text-xs shrink-0">
-                              {r.role}
-                            </span>
-                          </div>
-                        ))}
+                          );
+                        })}
                       </div>
                     </div>
 
@@ -3898,10 +4618,11 @@ export default function PartyBranch({
                       </div>
 
                       <button
-                        onClick={() => {
-                          setQuickAssignResidentCccd(item.resident.cccd);
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
                           setQuickAssignTab("by-resident");
-                          setShowQuickAssignModal(true);
+                          handleOpenQuickAssignModal(item.resident.cccd);
                         }}
                         className="text-xs font-bold text-emerald-700 hover:text-emerald-800 hover:underline flex items-center gap-1 cursor-pointer"
                       >
@@ -3933,14 +4654,26 @@ export default function PartyBranch({
                   Sổ Quyết Định Chuẩn Y & Văn Bản Pháp Quy
                 </h3>
               </div>
-              <p className="text-xs text-slate-500 mt-1">
-                Lưu trữ tập trung {totalDecisionsCount} quyết định chuẩn y thành lập & phê duyệt nhân sự từ UBND Phường An Phú và Đảng ủy.
-              </p>
             </div>
 
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setDecisionModalAssocId(selectedAssociation?.id || associations[0]?.id || "ASC_DANG");
+                  setDecisionModalNumber("");
+                  setDecisionModalDate(new Date().toLocaleDateString("vi-VN"));
+                  setDecisionModalOcrResult(null);
+                  setDecisionModalFile(null);
+                  setShowDecisionOcrModal(true);
+                }}
+                className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-indigo-700 hover:bg-indigo-800 text-white text-xs font-bold shadow-2xs transition-colors cursor-pointer whitespace-nowrap"
+              >
+                <Sparkles size={14} className="shrink-0" />
+                <span>Tải Quyết định &amp; Quét AI OCR</span>
+              </button>
               <span className="px-3 py-1.5 bg-indigo-50 text-indigo-800 border border-indigo-200 rounded-xl text-xs font-bold font-mono">
-                Số hóa: {allDecisionsList.length}/{allDecisionsList.length} văn bản (100%)
+                Số hóa: {allDecisionsList.length} văn bản
               </span>
             </div>
           </div>
@@ -3998,13 +4731,46 @@ export default function PartyBranch({
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
-                    {filteredDecisionsList.map((dec, idx) => (
-                      <tr key={`${dec.assocId}-${dec.memberCccd}-${idx}`} className="hover:bg-indigo-50/30 transition-colors">
+                    {filteredDecisionsList.map((dec, idx) => {
+                      const openDecisionPreview = () => {
+                        setViewingDecisionDoc({
+                          memberName: dec.memberName,
+                          memberRole: dec.memberRole,
+                          memberCccd: dec.memberCccd,
+                          associationName: dec.assocName,
+                          decisionNumber: dec.decisionNumber,
+                          decisionDate: dec.decisionDate,
+                          decisionFile: dec.decisionFile
+                        });
+                      };
+                      const openDecisionMember = (e: React.MouseEvent) => {
+                        e.stopPropagation();
+                        const assoc = associations.find(a => a.id === dec.assocId);
+                        const member = assoc?.members.find(m => m.cccd === dec.memberCccd);
+                        if (member && assoc) {
+                          handleTriggerMemberDetail(member, assoc);
+                        }
+                      };
+                      return (
+                      <tr
+                        key={`${dec.assocId}-${dec.memberCccd}-${idx}`}
+                        tabIndex={0}
+                        onClick={openDecisionPreview}
+                        onKeyDown={(e) => {
+                          if (e.target !== e.currentTarget) return;
+                          if (e.key === "Enter" || e.key === " ") {
+                            e.preventDefault();
+                            openDecisionPreview();
+                          }
+                        }}
+                        className="cursor-pointer hover:bg-indigo-50/40 transition-colors group"
+                        title={`Xem quyết định ${dec.decisionNumber}`}
+                      >
                         <td className="py-3 px-3.5 text-center font-mono text-slate-600">
                           {idx + 1}
                         </td>
                         <td className="py-3 px-3.5">
-                          <div className="flex items-center gap-1.5 font-mono font-bold text-indigo-700">
+                          <div className="flex items-center gap-1.5 font-mono font-bold text-indigo-700 group-hover:text-indigo-800">
                             <FileText size={13} className="text-indigo-500 shrink-0" />
                             <span>{dec.decisionNumber}</span>
                           </div>
@@ -4013,7 +4779,14 @@ export default function PartyBranch({
                           {dec.decisionDate}
                         </td>
                         <td className="py-3 px-3.5">
-                          <div className="font-bold text-slate-900">{dec.memberName}</div>
+                          <button
+                            type="button"
+                            onClick={openDecisionMember}
+                            className="font-bold text-slate-900 hover:text-emerald-700 hover:underline text-left cursor-pointer"
+                            title={`Mở hồ sơ hội viên ${dec.memberName}`}
+                          >
+                            {dec.memberName}
+                          </button>
                           <div className="text-xs text-slate-600 font-mono">CCCD: {dec.memberCccd}</div>
                         </td>
                         <td className="py-3 px-3.5">
@@ -4030,19 +4803,10 @@ export default function PartyBranch({
                             <CheckCircle2 size={10} /> Đang hiệu lực
                           </span>
                         </td>
-                        <td className="py-3 px-3.5 text-right">
+                        <td className="py-3 px-3.5 text-right" onClick={(e) => e.stopPropagation()}>
                           <button
-                            onClick={() => {
-                              setViewingDecisionDoc({
-                                memberName: dec.memberName,
-                                memberRole: dec.memberRole,
-                                memberCccd: dec.memberCccd,
-                                associationName: dec.assocName,
-                                decisionNumber: dec.decisionNumber,
-                                decisionDate: dec.decisionDate,
-                                decisionFile: dec.decisionFile
-                              });
-                            }}
+                            type="button"
+                            onClick={openDecisionPreview}
                             className="inline-flex items-center gap-1 px-2.5 py-1 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded-lg text-xs font-bold transition-colors cursor-pointer"
                           >
                             <Eye size={12} />
@@ -4050,7 +4814,8 @@ export default function PartyBranch({
                           </button>
                         </td>
                       </tr>
-                    ))}
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>
@@ -4075,210 +4840,271 @@ export default function PartyBranch({
                   Sơ Đồ Cơ Cấu Tổ Chức Bộ Máy Chính Trị & Xã Hội Cơ Sở
                 </h3>
               </div>
-              <p className="text-xs text-slate-500 mt-1">
-                Mô hình tổ chức 5 tầng vận hành tại Khu phố 3, Phường An Phú. Nhấp vào từng khối để xem chi tiết danh sách nhân sự.
-              </p>
             </div>
 
             <div className="flex items-center gap-2">
               <span className="px-3 py-1.5 bg-blue-50 text-blue-800 border border-blue-200 rounded-xl text-xs font-bold font-mono">
-                Tổng cộng: 23 Tổ chức & Chi hội
+                Tổng cộng: {associations.length} Tổ chức & Chi hội
               </span>
             </div>
           </div>
 
-          {/* Org Chart 5 Tiers */}
-          <div className="p-4 sm:p-6 bg-slate-50/60 rounded-3xl border border-slate-200/80 space-y-6">
+          {/* Org Chart 5 Tiers (100% Live Synchronized from Associations) */}
+          {(() => {
+            const partyAssoc =
+              associations.find((a) => a.id === "ASC_DANG" || a.name.toLowerCase().includes("chi bộ")) ||
+              fallbackAssociation;
+            const partyDeputy = partyAssoc.members.find((m) => classifyMemberRoleTier(m.role) === "deputy");
 
-            {/* TẦNG 1: LÃNH ĐẠO TOÀN DIỆN */}
-            <div className="flex flex-col items-center">
-              <div className="text-xs font-black uppercase tracking-wider text-rose-700 bg-rose-50 px-3 py-1 rounded-full border border-rose-200 mb-2">
-                Tầng 1 • Hạt nhân Lãnh đạo toàn diện
-              </div>
-              <div
-                onClick={() => {
-                  const target = associations.find(a => a.id === "ASC_PARTY" || a.name.includes("Chi bộ"));
-                  if (target) {
-                    setSelectedAssociationId(target.id);
-                    setActiveSubTab("associations");
-                  }
-                }}
-                className="w-full max-w-md bg-white hover:bg-rose-50/30 rounded-2xl border-2 border-rose-500 p-4 shadow-sm hover:shadow-md transition-all cursor-pointer text-center group"
-              >
-                <div className="inline-flex p-2 bg-rose-100 text-rose-700 rounded-xl mb-1.5">
-                  <Flag size={20} />
-                </div>
-                <h4 className="font-black text-sm text-slate-900 group-hover:text-rose-700 transition-colors">
-                  Chi bộ Đảng Khu phố 3
-                </h4>
-                <p className="text-xs text-slate-600 mt-0.5">
-                  Bí thư: <span className="font-bold text-slate-900">Nguyễn Văn Hùng</span>
-                </p>
-                <div className="mt-2 inline-flex items-center gap-2 text-xs font-bold text-rose-800 bg-rose-50 px-2.5 py-0.5 rounded-full border border-rose-200 font-mono">
-                  13 Đảng viên sinh hoạt • QĐ số 12/ĐU-AP
-                </div>
-              </div>
-            </div>
+            const bdhAssoc = associations.find(
+              (a) => a.id === "ASC_BDH" || a.name.toLowerCase().includes("ban điều hành")
+            );
+            const bdhDeputy = bdhAssoc?.members.find((m) => classifyMemberRoleTier(m.role) === "deputy");
 
-            {/* Connecting Vertical Line */}
-            <div className="w-0.5 h-6 bg-slate-300 mx-auto" />
+            const mtAssoc = associations.find(
+              (a) => a.id === "ASC_MT" || a.name.toLowerCase().includes("mặt trận")
+            );
+            const mtDeputy = mtAssoc?.members.find((m) => classifyMemberRoleTier(m.role) === "deputy");
 
-            {/* TẦNG 2: CHẤP HÀNH & HIỆP THƯƠNG */}
-            <div className="flex flex-col items-center">
-              <div className="text-xs font-black uppercase tracking-wider text-emerald-800 bg-emerald-50 px-3 py-1 rounded-full border border-emerald-200 mb-2">
-                Tầng 2 • Quản lý Điều hành & Hiệp thương Mặt trận
-              </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 w-full max-w-2xl">
-                {/* BDH */}
-                <div
-                  onClick={() => {
-                    const target = associations.find(a => a.id === "ASC_BDH" || a.name.includes("Ban điều hành"));
-                    if (target) {
-                      setSelectedAssociationId(target.id);
-                      setActiveSubTab("associations");
-                    }
-                  }}
-                  className="bg-white hover:bg-emerald-50/30 rounded-2xl border border-emerald-500 p-4 shadow-sm hover:shadow-md transition-all cursor-pointer group"
-                >
-                  <div className="flex items-center gap-2.5 mb-2">
-                    <div className="p-2 bg-emerald-100 text-emerald-700 rounded-xl shrink-0">
-                      <Building2 size={18} />
-                    </div>
-                    <div>
-                      <h4 className="font-bold text-xs text-slate-900 group-hover:text-emerald-700 transition-colors">
-                        Ban Điều Hành Khu Phố 3
-                      </h4>
-                      <p className="text-xs text-slate-500">Cơ quan chấp hành chính quyền cơ sở</p>
-                    </div>
+            const tier3Defs = [
+              { id: "ASC_ANTT", fallbackName: "Tổ ANTT cơ sở", icon: ShieldCheck },
+              { id: "ASC_PCCC", fallbackName: "Tổ liên gia PCCC", icon: Flame },
+              { id: "ASC_HG", fallbackName: "Tổ hoà giải cơ sở", icon: Award },
+              { id: "ASC_KHUDOI", fallbackName: "Khu Đội Dân quân", icon: ShieldAlert },
+            ];
+            const tier1to3Ids = new Set([
+              partyAssoc.id,
+              bdhAssoc?.id || "ASC_BDH",
+              mtAssoc?.id || "ASC_MT",
+              ...tier3Defs.map((d) => d.id),
+            ]);
+            const tier4Assocs = associations.filter(
+              (a) => !tier1to3Ids.has(a.id) && !isSocialWelfareAssoc(a.category, a.name)
+            );
+
+            return (
+              <div className="p-4 sm:p-6 bg-slate-50/60 rounded-3xl border border-slate-200/80 space-y-6">
+                {/* TẦNG 1: HẠT NHÂN LÃNH ĐẠO TOÀN DIỆN (BÍ THƯ CHI BỘ LUÔN ĐỨNG ĐẦU) */}
+                <div className="flex flex-col items-center">
+                  <div className="text-xs font-black uppercase tracking-wider text-rose-700 bg-rose-50 px-3 py-1 rounded-full border border-rose-200 mb-2">
+                    Tầng 1 • Hạt nhân Lãnh đạo toàn diện (Đứng đầu Khu phố 3)
                   </div>
-                  <div className="text-xs text-slate-700 pt-2 border-t border-slate-100 flex justify-between items-center">
-                    <span>Trưởng ban: <strong>Nguyễn Trung Huy</strong></span>
-                    <span className="text-xs font-mono font-bold bg-emerald-50 text-emerald-800 px-2 py-0.5 rounded-full">
-                      3 Thành viên
-                    </span>
-                  </div>
-                </div>
-
-                {/* Mặt Trận */}
-                <div
-                  onClick={() => {
-                    const target = associations.find(a => a.id === "ASC_MATTRAN" || a.name.includes("Mặt trận"));
-                    if (target) {
-                      setSelectedAssociationId(target.id);
-                      setActiveSubTab("associations");
-                    }
-                  }}
-                  className="bg-white hover:bg-emerald-50/30 rounded-2xl border border-emerald-500 p-4 shadow-sm hover:shadow-md transition-all cursor-pointer group"
-                >
-                  <div className="flex items-center gap-2.5 mb-2">
-                    <div className="p-2 bg-emerald-100 text-emerald-700 rounded-xl shrink-0">
-                      <Users size={18} />
-                    </div>
-                    <div>
-                      <h4 className="font-bold text-xs text-slate-900 group-hover:text-emerald-700 transition-colors">
-                        Ban Công Tác Mặt Trận
-                      </h4>
-                      <p className="text-xs text-slate-500">Đại đoàn kết toàn dân tộc địa bàn</p>
-                    </div>
-                  </div>
-                  <div className="text-xs text-slate-700 pt-2 border-t border-slate-100 flex justify-between items-center">
-                    <span>Trưởng ban: <strong>Nguyễn Văn Hùng</strong></span>
-                    <span className="text-xs font-mono font-bold bg-emerald-50 text-emerald-800 px-2 py-0.5 rounded-full">
-                      3 Thành viên
-                    </span>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Connecting Vertical Line */}
-            <div className="w-0.5 h-6 bg-slate-300 mx-auto" />
-
-            {/* TẦNG 3: KHỐI AN NINH - TRẬT TỰ & PCCC */}
-            <div className="flex flex-col items-center">
-              <div className="text-xs font-black uppercase tracking-wider text-sky-800 bg-sky-50 px-3 py-1 rounded-full border border-sky-200 mb-2">
-                Tầng 3 • Khối An Ninh - Quốc Phòng & PCCC Địa Bàn
-              </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 w-full">
-                {[
-                  { id: "ASC_ANTT", name: "Tổ ANTT cơ sở", leader: "Phạm Minh Tuấn", role: "Tổ trưởng", count: "4 TV", icon: ShieldCheck, color: "sky" },
-                  { id: "ASC_PCCC", name: "Tổ liên gia PCCC", leader: "Nguyễn Trung Huy", role: "Tổ trưởng", count: "3 TV", icon: Flame, color: "orange" },
-                  { id: "ASC_HOAGIAI", name: "Tổ hoà giải cơ sở", leader: "Nguyễn Trung Huy", role: "Tổ trưởng", count: "3 TV", icon: Award, color: "emerald" },
-                  { id: "ASC_KHUDOI", name: "Khu Đội Dân quân", leader: "Lê Văn Sơn", role: "Khu đội trưởng", count: "3 TV", icon: ShieldAlert, color: "indigo" },
-                ].map(item => (
                   <div
-                    key={item.id}
                     onClick={() => {
-                      const target = associations.find(a => a.id === item.id || a.name.includes(item.name));
-                      if (target) {
-                        setSelectedAssociationId(target.id);
-                        setActiveSubTab("associations");
-                      }
+                      setSelectedAssociationId(partyAssoc.id);
+                      setActiveSubTab("associations");
                     }}
-                    className="bg-white hover:bg-sky-50/40 rounded-2xl border border-slate-200 p-3.5 shadow-2xs hover:shadow-sm transition-all cursor-pointer group"
+                    className="w-full max-w-lg bg-white hover:bg-rose-50/30 rounded-2xl border-2 border-rose-500 p-4 shadow-sm hover:shadow-md transition-all cursor-pointer text-center group"
                   >
-                    <div className="flex items-center gap-2 mb-2">
-                      <div className="p-1.5 bg-slate-100 text-slate-700 rounded-lg group-hover:bg-sky-100 group-hover:text-sky-700 transition-colors">
-                        <item.icon size={15} />
+                    <div className="inline-flex p-2 bg-rose-100 text-rose-700 rounded-xl mb-1.5">
+                      <Flag size={20} />
+                    </div>
+                    <h4 className="font-black text-sm text-slate-900 group-hover:text-rose-700 transition-colors">
+                      {partyAssoc.name}
+                    </h4>
+                    <p className="text-xs text-slate-700 mt-1">
+                      Bí thư Chi bộ (Đứng đầu KP3):{" "}
+                      <span className="font-black text-rose-800">
+                        {partyAssoc.leaderName || liveKeyLeaders.partySecretary.name}
+                      </span>
+                    </p>
+                    {partyDeputy && (
+                      <p className="text-xs text-slate-600 mt-0.5">
+                        Phó Bí thư Chi bộ: <strong className="text-slate-800">{partyDeputy.fullName}</strong>
+                      </p>
+                    )}
+                    <div className="mt-2 inline-flex items-center gap-2 text-xs font-bold text-rose-800 bg-rose-50 px-2.5 py-0.5 rounded-full border border-rose-200 font-mono">
+                      {partyAssoc.members.length} Đảng viên • Đồng bộ trực tuyến
+                    </div>
+                  </div>
+                </div>
+
+                {/* Connecting Vertical Line */}
+                <div className="w-0.5 h-6 bg-slate-300 mx-auto" />
+
+                {/* TẦNG 2: CHẤP HÀNH & HIỆP THƯƠNG */}
+                <div className="flex flex-col items-center">
+                  <div className="text-xs font-black uppercase tracking-wider text-emerald-800 bg-emerald-50 px-3 py-1 rounded-full border border-emerald-200 mb-2">
+                    Tầng 2 • Quản lý Điều hành & Hiệp thương Mặt trận
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 w-full max-w-2xl">
+                    {/* BDH */}
+                    <div
+                      onClick={() => {
+                        if (bdhAssoc) {
+                          setSelectedAssociationId(bdhAssoc.id);
+                          setActiveSubTab("associations");
+                        }
+                      }}
+                      className="bg-white hover:bg-emerald-50/30 rounded-2xl border border-emerald-500 p-4 shadow-sm hover:shadow-md transition-all cursor-pointer group"
+                    >
+                      <div className="flex items-center gap-2.5 mb-2">
+                        <div className="p-2 bg-emerald-100 text-emerald-700 rounded-xl shrink-0">
+                          <Building2 size={18} />
+                        </div>
+                        <div>
+                          <h4 className="font-bold text-xs text-slate-900 group-hover:text-emerald-700 transition-colors">
+                            {bdhAssoc?.name || "Ban Điều Hành Khu Phố 3"}
+                          </h4>
+                          <p className="text-xs text-slate-500">Cơ quan quản lý, điều hành trực tiếp tại địa bàn</p>
+                        </div>
                       </div>
-                      <h5 className="font-bold text-xs text-slate-900 group-hover:text-sky-700 transition-colors truncate">
-                        {item.name}
-                      </h5>
+                      <div className="text-xs text-slate-700 pt-2 border-t border-slate-100 space-y-1">
+                        <div className="flex justify-between items-center gap-2">
+                          <span>
+                            Trưởng Khu phố:{" "}
+                            <strong>{bdhAssoc?.leaderName || liveKeyLeaders.neighborhoodHead.name}</strong>
+                          </span>
+                          <span className="text-xs font-mono font-bold bg-emerald-50 text-emerald-800 px-2 py-0.5 rounded-full shrink-0">
+                            {bdhAssoc?.members.length || 0} TV
+                          </span>
+                        </div>
+                        {bdhDeputy && (
+                          <div className="text-slate-600">
+                            Phó Trưởng Khu phố: <strong className="text-slate-800">{bdhDeputy.fullName}</strong>
+                          </div>
+                        )}
+                      </div>
                     </div>
-                    <div className="text-xs text-slate-600 space-y-0.5">
-                      <div>{item.role}: <strong className="text-slate-800">{item.leader}</strong></div>
-                      <div className="text-xs font-mono text-slate-600">{item.count} phụ trách</div>
+
+                    {/* Mặt Trận */}
+                    <div
+                      onClick={() => {
+                        if (mtAssoc) {
+                          setSelectedAssociationId(mtAssoc.id);
+                          setActiveSubTab("associations");
+                        }
+                      }}
+                      className="bg-white hover:bg-emerald-50/30 rounded-2xl border border-emerald-500 p-4 shadow-sm hover:shadow-md transition-all cursor-pointer group"
+                    >
+                      <div className="flex items-center gap-2.5 mb-2">
+                        <div className="p-2 bg-emerald-100 text-emerald-700 rounded-xl shrink-0">
+                          <Users size={18} />
+                        </div>
+                        <div>
+                          <h4 className="font-bold text-xs text-slate-900 group-hover:text-emerald-700 transition-colors">
+                            {mtAssoc?.name || "Ban Công Tác Mặt Trận"}
+                          </h4>
+                          <p className="text-xs text-slate-500">Khối đại đoàn kết toàn dân tộc địa bàn</p>
+                        </div>
+                      </div>
+                      <div className="text-xs text-slate-700 pt-2 border-t border-slate-100 space-y-1">
+                        <div className="flex justify-between items-center gap-2">
+                          <span>
+                            Trưởng Ban CTMT:{" "}
+                            <strong>{mtAssoc?.leaderName || liveKeyLeaders.frontHead?.name || "Chưa phân công"}</strong>
+                          </span>
+                          <span className="text-xs font-mono font-bold bg-emerald-50 text-emerald-800 px-2 py-0.5 rounded-full shrink-0">
+                            {mtAssoc?.members.length || 0} TV
+                          </span>
+                        </div>
+                        {mtDeputy && (
+                          <div className="text-slate-600">
+                            Phó Ban CTMT: <strong className="text-slate-800">{mtDeputy.fullName}</strong>
+                          </div>
+                        )}
+                      </div>
                     </div>
                   </div>
-                ))}
-              </div>
-            </div>
+                </div>
 
-            {/* Connecting Vertical Line */}
-            <div className="w-0.5 h-6 bg-slate-300 mx-auto" />
+                {/* Connecting Vertical Line */}
+                <div className="w-0.5 h-6 bg-slate-300 mx-auto" />
 
-            {/* TẦNG 4: KHỐI ĐOÀN THỂ NHÂN DÂN & HỘI QUẦN CHÚNG */}
-            <div className="flex flex-col items-center">
-              <div className="text-xs font-black uppercase tracking-wider text-indigo-800 bg-indigo-50 px-3 py-1 rounded-full border border-indigo-200 mb-2">
-                Tầng 4 • Khối Đoàn Thể Chính Trị - Xã Hội & Quần Chúng
-              </div>
-              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2.5 w-full">
-                {[
-                  { id: "ASC_PHUNU", name: "Hội Phụ nữ", leader: "Lê Thị Mai", count: "3 TV", icon: Heart },
-                  { id: "ASC_CCB", name: "Cựu chiến binh", leader: "Phạm Minh Tuấn", count: "3 TV", icon: Award },
-                  { id: "ASC_THANHNIEN", name: "Đoàn thanh niên", leader: "Hoàng Gia Bảo", count: "2 TV", icon: Flame },
-                  { id: "ASC_NGUOICAOTUOI", name: "Người cao tuổi", leader: "Nguyễn Thị Loan", count: "2 TV", icon: Users },
-                  { id: "ASC_CHUTHAPDO", name: "Chữ thập đỏ", leader: "Đỗ Thị Minh", count: "2 TV", icon: Heart },
-                  { id: "ASC_KHUYENHOC", name: "Hội Khuyến học", leader: "Đinh Văn Nghĩa", count: "2 TV", icon: Award },
-                ].map(item => (
-                  <div
-                    key={item.id}
-                    onClick={() => {
-                      const target = associations.find(a => a.id === item.id || a.name.includes(item.name));
-                      if (target) {
-                        setSelectedAssociationId(target.id);
-                        setActiveSubTab("associations");
-                      }
-                    }}
-                    className="bg-white hover:bg-indigo-50/40 rounded-xl border border-slate-200 p-2.5 shadow-2xs hover:shadow-xs transition-all cursor-pointer text-center group"
-                  >
-                    <div className="w-7 h-7 mx-auto rounded-lg bg-indigo-50 text-indigo-700 flex items-center justify-center mb-1 group-hover:scale-110 transition-transform">
-                      <item.icon size={14} />
-                    </div>
-                    <h5 className="font-bold text-xs text-slate-900 group-hover:text-indigo-700 truncate">
-                      {item.name}
-                    </h5>
-                    <p className="text-xs text-slate-500 truncate mt-0.5">{item.leader}</p>
-                    <span className="inline-block mt-1 text-xs font-mono font-bold bg-slate-100 text-slate-700 px-1.5 py-0.2 rounded-full">
-                      {item.count}
-                    </span>
+                {/* TẦNG 3: KHỐI AN NINH - TRẬT TỰ & PCCC */}
+                <div className="flex flex-col items-center">
+                  <div className="text-xs font-black uppercase tracking-wider text-sky-800 bg-sky-50 px-3 py-1 rounded-full border border-sky-200 mb-2">
+                    Tầng 3 • Khối An Ninh - Quốc Phòng, PCCC & Hòa Giải
                   </div>
-                ))}
-              </div>
-            </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 w-full">
+                    {tier3Defs.map((def) => {
+                      const target = associations.find((a) => a.id === def.id);
+                      const presets = target ? getAssociationRolePresets(target) : null;
+                      const deputy = target?.members.find((m) => classifyMemberRoleTier(m.role) === "deputy");
+                      const IconComp = def.icon;
+                      return (
+                        <div
+                          key={def.id}
+                          onClick={() => {
+                            if (target) {
+                              setSelectedAssociationId(target.id);
+                              setActiveSubTab("associations");
+                            }
+                          }}
+                          className="bg-white hover:bg-sky-50/40 rounded-2xl border border-slate-200 p-3.5 shadow-2xs hover:shadow-sm transition-all cursor-pointer group"
+                        >
+                          <div className="flex items-center gap-2 mb-2">
+                            <div className="p-1.5 bg-slate-100 text-slate-700 rounded-lg group-hover:bg-sky-100 group-hover:text-sky-700 transition-colors shrink-0">
+                              <IconComp size={15} />
+                            </div>
+                            <h5 className="font-bold text-xs text-slate-900 group-hover:text-sky-700 transition-colors line-clamp-2">
+                              {target?.name || def.fallbackName}
+                            </h5>
+                          </div>
+                          <div className="text-xs text-slate-600 space-y-0.5">
+                            <div className="line-clamp-2">
+                              {presets?.headRole || "Tổ trưởng"}:{" "}
+                              <strong className="text-slate-800">{target?.leaderName || "Chưa phân công"}</strong>
+                            </div>
+                            {deputy && (
+                              <div className="line-clamp-2 text-[11px] text-slate-500">
+                                Phó: <span className="font-semibold text-slate-700">{deputy.fullName}</span>
+                              </div>
+                            )}
+                            <div className="text-xs font-mono text-slate-600">
+                              {target?.members.length || 0} thành viên
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
 
-            {/* Connecting Vertical Line */}
-            <div className="w-0.5 h-6 bg-slate-300 mx-auto" />
+                {/* Connecting Vertical Line */}
+                <div className="w-0.5 h-6 bg-slate-300 mx-auto" />
+
+                {/* TẦNG 4: KHỐI ĐOÀN THỂ NHÂN DÂN & HỘI QUẦN CHÚNG */}
+                <div className="flex flex-col items-center">
+                  <div className="text-xs font-black uppercase tracking-wider text-indigo-800 bg-indigo-50 px-3 py-1 rounded-full border border-indigo-200 mb-2">
+                    Tầng 4 • Khối Đoàn Thể Chính Trị - Xã Hội & Chi Hội ({tier4Assocs.length})
+                  </div>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2.5 w-full">
+                    {tier4Assocs.map((assoc) => {
+                      const deputy = assoc.members.find((m) => classifyMemberRoleTier(m.role) === "deputy");
+                      return (
+                        <div
+                          key={assoc.id}
+                          onClick={() => {
+                            setSelectedAssociationId(assoc.id);
+                            setActiveSubTab("associations");
+                          }}
+                          className="bg-white hover:bg-indigo-50/40 rounded-xl border border-slate-200 p-3 shadow-2xs hover:shadow-xs transition-all cursor-pointer text-left group"
+                        >
+                          <div className="flex items-start justify-between gap-1.5 mb-1">
+                            <h5 className="font-bold text-xs text-slate-900 group-hover:text-indigo-700 line-clamp-2">
+                              {assoc.name}
+                            </h5>
+                            <span className="text-[11px] font-mono font-bold bg-slate-100 text-slate-700 px-1.5 py-0.5 rounded-full shrink-0">
+                              {assoc.members.length} TV
+                            </span>
+                          </div>
+                          <p className="text-xs text-slate-600 line-clamp-2">
+                            Trưởng: <strong className="text-slate-900">{assoc.leaderName || "Chưa phân công"}</strong>
+                          </p>
+                          {deputy && (
+                            <p className="text-[11px] text-slate-500 line-clamp-2 mt-0.5">
+                              Phó: <span className="font-medium text-slate-700">{deputy.fullName}</span>
+                            </p>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Connecting Vertical Line */}
+                <div className="w-0.5 h-6 bg-slate-300 mx-auto" />
 
             {/* TẦNG 5: MẠNG LƯỚI TỰ QUẢN & TUYẾN ĐỊA BÀN TRỰC THUỘC KP3 */}
             <div className="flex flex-col items-center">
@@ -4297,7 +5123,7 @@ export default function PartyBranch({
                   <div
                     key={zone.title}
                     onClick={() => {
-                      const target = associations.find(a => a.id === "ASC_BQL" || a.id === "ASC_ANTT") || associations[0];
+                      const target = associations.find(a => a.id === "ASC_TOTRUONG" || a.id === "ASC_ANTT") || associations[0];
                       if (target) {
                         setSelectedAssociationId(target.id);
                         setActiveSubTab("associations");
@@ -4314,14 +5140,16 @@ export default function PartyBranch({
               </div>
             </div>
 
-          </div>
+              </div>
+            );
+          })()}
         </div>
       )}
 
       {/* Add New Association (Chi hội) Modal */}
       {showAddAssocModal && (
         <div className="fixed inset-0 bg-slate-900/60 flex items-center justify-center z-50 p-4 backdrop-blur-sm animate-in fade-in duration-150">
-          <div className="bg-white rounded-2xl shadow-xl w-full max-w-md overflow-hidden animate-in zoom-in-95 duration-150">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-md max-h-[90vh] overflow-y-auto animate-in zoom-in-95 duration-150">
             <div className="bg-slate-50 text-slate-900 border-b border-slate-200 p-4 flex justify-between items-center">
               <div>
                 <h3 className="font-bold text-base">Tạo Chi hội / Tổ chức phong trào mới</h3>
@@ -4630,17 +5458,27 @@ export default function PartyBranch({
                     </button>
                   </div>
                 ) : (
-                  <label className="border-2 border-dashed border-slate-300 hover:border-emerald-500 hover:bg-emerald-50/30 rounded-xl p-4 flex flex-col items-center justify-center gap-1.5 cursor-pointer transition-all">
-                    <UploadCloud size={24} className="text-slate-600" />
-                    <span className="text-xs font-semibold text-slate-700">Kéo thả hoặc nhấp để chọn tệp tải lên</span>
-                    <span className="text-xs text-slate-600">Hỗ trợ file PDF hoặc hình ảnh (PNG, JPG, WebP) tối đa 20MB</span>
+                  <label className="border-2 border-dashed border-indigo-300 hover:border-indigo-500 hover:bg-indigo-50/40 rounded-xl p-4 flex flex-col items-center justify-center gap-1.5 cursor-pointer transition-all">
+                    {isScanningDecisionOcr ? (
+                      <>
+                        <Loader2 size={22} className="text-indigo-700 animate-spin" />
+                        <span className="text-xs font-bold text-indigo-900">Đang quét AI Vision đọc Quyết định...</span>
+                      </>
+                    ) : (
+                      <>
+                        <UploadCloud size={24} className="text-indigo-600" />
+                        <span className="text-xs font-bold text-slate-800">Tải ảnh / PDF Quyết định (AI OCR tự điền Số QĐ, Ngày ký &amp; Chức vụ)</span>
+                        <span className="text-xs text-slate-600">Hỗ trợ file PDF hoặc hình ảnh (PNG, JPG, WebP) tối đa 20MB</span>
+                      </>
+                    )}
                     <input
                       type="file"
                       accept=".pdf,image/*"
                       className="hidden"
                       onChange={(e) => {
                         const file = e.target.files?.[0];
-                        if (file) handleProcessFileUpload(file, setMemberDecisionFile);
+                        if (file) handleProcessFileUpload(file, setMemberDecisionFile, "add_member");
+                        e.target.value = "";
                       }}
                     />
                   </label>
@@ -4969,17 +5807,27 @@ export default function PartyBranch({
                     </div>
                   </div>
                 ) : (
-                  <label className="border-2 border-dashed border-slate-300 hover:border-emerald-500 hover:bg-emerald-50/30 rounded-xl p-4 flex flex-col items-center justify-center gap-1.5 cursor-pointer transition-all">
-                    <UploadCloud size={24} className="text-slate-600" />
-                    <span className="text-xs font-semibold text-slate-700">Kéo thả hoặc nhấp để tải lên tệp mới</span>
-                    <span className="text-xs text-slate-600">Hỗ trợ file PDF hoặc hình ảnh (PNG, JPG, WebP) tối đa 20MB</span>
+                  <label className="border-2 border-dashed border-indigo-300 hover:border-indigo-500 hover:bg-indigo-50/40 rounded-xl p-4 flex flex-col items-center justify-center gap-1.5 cursor-pointer transition-all">
+                    {isScanningDecisionOcr ? (
+                      <>
+                        <Loader2 size={22} className="text-indigo-700 animate-spin" />
+                        <span className="text-xs font-bold text-indigo-900">Đang quét AI Vision đọc Quyết định...</span>
+                      </>
+                    ) : (
+                      <>
+                        <UploadCloud size={24} className="text-indigo-600" />
+                        <span className="text-xs font-bold text-slate-800">Tải ảnh / PDF Quyết định (AI OCR tự động điền thông tin)</span>
+                        <span className="text-xs text-slate-600">Hỗ trợ file PDF hoặc hình ảnh (PNG, JPG, WebP) tối đa 20MB</span>
+                      </>
+                    )}
                     <input
                       type="file"
                       accept=".pdf,image/*"
                       className="hidden"
                       onChange={(e) => {
                         const file = e.target.files?.[0];
-                        if (file) handleProcessFileUpload(file, setEditMemberDecisionFile);
+                        if (file) handleProcessFileUpload(file, setEditMemberDecisionFile, "edit_member");
+                        e.target.value = "";
                       }}
                     />
                   </label>
@@ -5091,17 +5939,26 @@ export default function PartyBranch({
               ) : (
                 /* PDF Display */
                 <div className="space-y-4">
-                  {viewingDecisionDoc.file.url.startsWith("data:application/pdf") ? (
-                    <div className="bg-white rounded-xl shadow-md border border-slate-200 overflow-hidden">
+                  {isRealDecisionDocumentUrl(viewingDecisionDoc.file.url) ? (
+                    <div className="bg-white rounded-xl shadow-md border border-slate-200 overflow-hidden space-y-3">
                       <iframe
                         src={viewingDecisionDoc.file.url}
                         title={viewingDecisionDoc.file.name}
-                        className="w-full h-[520px]"
+                        className="w-full h-[520px] rounded-lg border border-slate-200"
                       />
+                      <div className="px-4 pb-3">
+                        <button
+                          onClick={() => window.open(viewingDecisionDoc.file.url, "_blank")}
+                          className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 transition-colors cursor-pointer"
+                        >
+                          <ExternalLink className="w-4 h-4" />
+                          Mở bản gốc tab mới
+                        </button>
+                      </div>
                     </div>
                   ) : (
                     /* Standard Official Administrative Decision Certificate Layout */
-                    <div className="bg-white p-8 md:p-10 rounded-2xl shadow-md border border-slate-300 max-w-2xl mx-auto space-y-6 text-slate-800 font-serif">
+                    <div className="bg-white p-8 md:p-10 rounded-2xl shadow-md border border-slate-300 max-w-2xl mx-auto space-y-6 text-slate-800">
                       {/* National Header */}
                       <div className="flex justify-between items-start border-b border-slate-200 pb-5">
                         <div className="text-center font-sans text-xs space-y-0.5">
@@ -5211,7 +6068,7 @@ export default function PartyBranch({
       {/* Edit Association (Chi hội) Modal */}
       {showEditAssocModal && assocToEdit && (
         <div className="fixed inset-0 bg-slate-900/60 flex items-center justify-center z-50 p-4 backdrop-blur-sm animate-in fade-in duration-150">
-          <div className="bg-white rounded-2xl shadow-xl w-full max-w-md overflow-hidden animate-in zoom-in-95 duration-150 border border-slate-200">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-md max-h-[90vh] overflow-y-auto animate-in zoom-in-95 duration-150 border border-slate-200">
             <div className="bg-slate-50 text-slate-900 border-b border-slate-200 p-4 flex justify-between items-center">
               <div>
                 <h3 className="font-bold text-base flex items-center gap-2">
@@ -6183,7 +7040,7 @@ export default function PartyBranch({
                                 {role}
                               </span>
                               {membersCount > 0 && (
-                                <span className="px-1.5 py-0.2 rounded text-xs bg-slate-200 text-slate-700 font-medium shrink-0">
+                                <span className="px-1.5 py-0.5 rounded text-xs bg-slate-200 text-slate-700 font-medium shrink-0">
                                   {membersCount} người giữ
                                 </span>
                               )}
@@ -6247,7 +7104,9 @@ export default function PartyBranch({
           setCustomRoles(DEFAULT_ROLES);
           try {
             localStorage.setItem("kp3_association_roles", JSON.stringify(DEFAULT_ROLES));
-          } catch {}
+          } catch {
+            // bỏ qua lỗi storage nếu không khả dụng
+          }
           setConfirmResetRoles(false);
           showToast("Đã khôi phục danh mục chức danh mặc định!", "success");
         }}
@@ -6256,6 +7115,273 @@ export default function PartyBranch({
         confirmLabel="Khôi phục mặc định"
         variant="warning"
       />
+
+      {/* Smart Handover Confirmation Modal when replacing Head of Association */}
+      {pendingHandover && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-xs p-4"
+          onClick={() => setPendingHandover(null)}
+        >
+          <div
+            className="bg-white rounded-2xl border border-slate-200 shadow-2xl w-full max-w-lg overflow-hidden"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="px-5 py-4 bg-emerald-50/80 border-b border-emerald-200/80 flex items-center justify-between">
+              <div>
+                <span className="text-[11px] font-extrabold uppercase tracking-wider text-emerald-800 block">
+                  Xác nhận kiện toàn & Bàn giao Cấp Trưởng
+                </span>
+                <h3 className="text-base font-black text-slate-900 mt-0.5">
+                  {pendingHandover.assocName}
+                </h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setPendingHandover(null)}
+                className="p-1.5 rounded-lg text-slate-500 hover:text-slate-800 hover:bg-white cursor-pointer"
+              >
+                <X size={16} />
+              </button>
+            </div>
+
+            <div className="p-5 space-y-4 text-sm text-slate-700">
+              <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200/80 space-y-2">
+                <div className="flex items-center justify-between gap-2 text-xs">
+                  <span className="text-slate-500 font-medium">Người nhận chức danh mới:</span>
+                  <span className="font-black text-emerald-800">
+                    {pendingHandover.member.fullName} → {pendingHandover.nextRole}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between gap-2 text-xs border-t border-slate-200/70 pt-2">
+                  <span className="text-slate-500 font-medium">Cấp Trưởng đương nhiệm:</span>
+                  <span className="font-bold text-slate-900">
+                    {pendingHandover.currentHead.fullName} ({pendingHandover.currentHead.role})
+                  </span>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-800 mb-1.5">
+                  Chuyển chức danh của ông/bà {pendingHandover.currentHead.fullName} sang:
+                </label>
+                <div className="flex flex-wrap gap-1.5">
+                  {pendingHandover.fallbackOptions.map((opt) => (
+                    <button
+                      key={opt}
+                      type="button"
+                      onClick={() =>
+                        setPendingHandover((prev) =>
+                          prev ? { ...prev, previousHeadNextRole: opt } : null
+                        )
+                      }
+                      className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all cursor-pointer ${
+                        pendingHandover.previousHeadNextRole === opt
+                          ? "bg-emerald-700 text-white border-emerald-700 shadow-2xs"
+                          : "bg-white hover:bg-slate-50 text-slate-700 border-slate-200"
+                      }`}
+                    >
+                      {opt}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <p className="text-xs text-emerald-800 bg-emerald-50 border border-emerald-200/80 rounded-xl p-3">
+                ★ Sau khi xác nhận, hệ thống sẽ tự động cập nhật đồng bộ trên <strong>Cổng Cư dân</strong>, trang{" "}
+                <strong>Giới thiệu Khu phố 3</strong>, <strong>Sơ đồ Tổ chức</strong> và các biểu mẫu điều hành{" "}
+                (luôn giữ <strong>Bí thư Chi bộ</strong> đứng đầu Khu phố 3).
+              </p>
+            </div>
+
+            <div className="px-5 py-3.5 bg-slate-50 border-t border-slate-200/80 flex items-center justify-end gap-2.5">
+              <button
+                type="button"
+                onClick={() => setPendingHandover(null)}
+                className="px-4 py-2 rounded-xl border border-slate-200 bg-white hover:bg-slate-100 text-xs font-bold text-slate-700 cursor-pointer"
+              >
+                Hủy bỏ
+              </button>
+              <button
+                type="button"
+                onClick={confirmPendingHandover}
+                className="px-4 py-2 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-bold shadow-xs cursor-pointer"
+              >
+                Xác nhận Bàn giao & Đồng bộ
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Quét AI OCR Quyết định Chuẩn y / Bổ nhiệm Nhân sự */}
+      {showDecisionOcrModal && (
+        <div
+          className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center z-50 p-4 animate-in fade-in duration-150"
+          onClick={() => setShowDecisionOcrModal(false)}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="bg-white rounded-2xl border border-slate-200 shadow-2xl w-full max-w-2xl max-h-[92vh] flex flex-col overflow-hidden"
+          >
+            <div className="bg-slate-50 border-b border-slate-200 p-4 px-5 flex items-center justify-between shrink-0">
+              <div className="flex items-center gap-2.5">
+                <span className="w-9 h-9 rounded-xl bg-indigo-100 text-indigo-700 flex items-center justify-center shrink-0">
+                  <Sparkles size={18} />
+                </span>
+                <div>
+                  <h3 className="text-sm font-black text-slate-900">
+                    Quét AI OCR Quyết Định Chuẩn Y / Kiện Toàn Nhân Sự
+                  </h3>
+                  <p className="text-xs text-slate-600">
+                    Tải ảnh chụp hoặc PDF Quyết định từ Đảng ủy / UBND Phường — Tự động điền thông tin &amp; nhân sự
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowDecisionOcrModal(false)}
+                className="p-1.5 rounded-lg text-slate-500 hover:text-slate-900 hover:bg-slate-200/70 cursor-pointer"
+                aria-label="Đóng cửa sổ OCR Quyết định"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <div className="p-5 space-y-4 overflow-y-auto flex-1 text-xs">
+              <label className="border-2 border-dashed border-indigo-300 hover:border-indigo-500 bg-indigo-50/35 hover:bg-indigo-50/70 rounded-2xl p-5 flex flex-col items-center justify-center gap-2 cursor-pointer transition-all text-center">
+                {isScanningDecisionOcr ? (
+                  <>
+                    <Loader2 size={26} className="text-indigo-700 animate-spin" />
+                    <span className="font-bold text-indigo-950 text-sm">
+                      AI Vision đang đọc nội dung Quyết định &amp; đối khớp CSDL cư dân...
+                    </span>
+                  </>
+                ) : (
+                  <>
+                    <UploadCloud size={28} className="text-indigo-700" />
+                    <span className="font-bold text-slate-900 text-sm">
+                      {decisionModalFile
+                        ? `Đã chọn: ${decisionModalFile.name} (${decisionModalFile.size}) — Nhấp để đổi tệp`
+                        : "Chọn tệp PDF hoặc Ảnh chụp Quyết định để AI tự động đọc"}
+                    </span>
+                    <span className="text-slate-600">
+                      Tự động trích xuất Số Quyết định, Ngày ký, Chi hội mục tiêu và danh sách cán bộ được chuẩn y
+                    </span>
+                  </>
+                )}
+                <input
+                  type="file"
+                  accept=".pdf,image/*"
+                  disabled={isScanningDecisionOcr}
+                  className="hidden"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) handleProcessFileUpload(file, setDecisionModalFile, "standalone_modal");
+                    e.target.value = "";
+                  }}
+                />
+              </label>
+
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div className="sm:col-span-1 space-y-1">
+                  <label className="font-bold text-slate-700 block">Số Quyết định *</label>
+                  <input
+                    type="text"
+                    value={decisionModalNumber}
+                    onChange={(e) => setDecisionModalNumber(e.target.value)}
+                    placeholder="VD: 145/QĐ-UBND"
+                    className="w-full h-10 px-3 rounded-xl border border-slate-300 font-mono text-xs focus:outline-none focus:border-indigo-600"
+                  />
+                </div>
+                <div className="sm:col-span-1 space-y-1">
+                  <label className="font-bold text-slate-700 block">Ngày ban hành</label>
+                  <input
+                    type="text"
+                    value={decisionModalDate}
+                    onChange={(e) => setDecisionModalDate(e.target.value)}
+                    placeholder="DD/MM/YYYY"
+                    className="w-full h-10 px-3 rounded-xl border border-slate-300 font-mono text-xs focus:outline-none focus:border-indigo-600"
+                  />
+                </div>
+                <div className="sm:col-span-1 space-y-1">
+                  <label className="font-bold text-slate-700 block">Chi hội / Tổ chức áp dụng *</label>
+                  <ReportSelect
+                    value={decisionModalAssocId}
+                    onChange={(v) => setDecisionModalAssocId(v)}
+                    options={associations.map((a) => ({ value: a.id, label: a.name }))}
+                  />
+                </div>
+              </div>
+
+              {decisionModalOcrResult && (
+                <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200 space-y-2.5">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <span className="font-bold text-slate-900">
+                      Cơ quan ban hành: <span className="text-indigo-800">{decisionModalOcrResult.issuingAuthority || "UBND / Đảng ủy Phường"}</span>
+                    </span>
+                    {decisionModalOcrResult.signerName && (
+                      <span className="text-slate-600">
+                        Người ký: <strong>{decisionModalOcrResult.signerName}</strong>
+                      </span>
+                    )}
+                  </div>
+                  {decisionModalOcrResult.summary && (
+                    <p className="text-slate-700">
+                      Trích yếu: <strong>{decisionModalOcrResult.summary}</strong>
+                    </p>
+                  )}
+
+                  {decisionModalOcrResult.appointees.length > 0 ? (
+                    <div className="space-y-1.5 pt-1 border-t border-slate-200/80">
+                      <span className="font-bold text-emerald-900 block">
+                        Nhân sự được chuẩn y trong Quyết định ({decisionModalOcrResult.appointees.length} người):
+                      </span>
+                      <div className="divide-y divide-slate-200/70 bg-white rounded-xl border border-slate-200">
+                        {decisionModalOcrResult.appointees.map((p, idx) => (
+                          <div key={`${p.fullName}-${idx}`} className="p-2.5 flex flex-wrap items-center justify-between gap-2">
+                            <div>
+                              <span className="font-bold text-slate-900">{p.fullName}</span>
+                              <span className="text-slate-500 font-mono ml-2">
+                                {p.cccd ? `CCCD: ${p.cccd}` : "Tự tạo mã định danh tạm"}
+                              </span>
+                            </div>
+                            <span className="px-2 py-0.5 rounded bg-indigo-50 text-indigo-900 border border-indigo-200 font-bold">
+                              {p.role}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ) : (
+                    <p className="text-slate-600 italic">
+                      Chưa phát hiện danh sách cá nhân cụ thể — Quyết định sẽ được gắn vào hồ sơ Người đứng đầu Chi hội đã chọn.
+                    </p>
+                  )}
+                </div>
+              )}
+            </div>
+
+            <div className="p-4 px-5 bg-slate-50 border-t border-slate-200 flex items-center justify-end gap-2 shrink-0">
+              <button
+                type="button"
+                onClick={() => setShowDecisionOcrModal(false)}
+                className="px-4 py-2 rounded-xl border border-slate-200 bg-white hover:bg-slate-100 text-xs font-bold text-slate-700 cursor-pointer"
+              >
+                Hủy bỏ
+              </button>
+              <button
+                type="button"
+                onClick={handleApplyStandaloneDecisionOcr}
+                disabled={isScanningDecisionOcr || !decisionModalNumber.trim()}
+                className="px-4 py-2 rounded-xl bg-indigo-700 hover:bg-indigo-800 disabled:opacity-50 text-white text-xs font-bold shadow-xs cursor-pointer inline-flex items-center gap-1.5"
+              >
+                <FileCheck size={14} />
+                <span>Áp dụng &amp; Lưu Quyết định</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Confirm Delete Custom Role Modal */}
       <ConfirmModal
@@ -6275,6 +7401,74 @@ export default function PartyBranch({
         }
         confirmLabel="Xác nhận xóa"
         variant="danger"
+      />
+
+      {/* Cadre Zalo Link Modal */}
+      <CadreZaloLinkModal
+        isOpen={Boolean(cadreForZaloLink)}
+        onClose={() => setCadreForZaloLink(null)}
+        cadre={cadreForZaloLink}
+        allFollowers={zaloFollowersList}
+        onLinkedSuccess={(updated) => {
+          setCadreZaloMapping((prev) => ({
+            ...prev,
+            [updated.cadreKey]: updated,
+          }));
+          setAssociations((prev) =>
+            prev.map((a) => ({
+              ...a,
+              members: a.members.map((m) => {
+                const k = (m.fullName || "")
+                  .replace(/^(?:Bí thư|Phó Bí thư|Trưởng Khu phố|Phó Trưởng Khu phố|Đ\/c|Đồng chí|Đại úy)\s+/i, "")
+                  .normalize("NFD")
+                  .replace(/[\u0300-\u036f]/g, "")
+                  .replace(/đ/gi, "d")
+                  .toLowerCase()
+                  .replace(/\s+/g, " ")
+                  .trim();
+                if (k === updated.cadreKey) {
+                  return { ...m, zaloUserId: updated.zaloUserId, zaloDisplayName: updated.zaloDisplayName };
+                }
+                return m;
+              }),
+            }))
+          );
+          showToast(
+            `Đã liên kết thành công Zalo OA cho đồng chí ${updated.fullName} (${updated.zaloDisplayName})!`,
+            "success"
+          );
+        }}
+        onUnlinkedSuccess={(unlinkedKey) => {
+          setCadreZaloMapping((prev) => {
+            const next = { ...prev };
+            delete next[unlinkedKey];
+            return next;
+          });
+          setAssociations((prev) =>
+            prev.map((a) => ({
+              ...a,
+              members: a.members.map((m) => {
+                const k = (m.fullName || "")
+                  .replace(/^(?:Bí thư|Phó Bí thư|Trưởng Khu phố|Phó Trưởng Khu phố|Đ\/c|Đồng chí|Đại úy)\s+/i, "")
+                  .normalize("NFD")
+                  .replace(/[\u0300-\u036f]/g, "")
+                  .replace(/đ/gi, "d")
+                  .toLowerCase()
+                  .replace(/\s+/g, " ")
+                  .trim();
+                if (k === unlinkedKey) {
+                  const copy = { ...m };
+                  delete copy.zaloUserId;
+                  delete copy.zaloDisplayName;
+                  return copy;
+                }
+                return m;
+              }),
+            }))
+          );
+          showToast("Đã gỡ liên kết Zalo OA của đồng chí.", "success");
+        }}
+        onNotify={(msg) => showToast(msg, "success")}
       />
     </div>
   );

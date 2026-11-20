@@ -1,4 +1,3 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600;700&display=swap');
 @import "@astryxdesign/core/reset.css";
 @import "@astryxdesign/core/astryx.css";
 @import "@astryxdesign/theme-neutral/theme.css";
@@ -7,8 +6,34 @@
 @import "leaflet/dist/leaflet.css";
 
 @theme {
-  --font-sans: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  --font-sans: "Inter", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-mono: "Inter", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-serif: "Inter", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-heading: "Inter", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+
+  /* Restore canonical Tailwind v4 radius & typography scale (prevent @astryxdesign --radius-xl=28px & miniature text overrides) */
+  --radius-xs: 0.125rem;
+  --radius-sm: 0.25rem;
+  --radius-md: 0.375rem;
+  --radius-lg: 0.5rem;
+  --radius-xl: 0.75rem;
+  --radius-2xl: 1rem;
+  --radius-3xl: 1.5rem;
+
+  --text-xs: 0.75rem;
+  --text-xs--line-height: 1.125rem;
+  --text-sm: 0.875rem;
+  --text-sm--line-height: 1.25rem;
+  --text-base: 1rem;
+  --text-base--line-height: 1.5rem;
+  --text-lg: 1.125rem;
+  --text-lg--line-height: 1.75rem;
+  --text-xl: 1.25rem;
+  --text-xl--line-height: 1.75rem;
+  --text-2xl: 1.5rem;
+  --text-2xl--line-height: 2rem;
+  --text-3xl: 1.875rem;
+  --text-3xl--line-height: 2.25rem;
 
   /* Government Premium Palette */
   --color-gov-navy: #073B72;
@@ -23,22 +48,40 @@
   --animate-shimmer: kp3Shimmer 1.6s ease-in-out infinite;
 }
 
+@layer base {
+  button:not(:disabled),
+  [role="button"]:not([aria-disabled="true"]) {
+    cursor: pointer;
+  }
+}
+
 /* ==========================================================================
    UI-UX-PRO-MAX GLOBAL DESIGN SYSTEM & ACCESSIBILITY SPECIFICATIONS
    Product Domain: Government / Civic Smart Portal & Public Administration
    Standard: WCAG AAA Contrast, 4/8dp Spacing Rhythm, 150-250ms Easing
    ========================================================================== */
 
-/* 1. Base Document Typography & Rendering */
+/* 1. Base Document Typography & Rendering — 100% Unified Single Font ("Inter") */
+:root,
+[data-theme] {
+  color-scheme: light;
+  --app-font-family: "Inter", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-family-body: var(--app-font-family) !important;
+  --font-family-heading: var(--app-font-family) !important;
+  --font-family-code: var(--app-font-family) !important;
+}
+
 html {
-  font-size: 16.8px; /* Tăng 0.5 size chữ toàn hệ thống (16.8px base, +5% so với 16px) tối ưu độ rõ nét và cân đối */
+  font-size: 16px; /* Chuẩn 16px để mọi đơn vị rem và media query lg:/xl:/2xl: khớp 100% hình học khung nhìn */
+  font-family: var(--app-font-family);
+  color-scheme: light;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
 
 body {
-  font-family: var(--font-sans);
+  font-family: var(--app-font-family);
   background-color: #f8fafc; /* Slate-50 */
   color: #0f172a;            /* Slate-900 */
   overflow-x: clip;
@@ -56,12 +99,27 @@ textarea::placeholder {
   opacity: 0.85;
 }
 
+/* Đồng bộ tuyệt đối 1 font duy nhất ("Inter") cho cả mã định danh, số liệu, bảng biểu bằng OpenType Tabular Figures */
 code, kbd, samp, pre, .font-mono {
-  font-family: var(--font-mono);
+  font-family: var(--app-font-family) !important;
+  font-variant-numeric: tabular-nums;
+}
+
+.font-serif,
+.font-sans {
+  font-family: var(--app-font-family) !important;
+}
+
+.leaflet-container,
+.leaflet-popup-content,
+.leaflet-tooltip,
+.recharts-wrapper,
+.recharts-text {
+  font-family: var(--app-font-family) !important;
 }
 
 h1, h2, h3, h4, h5, h6 {
-  font-family: var(--font-sans);
+  font-family: var(--app-font-family);
   letter-spacing: -0.02em;
 }
 
@@ -134,10 +192,10 @@ h1, h2, h3, h4, h5, h6 {
   box-shadow: 0 0 0 4px rgba(16, 185, 129, 0.15);
 }
 
-/* 4. Sleek Modern Scrollbar (Non-intrusive, reveals on hover) */
+/* 4. Sleek Modern Scrollbar (Vertical subtle, Horizontal clearly visible for data tables) */
 ::-webkit-scrollbar {
-  width: 4px;
-  height: 4px;
+  width: 6px;
+  height: 7px;
 }
 
 ::-webkit-scrollbar-track {
@@ -145,17 +203,29 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 ::-webkit-scrollbar-thumb {
-  background: transparent;
+  background: rgba(100, 116, 139, 0.28);
   border-radius: 9999px;
   transition: background 0.2s ease;
 }
 
+::-webkit-scrollbar-thumb:horizontal {
+  background: rgba(100, 116, 139, 0.42);
+}
+
 *:hover::-webkit-scrollbar-thumb {
-  background: rgba(15, 23, 42, 0.22);
+  background: rgba(71, 85, 105, 0.45);
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(15, 23, 42, 0.38);
+  background: rgba(51, 65, 85, 0.65);
+}
+
+@media (max-width: 768px) {
+  input:not([type="checkbox"]):not([type="radio"]),
+  textarea,
+  select {
+    font-size: 16px !important; /* Ngăn iOS Safari tự phóng to trang khi chạm ô nhập */
+  }
 }
 
 /* 5. Interactive Button & Card Micro-Interactions (Flat Hairline hover — no shadow/lift) */
@@ -254,7 +324,7 @@ textarea {
   }
   to {
     opacity: 1;
-    transform: translateY(0);
+    transform: none;
   }
 }
 
@@ -265,7 +335,7 @@ textarea {
   }
   to {
     opacity: 1;
-    transform: scale(1);
+    transform: none;
   }
 }
 

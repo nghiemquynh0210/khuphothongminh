@@ -41,7 +41,9 @@ import {
   Camera,
   Eye,
   EyeOff,
-  Image as ImageIcon
+  Image as ImageIcon,
+  Layers,
+  FileCheck
 } from "lucide-react";
 import { Business, BusinessChangeLog, Resident, Household, ForeignWorker, BusinessFile, TargetGisItem } from "../types";
 import {
@@ -52,18 +54,23 @@ import {
   getGoogleMapsDirectionUrl
 } from "../utils/gisUtils";
 import Pagination from "./Pagination";
+import * as XLSX from "xlsx";
 import { DetailRow, DetailGrid } from "./common/DetailRow";
 import { formatVNNumber } from "../utils/numberFormat";
 import PageHeader from "./common/PageHeader";
 import StatCard from "./common/StatCard";
 import { ReportSelect } from "./reports/ReportSelect";
 import { InlineNotice } from "./ui/ConfirmModal";
-import { KP3_AREA_LIST, extractKp3Area } from "../utils/kp3Utils";
+import { KP3_AREA_LIST, extractKp3Area, isEnterpriseRecord } from "../utils/kp3Utils";
+import { recordAuditLog } from "../utils/auditLogger";
 import {
   getEnterpriseCreatePath,
   getEnterpriseDetailPath,
+  getResidentDetailPath,
   navigate,
 } from "../routes";
+import { normalizeEntityLandParcels } from "../utils/landParcelsUtils";
+import { getNormalizedLinkedHouseholdCodes } from "../utils/addressCoLocationUtils";
 
 interface EnterpriseManagementProps {
   businesses: Business[];
@@ -73,28 +80,14 @@ interface EnterpriseManagementProps {
   onUpdateStatus: (id: string, status: "Đang hoạt động" | "Tạm ngưng" | "Chờ duyệt" | "Chuyển địa điểm" | "Chưa xác minh") => void;
   onUpdateBusinesses?: (businesses: Business[]) => void;
   onNavigateToGis?: (item: TargetGisItem) => void;
+  activeMainTab?: "list" | "economicReport";
+  onActiveMainTabChange?: (tab: "list" | "economicReport") => void;
+  viewMode?: "card" | "table";
+  onViewModeChange?: (mode: "card" | "table") => void;
 }
 
-// Helper to identify enterprises (DNNVV)
-export const isEnterpriseEntity = (b: Business): boolean => {
-  if (b.businessType) {
-    if (["Công ty TNHH", "Công ty Cổ phần", "Doanh nghiệp tư nhân", "Cơ sở kinh doanh khác"].includes(b.businessType)) {
-      return true;
-    }
-    if (b.businessType === "Hộ kinh doanh") return false;
-  }
-  const nameLower = (b.name || "").toLowerCase();
-  const typeLower = (b.type || "").toLowerCase();
-  return (
-    nameLower.includes("công ty") ||
-    nameLower.includes("tnhh") ||
-    nameLower.includes("cổ phần") ||
-    nameLower.includes("doanh nghiệp") ||
-    nameLower.includes("nhà sách") ||
-    typeLower.includes("công ty") ||
-    (b.employeeCount && b.employeeCount >= 5 && !b.isAccommodation)
-  );
-};
+// Helper to identify enterprises (DNNVV) — unified across Dashboard & Enterprise modules
+export const isEnterpriseEntity = isEnterpriseRecord;
 
 export const getEnterpriseScaleLabel = (b: Business): "Siêu nhỏ (< 5 LĐ)" | "Nhỏ (5 - 20 LĐ)" | "Vừa (20 - 50 LĐ)" | "Lớn (> 50 LĐ)" => {
   if (b.enterpriseScale) return b.enterpriseScale;
@@ -138,10 +131,19 @@ export default function EnterpriseManagement({
   onToggleCertification,
   onUpdateStatus,
   onUpdateBusinesses,
-  onNavigateToGis
+  onNavigateToGis,
+  activeMainTab: controlledMainTab,
+  onActiveMainTabChange,
+  viewMode: controlledViewMode,
+  onViewModeChange
 }: EnterpriseManagementProps) {
   // Navigation tabs: Danh mục vs Báo cáo kinh tế địa bàn
-  const [activeMainTab, setActiveMainTab] = useState<"list" | "economicReport">("list");
+  const [internalMainTab, setInternalMainTab] = useState<"list" | "economicReport">("list");
+  const activeMainTab = controlledMainTab ?? internalMainTab;
+  const setActiveMainTab = (next: "list" | "economicReport") => {
+    setInternalMainTab(next);
+    onActiveMainTabChange?.(next);
+  };
 
   // Subsystem tab bar visibility (hideable / collapsible preference)
   const [isSubTabsHidden, setIsSubTabsHidden] = useState<boolean>(() => {
@@ -232,7 +234,12 @@ export default function EnterpriseManagement({
   const [streetFilter, setStreetFilter] = useState<string>("Tất cả");
   const [toFilter, setToFilter] = useState<string>("Tất cả");
   const [statusFilter, setStatusFilter] = useState<string>("Tất cả");
-  const [viewMode, setViewMode] = useState<"card" | "table">("card");
+  const [internalViewMode, setInternalViewMode] = useState<"card" | "table">("card");
+  const viewMode = controlledViewMode ?? internalViewMode;
+  const setViewMode = (mode: "card" | "table") => {
+    setInternalViewMode(mode);
+    onViewModeChange?.(mode);
+  };
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 8;
 
@@ -336,66 +343,62 @@ export default function EnterpriseManagement({
     navigate(getEnterpriseDetailPath(ent.id));
   };
 
-  // Handle Export CSV Report
-  const handleExportCSV = () => {
-    const headers = [
-      "Mã nội bộ",
-      "Tên Doanh nghiệp",
-      "Mã số thuế",
-      "Loại hình tổ chức",
-      "Quy mô lao động (NĐ 80)",
-      "Lĩnh vực hoạt động",
-      "Địa chỉ trụ sở",
-      "Tuyến đường",
-      "Loại mặt bằng",
-      "Người đại diện pháp luật",
-      "SĐT đại diện",
-      "Email công vụ",
-      "Người quản lý tại chỗ",
-      "Đầu mối phối hợp địa phương",
-      "SĐT đầu mối công vụ",
-      "Lao động thường trú",
-      "Lao động tạm trú",
-      "Lao động nước ngoài",
-      "Trạng thái hoạt động",
-      "Nhu cầu hỗ trợ",
-      "Kiến nghị khó khăn"
+  // Handle Export Excel (.xlsx) Report
+  const handleExportExcel = () => {
+    const sourceList = filteredEnterprises.length > 0 ? filteredEnterprises : enterprises;
+    const sheet1Rows = sourceList.map((b, idx) => ({
+      "STT": idx + 1,
+      "Mã nội bộ": b.internalCode || `DN-KP3-${b.id}`,
+      "Tên Doanh nghiệp": b.name,
+      "Mã số thuế": b.taxCode || "Chưa cập nhật",
+      "Loại hình tổ chức": b.businessType || "Công ty TNHH",
+      "Quy mô lao động (NĐ 80)": getEnterpriseScaleLabel(b),
+      "Lĩnh vực hoạt động": b.type || "Chưa cập nhật",
+      "Địa chỉ trụ sở": b.address || "Chưa cập nhật",
+      "Khu vực KP3": extractKp3Area(b.address),
+      "Loại mặt bằng": b.premisesType || "Văn phòng",
+      "Người đại diện pháp luật": b.legalRepresentative || b.owner || "Chưa cập nhật",
+      "SĐT đại diện": b.legalRepPhone || b.phone || "Chưa cập nhật",
+      "Email công vụ": b.legalRepEmail || "Chưa cập nhật",
+      "Người quản lý tại chỗ": b.siteManager || b.owner || "Chưa cập nhật",
+      "Đầu mối phối hợp địa phương": b.focalPointName || b.owner || "Chưa cập nhật",
+      "SĐT đầu mối công vụ": b.focalPointPhone || b.phone || "Chưa cập nhật",
+      "Tổng lao động": b.employeeCount || 0,
+      "Lao động thường trú": b.localWorkersCount ?? 0,
+      "Lao động tạm trú": b.temporaryWorkersCount ?? 0,
+      "Lao động nước ngoài": b.foreignWorkersCount || (b.foreignWorkers?.length || 0),
+      "Trạng thái hoạt động": b.status || "Đang hoạt động",
+      "Nhu cầu hỗ trợ": (b.supportNeeds || []).join("; ") || "Không có",
+      "Kiến nghị khó khăn": b.supportNotes || "",
+    }));
+
+    const summaryRows = [
+      { "Chỉ tiêu thống kê": "Tổng số doanh nghiệp trên địa bàn KP3", "Giá trị": enterprises.length },
+      { "Chỉ tiêu thống kê": "Số doanh nghiệp theo bộ lọc hiện tại", "Giá trị": sourceList.length },
+      { "Chỉ tiêu thống kê": "Công ty TNHH", "Giá trị": tnhhCount },
+      { "Chỉ tiêu thống kê": "Công ty Cổ phần", "Giá trị": cpCount },
+      { "Chỉ tiêu thống kê": "Doanh nghiệp tư nhân", "Giá trị": dntnCount },
+      { "Chỉ tiêu thống kê": "Tổng lực lượng lao động", "Giá trị": totalEmployees },
+      { "Chỉ tiêu thống kê": "Nhân sự / Chuyên gia nước ngoài", "Giá trị": totalForeignWorkers },
+      { "Chỉ tiêu thống kê": "Đơn vị có đề xuất hỗ trợ", "Giá trị": totalSupportNeeds },
     ];
 
-    const rows = enterprises.map(b => [
-      `"${b.internalCode || `DN-KP3-${b.id}`}"`,
-      `"${b.name.replace(/"/g, '""')}"`,
-      `"${b.taxCode || ""}"`,
-      `"${b.businessType || "Công ty TNHH"}"`,
-      `"${getEnterpriseScaleLabel(b)}"`,
-      `"${b.type}"`,
-      `"${b.address.replace(/"/g, '""')}"`,
-      `"${b.streetArea || (b.address.includes("42") ? "Hẻm 42 Lương Định Của" : "Mặt tiền Lương Định Của")}"`,
-      `"${b.premisesType || "Văn phòng"}"`,
-      `"${b.legalRepresentative || b.owner}"`,
-      `"${b.legalRepPhone || b.phone}"`,
-      `"${b.legalRepEmail || ""}"`,
-      `"${b.siteManager || b.owner}"`,
-      `"${b.focalPointName || b.owner}"`,
-      `"${b.focalPointPhone || b.phone}"`,
-      b.localWorkersCount ?? Math.floor((b.employeeCount || 2) / 2),
-      b.temporaryWorkersCount ?? Math.ceil((b.employeeCount || 2) / 2),
-      b.foreignWorkersCount || (b.foreignWorkers?.length || 0),
-      `"${b.status}"`,
-      `"${(b.supportNeeds || []).join("; ")}"`,
-      `"${(b.supportNotes || "").replace(/"/g, '""')}"`
-    ]);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(sheet1Rows), "Danh_Muc_Doanh_Nghiep");
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(summaryRows), "Tong_Hop_Kinh_Te_KP3");
 
-    const csvContent = "\uFEFF" + [headers.join(","), ...rows.map(r => r.join(","))].join("\r\n");
-    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.setAttribute("href", url);
-    link.setAttribute("download", `Bao_cao_Doanh_nghiep_DNNVV_KP3_${new Date().toISOString().split("T")[0]}.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    showToast("Đã xuất file báo cáo doanh nghiệp KP3 thành công!", "success");
+    const fileName = `Bao_Cao_Doanh_Nghiep_DNNVV_KP3_${new Date().toISOString().split("T")[0]}.xlsx`;
+    XLSX.writeFile(wb, fileName);
+
+    void recordAuditLog({
+      actorName: "Cán bộ Kinh tế Cơ sở",
+      actorRole: "Ban điều hành Khu phố 3",
+      category: "DATA_EXPORT",
+      actionTitle: "Xuất báo cáo Doanh nghiệp DNNVV ra Excel (.xlsx)",
+      targetSummary: `Đã xuất ${sourceList.length} doanh nghiệp trên địa bàn KP3 ra tệp ${fileName}`,
+    });
+
+    showToast(`Đã xuất ${sourceList.length} doanh nghiệp ra tệp Excel (.xlsx) thành công!`, "success");
   };
 
   return (
@@ -452,18 +455,18 @@ export default function EnterpriseManagement({
 
             <button
               type="button"
-              onClick={handleExportCSV}
-              className="flex items-center gap-1.5 bg-white hover:bg-slate-50 text-slate-700 px-3.5 py-2 rounded-xl font-bold text-xs sm:text-sm border border-slate-200 transition-all cursor-pointer shadow-2xs hover:shadow-xs"
-              title="Xuất file báo cáo doanh nghiệp định dạng CSV/Excel"
+              onClick={handleExportExcel}
+              className="flex items-center gap-1.5 min-h-[40px] bg-white hover:bg-slate-50 text-slate-700 px-3.5 py-2 rounded-xl font-bold text-xs border border-slate-200 transition-all cursor-pointer shadow-2xs hover:shadow-xs whitespace-nowrap"
+              title="Xuất file báo cáo doanh nghiệp định dạng Excel (.xlsx)"
             >
-              <Download size={15} /> Xuất CSV
+              <Download size={15} className="shrink-0" /> Xuất Excel (.xlsx)
             </button>
             <button
               type="button"
               onClick={() => navigate(getEnterpriseCreatePath())}
-              className="flex items-center gap-2 min-h-[40px] bg-emerald-700 hover:bg-emerald-800 text-white px-4 py-2 rounded-xl font-bold text-xs sm:text-sm transition-colors cursor-pointer whitespace-nowrap"
+              className="flex items-center gap-1.5 min-h-[40px] bg-emerald-700 hover:bg-emerald-800 text-white px-3.5 py-2 rounded-xl font-bold text-xs transition-colors cursor-pointer whitespace-nowrap"
             >
-              <Plus size={16} /> Đăng ký Doanh nghiệp Mới
+              <Plus size={16} className="shrink-0" /> Đăng ký Doanh nghiệp
             </button>
           </div>
         }
@@ -505,17 +508,6 @@ export default function EnterpriseManagement({
               </span>
             </button>
           </div>
-
-          {/* Quick Hide Action */}
-          <button
-            type="button"
-            onClick={toggleSubTabs}
-            className="min-h-[36px] flex items-center gap-1 text-xs font-semibold text-slate-600 hover:text-slate-900 px-2.5 py-1.5 rounded-lg hover:bg-white/80 transition-colors cursor-pointer shrink-0 whitespace-nowrap"
-            title="Ẩn thanh tab này để mở rộng không gian làm việc"
-          >
-            <EyeOff size={13} className="text-slate-500" />
-            <span className="hidden sm:inline">Ẩn thanh này</span>
-          </button>
         </div>
       )}
 
@@ -523,7 +515,7 @@ export default function EnterpriseManagement({
       {activeMainTab === "list" ? (
         <>
           {/* KPI Summary Cards */}
-          <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 sm:gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-5 gap-3 sm:gap-4">
             <StatCard
               label="Tổng doanh nghiệp"
               value={enterprises.length}
@@ -531,8 +523,6 @@ export default function EnterpriseManagement({
               icon={Building2}
               color="emerald"
               highlighted={true}
-              subtext="DNNVV đăng ký hoạt động"
-              subtextRight="100% có MST"
             />
 
             <StatCard
@@ -541,18 +531,14 @@ export default function EnterpriseManagement({
               badge={`${((tnhhCount / (enterprises.length || 1)) * 100).toFixed(0)}%`}
               icon={Briefcase}
               color="blue"
-              subtext="TNHH 1 TV & 2 TV"
-              subtextRight={`${formatVNNumber(tnhhCount)} cty`}
             />
 
             <StatCard
               label="Cổ phần & DNTN"
               value={cpCount + dntnCount}
-              badge="cơ sở"
+              badge={`${formatVNNumber(cpCount)} CP • ${formatVNNumber(dntnCount)} DNTN`}
               icon={TrendingUp}
               color="purple"
-              subtext="Kinh tế tư nhân KP3"
-              subtextRight={`${formatVNNumber(cpCount)} CP / ${formatVNNumber(dntnCount)} DNTN`}
             />
 
             <StatCard
@@ -561,8 +547,7 @@ export default function EnterpriseManagement({
               badge="nhân sự"
               icon={Users2}
               color="amber"
-              subtext={`Lao động VN: ${formatVNNumber(totalEmployees - totalForeignWorkers)}`}
-              subtextRight={`${formatVNNumber(totalForeignWorkers)} người NN`}
+              subtext={totalForeignWorkers > 0 ? `${formatVNNumber(totalForeignWorkers)} lao động nước ngoài` : undefined}
             />
 
             <StatCard
@@ -571,8 +556,6 @@ export default function EnterpriseManagement({
               badge="kiến nghị"
               icon={HelpCircle}
               color="rose"
-              subtext="Mặt bằng, vốn & pháp lý"
-              subtextRight="Cần tháo gỡ"
             />
           </div>
 
@@ -625,11 +608,10 @@ export default function EnterpriseManagement({
             </div>
 
             {/* Filter pills */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-2.5 pt-2.5 border-t border-slate-100 text-xs">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5 pt-2.5 border-t border-slate-100 text-xs">
               <div>
-                <label className="text-xs font-semibold text-slate-600 block mb-1">Loại hình DN</label>
                 <ReportSelect
-                  aria-label="Loại hình DN"
+                  label="Loại hình DN"
                   value={typeFilter}
                   onChange={(nextVal) => setTypeFilter(nextVal)}
                   options={[
@@ -644,9 +626,8 @@ export default function EnterpriseManagement({
               </div>
 
               <div>
-                <label className="text-xs font-semibold text-slate-600 block mb-1">Quy mô lao động (NĐ 80)</label>
                 <ReportSelect
-                  aria-label="Quy mô lao động (NĐ 80)"
+                  label="Quy mô lao động (NĐ 80)"
                   value={scaleFilter}
                   onChange={(nextVal) => setScaleFilter(nextVal)}
                   options={[
@@ -661,26 +642,8 @@ export default function EnterpriseManagement({
               </div>
 
               <div>
-                <label className="text-xs font-semibold text-slate-600 block mb-1">Tuyến đường</label>
                 <ReportSelect
-                  aria-label="Tuyến đường"
-                  value={streetFilter}
-                  onChange={(nextVal) => setStreetFilter(nextVal)}
-                  options={[
-                    { value: "Tất cả", label: "Tất cả tuyến đường" },
-                    { value: "Mặt tiền Lương Định Của", label: "Mặt tiền Lương Định Của" },
-                    { value: "Hẻm 42 Lương Định Của", label: "Hẻm 42 Lương Định Của" },
-                    { value: "Hẻm 18 Lương Định Của", label: "Hẻm 18 Lương Định Của" },
-                    { value: "Khu dân cư nội bộ KP3", label: "KDC nội bộ KP3" },
-                  ]}
-                  className="w-full"
-                />
-              </div>
-
-              <div>
-                <label className="text-xs font-semibold text-slate-600 block mb-1">Tuyến đường / khu vực (KP3)</label>
-                <ReportSelect
-                  aria-label="Tuyến đường / khu vực KP3"
+                  label="Tuyến đường / khu vực (KP3)"
                   value={toFilter}
                   onChange={(nextVal) => setToFilter(nextVal)}
                   options={[
@@ -692,9 +655,8 @@ export default function EnterpriseManagement({
               </div>
 
               <div>
-                <label className="text-xs font-semibold text-slate-600 block mb-1">Trạng thái</label>
                 <ReportSelect
-                  aria-label="Trạng thái"
+                  label="Trạng thái"
                   value={statusFilter}
                   onChange={(nextVal) => setStatusFilter(nextVal)}
                   options={[
@@ -727,6 +689,7 @@ export default function EnterpriseManagement({
                   setTypeFilter("Tất cả");
                   setScaleFilter("Tất cả");
                   setStreetFilter("Tất cả");
+                  setToFilter("Tất cả");
                   setStatusFilter("Tất cả");
                 }}
                 className="text-xs text-indigo-600 font-bold hover:underline cursor-pointer"
@@ -744,12 +707,21 @@ export default function EnterpriseManagement({
                 return (
                   <div
                     key={ent.id}
+                    role="button"
+                    tabIndex={0}
                     onClick={() => handleOpenDetailModal(ent)}
-                    className="bg-white rounded-2xl border border-slate-200 hover:border-indigo-300 transition-colors flex flex-col justify-between cursor-pointer group"
+                    onKeyDown={(e) => {
+                      if (e.target !== e.currentTarget) return;
+                      if (e.key === "Enter" || e.key === " ") {
+                        e.preventDefault();
+                        handleOpenDetailModal(ent);
+                      }
+                    }}
+                    className="bg-white rounded-2xl border border-slate-200 hover:border-indigo-400 hover:shadow-xs transition-all flex flex-col justify-between cursor-pointer group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500"
                   >
                     <div className="p-3.5 space-y-3">
                       {/* 1. Header with Badges: Loại hình & Trạng thái */}
-                      <div className="flex flex-wrap items-center justify-between gap-1.5 min-w-0">
+                      <div className="flex flex-nowrap items-center justify-between gap-1.5 min-w-0">
                         <span className="text-xs font-bold px-2.5 py-0.5 rounded-full border bg-indigo-50 text-indigo-800 border-indigo-200 flex items-center gap-1.5 min-w-0 max-w-full">
                           <Building2 size={12} className="text-indigo-600 shrink-0" />
                           <span className="truncate">{ent.businessType || "Công ty TNHH"}</span>
@@ -774,6 +746,15 @@ export default function EnterpriseManagement({
                           }}
                         />
 
+                        {/* Timemark GPS Badge ở góc trên trái ảnh nếu có */}
+                        {ent.timemarkVerified && (
+                          <div className="absolute top-2 left-2">
+                            <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-amber-500 text-white shadow-2xs flex items-center gap-1">
+                              <Sparkles size={10} /> Timemark GPS
+                            </span>
+                          </div>
+                        )}
+
                         {/* Mã doanh nghiệp đặt góc trên phải ảnh */}
                         <div className="absolute top-2 right-2">
                           <span className="text-xs font-mono font-semibold px-2 py-0.5 rounded-md bg-white/95 text-slate-800 border border-slate-200">
@@ -787,6 +768,19 @@ export default function EnterpriseManagement({
                             <Briefcase size={11} className="text-indigo-600" /> {scale}
                           </span>
                         </div>
+
+                        {/* Liên kết Hộ dân ở góc dưới phải ảnh nếu có */}
+                        {(() => {
+                          const linkedCodes = getNormalizedLinkedHouseholdCodes(ent);
+                          if (linkedCodes.length === 0) return null;
+                          return (
+                            <div className="absolute bottom-2 right-2">
+                              <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-white/95 text-blue-800 border border-blue-200">
+                                {linkedCodes.length > 1 ? `Ghép ${linkedCodes.length} hộ` : `Hộ ${linkedCodes[0]}`}
+                              </span>
+                            </div>
+                          );
+                        })()}
                       </div>
 
                       {/* Card Content */}
@@ -826,8 +820,18 @@ export default function EnterpriseManagement({
                           </div>
                         </div>
 
-                        {/* Foreigner and Support badges */}
+                        {/* Foreigner, Multi-Parcel, License and Support badges */}
                         <div className="flex flex-wrap gap-1 pt-1">
+                          {normalizeEntityLandParcels(ent).length >= 2 && (
+                            <span className="text-xs font-bold text-indigo-800 bg-indigo-50 px-2 py-0.5 rounded-full border border-indigo-200 flex items-center gap-1">
+                              <Layers size={11} /> Ghép {String(normalizeEntityLandParcels(ent).length).padStart(2, "0")} Sổ đỏ
+                            </span>
+                          )}
+                          {ent.giayPhepFile && (
+                            <span className="text-xs font-bold text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200 flex items-center gap-1">
+                              <FileCheck size={11} /> Bản chụp ĐKDN
+                            </span>
+                          )}
                           {foreigners > 0 && (
                             <span className="text-xs font-bold text-rose-700 bg-rose-50 px-2 py-0.5 rounded-full border border-rose-200 flex items-center gap-1">
                               <Globe size={11} /> {foreigners} LĐ nước ngoài
@@ -886,14 +890,14 @@ export default function EnterpriseManagement({
                 <table className="w-full text-left border-collapse text-xs">
                   <thead>
                     <tr className="bg-slate-50 border-b border-slate-200 text-slate-700 font-bold uppercase tracking-wider text-xs">
-                      <th className="py-3 px-4">Doanh nghiệp / Đơn vị</th>
-                      <th className="py-3 px-3">Mã nội bộ & MST</th>
-                      <th className="py-3 px-3">Loại hình & Quy mô</th>
-                      <th className="py-3 px-3">Người đại diện pháp luật</th>
-                      <th className="py-3 px-3">Đầu mối công vụ</th>
-                      <th className="py-3 px-3">Lao động</th>
-                      <th className="py-3 px-3">Trạng thái</th>
-                      <th className="py-3 px-4 text-right">Chi tiết</th>
+                      <th className="py-3 px-4 min-w-[240px]">Doanh nghiệp / Đơn vị</th>
+                      <th className="py-3 px-3 whitespace-nowrap">Mã nội bộ & MST</th>
+                      <th className="py-3 px-3 whitespace-nowrap">Loại hình & Quy mô</th>
+                      <th className="py-3 px-3 whitespace-nowrap">Người đại diện pháp luật</th>
+                      <th className="py-3 px-3 whitespace-nowrap">Đầu mối công vụ</th>
+                      <th className="py-3 px-3 whitespace-nowrap">Lao động</th>
+                      <th className="py-3 px-3 whitespace-nowrap">Trạng thái</th>
+                      <th className="py-3 px-4 text-right whitespace-nowrap sticky right-0 bg-slate-50 shadow-[-4px_0_8px_-4px_rgba(0,0,0,0.08)] z-10">Chi tiết</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
@@ -904,9 +908,9 @@ export default function EnterpriseManagement({
                         <tr
                           key={ent.id}
                           onClick={() => handleOpenDetailModal(ent)}
-                          className="hover:bg-slate-50/80 transition-colors cursor-pointer"
+                          className="group hover:bg-slate-50 transition-colors cursor-pointer"
                         >
-                          <td className="py-3 px-4">
+                          <td className="py-3 px-4 min-w-[240px]">
                             <div className="flex items-center gap-3">
                               <div className="w-10 h-10 rounded-xl overflow-hidden bg-slate-100 border border-slate-200 shrink-0 shadow-2xs">
                                 <img
@@ -926,7 +930,33 @@ export default function EnterpriseManagement({
                           </td>
                           <td className="py-3 px-3">
                             <span className="font-mono text-xs font-bold text-slate-800 block">{ent.internalCode || `DN-KP3-${ent.id}`}</span>
-                            <span className="font-mono text-xs text-slate-500 block">MST: {ent.taxCode || "N/A"}</span>
+                            <div className="flex flex-wrap items-center gap-1 mt-0.5">
+                              <span className="font-mono text-[11px] text-slate-500">MST: {ent.taxCode || "N/A"}</span>
+                              {ent.timemarkVerified && (
+                                <span className="text-[9.5px] font-bold px-1.5 py-0.5 rounded bg-amber-50 text-amber-800 border border-amber-300">
+                                  GPS
+                                </span>
+                              )}
+                              {(() => {
+                                const linkedCodes = getNormalizedLinkedHouseholdCodes(ent);
+                                if (linkedCodes.length === 0) return null;
+                                return (
+                                  <span className="text-[9.5px] font-bold px-1.5 py-0.5 rounded bg-blue-50 text-blue-700 border border-blue-200">
+                                    {linkedCodes.length > 1 ? `Ghép ${linkedCodes.length} hộ` : `Hộ ${linkedCodes[0]}`}
+                                  </span>
+                                );
+                              })()}
+                              {normalizeEntityLandParcels(ent).length >= 2 && (
+                                <span className="text-[9.5px] font-bold px-1.5 py-0.5 rounded bg-indigo-50 text-indigo-800 border border-indigo-200">
+                                  {String(normalizeEntityLandParcels(ent).length).padStart(2, "0")} Sổ đỏ
+                                </span>
+                              )}
+                              {ent.giayPhepFile && (
+                                <span className="text-[9.5px] font-bold px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-800 border border-emerald-200">
+                                  ĐKDN
+                                </span>
+                              )}
+                            </div>
                           </td>
                           <td className="py-3 px-3">
                             <span className="font-bold text-indigo-900 block">{ent.businessType || "Công ty TNHH"}</span>
@@ -956,7 +986,7 @@ export default function EnterpriseManagement({
                               {ent.status}
                             </span>
                           </td>
-                          <td className="py-3 px-4 text-right">
+                          <td className="py-3 px-4 text-right whitespace-nowrap sticky right-0 bg-white group-hover:bg-slate-50 shadow-[-4px_0_8px_-4px_rgba(0,0,0,0.08)] z-10">
                             <div className="flex items-center justify-end gap-1.5" onClick={(e) => e.stopPropagation()}>
                               <button
                                 type="button"
@@ -1045,11 +1075,11 @@ export default function EnterpriseManagement({
                 </button>
                 <button
                   type="button"
-                  onClick={handleExportCSV}
-                  className="flex items-center gap-1.5 bg-indigo-600 hover:bg-indigo-700 text-white px-3.5 py-2 rounded-xl text-xs sm:text-sm font-bold transition-colors cursor-pointer"
-                  title="Xuất file CSV báo cáo toàn diện"
+                  onClick={handleExportExcel}
+                  className="flex items-center gap-1.5 bg-indigo-600 hover:bg-indigo-700 text-white px-3.5 py-2 rounded-xl text-xs sm:text-sm font-bold transition-colors cursor-pointer whitespace-nowrap"
+                  title="Xuất file Excel (.xlsx) báo cáo toàn diện"
                 >
-                  <Download size={15} /> Xuất File Excel (CSV)
+                  <Download size={15} /> Xuất Excel (.xlsx)
                 </button>
                 <button
                   type="button"
@@ -1062,7 +1092,7 @@ export default function EnterpriseManagement({
             </div>
 
             {/* Quick Metrics Bar */}
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 pt-4 border-t border-slate-200 text-xs">
+            <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-6 gap-3 pt-4 border-t border-slate-200 text-xs">
               <div className="bg-slate-50 p-3 rounded-xl border border-slate-200">
                 <span className="text-xs text-slate-600 block font-semibold">Tổng doanh nghiệp</span>
                 <strong className="text-lg font-bold text-slate-900 block mt-0.5 tabular-nums">{enterprises.length}</strong>
@@ -1129,9 +1159,9 @@ export default function EnterpriseManagement({
                   const pct = ((item.count / (enterprises.length || 1)) * 100).toFixed(1);
                   return (
                     <div key={idx} className="space-y-1">
-                      <div className="flex justify-between items-center text-xs">
+                      <div className="flex flex-wrap justify-between items-center gap-1 text-xs">
                         <span className="font-bold text-slate-800">{item.label}</span>
-                        <div className="flex items-center gap-2">
+                        <div className="flex flex-wrap items-center gap-2">
                           <span className="text-slate-500 text-[11px]">{item.desc}</span>
                           <strong className="font-mono text-slate-900">{item.count} DN ({pct}%)</strong>
                         </div>
@@ -1159,9 +1189,9 @@ export default function EnterpriseManagement({
                 <span className="text-xs text-slate-500 font-medium">Theo NĐ 80/2021/NĐ-CP</span>
               </div>
 
-              <div className="grid grid-cols-2 gap-3 text-xs">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
                 <div className="bg-slate-50 p-3.5 rounded-xl border border-slate-100 space-y-1">
-                  <div className="flex justify-between items-center">
+                  <div className="flex flex-wrap justify-between items-center gap-1">
                     <span className="font-bold text-slate-700">Siêu nhỏ (&lt; 5 LĐ)</span>
                     <span className="text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded font-black text-xs font-mono">{scaleMicro} DN</span>
                   </div>
@@ -1172,7 +1202,7 @@ export default function EnterpriseManagement({
                 </div>
 
                 <div className="bg-indigo-50/50 p-3.5 rounded-xl border border-indigo-100 space-y-1">
-                  <div className="flex justify-between items-center">
+                  <div className="flex flex-wrap justify-between items-center gap-1">
                     <span className="font-bold text-indigo-900">Nhỏ (5 - 20 LĐ)</span>
                     <span className="text-indigo-800 bg-indigo-200/80 px-2 py-0.5 rounded font-black text-xs font-mono">{scaleSmall} DN</span>
                   </div>
@@ -1183,7 +1213,7 @@ export default function EnterpriseManagement({
                 </div>
 
                 <div className="bg-purple-50/50 p-3.5 rounded-xl border border-purple-100 space-y-1">
-                  <div className="flex justify-between items-center">
+                  <div className="flex flex-wrap justify-between items-center gap-1">
                     <span className="font-bold text-purple-900">Vừa (20 - 50 LĐ)</span>
                     <span className="text-purple-800 bg-purple-200/80 px-2 py-0.5 rounded font-black text-xs font-mono">{scaleMedium} DN</span>
                   </div>
@@ -1194,7 +1224,7 @@ export default function EnterpriseManagement({
                 </div>
 
                 <div className="bg-rose-50/50 p-3.5 rounded-xl border border-rose-100 space-y-1">
-                  <div className="flex justify-between items-center">
+                  <div className="flex flex-wrap justify-between items-center gap-1">
                     <span className="font-bold text-rose-900">Lớn (&gt; 50 LĐ)</span>
                     <span className="text-rose-800 bg-rose-200/80 px-2 py-0.5 rounded font-black text-xs font-mono">{scaleLarge} DN</span>
                   </div>
@@ -1232,25 +1262,37 @@ export default function EnterpriseManagement({
               <table className="w-full text-left border-collapse text-xs">
                 <thead>
                   <tr className="bg-slate-50 border-b border-slate-200 text-slate-700 font-bold uppercase tracking-wider text-xs">
-                    <th className="py-3 px-4">Tên Doanh nghiệp</th>
-                    <th className="py-3 px-3">Mã nội bộ & MST</th>
-                    <th className="py-3 px-3">Người đại diện pháp luật</th>
-                    <th className="py-3 px-3">Quản lý tại chỗ</th>
-                    <th className="py-3 px-3 bg-blue-50/60 text-blue-900">Đầu mối phối hợp địa phương</th>
-                    <th className="py-3 px-3">Địa chỉ & Phân tuyến</th>
-                    <th className="py-3 px-3 text-right">Chi tiết</th>
+                    <th className="py-3 px-4 min-w-[240px]">Tên Doanh nghiệp</th>
+                    <th className="py-3 px-3 whitespace-nowrap">Mã nội bộ & MST</th>
+                    <th className="py-3 px-3 whitespace-nowrap">Người đại diện pháp luật</th>
+                    <th className="py-3 px-3 whitespace-nowrap">Quản lý tại chỗ</th>
+                    <th className="py-3 px-3 bg-blue-50/60 text-blue-900 whitespace-nowrap">Đầu mối phối hợp địa phương</th>
+                    <th className="py-3 px-3 whitespace-nowrap">Địa chỉ & Phân tuyến</th>
+                    <th className="py-3 px-3 text-right whitespace-nowrap sticky right-0 bg-slate-50 shadow-[-4px_0_8px_-4px_rgba(0,0,0,0.08)] z-10">Chi tiết</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
                   {enterprises.map((b) => (
-                    <tr key={b.id} className="hover:bg-slate-50/80 transition-colors">
-                      <td className="py-3 px-4">
+                    <tr
+                      key={b.id}
+                      tabIndex={0}
+                      onClick={() => handleOpenDetailModal(b)}
+                      onKeyDown={(e) => {
+                        if (e.target !== e.currentTarget) return;
+                        if (e.key === "Enter" || e.key === " ") {
+                          e.preventDefault();
+                          handleOpenDetailModal(b);
+                        }
+                      }}
+                      className="group cursor-pointer hover:bg-slate-50 transition-colors focus-visible:outline-none focus-visible:bg-indigo-50/60"
+                    >
+                      <td className="py-3 px-4 min-w-[240px]">
                         <div className="flex items-center gap-2">
                           <div className="w-8 h-8 rounded-lg bg-indigo-50 border border-indigo-100 text-indigo-700 flex items-center justify-center shrink-0 shadow-2xs">
                             <Building2 size={16} />
                           </div>
                           <div>
-                            <strong className="text-slate-900 block font-bold leading-tight">{b.name}</strong>
+                            <strong className="text-slate-900 group-hover:text-indigo-700 transition-colors block font-bold leading-tight">{b.name}</strong>
                             <span className="text-[10px] text-slate-500">{b.type} • {b.businessType || "TNHH"}</span>
                           </div>
                         </div>
@@ -1279,7 +1321,7 @@ export default function EnterpriseManagement({
                           {b.streetArea || (b.address.includes("42") ? "Hẻm 42 Lương Định Của" : "Mặt tiền Lương Định Của")}
                         </span>
                       </td>
-                      <td className="py-3 px-3 text-right">
+                      <td className="py-3 px-3 text-right whitespace-nowrap sticky right-0 bg-white group-hover:bg-slate-50 shadow-[-4px_0_8px_-4px_rgba(0,0,0,0.08)] z-10" onClick={(e) => e.stopPropagation()}>
                         <button
                           type="button"
                           onClick={() => handleOpenDetailModal(b)}
@@ -1306,7 +1348,7 @@ export default function EnterpriseManagement({
                   4. Quản lý Chuyên gia & Lao động Người nước ngoài tại Doanh nghiệp
                 </h3>
               </div>
-              <div className="flex items-center gap-3 text-xs">
+              <div className="flex flex-wrap items-center gap-3 text-xs">
                 <span className="font-bold text-slate-700">Tổng LĐ doanh nghiệp: <strong className="text-indigo-700 font-mono text-sm">{totalEmployees}</strong></span>
                 <span className="font-bold text-rose-700 bg-rose-50 px-2 py-0.5 rounded border border-rose-200">
                   {totalForeignWorkers} nhân sự người nước ngoài
@@ -1320,19 +1362,44 @@ export default function EnterpriseManagement({
                 {enterprises
                   .filter(b => (b.foreignWorkersCount || 0) > 0 || (b.foreignWorkers && b.foreignWorkers.length > 0) || getEnterpriseForeignResidents(b).length > 0)
                   .map((b) => {
+                    const matchedForeignResidents = getEnterpriseForeignResidents(b);
                     const foreigners = b.foreignWorkers && b.foreignWorkers.length > 0
-                      ? b.foreignWorkers
-                      : getEnterpriseForeignResidents(b).map(r => ({
+                      ? b.foreignWorkers.map((fw) => ({
+                          ...fw,
+                          residentId: matchedForeignResidents.find(
+                            (r) =>
+                              (fw.passportOrCode &&
+                                (r.cccd === fw.passportOrCode ||
+                                  r.passportNumber === fw.passportOrCode)) ||
+                              r.fullName.trim().toLowerCase() ===
+                                fw.name.trim().toLowerCase()
+                          )?.id,
+                        }))
+                      : matchedForeignResidents.map(r => ({
                         name: r.fullName,
                         nationality: r.nationality || "Nước ngoài",
                         passportOrCode: r.cccd,
                         position: r.occupation,
-                        temporaryResidenceStatus: "Đã khai báo tạm trú" as const
+                        temporaryResidenceStatus: "Đã khai báo tạm trú" as const,
+                        residentId: r.id,
                       }));
                     return (
-                      <div key={b.id} className="p-3.5 rounded-xl border border-rose-200/80 bg-rose-50/30 space-y-2">
+                      <div
+                        key={b.id}
+                        role="button"
+                        tabIndex={0}
+                        onClick={() => handleOpenDetailModal(b)}
+                        onKeyDown={(e) => {
+                          if (e.target !== e.currentTarget) return;
+                          if (e.key === "Enter" || e.key === " ") {
+                            e.preventDefault();
+                            handleOpenDetailModal(b);
+                          }
+                        }}
+                        className="group p-3.5 rounded-xl border border-rose-200/80 hover:border-rose-400 bg-rose-50/30 hover:bg-rose-50/50 space-y-2 transition-all cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-500"
+                      >
                         <div className="flex justify-between items-center">
-                          <strong className="text-slate-900 font-bold">{b.name}</strong>
+                          <strong className="text-slate-900 group-hover:text-rose-800 transition-colors font-bold">{b.name}</strong>
                           <span className="font-mono text-[10px] text-slate-500">{b.internalCode || b.id}</span>
                         </div>
                         <div className="text-[11px] text-slate-600">
@@ -1340,7 +1407,28 @@ export default function EnterpriseManagement({
                         </div>
                         <div className="space-y-1.5 pt-1 border-t border-rose-100">
                           {foreigners.map((f, i) => (
-                            <div key={i} className="bg-white p-2 rounded-lg border border-rose-100 flex justify-between items-center text-[11px]">
+                            <div
+                              key={i}
+                              role={f.residentId ? "button" : undefined}
+                              tabIndex={f.residentId ? 0 : undefined}
+                              onClick={(e) => {
+                                if (f.residentId) {
+                                  e.stopPropagation();
+                                  navigate(getResidentDetailPath(f.residentId));
+                                }
+                              }}
+                              onKeyDown={(e) => {
+                                if (!f.residentId || e.target !== e.currentTarget) return;
+                                if (e.key === "Enter" || e.key === " ") {
+                                  e.preventDefault();
+                                  e.stopPropagation();
+                                  navigate(getResidentDetailPath(f.residentId));
+                                }
+                              }}
+                              className={`bg-white p-2 rounded-lg border border-rose-100 flex justify-between items-center text-[11px] transition-colors ${
+                                f.residentId ? "cursor-pointer hover:border-emerald-400 hover:bg-emerald-50/40" : ""
+                              }`}
+                            >
                               <div>
                                 <strong className="text-slate-900">{f.name}</strong>
                                 <span className="text-slate-500 ml-1">({f.nationality})</span>
@@ -1381,11 +1469,24 @@ export default function EnterpriseManagement({
               {enterprises
                 .filter(b => (b.supportNeeds && b.supportNeeds.length > 0) || Boolean(b.supportNotes))
                 .map((b) => (
-                  <div key={b.id} className="p-3.5 rounded-xl border border-amber-200/90 bg-amber-50/20 space-y-2 flex flex-col justify-between">
+                  <div
+                    key={b.id}
+                    role="button"
+                    tabIndex={0}
+                    onClick={() => handleOpenDetailModal(b)}
+                    onKeyDown={(e) => {
+                      if (e.target !== e.currentTarget) return;
+                      if (e.key === "Enter" || e.key === " ") {
+                        e.preventDefault();
+                        handleOpenDetailModal(b);
+                      }
+                    }}
+                    className="group p-3.5 rounded-xl border border-amber-200/90 hover:border-amber-400 bg-amber-50/20 hover:bg-amber-50/40 space-y-2 flex flex-col justify-between transition-all cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500"
+                  >
                     <div className="space-y-1.5">
                       <div className="flex justify-between items-start gap-1">
-                        <strong className="text-slate-900 font-bold block">{b.name}</strong>
-                        <span className="text-[10px] font-mono text-indigo-700 bg-indigo-50 px-1.5 py-0.2 rounded font-bold shrink-0">
+                        <strong className="text-slate-900 group-hover:text-amber-900 transition-colors font-bold block">{b.name}</strong>
+                        <span className="text-[10px] font-mono text-indigo-700 bg-indigo-50 px-1.5 py-0.5 rounded font-bold shrink-0">
                           {b.internalCode || b.id}
                         </span>
                       </div>
@@ -1510,10 +1611,10 @@ export default function EnterpriseManagement({
         >
           <div
             onClick={(e) => e.stopPropagation()}
-            className="bg-white rounded-2xl shadow-xl border border-slate-200 w-full max-w-lg overflow-hidden animate-in zoom-in-95 duration-200 text-slate-800"
+            className="bg-white rounded-2xl shadow-xl border border-slate-200 w-full max-w-lg max-h-[90vh] flex flex-col overflow-hidden animate-in zoom-in-95 duration-200 text-slate-800"
           >
             {/* Modal Header - Flat Hairline Light */}
-            <div className="bg-slate-50 p-4 text-slate-900 flex justify-between items-center border-b border-slate-200">
+            <div className="bg-slate-50 p-4 text-slate-900 flex justify-between items-center border-b border-slate-200 shrink-0">
               <div className="flex items-center gap-2.5 min-w-0">
                 <div className="p-2 bg-indigo-50 text-indigo-700 border border-indigo-200 rounded-xl shrink-0">
                   <MapPin size={18} />
@@ -1536,7 +1637,7 @@ export default function EnterpriseManagement({
             </div>
 
             {/* Modal Body */}
-            <div className="p-5 space-y-4 text-xs">
+            <div className="p-4 sm:p-5 space-y-4 text-xs overflow-y-auto flex-1">
               <div className="bg-slate-50 p-3 rounded-xl border border-slate-200 space-y-1">
                 <span className="text-xs text-slate-600 font-semibold block">Trụ sở hoạt động:</span>
                 <p className="font-bold text-slate-900 text-xs sm:text-sm">{gisPinModalEnterprise.address}</p>
@@ -1545,7 +1646,7 @@ export default function EnterpriseManagement({
 
               {/* Coordinate Input */}
               <div className="space-y-1.5">
-                <div className="flex justify-between items-center gap-2">
+                <div className="flex flex-wrap justify-between items-center gap-2">
                   <label className="font-bold text-slate-700">Tọa độ GIS (Định dạng DMS hoặc Thập phân):</label>
                   <button
                     type="button"
@@ -1566,7 +1667,7 @@ export default function EnterpriseManagement({
                     value={gisPinInput}
                     onChange={(e) => setGisPinInput(e.target.value)}
                     placeholder="Ví dụ: 10°56'14.2&quot;N 106°44'39.5&quot;E hoặc 10.936997, 106.744645"
-                    className="w-full px-3.5 py-2.5 border border-slate-300 rounded-xl font-mono text-xs focus:outline-none focus:border-indigo-600 focus:ring-1 focus:ring-indigo-600 bg-white"
+                    className="w-full px-3.5 py-2.5 border border-slate-300 rounded-xl font-mono text-xs focus:outline-none focus:border-indigo-600 focus:ring-1 focus:ring-indigo-600 bg-white pr-9"
                   />
                   <MapPin size={15} className="absolute right-3 top-3 text-slate-400" />
                 </div>
@@ -1575,7 +1676,7 @@ export default function EnterpriseManagement({
               {/* Presets for KP3 */}
               <div className="space-y-1.5">
                 <span className="text-xs font-semibold text-slate-600 block">Gợi ý phân khu trục chính KP3:</span>
-                <div className="grid grid-cols-2 gap-1.5 text-xs">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 text-xs">
                   <button
                     type="button"
                     onClick={() => setGisPinInput('10°56\'13.2"N 106°44\'40.7"E')}
@@ -1638,7 +1739,7 @@ export default function EnterpriseManagement({
             </div>
 
             {/* Modal Actions */}
-            <div className="p-4 bg-slate-50 border-t border-slate-200 flex flex-wrap items-center justify-between gap-2">
+            <div className="p-4 bg-slate-50 border-t border-slate-200 flex flex-wrap items-center justify-between gap-2 shrink-0">
               <button
                 type="button"
                 onClick={() => setGisPinModalEnterprise(null)}

@@ -36,6 +36,7 @@ export interface Resident {
   policyGroup?: string;            // Nhóm chính sách / Đoàn thể (Đảng viên, Thương binh, Người cao tuổi...)
   emergencyContact?: string;       // Người liên hệ khẩn cấp (Họ tên - SĐT)
   notes?: string;                  // Ghi chú cư trú
+  ownerName?: string;              // Tên Chủ hộ tạm trú (parse từ cột "CHỦ HỘ TẠM TRÚ" file Excel tạm trú)
 
   // Quản lý Dân cư Người nước ngoài cư trú (Foreign Resident Management)
   isForeigner?: boolean;                           // Là người nước ngoài cư trú
@@ -53,6 +54,51 @@ export interface Resident {
   landlordContact?: string;                        // Chủ nhà / Quản lý cơ sở lưu trú (Họ tên - SĐT)
 }
 
+export interface BusinessFile {
+  name: string;
+  url: string;
+  type: "image" | "pdf";
+  size?: string;
+  uploadDate?: string;
+}
+
+export interface LandParcelCertificate {
+  id: string;
+  parcelLabel?: string;            // VD: "Thửa chính (Mặt tiền)" | "Thửa ghép #2 (Mở rộng)"
+  addressNote?: string;            // VD: "42 Lương Định Của" | "44 Lương Định Của"
+  usageRightType?: "owned" | "leased" | "co_owned" | "merged";
+  sourceHouseholdCode?: string;    // Mã hộ gốc nếu kế thừa Sổ đỏ từ Hộ khẩu (VD: "HK-012")
+  toBanDo: string;                 // Tờ bản đồ số (e.g. 272)
+  soThua: string;                  // Thửa đất số (e.g. 55)
+  dienTich: number | string;       // Diện tích khuôn viên từng thửa (m²)
+  loaiDat?: string;                // Loại đất (ODT, TMD, CLN...)
+  tenChuSuDung?: string;           // Người sử dụng đất trên GCN của riêng sổ này
+  soGcn?: string;                  // Số phát hành GCN (e.g. CS 038291)
+  soVaoSo?: string;                // Số vào sổ cấp GCN (e.g. CH 01234)
+  ngayCapGcn?: string;             // Ngày cấp GCN
+  soDoFile?: BusinessFile;         // Tệp PDF/Ảnh Sổ đỏ của riêng thửa này
+  soDoOcrData?: any;               // Kết quả OCR Sổ đỏ của riêng thửa này
+}
+
+export interface BusinessLicenseOcrData {
+  businessName: string;
+  licenseNumber: string;
+  taxCode?: string;
+  businessType?: "Công ty TNHH" | "Công ty Cổ phần" | "Doanh nghiệp tư nhân" | "Hộ kinh doanh" | "Cơ sở kinh doanh khác";
+  issueDate?: string;
+  issuingAuthority?: string;
+  headquartersAddress?: string;
+  businessLine?: string;
+  suggestedIndustryGroup?: string;
+  charterCapital?: string;
+  legalRepresentative?: string;
+  legalRepCccd?: string;
+  legalRepPhone?: string;
+  legalRepEmail?: string;
+  ocrSource?: "gemini_vision" | "local_parser";
+  isOcrSuccess: boolean;
+}
+
 export interface Household {
   id: string;
   code: string; // e.g. HK-301
@@ -68,14 +114,36 @@ export interface Household {
     phone?: string;
     birthYear: number;
   }[];
-}
 
-export interface BusinessFile {
-  name: string;
-  url: string;
-  type: "image" | "pdf";
-  size?: string;
-  uploadDate?: string;
+  // 3. Thông tin Địa chính & Giấy chứng nhận QSDĐ (Sổ đỏ đơn hoặc Đa thửa đất ghép)
+  toBanDo?: string;              // Tờ bản đồ số (e.g. 272)
+  soThua?: string;               // Thửa đất số (e.g. 55 hoặc "55 + 56 (Ghép 02 thửa)")
+  dienTich?: number;             // Tổng diện tích khuôn viên (m2)
+  loaiDat?: string;              // Loại đất (ODT, CLN...)
+  tenChuSuDung?: string;         // Tên người sử dụng đất trên sổ
+  soGcn?: string;                // Số phát hành Giấy chứng nhận (e.g. CH-098234)
+  soVaoSo?: string;              // Số vào sổ cấp GCN (e.g. CS-2024-001)
+  ngayCapGcn?: string;           // Ngày cấp GCN
+  soDoFile?: BusinessFile;       // Tệp đính kèm Sổ đỏ chính (PDF/Ảnh)
+  soDoOcrData?: any;             // Dữ liệu bóc tách OCR từ Sổ đỏ
+  landParcels?: LandParcelCertificate[]; // Danh sách đa thửa đất / nhiều Sổ đỏ (GCN QSDĐ)
+
+  // 4. Hình ảnh thực tế nhà ở & Xác thực Timemark
+  houseImage?: string;           // Ảnh hiện trạng căn nhà
+  timemarkHash?: string;         // Mã xác thực Timemark (e.g. N9ULW4DEHPT33Y)
+  timemarkVerified?: boolean;    // Đã xác thực qua ảnh Timemark 100% Chân thực
+  photoElevation?: string;       // Độ cao thực địa (e.g. 37.1m)
+  photoDirection?: string;       // Phương hướng la bàn (e.g. 71° E)
+  photoTakenAt?: string;         // Thời gian chụp ảnh thực địa
+
+  // 5. Thông tin mở rộng cho Hộ tạm trú (CT08 / Khai báo lưu trú)
+  tempSubType?: "independent" | "hostel";
+  hostelName?: string;
+  hostelPhone?: string;
+  expiringMemberCount?: number;
+  expiredMemberCount?: number;
+  nearestExpiryDate?: string;
+  ownerPermanentAddress?: string;
 }
 
 export interface InspectionLog {
@@ -134,7 +202,8 @@ export interface Business {
   premisesOwner?: string;         // Chủ sở hữu / người cho thuê mặt bằng
   premisesOwnerPhone?: string;    // SĐT chủ mặt bằng
   premisesOwnerCccd?: string;     // CCCD chủ mặt bằng
-  linkedHouseholdCode?: string;   // Mã hộ dân liên kết (ví dụ: HK-301)
+  linkedHouseholdCode?: string;   // Mã hộ dân liên kết chính (ví dụ: HK-301)
+  linkedHouseholdCodes?: string[]; // Danh sách đa mã hộ liên kết khi ghép 2-3 căn nhà liền kề (VD: ["HK-301", "HK-302"])
   linkedHouseholdOwner?: string;  // Tên chủ hộ liên kết
   linkedBuildingOrHostel?: string;// Liên kết cơ sở lưu trú / nhà trọ / tòa nhà
 
@@ -179,10 +248,24 @@ export interface Business {
   soNguoiLuuTru?: number;       // Số người đang lưu trú / thuê trọ
   giaThueTrungBinh?: string;    // Giá thuê tham khảo
 
-  // Tệp tin đính kèm (Sổ đỏ, GPKD, PCCC...)
-  soDoFile?: BusinessFile;      // File PDF / Hình ảnh Sổ đỏ
-  giayPhepFile?: BusinessFile;  // File PDF / Hình ảnh Giấy phép kinh doanh
+  // Tệp tin đính kèm (Sổ đỏ, GPKD, PCCC...) & Pháp lý GPKD
+  soDoFile?: BusinessFile;      // File PDF / Hình ảnh Sổ đỏ chính
+  giayPhepFile?: BusinessFile;  // File PDF / Hình ảnh Giấy phép kinh doanh / ĐKDN
   pcccFile?: BusinessFile;      // File PDF / Hình ảnh chứng nhận PCCC
+  giayPhepOcrData?: BusinessLicenseOcrData; // Dữ liệu OCR trích xuất từ Giấy phép kinh doanh
+  issuingAuthority?: string;    // Cơ quan cấp Giấy phép kinh doanh / ĐKDN
+  charterCapital?: string;      // Vốn điều lệ / Vốn kinh doanh
+  licenseIssueDate?: string;    // Ngày cấp Giấy phép kinh doanh / ĐKDN
+  landParcels?: LandParcelCertificate[]; // Danh sách đa thửa đất / nhiều Sổ đỏ (GCN QSDĐ) khi ghép thửa
+
+  // Timemark Watermark Verification & Geolocation
+  timemarkHash?: string;        // Mã xác thực Timemark (ví dụ: N9ULW4DEHPT33Y)
+  timemarkVerified?: boolean;   // Đã xác thực bằng ảnh Timemark
+  photoElevation?: string;      // Độ cao GPS (ví dụ: 37.1m)
+  photoDirection?: string;      // Phương hướng la bàn (ví dụ: 71° E)
+  photoTakenAt?: string;        // Thời gian chụp ảnh thực tế
+  ngayCapGcn?: string;          // Ngày cấp GCN QSDĐ
+  soDoOcrData?: any;            // Dữ liệu OCR Sổ đỏ
 
   // Nhật ký Kiểm tra định kỳ (Thanh tra PCCC, Vệ sinh ATTP, Trật tự đô thị...)
   inspections?: InspectionLog[];
@@ -253,6 +336,15 @@ export interface FieldReport {
   images?: string[];
   messages?: ReportMessage[];
   citizenFeedback?: ReportFeedback;
+
+  // Xác thực ảnh hiện trường Timemark & Định vị thực địa
+  timemarkHash?: string;         // Mã xác thực Timemark (e.g. N9ULW4DEHPT33Y)
+  timemarkVerified?: boolean;    // Đã xác thực ảnh thực địa 100% Chân thực
+  photoElevation?: string;       // Độ cao thực địa
+  photoDirection?: string;       // Phương hướng la bàn
+  photoTakenAt?: string;         // Thời gian ghi nhận trên ảnh
+  linkedHouseholdCode?: string;  // Hộ dân gần vị trí sự việc
+  reporterResidentId?: string;   // Liên kết công dân gửi tin từ 11.632 cư dân
 }
 
 export interface PartyMember {
@@ -382,6 +474,9 @@ export interface LocalNews {
     size?: string;
   };
   links?: NewsLinkAttachment[];
+  zaloArticleId?: string;
+  zaloLinkView?: string;
+  isFromZalo?: boolean;
 }
 
 export type FundGroup =
@@ -456,6 +551,8 @@ export interface AdministrativeForm {
   fileSize: string;
   downloadCount: number;
   templateContent: string;
+  fileUrl?: string;
+  fileName?: string;
 }
 
 export interface AssociationMember {
@@ -464,6 +561,11 @@ export interface AssociationMember {
   role: string;
   cccd: string;
   phone?: string;
+  email?: string;
+  position?: string;
+  zaloUserId?: string;
+  zaloDisplayName?: string;
+  isLinkedZalo?: boolean;
   birthDate?: string;
   joinDate?: string; // Ngày tham gia chi hội / kết nạp
   decisionNumber?: string; // Số quyết định chuẩn y / công nhận
@@ -562,14 +664,61 @@ export interface TaskItem {
   proofImages?: string[];
   attachments?: TaskAttachment[]; // File đính kèm hình ảnh, word docx, pdf
   notes?: string;
+  linkedScheduleId?: string; // Liên kết ngược tới Lịch công tác nguồn
+  sourceDocNumber?: string;  // Số hiệu văn bản lịch cấp trên (VD: Số 45-LLV/ĐU)
+}
+
+export type ScheduleSourceLevel =
+  | "party_ward"
+  | "ubnd_ward"
+  | "merged_ward"
+  | "kp3_internal";
+
+export type ScheduleRelevanceTier =
+  | "mandatory_kp3"
+  | "coordination_kp3"
+  | "ward_reference";
+
+export interface AssignedKp3Officer {
+  name: string;
+  role: string;
+  associationId?: string;
+  phone?: string;
+  attendanceRole: "primary" | "deputy_substitute" | "coordinating";
+  delegatedFrom?: string;
+  note?: string;
+}
+
+export interface ScheduleAdjustmentLog {
+  id: string;
+  changedAt: string;
+  changedBy: string;
+  actionType:
+    | "reschedule"
+    | "location_change"
+    | "postpone"
+    | "delegate"
+    | "reopen"
+    | "ocr_import"
+    | "ocr_merge";
+  previousDate?: string;
+  previousTime?: string;
+  previousLocation?: string;
+  newDate?: string;
+  newTime?: string;
+  newLocation?: string;
+  delegatedFrom?: string;
+  delegatedTo?: string;
+  reason: string;
 }
 
 export interface ScheduleEvent {
   id: string;
   title: string;
-  type: "Họp Chi bộ" | "Họp Giao ban KP3" | "Họp Tổ Dân Phố" | "Tuần tra ANTT" | "Chủ Nhật Xanh" | "Tiếp công dân" | "Hội nghị Khu phố" | "Khác" | (string & {});
+  type: "Họp Chi bộ" | "Họp Giao ban KP3" | "Họp Tổ Dân Phố" | "Tuần tra ANTT" | "Chủ Nhật Xanh" | "Tiếp công dân" | "Hội nghị Khu phố" | "Lịch Đảng ủy Phường" | "Lịch UBND Phường" | "Khác" | (string & {});
   date: string; // YYYY-MM-DD
   time: string; // HH:mm - HH:mm
+  sessionPeriod?: "Sáng" | "Chiều" | "Tối";
   location: string;
   host: string;
   attendees: string;
@@ -578,6 +727,19 @@ export interface ScheduleEvent {
   description?: string; // Nội dung cuộc họp / Chương trình chi tiết
   content?: string;
   attachments?: TaskAttachment[]; // File đính kèm hình ảnh, word docx, pdf
+  // Mở rộng phục vụ AI OCR lịch cấp trên & Điều chỉnh / Dời lịch / Cử đi thay
+  sourceLevel?: ScheduleSourceLevel;
+  sourceDocNumber?: string;
+  relevanceTier?: ScheduleRelevanceTier;
+  assignedOfficers?: AssignedKp3Officer[];
+  originalDate?: string;
+  originalTime?: string;
+  originalLocation?: string;
+  rescheduleCount?: number;
+  lastRescheduleReason?: string;
+  adjustmentLogs?: ScheduleAdjustmentLog[];
+  linkedTaskIds?: string[];
+  isPublicCitizenVisible?: boolean;
 }
 
 export interface RecurringReminder {
@@ -618,10 +780,25 @@ export interface LeadershipMember {
   group: "Cấp ủy Chi bộ" | "Ban Điều hành Khu phố" | "Công an khu vực" | "Đoàn thể";
   scope: string;
   phone?: string;
+  cccd?: string;
+  assocId?: string;
   avatar?: string;
   description?: string;
   schedule?: string;
   isHighlight?: boolean;
+  isTopLeader?: boolean;
+  protocolRank?: number;
+}
+
+export interface AssociationLeaderSummary {
+  assocId: string;
+  assocName: string;
+  category: string;
+  headName: string;
+  headRole: string;
+  headPhone?: string;
+  deputyList: { name: string; role: string; phone?: string }[];
+  memberCount: number;
 }
 
 export interface LandingGalleryImage {
@@ -659,6 +836,8 @@ export interface LandingConfig {
   heroCoverUrl?: string;
   galleryImages?: LandingGalleryImage[];
   leadership?: LeadershipMember[];
+  associationLeaders?: AssociationLeaderSummary[];
+  leadershipSyncedV1?: boolean;
   about?: LandingAboutConfig;
 }
 

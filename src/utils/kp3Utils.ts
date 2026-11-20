@@ -8,7 +8,10 @@ import type {
   WelfareRecipient,
   CommunityEvent,
   TaskItem,
+  LeadershipMember,
 } from "../types";
+import { DEFAULT_LEADERSHIP_MEMBERS } from "../components/landing/landingConstants";
+import { enforcePartySecretaryFirst } from "./leadershipSync";
 
 export const KP3_OFFICIAL_BASELINE = {
   households: 488,
@@ -152,8 +155,9 @@ export function computeKp3PopulationMetrics(residents: Resident[], households: H
   const avgPerDigitizedHousehold =
     matchedHouseholds.length > 0 ? matchedMemberTotal / matchedHouseholds.length : 0;
 
+  // When real CSDL is loaded (>= 100 records), reflect live resident count accurately (including after Smart Sync removals)
   const officialPopulation =
-    digitizedResidentsCount >= KP3_OFFICIAL_BASELINE.population
+    digitizedResidentsCount >= 100
       ? digitizedResidentsCount
       : KP3_OFFICIAL_BASELINE.population;
 
@@ -176,25 +180,31 @@ export function computeKp3PopulationMetrics(residents: Resident[], households: H
  */
 export function isEnterpriseRecord(b: Business): boolean {
   if (b.isAccommodation) return false;
-  if (
-    b.businessType === "Công ty TNHH" ||
-    b.businessType === "Công ty Cổ phần" ||
-    b.businessType === "Doanh nghiệp tư nhân"
-  ) {
-    return true;
+  if (b.businessType) {
+    if (
+      [
+        "Công ty TNHH",
+        "Công ty Cổ phần",
+        "Doanh nghiệp tư nhân",
+        "Cơ sở kinh doanh khác",
+      ].includes(b.businessType)
+    ) {
+      return true;
+    }
+    if (b.businessType === "Hộ kinh doanh") return false;
   }
-  const lowerType = (b.type || "").toLowerCase();
   const lowerName = (b.name || "").toLowerCase();
-  if (
-    b.businessType !== "Hộ kinh doanh" &&
-    (lowerType.includes("doanh nghiệp") ||
-      lowerName.startsWith("công ty") ||
-      lowerName.includes("tnhh") ||
-      lowerName.includes("cổ phần"))
-  ) {
-    return true;
-  }
-  return false;
+  const lowerType = (b.type || "").toLowerCase();
+  return (
+    lowerName.includes("công ty") ||
+    lowerName.includes("tnhh") ||
+    lowerName.includes("cổ phần") ||
+    lowerName.includes("doanh nghiệp") ||
+    lowerName.includes("nhà sách") ||
+    lowerType.includes("công ty") ||
+    lowerType.includes("doanh nghiệp") ||
+    Boolean(b.employeeCount && b.employeeCount >= 5 && !b.isAccommodation)
+  );
 }
 
 export function isSmallBusinessOrHostel(b: Business): boolean {
@@ -267,6 +277,7 @@ export interface Kp3AssistantContext {
   fundExpenditures: FundExpenditure[];
   communityEvents: CommunityEvent[];
   tasks: TaskItem[];
+  leadership?: LeadershipMember[];
 }
 
 /**
@@ -335,12 +346,21 @@ export function generateKp3AssistantReply(
     ].join("\n");
   }
 
-  if (q.includes("bí thư") || q.includes("liên hệ") || q.includes("ban điều hành") || q.includes("ai là")) {
+  if (q.includes("bí thư") || q.includes("trưởng khu phố") || q.includes("liên hệ") || q.includes("ban điều hành") || q.includes("ai là")) {
+    const liveLeaders = enforcePartySecretaryFirst(
+      ctx.leadership && ctx.leadership.length > 0
+        ? ctx.leadership
+        : DEFAULT_LEADERSHIP_MEMBERS
+    );
+    const leaderLines = liveLeaders.slice(0, 6).map((l, idx) => {
+      const roleText = l.subRole ? `${l.role} (${l.subRole})` : l.role;
+      const topTag = idx === 0 ? " — ★ Đứng đầu Khu phố 3" : "";
+      const phoneText = l.phone ? ` — SĐT: \`${l.phone}\`` : "";
+      return `- **${roleText}:** ${l.name}${topTag}${phoneText}`;
+    });
     return [
-      "**Thông tin Liên hệ Ban Điều hành Khu phố 3, Phường An Phú:**",
-      "- **Bí thư Chi bộ KP3:** Ông Nguyễn Văn Hùng — SĐT: `0903.829.112`",
-      "- **Trưởng Khu phố:** Bà Lê Thị Mai — SĐT: `0987.654.321`",
-      "- **Trưởng Ban Điều hành KP3:** Ông Nguyễn Trung Huy — SĐT: `0909.123.888`",
+      "**Thông tin Cấp ủy Chi bộ & Ban Điều hành Khu phố 3, Phường An Phú (Đồng bộ trực tiếp):**",
+      ...leaderLines,
       "- **Tiếp công dân định kỳ:** Sáng thứ Bảy hàng tuần (08:00 – 11:00) tại Nhà văn hóa Khu phố 3.",
     ].join("\n");
   }
@@ -376,5 +396,19 @@ export function formatShortRecordId(id?: string | null, prefix = "KP3"): string 
   if (raw.length <= 16) return raw;
   const compact = raw.replace(/[^a-zA-Z0-9]/g, "").slice(0, 8).toUpperCase();
   return `${prefix}-${compact}`;
+}
+
+/**
+ * Formats ISO date strings (YYYY-MM-DD) into Vietnamese DD/MM/YYYY format while preserving
+ * strings that are already formatted in DD/MM/YYYY.
+ */
+export function formatVNDate(dateStr?: string | null): string {
+  const raw = (dateStr || "").trim();
+  if (!raw) return "—";
+  const isoMatch = raw.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (isoMatch) {
+    return `${isoMatch[3]}/${isoMatch[2]}/${isoMatch[1]}`;
+  }
+  return raw;
 }
 

@@ -34,7 +34,9 @@ import {
   getTemporaryResidenceExpiryStatus,
   parseAccommodationInfo,
 } from "../utils/householdRecognitionUtils";
+import { getEffectiveResidencyStatus } from "../utils/residencyClassifier";
 import { formatShortRecordId } from "../utils/kp3Utils";
+import { recordAuditLog } from "../utils/auditLogger";
 import { DetailGrid, DetailRow } from "../components/common/DetailRow";
 import { LoadingFade } from "../components/common/LoadingFade";
 import { PageHeader } from "../components/common/PageHeader";
@@ -329,6 +331,11 @@ export default function ResidentDetailPage({
                   <span>{getCountryFlag(resident.nationality)}</span>
                   <span>{resident.nationality}</span>
                 </span>
+              ) : getEffectiveResidencyStatus(resident) === "Tạm vắng" ? (
+                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-amber-50 text-amber-700 border border-amber-200">
+                  <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse"></span>
+                  Thường trú KP3 • Hiện ở ngoài địa bàn (Tạm vắng)
+                </span>
               ) : (
                 <span
                   className={`px-2.5 py-1 rounded-full text-xs font-bold border ${
@@ -518,7 +525,21 @@ export default function ResidentDetailPage({
                   </h3>
                   <button
                     type="button"
-                    onClick={() => setShowFullCccd(!showFullCccd)}
+                    onClick={() => {
+                      setShowFullCccd((prev) => {
+                        const next = !prev;
+                        if (next) {
+                          void recordAuditLog({
+                            actorName: "Cán bộ Quản lý Dân cư",
+                            actorRole: "Ban điều hành Khu phố 3",
+                            category: "PII_ACCESS",
+                            actionTitle: "Xem số CCCD / Hộ chiếu đầy đủ",
+                            targetSummary: `Mở khóa hiển thị CCCD của cư dân ${resident.fullName} (Mã: ${resident.id})`,
+                          });
+                        }
+                        return next;
+                      });
+                    }}
                     className="min-h-7 px-2.5 py-1 text-xs font-bold text-slate-700 hover:text-slate-900 bg-white hover:bg-slate-100 border border-slate-300 rounded-lg inline-flex items-center gap-1 transition-colors cursor-pointer"
                     aria-pressed={showFullCccd}
                   >
@@ -541,7 +562,7 @@ export default function ResidentDetailPage({
                   <DetailRow label="Ngày cấp" value={resident.idIssueDate} isMono />
                   <DetailRow
                     label="Nơi cấp"
-                    value={resident.idIssuePlace || "Cục Cảnh sát QLHC về TTXH"}
+                    value={resident.idIssuePlace}
                     colSpan={2}
                   />
                 </DetailGrid>
@@ -1003,6 +1024,7 @@ export default function ResidentDetailPage({
       {quickHouseholdModal && (
         <QuickHouseholdModal
           household={quickHouseholdModal}
+          residents={residents}
           showFullCccd={showFullCccd}
           onClose={() => setQuickHouseholdModal(null)}
         />

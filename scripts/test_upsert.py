@@ -1,13 +1,12 @@
+import os
 import json
 import urllib.request
 import urllib.error
 
-SUPABASE_URL = "https://wjdgaobhipkgzveidtra.supabase.co"
-SERVICE_ROLE_KEY = (
-    "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9."
-    "eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndqZGdhb2JoaXBrZ3p2ZWlkdHJhIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc5MTg1OTQzNCwiZXhwIjoyMTA3NDM1NDM0fQ."
-    "qlheohPPyspOM0ezFa-wr_D6vIQNrAFrmaPpSD_v_zo"
-)
+SUPABASE_URL = os.environ.get("VITE_SUPABASE_URL", "https://wjdgaobhipkgzveidtra.supabase.co")
+SERVICE_ROLE_KEY = os.environ.get("SUPABASE_SERVICE_ROLE_KEY", "")
+if not SERVICE_ROLE_KEY:
+    raise RuntimeError("Thiếu biến môi trường SUPABASE_SERVICE_ROLE_KEY.")
 
 headers = {
     'apikey': SERVICE_ROLE_KEY,

@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
+import * as XLSX from "xlsx";
 import {
   Bell,
   Calendar as CalendarIcon,
@@ -6,20 +7,26 @@ import {
   CheckSquare,
   Clock,
   Edit2,
+  FileSpreadsheet,
+  FileUp,
   Flame,
   LayoutGrid,
+  List,
   ListFilter,
   MapPin,
   Plus,
   Printer,
+  RefreshCw,
   Search,
   Sparkles,
   Trash2,
   User,
+  UserCheck,
 } from "lucide-react";
-import { RecurringReminder, ScheduleEvent, TaskAttachment, TaskItem } from "../types";
+import { Association, RecurringReminder, ScheduleEvent, TaskAttachment, TaskItem } from "../types";
 import { getStoredAssociations } from "../data/associationsData";
-import { KP3_AREA_LIST, extractKp3Area } from "../utils/kp3Utils";
+import { KP3_AREA_LIST, extractKp3Area, formatShortRecordId, formatVNDate } from "../utils/kp3Utils";
+import { recordAuditLog } from "../utils/auditLogger";
 import {
   loadRemindersFromDb,
   loadSchedulesFromDb,
@@ -27,6 +34,11 @@ import {
   syncSchedulesToDb,
   syncTasksDiffToDb,
 } from "../utils/supabaseSync";
+import {
+  reconcileRemindersWithAssociations,
+  reconcileSchedulesWithAssociations,
+  reconcileTasksWithAssociations,
+} from "../utils/taskScheduleRoleSync";
 import { StatCard } from "./common/StatCard";
 import { PageHeader } from "./common/PageHeader";
 import { Button, ConfirmModal, EmptyState, InlineNotice, ReportSelect } from "./ui";
@@ -53,6 +65,9 @@ import {
 import { CreateTaskModal, TaskDetailModal } from "./tasks/TaskModals";
 import { CreateScheduleModal, ScheduleDetailModal } from "./tasks/ScheduleModals";
 import { ReminderSection } from "./tasks/ReminderSection";
+import { WardScheduleOcrModal } from "./tasks/WardScheduleOcrModal";
+import { RescheduleAndDelegateModal } from "./tasks/RescheduleAndDelegateModal";
+import { WeeklyScheduleMatrix } from "./tasks/WeeklyScheduleMatrix";
 
 export {
   INITIAL_TASKS,
@@ -69,22 +84,37 @@ export interface TaskAndScheduleProps {
   tasks?: TaskItem[];
   onTasksChange?: (next: TaskItem[]) => void;
   creatorLabel?: string;
+  associationsList?: Association[];
   basePath?: string;
   onOpenCreate?: () => void;
   onOpenEdit?: (task: TaskItem) => void;
   onOpenDetail?: (task: TaskItem) => void;
+  activeSubTab?: "tasks" | "schedules" | "reminders";
+  onActiveSubTabChange?: (tab: "tasks" | "schedules" | "reminders") => void;
+  taskViewMode?: "kanban" | "list";
+  onTaskViewModeChange?: (mode: "kanban" | "list") => void;
 }
 
 export default function TaskAndSchedule({
   tasks: externalTasks,
   onTasksChange,
-  creatorLabel = "Đ/c Nguyễn Văn Hùng (Bí thư Chi bộ)",
+  creatorLabel = "Bí thư Chi bộ KP3",
+  associationsList: externalAssociations,
   basePath,
   onOpenCreate,
   onOpenEdit,
   onOpenDetail,
+  activeSubTab: activeSubTabProp,
+  onActiveSubTabChange,
+  taskViewMode: taskViewModeProp,
+  onTaskViewModeChange,
 }: TaskAndScheduleProps = {}) {
-  const [activeSubTab, setActiveSubTab] = useState<"tasks" | "schedules" | "reminders">("tasks");
+  const [internalSubTab, setInternalSubTab] = useState<"tasks" | "schedules" | "reminders">("tasks");
+  const activeSubTab = activeSubTabProp ?? internalSubTab;
+  const setActiveSubTab = (tab: "tasks" | "schedules" | "reminders") => {
+    setInternalSubTab(tab);
+    onActiveSubTabChange?.(tab);
+  };
   const [internalTasks, setInternalTasks] = useState<TaskItem[]>(loadStoredTasks);
   const tasks = externalTasks ?? internalTasks;
 
@@ -112,6 +142,9 @@ export default function TaskAndSchedule({
     try {
       localStorage.setItem(SCHEDULE_STORAGE_KEY, JSON.stringify(next));
     } catch {}
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(new CustomEvent("kp3:schedules-updated", { detail: next }));
+    }
   };
 
   const [recurringReminders, setRecurringReminders] = useState<RecurringReminder[]>(() => {
@@ -130,18 +163,52 @@ export default function TaskAndSchedule({
     } catch {}
   };
 
+  const associationsList = useMemo(
+    () =>
+      externalAssociations && externalAssociations.length > 0
+        ? externalAssociations
+        : getStoredAssociations(),
+    [externalAssociations]
+  );
+
   useEffect(() => {
     let active = true;
     loadSchedulesFromDb().then((rows) => {
       if (active && rows && rows.length > 0) {
-        setSchedules(rows);
-        try { localStorage.setItem(SCHEDULE_STORAGE_KEY, JSON.stringify(rows)); } catch {}
+        const currentAssocs =
+          externalAssociations && externalAssociations.length > 0
+            ? externalAssociations
+            : getStoredAssociations();
+        const { schedules: syncedRows, changed } = reconcileSchedulesWithAssociations(
+          rows,
+          currentAssocs
+        );
+        if (changed) {
+          syncSchedulesToDb(rows, syncedRows);
+        }
+        setSchedules(syncedRows);
+        try {
+          localStorage.setItem(SCHEDULE_STORAGE_KEY, JSON.stringify(syncedRows));
+        } catch {}
       }
     });
     loadRemindersFromDb().then((rows) => {
       if (active && rows && rows.length > 0) {
-        setRecurringReminders(rows);
-        try { localStorage.setItem(REMINDER_STORAGE_KEY, JSON.stringify(rows)); } catch {}
+        const currentAssocs =
+          externalAssociations && externalAssociations.length > 0
+            ? externalAssociations
+            : getStoredAssociations();
+        const { reminders: syncedRem, changed } = reconcileRemindersWithAssociations(
+          rows,
+          currentAssocs
+        );
+        if (changed) {
+          syncRemindersToDb(rows, syncedRem);
+        }
+        setRecurringReminders(syncedRem);
+        try {
+          localStorage.setItem(REMINDER_STORAGE_KEY, JSON.stringify(syncedRem));
+        } catch {}
       }
     });
     return () => {
@@ -149,10 +216,53 @@ export default function TaskAndSchedule({
     };
   }, []);
 
-  const [associationsList] = useState(() => getStoredAssociations());
+  // Tự động đồng bộ liên thông chức vụ Lịch & Nhiệm vụ ngay khi Quản lý Chi hội thay đổi
+  useEffect(() => {
+    if (!associationsList || associationsList.length === 0) return;
+
+    setSchedules((prev) => {
+      const { schedules: next, changed } = reconcileSchedulesWithAssociations(
+        prev,
+        associationsList
+      );
+      if (!changed) return prev;
+      syncSchedulesToDb(prev, next);
+      try {
+        localStorage.setItem(SCHEDULE_STORAGE_KEY, JSON.stringify(next));
+      } catch {}
+      return next;
+    });
+
+    setRecurringReminders((prev) => {
+      const { reminders: next, changed } = reconcileRemindersWithAssociations(
+        prev,
+        associationsList
+      );
+      if (!changed) return prev;
+      syncRemindersToDb(prev, next);
+      try {
+        localStorage.setItem(REMINDER_STORAGE_KEY, JSON.stringify(next));
+      } catch {}
+      return next;
+    });
+
+    const { tasks: nextTasks, changed: tasksChanged } = reconcileTasksWithAssociations(
+      tasks,
+      associationsList
+    );
+    if (tasksChanged) {
+      saveTasks(nextTasks);
+    }
+  }, [associationsList]);
 
   // Task filters & modals
-  const [taskViewMode, setTaskViewMode] = useState<"kanban" | "list">("kanban");
+  const [internalTaskViewMode, setInternalTaskViewMode] = useState<"kanban" | "list">("kanban");
+  const taskViewMode = taskViewModeProp ?? internalTaskViewMode;
+  const setTaskViewMode = (mode: "kanban" | "list") => {
+    setInternalTaskViewMode(mode);
+    onTaskViewModeChange?.(mode);
+  };
+  const [taskStatusFilter, setTaskStatusFilter] = useState<string>("all");
   const [taskUnitFilter, setTaskUnitFilter] = useState("all");
   const [taskToFilter, setTaskToFilter] = useState("all");
   const [taskPriorityFilter, setTaskPriorityFilter] = useState("all");
@@ -161,12 +271,21 @@ export default function TaskAndSchedule({
   const [editingTask, setEditingTask] = useState<TaskItem | null>(null);
   const [selectedTask, setSelectedTask] = useState<TaskItem | null>(null);
 
-  // Schedule filters & modals
+  // Schedule filters, view mode, AI OCR & Reschedule modals
+  const [scheduleViewMode, setScheduleViewMode] = useState<"weekly" | "cards">("weekly");
+  const [scheduleSearchQuery, setScheduleSearchQuery] = useState("");
+  const [scheduleStatusFilter, setScheduleStatusFilter] = useState<string>("all");
   const [scheduleTypeFilter, setScheduleTypeFilter] = useState("all");
   const [scheduleMonthFilter, setScheduleMonthFilter] = useState("");
   const [showAddScheduleModal, setShowAddScheduleModal] = useState(false);
+  const [showWardOcrModal, setShowWardOcrModal] = useState(false);
   const [editingSchedule, setEditingSchedule] = useState<ScheduleEvent | null>(null);
   const [selectedSchedule, setSelectedSchedule] = useState<ScheduleEvent | null>(null);
+  const [rescheduleTarget, setRescheduleTarget] = useState<{
+    schedule: ScheduleEvent;
+    mode: "reschedule" | "delegate" | "postpone";
+  } | null>(null);
+  const [focusScheduleDate, setFocusScheduleDate] = useState<string | null>(null);
 
   // Feedback banner & Confirm dialog
   const [notice, setNotice] = useState<{ message: string; tone: "success" | "info" | "warning" } | null>(null);
@@ -191,11 +310,26 @@ export default function TaskAndSchedule({
     return { total, completed, inProgress, pendingReview, urgent, completionRate };
   }, [tasks]);
 
+  const kp3Schedules = useMemo(
+    () => schedules.filter((s) => s.relevanceTier !== "ward_reference"),
+    [schedules]
+  );
+
   const scheduleKpi = useMemo(() => {
-    const upcoming = schedules.filter((s) => s.status === "Sắp diễn ra").length;
-    const done = schedules.filter((s) => s.status === "Đã kết thúc").length;
-    return { total: schedules.length, upcoming, done };
-  }, [schedules]);
+    const upcoming = kp3Schedules.filter((s) => s.status === "Sắp diễn ra").length;
+    const done = kp3Schedules.filter((s) => s.status === "Đã kết thúc").length;
+    const adjusted = kp3Schedules.filter(
+      (s) => (s.rescheduleCount || 0) > 0 || s.status === "Đã hoãn"
+    ).length;
+    const wardRefCount = schedules.length - kp3Schedules.length;
+    return {
+      total: kp3Schedules.length,
+      upcoming,
+      done,
+      adjusted,
+      wardRefCount,
+    };
+  }, [kp3Schedules, schedules.length]);
 
   const reminderKpi = useMemo(() => {
     const total = recurringReminders.length;
@@ -210,6 +344,7 @@ export default function TaskAndSchedule({
   const filteredTasks = useMemo(() => {
     const q = taskSearchQuery.trim().toLowerCase();
     return tasks.filter((t) => {
+      const matchStatus = taskStatusFilter === "all" || t.status === taskStatusFilter;
       const matchUnit = taskUnitFilter === "all" || t.unit === taskUnitFilter;
       const matchPriority = taskPriorityFilter === "all" || t.priority === taskPriorityFilter;
       const areaExtracted = extractKp3Area(`${t.unit} ${t.title} ${t.description}`);
@@ -219,17 +354,30 @@ export default function TaskAndSchedule({
         t.title.toLowerCase().includes(q) ||
         t.assignee.name.toLowerCase().includes(q) ||
         t.description.toLowerCase().includes(q);
-      return matchUnit && matchPriority && matchTo && matchSearch;
+      return matchStatus && matchUnit && matchPriority && matchTo && matchSearch;
     });
-  }, [tasks, taskUnitFilter, taskPriorityFilter, taskToFilter, taskSearchQuery]);
+  }, [tasks, taskStatusFilter, taskUnitFilter, taskPriorityFilter, taskToFilter, taskSearchQuery]);
 
   const filteredSchedules = useMemo(() => {
-    return schedules.filter((s) => {
+    const q = scheduleSearchQuery.trim().toLowerCase();
+    return kp3Schedules.filter((s) => {
+      const matchStatus =
+        scheduleStatusFilter === "all"
+          ? true
+          : scheduleStatusFilter === "__ADJUSTED__"
+          ? (s.rescheduleCount || 0) > 0 || s.status === "Đã hoãn"
+          : s.status === scheduleStatusFilter;
       const matchType = scheduleTypeFilter === "all" || s.type === scheduleTypeFilter;
       const matchMonth = !scheduleMonthFilter || s.date.startsWith(scheduleMonthFilter);
-      return matchType && matchMonth;
+      const matchSearch =
+        !q ||
+        s.title.toLowerCase().includes(q) ||
+        s.location.toLowerCase().includes(q) ||
+        (s.description || "").toLowerCase().includes(q) ||
+        (s.content || "").toLowerCase().includes(q);
+      return matchStatus && matchType && matchMonth && matchSearch;
     });
-  }, [schedules, scheduleTypeFilter, scheduleMonthFilter]);
+  }, [kp3Schedules, scheduleStatusFilter, scheduleTypeFilter, scheduleMonthFilter, scheduleSearchQuery]);
 
   const unitFilterOptions = useMemo(() => {
     const uniqueUnits = Array.from(new Set(tasks.map((t) => t.unit))).filter(Boolean);
@@ -329,6 +477,96 @@ export default function TaskAndSchedule({
     setConfirmState(null);
   };
 
+  const handleExportTasksAndSchedulesExcel = () => {
+    const taskRows = tasks.map((t) => ({
+      "Mã NV": formatShortRecordId(t.id, "NV"),
+      "Tiêu đề nhiệm vụ": t.title,
+      "Đơn vị thực hiện": t.unit,
+      "Người phụ trách": t.assignee.name,
+      "Chức vụ": t.assignee.role,
+      "SĐT": t.assignee.phone || "",
+      "Ưu tiên": t.priority,
+      "Tiến độ (%)": t.progressPercent,
+      "Hạn hoàn thành": formatVNDate(t.deadline),
+      "Trạng thái": t.status,
+      "Người giao": t.creator,
+    }));
+
+    const scheduleRows = kp3Schedules.map((s) => ({
+      "Mã lịch": s.id,
+      "Ngày": formatVNDate(s.date),
+      "Khung giờ": s.time,
+      "Tên lịch công tác": s.title,
+      "Phân loại": s.type,
+      "Địa điểm": s.location,
+      "Chủ trì": s.host,
+      "Thành phần": s.attendees,
+      "Công khai Cổng Cư dân": (s as ScheduleEvent & { isPublicCitizenVisible?: boolean }).isPublicCitizenVisible
+        ? "Có"
+        : "Nội bộ",
+      "Trạng thái": s.status,
+    }));
+
+    const reminderRows = recurringReminders.map((r) => ({
+      "Mã nhắc": r.id,
+      "Báo cáo định kỳ": r.title,
+      "Chu kỳ": formatFrequencyText(r),
+      "Cơ quan nhận": r.recipientOrg,
+      "Đơn vị phụ trách": r.responsibleUnit,
+      "Cán bộ phụ trách": r.responsiblePerson.name,
+      "Hạn kế tiếp": formatVNDate(r.nextDueDate),
+      "Trạng thái": r.status,
+    }));
+
+    const wb = XLSX.utils.book_new();
+    const wsTasks = XLSX.utils.json_to_sheet(taskRows);
+    wsTasks["!cols"] = [
+      { wch: 12 },
+      { wch: 38 },
+      { wch: 24 },
+      { wch: 22 },
+      { wch: 20 },
+      { wch: 14 },
+      { wch: 12 },
+      { wch: 12 },
+      { wch: 15 },
+      { wch: 16 },
+      { wch: 24 },
+    ];
+    XLSX.utils.book_append_sheet(wb, wsTasks, "NhiemVu_KP3");
+
+    const wsSchedules = XLSX.utils.json_to_sheet(scheduleRows);
+    wsSchedules["!cols"] = [
+      { wch: 14 },
+      { wch: 14 },
+      { wch: 16 },
+      { wch: 36 },
+      { wch: 22 },
+      { wch: 28 },
+      { wch: 26 },
+      { wch: 30 },
+      { wch: 20 },
+      { wch: 16 },
+    ];
+    XLSX.utils.book_append_sheet(wb, wsSchedules, "LichCongTac_KP3");
+
+    const wsReminders = XLSX.utils.json_to_sheet(reminderRows);
+    XLSX.utils.book_append_sheet(wb, wsReminders, "BaoCaoDinhKy");
+
+    const fileName = `Nhiem_vu_va_Lich_cong_tac_KP3_${new Date().toISOString().slice(0, 10)}.xlsx`;
+    XLSX.writeFile(wb, fileName);
+
+    recordAuditLog({
+      actorName: creatorLabel,
+      actorRole: "Ban Điều hành Khu phố 3",
+      category: "DATA_EXPORT",
+      actionTitle: "Xuất Excel Nhiệm vụ & Lịch công tác (.xlsx)",
+      targetSummary: `${tasks.length} nhiệm vụ, ${kp3Schedules.length} lịch công tác (${fileName})`,
+    });
+
+    showNotice(`Đã xuất báo cáo Nhiệm vụ & Lịch công tác ra tệp ${fileName}!`, "success");
+  };
+
   return (
     <div id="task-and-schedule-module" className="space-y-5">
       <PageHeader
@@ -337,64 +575,89 @@ export default function TaskAndSchedule({
         badgeSubtext="ĐIỀU HÀNH TÁC NGHIỆP"
         title="Lịch Công Tác & Phân Công Nhiệm Vụ"
         actions={
-          <div
-            role="tablist"
-            aria-label="Phân khu công tác"
-            className="flex flex-col sm:flex-row sm:flex-wrap items-stretch sm:items-center gap-1 bg-slate-100 p-1 rounded-xl border border-slate-200 w-full sm:w-auto"
-          >
-            <button
-              id="btn-subtab-tasks"
+          <div className="flex flex-wrap items-center gap-2 shrink-0">
+            <Button
               type="button"
-              role="tab"
-              aria-selected={activeSubTab === "tasks"}
-              onClick={() => setActiveSubTab("tasks")}
-              className={`px-3 py-2 rounded-lg text-xs font-bold transition-colors cursor-pointer inline-flex items-center gap-1.5 ${
-                activeSubTab === "tasks"
-                  ? "bg-white text-emerald-900 border border-slate-200"
-                  : "text-slate-700 hover:text-slate-900"
-              }`}
+              variant="outline"
+              size="md"
+              leftIcon={<FileSpreadsheet size={15} className="text-emerald-700" />}
+              onClick={handleExportTasksAndSchedulesExcel}
             >
-              <CheckSquare size={14} aria-hidden="true" />
-              <span>Nhiệm vụ ({tasks.length})</span>
-            </button>
+              Xuất Excel Nhiệm vụ &amp; Lịch (.xlsx)
+            </Button>
             <button
-              id="btn-subtab-schedules"
+              id="btn-open-ward-schedule-ocr"
               type="button"
-              role="tab"
-              aria-selected={activeSubTab === "schedules"}
-              onClick={() => setActiveSubTab("schedules")}
-              className={`px-3 py-2 rounded-lg text-xs font-bold transition-colors cursor-pointer inline-flex items-center gap-1.5 ${
-                activeSubTab === "schedules"
-                  ? "bg-white text-emerald-900 border border-slate-200"
-                  : "text-slate-700 hover:text-slate-900"
-              }`}
+              onClick={() => setShowWardOcrModal(true)}
+              className="min-h-10 px-3.5 py-2 rounded-xl bg-indigo-700 hover:bg-indigo-800 text-white text-xs font-bold inline-flex items-center gap-1.5 shadow-xs transition-colors cursor-pointer whitespace-nowrap"
+              title="Tải PDF / Ảnh Lịch Đảng ủy & UBND Phường để AI tự lên lịch cán bộ KP3"
             >
-              <CalendarIcon size={14} aria-hidden="true" />
-              <span>Lịch họp ({schedules.length})</span>
-            </button>
-            <button
-              id="btn-subtab-reminders"
-              type="button"
-              role="tab"
-              aria-selected={activeSubTab === "reminders"}
-              onClick={() => setActiveSubTab("reminders")}
-              className={`px-3 py-2 rounded-lg text-xs font-bold transition-colors cursor-pointer inline-flex items-center gap-1.5 ${
-                activeSubTab === "reminders"
-                  ? "bg-white text-indigo-900 border border-slate-200"
-                  : "text-slate-700 hover:text-slate-900"
-              }`}
-            >
-              <Bell size={14} aria-hidden="true" />
-              <span>Báo cáo định kỳ ({recurringReminders.length})</span>
-              {reminderKpi.due > 0 && (
-                <span className="px-1.5 py-0.5 rounded-full bg-rose-100 text-rose-900 text-xs font-bold">
-                  {reminderKpi.due}
-                </span>
-              )}
+              <Sparkles size={15} />
+              <span>AI Đọc Lịch Cấp Trên (OCR)</span>
             </button>
           </div>
         }
       />
+
+      {/* Thanh chuyển 3 phân khu độc lập bên dưới PageHeader */}
+      <div
+        role="tablist"
+        aria-label="Phân khu công tác"
+        className="flex items-center gap-1.5 bg-slate-100/90 p-1.5 rounded-2xl border border-slate-200 overflow-x-auto whitespace-nowrap evon-scroll"
+      >
+        <button
+          id="btn-subtab-tasks"
+          type="button"
+          role="tab"
+          aria-selected={activeSubTab === "tasks"}
+          onClick={() => setActiveSubTab("tasks")}
+          className={`px-3.5 py-2 min-h-10 rounded-xl text-xs font-bold transition-colors cursor-pointer inline-flex items-center gap-1.5 shrink-0 whitespace-nowrap ${
+            activeSubTab === "tasks"
+              ? "bg-white text-emerald-900 border border-slate-200 shadow-2xs"
+              : "text-slate-700 hover:text-slate-900 hover:bg-white/70"
+          }`}
+        >
+          <CheckSquare size={14} aria-hidden="true" />
+          <span>Nhiệm vụ ({tasks.length})</span>
+        </button>
+        <button
+          id="btn-subtab-schedules"
+          type="button"
+          role="tab"
+          aria-selected={activeSubTab === "schedules"}
+          onClick={() => setActiveSubTab("schedules")}
+          className={`px-3.5 py-2 min-h-10 rounded-xl text-xs font-bold transition-colors cursor-pointer inline-flex items-center gap-1.5 shrink-0 whitespace-nowrap ${
+            activeSubTab === "schedules"
+              ? "bg-white text-emerald-900 border border-slate-200 shadow-2xs"
+              : "text-slate-700 hover:text-slate-900 hover:bg-white/70"
+          }`}
+        >
+          <CalendarIcon size={14} aria-hidden="true" />
+          <span>
+            Lịch công tác ({schedules.filter((s) => s.relevanceTier !== "ward_reference").length})
+          </span>
+        </button>
+        <button
+          id="btn-subtab-reminders"
+          type="button"
+          role="tab"
+          aria-selected={activeSubTab === "reminders"}
+          onClick={() => setActiveSubTab("reminders")}
+          className={`px-3.5 py-2 min-h-10 rounded-xl text-xs font-bold transition-colors cursor-pointer inline-flex items-center gap-1.5 shrink-0 whitespace-nowrap ${
+            activeSubTab === "reminders"
+              ? "bg-white text-indigo-900 border border-slate-200 shadow-2xs"
+              : "text-slate-700 hover:text-slate-900 hover:bg-white/70"
+          }`}
+        >
+          <Bell size={14} aria-hidden="true" />
+          <span>Báo cáo định kỳ ({recurringReminders.length})</span>
+          {reminderKpi.due > 0 && (
+            <span className="px-1.5 py-0.5 rounded-full bg-rose-100 text-rose-900 text-xs font-bold">
+              {reminderKpi.due}
+            </span>
+          )}
+        </button>
+      </div>
 
       {notice && (
         <InlineNotice
@@ -410,61 +673,120 @@ export default function TaskAndSchedule({
           <StatCard
             label="Tổng nhiệm vụ KP3"
             value={taskKpi.total}
+            badge="việc"
             icon={CheckSquare}
             color="indigo"
-            subtext={`Hoàn thành ${taskKpi.completionRate}%`}
-            subtextRight={`${taskKpi.completed}/${taskKpi.total} việc`}
+            highlighted={taskStatusFilter === "all" && taskPriorityFilter === "all"}
+            onClick={() => {
+              setTaskStatusFilter("all");
+              setTaskPriorityFilter("all");
+            }}
           />
           <StatCard
             label="Đang thực hiện"
             value={taskKpi.inProgress}
+            badge={taskKpi.pendingReview > 0 ? `${taskKpi.pendingReview} chờ duyệt` : "việc"}
             icon={Clock}
             color="blue"
-            subtext="Tổ & Chi hội triển khai"
-            subtextRight={`${taskKpi.pendingReview} chờ nghiệm thu`}
+            highlighted={taskStatusFilter === "Đang thực hiện"}
+            onClick={() =>
+              setTaskStatusFilter((prev) => (prev === "Đang thực hiện" ? "all" : "Đang thực hiện"))
+            }
           />
           <StatCard
             label="Ưu tiên khẩn cấp"
             value={taskKpi.urgent}
+            badge="việc"
             icon={Flame}
             color="rose"
-            subtext="Cần bám sát tiến độ"
-            subtextRight="Chưa xong"
+            highlighted={taskPriorityFilter === "Khẩn cấp"}
+            onClick={() =>
+              setTaskPriorityFilter((prev) => (prev === "Khẩn cấp" ? "all" : "Khẩn cấp"))
+            }
           />
           <StatCard
             label="Đã hoàn thành"
             value={taskKpi.completed}
+            badge={`${taskKpi.completionRate}%`}
             icon={CheckCircle2}
             color="emerald"
-            subtext="Nghiệm thu đạt"
-            subtextRight={`${taskKpi.completionRate}% tổng số`}
+            highlighted={taskStatusFilter === "Hoàn thành"}
+            onClick={() =>
+              setTaskStatusFilter((prev) => (prev === "Hoàn thành" ? "all" : "Hoàn thành"))
+            }
           />
         </div>
       )}
 
       {activeSubTab === "schedules" && (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          <StatCard label="Tổng lịch công tác" value={scheduleKpi.total} icon={CalendarIcon} color="indigo" subtext="Kỳ hiện tại" />
-          <StatCard label="Sắp diễn ra" value={scheduleKpi.upcoming} icon={Clock} color="blue" subtext="Đã lên lịch" />
-          <StatCard label="Đã hoàn tất" value={scheduleKpi.done} icon={CheckCircle2} color="emerald" subtext="Lưu biên bản" />
-          <StatCard label="Báo cáo định kỳ đến hạn" value={reminderKpi.due} icon={Bell} color="amber" subtext="Cần nộp đúng kỳ" />
+          <StatCard
+            label="Tổng lịch cán bộ KP3"
+            value={scheduleKpi.total}
+            badge="lịch"
+            icon={CalendarIcon}
+            color="indigo"
+            highlighted={scheduleStatusFilter === "all"}
+            onClick={() => setScheduleStatusFilter("all")}
+          />
+          <StatCard
+            label="Sắp diễn ra"
+            value={scheduleKpi.upcoming}
+            badge="lịch"
+            icon={Clock}
+            color="blue"
+            highlighted={scheduleStatusFilter === "Sắp diễn ra"}
+            onClick={() =>
+              setScheduleStatusFilter((prev) => (prev === "Sắp diễn ra" ? "all" : "Sắp diễn ra"))
+            }
+          />
+          <StatCard
+            label="Điều chỉnh / Tạm hoãn"
+            value={scheduleKpi.adjusted}
+            badge="lịch"
+            icon={RefreshCw}
+            color="amber"
+            highlighted={scheduleStatusFilter === "__ADJUSTED__"}
+            onClick={() => {
+              setScheduleViewMode("cards");
+              setScheduleStatusFilter((prev) => (prev === "__ADJUSTED__" ? "all" : "__ADJUSTED__"));
+            }}
+          />
+          <StatCard
+            label="Đã hoàn tất"
+            value={scheduleKpi.done}
+            badge="lịch"
+            icon={CheckCircle2}
+            color="emerald"
+            highlighted={scheduleStatusFilter === "Đã kết thúc"}
+            onClick={() =>
+              setScheduleStatusFilter((prev) => (prev === "Đã kết thúc" ? "all" : "Đã kết thúc"))
+            }
+          />
         </div>
       )}
 
       {activeSubTab === "reminders" && (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          <StatCard label="Lịch báo cáo định kỳ" value={reminderKpi.total} icon={Bell} color="indigo" subtext={`${reminderKpi.active} đang bật nhắc`} />
-          <StatCard label="Đến hạn / sắp hạn" value={reminderKpi.due} icon={Clock} color="rose" subtext="Ưu tiên xử lý" />
-          <StatCard label="Đã nộp kỳ này" value={reminderKpi.submitted} icon={CheckCircle2} color="emerald" subtext="Đúng quy định" />
-          <StatCard label="Nhiệm vụ liên kết" value={taskKpi.total} icon={CheckSquare} color="blue" subtext="Trên Kanban KP3" />
+          <StatCard label="Lịch báo cáo định kỳ" value={reminderKpi.total} badge={`${reminderKpi.active} đang bật`} icon={Bell} color="indigo" />
+          <StatCard label="Đến hạn / sắp hạn" value={reminderKpi.due} badge="báo cáo" icon={Clock} color="rose" />
+          <StatCard label="Đã nộp kỳ này" value={reminderKpi.submitted} badge="báo cáo" icon={CheckCircle2} color="emerald" />
+          <StatCard
+            label="Nhiệm vụ liên kết"
+            value={taskKpi.total}
+            badge="việc"
+            icon={CheckSquare}
+            color="blue"
+            onClick={() => setActiveSubTab("tasks")}
+          />
         </div>
       )}
 
       {/* SUB-TAB 1: TASKS */}
       {activeSubTab === "tasks" && (
         <div className="space-y-4">
-          <search className="bg-white p-3.5 rounded-xl border border-slate-200 flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-3">
-            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-2.5 flex-1">
+          <search className="bg-white p-3.5 rounded-xl border border-slate-200 flex flex-col 2xl:flex-row items-stretch 2xl:items-center justify-between gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-2.5 flex-1 min-w-0">
               <div className="relative min-w-0">
                 <label htmlFor="task-search-input" className="sr-only">
                   Tìm kiếm nhiệm vụ
@@ -519,7 +841,7 @@ export default function TaskAndSchedule({
               />
             </div>
 
-            <div className="flex flex-wrap items-center justify-between lg:justify-end gap-2 shrink-0">
+            <div className="flex flex-wrap items-center justify-between 2xl:justify-end gap-2 shrink-0">
               <div
                 role="group"
                 aria-label="Chế độ xem nhiệm vụ"
@@ -569,7 +891,7 @@ export default function TaskAndSchedule({
           </search>
 
           {taskViewMode === "kanban" ? (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 2xl:grid-cols-4 gap-4">
               {(["Chờ xử lý", "Đang thực hiện", "Chờ nghiệm thu", "Hoàn thành"] as TaskItem["status"][]).map(
                 (statusCol) => {
                   const colTasks = filteredTasks.filter((t) => t.status === statusCol);
@@ -588,23 +910,40 @@ export default function TaskAndSchedule({
                         {colTasks.length === 0 ? (
                           <div className="py-10 text-center text-xs text-slate-600">Chưa có nhiệm vụ</div>
                         ) : (
-                          colTasks.map((task) => (
+                          colTasks.map((task) => {
+                            const openTaskDetail = () => {
+                              if (onOpenDetail) {
+                                onOpenDetail(task);
+                              } else {
+                                setSelectedTask(task);
+                              }
+                            };
+                            return (
                             <article
                               key={task.id}
-                              className="bg-white p-3.5 rounded-xl border border-slate-200 hover:border-emerald-600 transition-colors space-y-2.5"
+                              role="button"
+                              tabIndex={0}
+                              aria-label={`Xem chi tiết nhiệm vụ ${task.title}`}
+                              onClick={openTaskDetail}
+                              onKeyDown={(e) => {
+                                if (e.target !== e.currentTarget) return;
+                                if (e.key === "Enter" || e.key === " ") {
+                                  e.preventDefault();
+                                  openTaskDetail();
+                                }
+                              }}
+                              className="bg-white p-3.5 rounded-xl border border-slate-200 hover:border-emerald-600 hover:shadow-sm transition-all space-y-2.5 cursor-pointer group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600"
                             >
                               <div className="flex items-center justify-between gap-2">
-                                <span className="text-xs font-mono text-slate-600 font-semibold">{task.id}</span>
+                                <span className="text-xs font-mono text-slate-600 font-semibold" title={task.id}>
+                                  {formatShortRecordId(task.id, "NV")}
+                                </span>
                                 {getPriorityBadge(task.priority)}
                               </div>
 
-                              <button
-                                type="button"
-                                onClick={() => setSelectedTask(task)}
-                                className="text-left w-full text-sm font-bold text-slate-900 hover:text-emerald-800 leading-snug cursor-pointer"
-                              >
+                              <h3 className="text-left w-full text-sm font-bold text-slate-900 group-hover:text-emerald-800 leading-snug transition-colors">
                                 {task.title}
-                              </button>
+                              </h3>
 
                               <p className="text-xs text-slate-600 line-clamp-2">{task.description}</p>
 
@@ -627,25 +966,22 @@ export default function TaskAndSchedule({
                                 </div>
                               </div>
 
-                              <div className="pt-2 border-t border-slate-100 flex items-center justify-between text-xs text-slate-700 gap-2">
-                                <span className="inline-flex items-center gap-1 truncate font-medium">
+                              <div className="pt-2 border-t border-slate-100 flex flex-wrap items-center justify-between text-xs text-slate-700 gap-x-2 gap-y-1 min-w-0">
+                                <span className="inline-flex items-center gap-1.5 min-w-0 font-semibold text-slate-800">
                                   <User size={12} className="text-slate-500 shrink-0" />
-                                  <span className="truncate">{task.assignee.name}</span>
+                                  <span className="min-w-0 break-words">{task.assignee.name}</span>
                                 </span>
-                                <span className="font-mono text-slate-600 shrink-0">Hạn: {task.deadline.slice(5)}</span>
+                                <span className="font-mono text-slate-600 shrink-0">Hạn: {formatVNDate(task.deadline)}</span>
                               </div>
 
-                              <div className="pt-1.5 border-t border-slate-100 flex items-center justify-between gap-1.5">
-                                <div className="flex items-center gap-1">
+                              <div
+                                onClick={(e) => e.stopPropagation()}
+                                className="pt-1.5 border-t border-slate-100 flex flex-wrap items-center justify-between gap-1.5"
+                              >
+                                <div className="flex flex-wrap items-center gap-1">
                                   <button
                                     type="button"
-                                    onClick={() => {
-                                      if (onOpenDetail) {
-                                        onOpenDetail(task);
-                                      } else {
-                                        setSelectedTask(task);
-                                      }
-                                    }}
+                                    onClick={openTaskDetail}
                                     className="min-h-[32px] px-1.5 inline-flex items-center text-xs font-semibold text-indigo-800 hover:underline cursor-pointer whitespace-nowrap"
                                   >
                                     Chi tiết
@@ -667,7 +1003,7 @@ export default function TaskAndSchedule({
                                     <Edit2 size={13} />
                                   </button>
                                 </div>
-                                <div className="flex items-center gap-1.5">
+                                <div className="flex flex-wrap items-center gap-1.5">
                                   {statusCol !== "Chờ xử lý" && (
                                     <button
                                       type="button"
@@ -707,7 +1043,8 @@ export default function TaskAndSchedule({
                                 </div>
                               </div>
                             </article>
-                          ))
+                            );
+                          })
                         )}
                       </div>
                     </section>
@@ -718,17 +1055,17 @@ export default function TaskAndSchedule({
           ) : (
             <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
               <div className="overflow-x-auto">
-                <table className="w-full text-left border-collapse text-xs">
+                <table className="w-full min-w-[920px] text-left border-collapse text-xs">
                   <thead>
                     <tr className="bg-slate-50 text-slate-700 border-b border-slate-200 font-bold uppercase tracking-wider">
                       <th className="py-3 px-3">Mã</th>
-                      <th className="py-3 px-3">Nhiệm vụ</th>
-                      <th className="py-3 px-3">Đơn vị & người nhận</th>
+                      <th className="py-3 px-3 min-w-[220px]">Nhiệm vụ</th>
+                      <th className="py-3 px-3 min-w-[160px]">Đơn vị &amp; người nhận</th>
                       <th className="py-3 px-3">Ưu tiên</th>
                       <th className="py-3 px-3">Hạn</th>
                       <th className="py-3 px-3">Tiến độ</th>
                       <th className="py-3 px-3">Trạng thái</th>
-                      <th className="py-3 px-3 text-right">Thao tác</th>
+                      <th className="py-3 px-3 text-right sticky right-0 bg-white z-10 shadow-[-4px_0_8px_-4px_rgba(15,23,42,0.08)]">Thao tác</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
@@ -739,22 +1076,44 @@ export default function TaskAndSchedule({
                         </td>
                       </tr>
                     ) : (
-                      filteredTasks.map((t) => (
-                        <tr key={t.id} className="hover:bg-slate-50/70">
-                          <td className="py-2.5 px-3 font-mono font-semibold text-slate-700">{t.id}</td>
-                          <td className="py-2.5 px-3 max-w-xs">
-                            <div className="font-bold text-slate-900 line-clamp-1">{t.title}</div>
+                      filteredTasks.map((t) => {
+                        const openTaskRow = () => {
+                          if (onOpenDetail) {
+                            onOpenDetail(t);
+                          } else {
+                            setSelectedTask(t);
+                          }
+                        };
+                        return (
+                        <tr
+                          key={t.id}
+                          tabIndex={0}
+                          onClick={openTaskRow}
+                          onKeyDown={(e) => {
+                            if (e.target !== e.currentTarget) return;
+                            if (e.key === "Enter" || e.key === " ") {
+                              e.preventDefault();
+                              openTaskRow();
+                            }
+                          }}
+                          className="cursor-pointer hover:bg-emerald-50/40 transition-colors group"
+                        >
+                          <td className="py-2.5 px-3 font-mono font-semibold text-slate-700 whitespace-nowrap" title={t.id}>
+                            {formatShortRecordId(t.id, "NV")}
+                          </td>
+                          <td className="py-2.5 px-3 min-w-[220px] max-w-xs">
+                            <div className="font-bold text-slate-900 group-hover:text-emerald-800 line-clamp-1 transition-colors">{t.title}</div>
                             <div className="text-slate-600 line-clamp-1">{t.description}</div>
                           </td>
-                          <td className="py-2.5 px-3">
+                          <td className="py-2.5 px-3 min-w-[160px]">
                             <div className="font-semibold text-slate-900">{t.assignee.name}</div>
                             <div className="text-slate-600">{t.unit}</div>
                           </td>
                           <td className="py-2.5 px-3">{getPriorityBadge(t.priority)}</td>
-                          <td className="py-2.5 px-3 font-mono text-slate-700">{t.deadline}</td>
+                          <td className="py-2.5 px-3 font-mono text-slate-700 whitespace-nowrap">{formatVNDate(t.deadline)}</td>
                           <td className="py-2.5 px-3 font-mono font-bold text-slate-800">{t.progressPercent}%</td>
                           <td className="py-2.5 px-3">{getStatusBadge(t.status)}</td>
-                          <td className="py-2.5 px-3 text-right">
+                          <td className="py-2.5 px-3 text-right sticky right-0 bg-white group-hover:bg-emerald-50 z-10 shadow-[-4px_0_8px_-4px_rgba(15,23,42,0.06)]" onClick={(e) => e.stopPropagation()}>
                             <div className="inline-flex items-center gap-1.5">
                               <Button
                                 variant="ghost"
@@ -796,7 +1155,8 @@ export default function TaskAndSchedule({
                             </div>
                           </td>
                         </tr>
-                      ))
+                        );
+                      })
                     )}
                   </tbody>
                 </table>
@@ -809,42 +1169,106 @@ export default function TaskAndSchedule({
       {/* SUB-TAB 2: SCHEDULES */}
       {activeSubTab === "schedules" && (
         <div className="space-y-4">
-          <search className="bg-white p-3.5 rounded-xl border border-slate-200 flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3">
-            <div className="flex flex-col sm:flex-row flex-wrap items-stretch sm:items-center gap-2.5">
-              <ReportSelect
-                aria-label="Lọc theo loại sự kiện"
-                value={scheduleTypeFilter}
-                onChange={setScheduleTypeFilter}
-                className="w-full sm:w-52"
-                options={[
-                  { value: "all", label: `Tất cả sự kiện (${schedules.length})` },
-                  ...Array.from(new Set([...SCHEDULE_TYPES, ...schedules.map((s) => s.type)])).map((type) => ({
-                    value: type,
-                    label: type,
-                  })),
-                ]}
-              />
-
-              <div className="flex items-center gap-2">
-                <label htmlFor="schedule-month-filter" className="text-xs font-semibold text-slate-700">
-                  Tháng:
-                </label>
-                <input
-                  id="schedule-month-filter"
-                  type="month"
-                  value={scheduleMonthFilter}
-                  onChange={(e) => setScheduleMonthFilter(e.target.value)}
-                  className="h-11 md:h-10 px-3 bg-white border border-slate-300 rounded-lg text-sm text-slate-900 focus:outline-none focus:border-emerald-600"
-                />
-                {scheduleMonthFilter && (
-                  <Button variant="ghost" size="sm" onClick={() => setScheduleMonthFilter("")}>
-                    Tất cả tháng
-                  </Button>
-                )}
+          <div className="bg-white p-3.5 rounded-xl border border-slate-200 flex flex-col xl:flex-row items-stretch xl:items-center justify-between gap-3">
+            <div className="flex flex-col sm:flex-row flex-wrap items-stretch sm:items-center gap-2.5 flex-1">
+              <div
+                role="group"
+                aria-label="Chế độ xem lịch công tác"
+                className="inline-flex items-center bg-slate-100 p-1 rounded-xl border border-slate-200 self-start"
+              >
+                <button
+                  id="btn-schedule-view-weekly"
+                  type="button"
+                  onClick={() => setScheduleViewMode("weekly")}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-bold inline-flex items-center gap-1.5 transition-colors cursor-pointer ${
+                    scheduleViewMode === "weekly"
+                      ? "bg-white text-indigo-900 border border-slate-200 shadow-2xs"
+                      : "text-slate-600 hover:text-slate-900"
+                  }`}
+                >
+                  <CalendarIcon size={14} />
+                  <span>Lịch Tuần (Sáng / Chiều)</span>
+                </button>
+                <button
+                  id="btn-schedule-view-cards"
+                  type="button"
+                  onClick={() => setScheduleViewMode("cards")}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-bold inline-flex items-center gap-1.5 transition-colors cursor-pointer ${
+                    scheduleViewMode === "cards"
+                      ? "bg-white text-indigo-900 border border-slate-200 shadow-2xs"
+                      : "text-slate-600 hover:text-slate-900"
+                  }`}
+                >
+                  <LayoutGrid size={14} />
+                  <span>Thẻ Danh Sách ({kp3Schedules.length})</span>
+                </button>
               </div>
+
+              {scheduleViewMode === "cards" && (
+                <>
+                  <div className="relative min-w-[200px] flex-1 max-w-xs">
+                    <label htmlFor="schedule-search-input" className="sr-only">
+                      Tìm kiếm lịch họp
+                    </label>
+                    <Search
+                      size={15}
+                      className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 pointer-events-none"
+                      aria-hidden="true"
+                    />
+                    <input
+                      id="schedule-search-input"
+                      type="search"
+                      value={scheduleSearchQuery}
+                      onChange={(e) => setScheduleSearchQuery(e.target.value)}
+                      placeholder="Tìm tên cuộc họp, địa điểm..."
+                      className="w-full h-11 md:h-10 pl-9 pr-3 bg-white border border-slate-300 rounded-lg text-sm text-slate-900 placeholder:text-slate-500 focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-500/20"
+                    />
+                  </div>
+
+                  <ReportSelect
+                    aria-label="Lọc theo loại sự kiện"
+                    value={scheduleTypeFilter}
+                    onChange={setScheduleTypeFilter}
+                    className="w-full sm:w-52"
+                    options={[
+                      { value: "all", label: `Tất cả sự kiện (${kp3Schedules.length})` },
+                      ...Array.from(new Set([...SCHEDULE_TYPES, ...kp3Schedules.map((s) => s.type)])).map((type) => ({
+                        value: type,
+                        label: type,
+                      })),
+                    ]}
+                  />
+
+                  <div className="flex items-center gap-2">
+                    <label htmlFor="schedule-month-filter" className="text-xs font-semibold text-slate-700">
+                      Tháng:
+                    </label>
+                    <input
+                      id="schedule-month-filter"
+                      type="month"
+                      value={scheduleMonthFilter}
+                      onChange={(e) => setScheduleMonthFilter(e.target.value)}
+                      className="h-11 md:h-10 px-3 bg-white border border-slate-300 rounded-lg text-sm text-slate-900 focus:outline-none focus:border-emerald-600"
+                    />
+                    {scheduleMonthFilter && (
+                      <Button variant="ghost" size="sm" onClick={() => setScheduleMonthFilter("")}>
+                        Tất cả tháng
+                      </Button>
+                    )}
+                  </div>
+                </>
+              )}
             </div>
 
-            <div className="flex items-center gap-2 shrink-0">
+            <div className="flex flex-wrap items-center gap-2 shrink-0">
+              <Button
+                variant="secondary"
+                size="md"
+                leftIcon={<Sparkles size={15} className="text-indigo-700" />}
+                onClick={() => setShowWardOcrModal(true)}
+              >
+                AI Đọc lịch Phường
+              </Button>
               <Button variant="secondary" size="md" leftIcon={<Printer size={15} />} onClick={() => window.print()}>
                 In lịch
               </Button>
@@ -861,100 +1285,164 @@ export default function TaskAndSchedule({
                 Thêm lịch họp mới
               </Button>
             </div>
-          </search>
+          </div>
 
-          {filteredSchedules.length === 0 ? (
+          {scheduleViewMode === "weekly" ? (
+            <WeeklyScheduleMatrix
+              schedules={schedules}
+              associations={associationsList}
+              focusDate={focusScheduleDate}
+              onSelectSchedule={setSelectedSchedule}
+              onOpenReschedule={(sch, mode = "reschedule") =>
+                setRescheduleTarget({ schedule: sch, mode })
+              }
+              onEditSchedule={(sch) => {
+                setEditingSchedule(sch);
+                setShowAddScheduleModal(true);
+              }}
+              onNotify={showNotice}
+            />
+          ) : filteredSchedules.length === 0 ? (
             <EmptyState
               icon={<CalendarIcon size={28} />}
-              title="Không có lịch công tác trong tháng đã chọn"
-              description="Chọn 'Tất cả tháng' hoặc tạo mới lịch họp Ban Điều hành / Chi hội đoàn thể KP3."
+              title="Không có lịch công tác khớp bộ lọc hiện tại"
+              description="Chọn 'Tất cả sự kiện', xóa bộ lọc tháng hoặc bấm 'AI Đọc lịch Phường' để tự động lên lịch tuần."
             />
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {filteredSchedules.map((sch) => (
-                <article
-                  key={sch.id}
-                  className={`p-4 rounded-xl border bg-white flex flex-col justify-between gap-3 transition-colors ${
-                    sch.status === "Đã kết thúc"
-                      ? "border-slate-200 bg-slate-50/70"
-                      : "border-slate-200 hover:border-indigo-400"
-                  }`}
-                >
-                  <div className="space-y-2.5">
-                    <div className="flex items-center justify-between gap-2">
-                      {getScheduleTypeBadge(sch.type)}
-                      <span
-                        className={`px-2.5 py-0.5 rounded-full text-xs font-semibold border ${
-                          sch.status === "Đang diễn ra"
-                            ? "bg-emerald-50 text-emerald-900 border-emerald-200"
-                            : sch.status === "Sắp diễn ra"
-                            ? "bg-sky-50 text-sky-900 border-sky-200"
-                            : sch.status === "Đã hoãn"
-                            ? "bg-amber-50 text-amber-900 border-amber-200"
-                            : "bg-slate-100 text-slate-700 border-slate-200"
-                        }`}
-                      >
-                        {sch.status}
-                      </span>
-                    </div>
-
-                    <button
-                      type="button"
-                      onClick={() => setSelectedSchedule(sch)}
-                      className="text-left w-full text-sm font-bold text-slate-900 hover:text-indigo-800 leading-snug cursor-pointer"
-                    >
-                      {sch.title}
-                    </button>
-
-                    {(sch.description || sch.content) && (
-                      <p className="text-xs text-slate-700 bg-slate-50 border border-slate-200 rounded-lg p-2.5 line-clamp-2">
-                        {sch.description || sch.content}
-                      </p>
-                    )}
-
-                    <div className="space-y-1 text-xs text-slate-700">
-                      <div className="inline-flex items-center gap-1.5 font-mono font-semibold text-indigo-800">
-                        <CalendarIcon size={13} aria-hidden="true" />
-                        <span>
-                          {sch.date} • {sch.time}
+              {filteredSchedules.map((sch) => {
+                const isRescheduled =
+                  (sch.rescheduleCount || 0) > 0 &&
+                  Boolean(
+                    (sch.originalDate && sch.originalDate !== sch.date) ||
+                      (sch.originalTime && sch.originalTime !== sch.time)
+                  );
+                return (
+                  <article
+                    key={sch.id}
+                    role="button"
+                    tabIndex={0}
+                    aria-label={`Xem chi tiết lịch công tác ${sch.title}`}
+                    onClick={() => setSelectedSchedule(sch)}
+                    onKeyDown={(e) => {
+                      if (e.target !== e.currentTarget) return;
+                      if (e.key === "Enter" || e.key === " ") {
+                        e.preventDefault();
+                        setSelectedSchedule(sch);
+                      }
+                    }}
+                    className={`p-4 rounded-xl border bg-white flex flex-col justify-between gap-3 transition-all cursor-pointer group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 ${
+                      sch.status === "Đã hoãn"
+                        ? "border-amber-300 bg-amber-50/40"
+                        : sch.status === "Đã kết thúc"
+                        ? "border-slate-200 bg-slate-50/70 hover:border-slate-400"
+                        : "border-slate-200 hover:border-indigo-400 hover:shadow-sm"
+                    }`}
+                  >
+                    <div className="space-y-2.5">
+                      <div className="flex flex-wrap items-center justify-between gap-1.5">
+                        <div className="flex flex-wrap items-center gap-1.5">
+                          {getScheduleTypeBadge(sch.type)}
+                          {isRescheduled && (
+                            <span className="px-2 py-0.5 rounded-full text-[11px] font-bold bg-amber-100 text-amber-900 border border-amber-300">
+                              Đã dời lịch (Lần {sch.rescheduleCount})
+                            </span>
+                          )}
+                        </div>
+                        <span
+                          className={`px-2.5 py-0.5 rounded-full text-xs font-semibold border ${
+                            sch.status === "Đang diễn ra"
+                              ? "bg-emerald-50 text-emerald-900 border-emerald-200"
+                              : sch.status === "Sắp diễn ra"
+                              ? "bg-sky-50 text-sky-900 border-sky-200"
+                              : sch.status === "Đã hoãn"
+                              ? "bg-amber-50 text-amber-900 border-amber-200"
+                              : "bg-slate-100 text-slate-700 border-slate-200"
+                          }`}
+                        >
+                          {sch.status}
                         </span>
                       </div>
-                      <div className="flex items-start gap-1.5">
-                        <MapPin size={13} className="text-slate-500 shrink-0 mt-0.5" aria-hidden="true" />
-                        <span>{sch.location}</span>
+
+                      <h3 className="text-left w-full text-sm font-bold text-slate-900 group-hover:text-indigo-800 leading-snug transition-colors">
+                        {sch.title}
+                      </h3>
+
+                      {(sch.description || sch.content) && (
+                        <p className="text-xs text-slate-700 bg-slate-50 border border-slate-200 rounded-lg p-2.5 line-clamp-2">
+                          {sch.description || sch.content}
+                        </p>
+                      )}
+
+                      <div className="space-y-1 text-xs text-slate-700">
+                        <div className="flex flex-wrap items-center gap-1.5 font-mono font-semibold text-indigo-800">
+                          <CalendarIcon size={13} aria-hidden="true" />
+                          {isRescheduled && (sch.originalDate || sch.originalTime) && (
+                            <span className="line-through text-slate-400 font-normal">
+                              {sch.originalDate || sch.date} • {sch.originalTime || sch.time}
+                            </span>
+                          )}
+                          <span>
+                            {sch.date} • {sch.time}
+                          </span>
+                        </div>
+                        <div className="flex items-start gap-1.5">
+                          <MapPin size={13} className="text-slate-500 shrink-0 mt-0.5" aria-hidden="true" />
+                          <span>{sch.location}</span>
+                        </div>
                       </div>
                     </div>
-                  </div>
 
-                  <div className="pt-3 border-t border-slate-200 flex items-center justify-between gap-2">
-                    <Button variant="ghost" size="sm" onClick={() => setSelectedSchedule(sch)}>
-                      Xem chi tiết
-                    </Button>
-                    <div className="flex items-center gap-1">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        aria-label={`Sửa lịch ${sch.title}`}
-                        title="Sửa lịch họp"
-                        onClick={() => {
-                          setEditingSchedule(sch);
-                          setShowAddScheduleModal(true);
-                        }}
-                      >
-                        <Edit2 size={14} />
-                      </Button>
-                      <Button
-                        variant="dangerGhost"
-                        size="sm"
-                        aria-label={`Xóa lịch ${sch.title}`}
-                        onClick={() => setConfirmState({ kind: "schedule", id: sch.id, label: sch.title })}
-                      >
-                        <Trash2 size={14} />
-                      </Button>
+                    <div
+                      onClick={(e) => e.stopPropagation()}
+                      className="pt-3 border-t border-slate-200 flex items-center justify-between gap-2"
+                    >
+                      <div className="flex items-center gap-1">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => setRescheduleTarget({ schedule: sch, mode: "reschedule" })}
+                          title="Dời ngày, đổi giờ hoặc tạm hoãn"
+                        >
+                          <RefreshCw size={13} />
+                          <span className="ml-1 text-xs">Dời lịch</span>
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => setRescheduleTarget({ schedule: sch, mode: "delegate" })}
+                          title="Cử cán bộ đi dự thay"
+                        >
+                          <UserCheck size={13} />
+                          <span className="ml-1 text-xs">Đi thay</span>
+                        </Button>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          aria-label={`Sửa lịch ${sch.title}`}
+                          title="Sửa lịch họp"
+                          onClick={() => {
+                            setEditingSchedule(sch);
+                            setShowAddScheduleModal(true);
+                          }}
+                        >
+                          <Edit2 size={14} />
+                        </Button>
+                        <Button
+                          variant="dangerGhost"
+                          size="sm"
+                          aria-label={`Xóa lịch ${sch.title}`}
+                          onClick={() => setConfirmState({ kind: "schedule", id: sch.id, label: sch.title })}
+                        >
+                          <Trash2 size={14} />
+                        </Button>
+                      </div>
                     </div>
-                  </div>
-                </article>
-              ))}
+                  </article>
+                );
+              })}
             </div>
           )}
         </div>
@@ -1021,6 +1509,7 @@ export default function TaskAndSchedule({
           setShowAddScheduleModal(false);
           setEditingSchedule(null);
         }}
+        associationsList={associationsList}
         existingCount={schedules.length}
         editingSchedule={editingSchedule}
         onCreate={(savedSch) => {
@@ -1035,6 +1524,7 @@ export default function TaskAndSchedule({
           } else {
             const updated = [...schedules, savedSch].sort((a, b) => a.date.localeCompare(b.date));
             saveSchedules(updated);
+            setFocusScheduleDate(savedSch.date);
             showNotice(`Đã thêm lịch "${savedSch.title}" vào ngày ${savedSch.date}.`, "success");
           }
         }}
@@ -1055,7 +1545,104 @@ export default function TaskAndSchedule({
           setEditingSchedule(s);
           setShowAddScheduleModal(true);
         }}
+        onRequestReschedule={(sch, mode = "reschedule") => {
+          setSelectedSchedule(null);
+          setRescheduleTarget({ schedule: sch, mode });
+        }}
         onRequestDelete={(s) => setConfirmState({ kind: "schedule", id: s.id, label: s.title })}
+      />
+
+      <WardScheduleOcrModal
+        isOpen={showWardOcrModal}
+        onClose={() => setShowWardOcrModal(false)}
+        associations={associationsList}
+        existingSchedules={schedules}
+        existingTasksCount={tasks.length}
+        creatorLabel={creatorLabel}
+        onConfirmImport={({ newSchedules, newTasks }) => {
+          if (newSchedules.length > 0) {
+            const existingKeys = new Set(
+              schedules.map(
+                (s) => `${s.date}|${s.time.slice(0, 5)}|${s.title.toLowerCase().slice(0, 40)}`
+              )
+            );
+            const dedupedNew = newSchedules.filter(
+              (ns) =>
+                !existingKeys.has(
+                  `${ns.date}|${ns.time.slice(0, 5)}|${ns.title.toLowerCase().slice(0, 40)}`
+                )
+            );
+            const merged = [...schedules, ...dedupedNew].sort((a, b) =>
+              a.date.localeCompare(b.date)
+            );
+            saveSchedules(merged);
+            const firstKp3 =
+              dedupedNew.find((s) => s.relevanceTier !== "ward_reference") ||
+              newSchedules.find((s) => s.relevanceTier !== "ward_reference") ||
+              newSchedules[0];
+            if (firstKp3?.date) {
+              setFocusScheduleDate(firstKp3.date);
+            }
+          }
+
+          if (newTasks.length > 0) {
+            saveTasks([...newTasks, ...tasks]);
+          }
+
+          setActiveSubTab("schedules");
+          setScheduleViewMode("weekly");
+          const kp3Count = newSchedules.filter((s) => s.relevanceTier !== "ward_reference").length;
+          showNotice(
+            `Đã đồng bộ ${kp3Count} lịch công tác cán bộ KP3${
+              newTasks.length > 0 ? ` và tự động giao ${newTasks.length} nhiệm vụ chuẩn bị` : ""
+            } từ Lịch cấp trên.`,
+            "success"
+          );
+        }}
+      />
+
+      <RescheduleAndDelegateModal
+        schedule={rescheduleTarget?.schedule || null}
+        initialMode={rescheduleTarget?.mode || "reschedule"}
+        onClose={() => setRescheduleTarget(null)}
+        allSchedules={schedules}
+        associations={associationsList}
+        actorLabel={creatorLabel}
+        onSaveAdjustedSchedule={(updatedSch, opts) => {
+          const updatedList = schedules
+            .map((s) => (s.id === updatedSch.id ? updatedSch : s))
+            .sort((a, b) => a.date.localeCompare(b.date));
+          saveSchedules(updatedList);
+          if (selectedSchedule?.id === updatedSch.id) {
+            setSelectedSchedule(updatedSch);
+          }
+          setFocusScheduleDate(updatedSch.date);
+
+          let shiftedTasksCount = 0;
+          if (opts?.shiftLinkedTasksToDate) {
+            const linkedIds = new Set(updatedSch.linkedTaskIds || []);
+            const nextTasks = tasks.map((t) => {
+              if (t.linkedScheduleId === updatedSch.id || linkedIds.has(t.id)) {
+                shiftedTasksCount += 1;
+                return { ...t, deadline: opts.shiftLinkedTasksToDate! };
+              }
+              return t;
+            });
+            if (shiftedTasksCount > 0) {
+              saveTasks(nextTasks);
+            }
+          }
+
+          setRescheduleTarget(null);
+          showNotice(
+            `Đã lưu điều chỉnh lịch "${updatedSch.title}" (${updatedSch.date} • ${updatedSch.time})${
+              shiftedTasksCount > 0
+                ? ` và dời hạn ${shiftedTasksCount} nhiệm vụ liên kết`
+                : ""
+            }.`,
+            "success"
+          );
+        }}
       />
 
       <ConfirmModal

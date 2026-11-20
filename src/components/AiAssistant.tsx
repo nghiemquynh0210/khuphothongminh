@@ -1,16 +1,20 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   AlertCircle,
   Bot,
   HelpCircle,
+  ImagePlus,
   Send,
   ShieldCheck,
   Sparkles,
   Trash2,
   User,
   Users,
+  X,
 } from "lucide-react";
 import { KP3_OFFICIAL_BASELINE, Kp3AssistantContext, generateKp3AssistantReply } from "../utils/kp3Utils";
+import { extractBirthYear, getTemporaryResidenceExpiryStatus } from "../utils/householdRecognitionUtils";
+import { compressImageToDataUrl, validateImageFile } from "../utils/imageUpload";
 import { formatVNNumber } from "../utils/numberFormat";
 import { PageHeader } from "./common/PageHeader";
 import { Button, ConfirmModal, InlineNotice } from "./ui";
@@ -31,6 +35,7 @@ interface Message {
   role: "user" | "assistant";
   content: string;
   source?: "gemini" | "kp3-local";
+  imageUrl?: string;
 }
 
 export interface AiAssistantProps {
@@ -67,14 +72,118 @@ export default function AiAssistant({ context, currentUser }: AiAssistantProps =
     },
   ]);
   const [input, setInput] = useState("");
+  const [attachedImage, setAttachedImage] = useState<{
+    dataUrl: string;
+    mimeType: string;
+    name: string;
+  } | null>(null);
+  const [imageError, setImageError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [offlineFallbackUsed, setOfflineFallbackUsed] = useState(false);
   const [showClearConfirm, setShowClearConfirm] = useState(false);
   const chatContainerRef = useRef<HTMLDivElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const safeContext = context ?? EMPTY_KP3_CONTEXT;
-  const pendingReportsCount = safeContext.reports.filter((r) => r.status !== "Đã giải quyết").length;
-  const openTasksCount = safeContext.tasks.filter((t) => t.status !== "Hoàn thành").length;
+
+  const liveMetrics = useMemo(() => {
+    const resList = safeContext.residents || [];
+    const hhList = safeContext.households || [];
+    const bizList = safeContext.businesses || [];
+    const repList = safeContext.reports || [];
+    const taskList = safeContext.tasks || [];
+    const contribList = safeContext.fundContributions || [];
+    const expList = safeContext.fundExpenditures || [];
+
+    const hasFullResidents = resList.length > 0;
+    const currentYear = new Date().getFullYear();
+
+    let permanentCount = 2076;
+    let temporaryCount = 9556;
+    let elderlyCount = 438;
+    let expiringTempCount = 245;
+    let expiredTempCount = 533;
+
+    if (hasFullResidents) {
+      permanentCount = 0;
+      temporaryCount = 0;
+      elderlyCount = 0;
+      expiringTempCount = 0;
+      expiredTempCount = 0;
+
+      for (let i = 0; i < resList.length; i++) {
+        const r = resList[i];
+        if (r.status === "Thường trú") permanentCount++;
+        else if (r.status === "Tạm trú") temporaryCount++;
+
+        const by = extractBirthYear(r.birthDate);
+        if (by > 1900 && currentYear - by >= 60) {
+          elderlyCount++;
+        }
+
+        if (r.status === "Tạm trú" && r.temporaryExpDate) {
+          const exp = getTemporaryResidenceExpiryStatus(r.temporaryExpDate);
+          if (exp.isWarning) expiringTempCount++;
+          else if (exp.isExpired) expiredTempCount++;
+        }
+      }
+    }
+
+    const residentsCount =
+      resList.length >= 100
+        ? resList.length
+        : hasFullResidents
+          ? Math.max(resList.length, KP3_OFFICIAL_BASELINE.population)
+          : KP3_OFFICIAL_BASELINE.population;
+    const householdsCount =
+      hhList.length > 0 ? hhList.length : KP3_OFFICIAL_BASELINE.households;
+    const businessesCount =
+      bizList.length > 0 ? bizList.length : KP3_OFFICIAL_BASELINE.activeBusinessesTotal;
+    const hostelsCount =
+      bizList.length > 0 ? bizList.filter((b) => b.isAccommodation).length : 108;
+
+    const openReports = repList.filter((r) => r.status !== "Đã giải quyết");
+    const openTasks = taskList.filter((t) => t.status !== "Hoàn thành");
+
+    const totalCollected = contribList
+      .filter((c) => c.status === "Đã nộp" || !c.status)
+      .reduce((sum, c) => sum + (Number(c.amount) || 0), 0);
+    const totalSpent = expList.reduce((sum, e) => sum + (Number(e.amount) || 0), 0);
+    const netBalance = totalCollected - totalSpent;
+    const fundBalanceText =
+      contribList.length > 0 || expList.length > 0
+        ? `Tổng thu đã nộp: ${formatVNNumber(totalCollected)} đ | Tổng chi: ${formatVNNumber(
+            totalSpent
+          )} đ | Tồn quỹ hiện tại: ${formatVNNumber(netBalance)} đ`
+        : "";
+
+    const openReportTitles = openReports
+      .slice(0, 8)
+      .map((r) => `[${r.id}] ${r.title} (${r.status})`);
+    const openTaskTitles = openTasks
+      .slice(0, 8)
+      .map((t) => `${t.title} (${t.status} - Hạn: ${t.deadline})`);
+
+    return {
+      residentsCount,
+      householdsCount,
+      permanentCount,
+      temporaryCount,
+      elderlyCount,
+      expiringTempCount,
+      expiredTempCount,
+      businessesCount,
+      hostelsCount,
+      pendingReportsCount: openReports.length,
+      openTasksCount: openTasks.length,
+      fundBalanceText,
+      openReportTitles,
+      openTaskTitles,
+    };
+  }, [safeContext]);
+
+  const pendingReportsCount = liveMetrics.pendingReportsCount;
+  const openTasksCount = liveMetrics.openTasksCount;
   const sampleQuestions = assistantMode === "canbo" ? CANBO_PROMPTS : CITIZEN_PROMPTS;
 
   useEffect(() => {
@@ -83,14 +192,52 @@ export default function AiAssistant({ context, currentUser }: AiAssistantProps =
     }
   }, [messages, isLoading]);
 
+  const handleSelectImage = async (fileList: FileList | null) => {
+    if (!fileList || fileList.length === 0) return;
+    const file = fileList[0];
+    const validationErr = validateImageFile(file);
+    if (validationErr) {
+      setImageError(validationErr);
+      return;
+    }
+    setImageError(null);
+    try {
+      const dataUrl = await compressImageToDataUrl(file, {
+        maxWidth: 1280,
+        maxHeight: 1280,
+        quality: 0.82,
+      });
+      const mimeMatch = dataUrl.match(/^data:([^;]+);base64,/);
+      const mimeType = mimeMatch ? mimeMatch[1] : file.type || "image/jpeg";
+      setAttachedImage({
+        dataUrl,
+        mimeType,
+        name: file.name,
+      });
+    } catch {
+      setImageError("Không thể nén ảnh đính kèm. Vui lòng chọn tệp ảnh khác.");
+    }
+  };
+
   const handleSend = async (textToSend: string) => {
     const trimmed = textToSend.trim();
-    if (!trimmed || isLoading) return;
+    const currentAttachment = attachedImage;
+    if ((!trimmed && !currentAttachment) || isLoading) return;
 
-    const userMsg: Message = { role: "user", content: trimmed };
+    const effectivePrompt =
+      trimmed ||
+      "Hãy phân tích chi tiết nội dung hình ảnh đính kèm này và hướng dẫn xử lý theo quy định tại Khu phố 3.";
+
+    const userMsg: Message = {
+      role: "user",
+      content: effectivePrompt,
+      imageUrl: currentAttachment?.dataUrl,
+    };
     const updatedMessages = [...messages, userMsg];
     setMessages(updatedMessages);
     setInput("");
+    setAttachedImage(null);
+    setImageError(null);
     setIsLoading(true);
 
     try {
@@ -100,11 +247,24 @@ export default function AiAssistant({ context, currentUser }: AiAssistantProps =
         body: JSON.stringify({
           messages: updatedMessages.map((m) => ({ role: m.role, content: m.content })),
           mode: assistantMode,
+          imageBase64: currentAttachment?.dataUrl,
+          imageMimeType: currentAttachment?.mimeType,
           context: {
-            residentsCount: KP3_OFFICIAL_BASELINE.population,
-            householdsCount: KP3_OFFICIAL_BASELINE.households,
-            pendingReportsCount,
-            openTasksCount,
+            residentsCount: liveMetrics.residentsCount,
+            householdsCount: liveMetrics.householdsCount,
+            permanentCount: liveMetrics.permanentCount,
+            temporaryCount: liveMetrics.temporaryCount,
+            elderlyCount: liveMetrics.elderlyCount,
+            expiringTempCount: liveMetrics.expiringTempCount,
+            expiredTempCount: liveMetrics.expiredTempCount,
+            businessesCount: liveMetrics.businessesCount,
+            hostelsCount: liveMetrics.hostelsCount,
+            pendingReportsCount: liveMetrics.pendingReportsCount,
+            openTasksCount: liveMetrics.openTasksCount,
+            fundBalanceText: liveMetrics.fundBalanceText,
+            openReportTitles: liveMetrics.openReportTitles,
+            openTaskTitles: liveMetrics.openTaskTitles,
+            leadership: safeContext.leadership,
           },
         }),
       });
@@ -120,7 +280,7 @@ export default function AiAssistant({ context, currentUser }: AiAssistantProps =
       setOfflineFallbackUsed(false);
       setMessages([...updatedMessages, { role: "assistant", content: data.content, source: "gemini" }]);
     } catch {
-      const fallbackReply = generateKp3AssistantReply(trimmed, safeContext, assistantMode);
+      const fallbackReply = generateKp3AssistantReply(effectivePrompt, safeContext, assistantMode);
       setOfflineFallbackUsed(true);
       setMessages([
         ...updatedMessages,
@@ -241,17 +401,17 @@ export default function AiAssistant({ context, currentUser }: AiAssistantProps =
       )}
 
       {/* Live Context Strip */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3">
         <div className="bg-white border border-slate-200 rounded-xl px-4 py-3">
           <div className="text-xs font-semibold text-slate-600">Quy mô KP3</div>
           <div className="text-lg font-bold text-slate-900">
-            {formatVNNumber(KP3_OFFICIAL_BASELINE.households)} hộ gia đình
+            {formatVNNumber(liveMetrics.householdsCount)} hộ gia đình
           </div>
         </div>
         <div className="bg-white border border-slate-200 rounded-xl px-4 py-3">
-          <div className="text-xs font-semibold text-slate-600">Dân số định mức</div>
+          <div className="text-xs font-semibold text-slate-600">Dân số quản lý</div>
           <div className="text-lg font-bold text-slate-900">
-            {formatVNNumber(KP3_OFFICIAL_BASELINE.population)} nhân khẩu
+            {formatVNNumber(liveMetrics.residentsCount)} nhân khẩu
           </div>
         </div>
         <div className="bg-white border border-slate-200 rounded-xl px-4 py-3">
@@ -269,13 +429,13 @@ export default function AiAssistant({ context, currentUser }: AiAssistantProps =
       </div>
 
       {/* Main Chat Layout */}
-      <div className="grid grid-cols-1 lg:grid-cols-4 gap-5">
+      <div className="grid grid-cols-1 xl:grid-cols-12 gap-5">
         <section
           aria-label="Hội thoại Trợ lý Khu phố 3"
-          className="lg:col-span-3 bg-white border border-slate-200 rounded-xl flex flex-col h-[520px] overflow-hidden"
+          className="xl:col-span-8 bg-white border border-slate-200 rounded-xl flex flex-col h-[540px] sm:h-[560px] overflow-hidden"
         >
           {/* Header */}
-          <div className="px-4 py-3 bg-slate-50 border-b border-slate-200 flex items-center justify-between gap-2">
+          <div className="px-4 py-3 bg-slate-50 border-b border-slate-200 flex flex-wrap items-center justify-between gap-2">
             <div className="flex items-center gap-2.5">
               <div className="w-9 h-9 rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-700 flex items-center justify-center shrink-0">
                 <Bot size={18} aria-hidden="true" />
@@ -331,7 +491,16 @@ export default function AiAssistant({ context, currentUser }: AiAssistantProps =
                     }`}
                   >
                     {isUser ? (
-                      <p className="text-sm">{m.content}</p>
+                      <div className="space-y-2">
+                        {m.imageUrl && (
+                          <img
+                            src={m.imageUrl}
+                            alt="Ảnh đính kèm hội thoại"
+                            className="max-h-40 rounded-lg border border-white/25 object-cover"
+                          />
+                        )}
+                        <p className="text-sm">{m.content}</p>
+                      </div>
                     ) : (
                       <div className="space-y-0.5">
                         {renderFormattedText(m.content, false)}
@@ -360,7 +529,39 @@ export default function AiAssistant({ context, currentUser }: AiAssistantProps =
           </div>
 
           {/* Form Input */}
-          <div className="p-3.5 bg-slate-50 border-t border-slate-200">
+          <div className="p-3.5 bg-slate-50 border-t border-slate-200 space-y-2">
+            {attachedImage && (
+              <div className="inline-flex items-center gap-2.5 p-1.5 pr-2.5 rounded-xl bg-white border border-emerald-200 shadow-2xs max-w-full">
+                <img
+                  src={attachedImage.dataUrl}
+                  alt={attachedImage.name}
+                  className="w-11 h-11 rounded-lg object-cover border border-slate-200 shrink-0"
+                />
+                <div className="min-w-0 text-xs">
+                  <p className="font-semibold text-slate-800 truncate max-w-[180px] sm:max-w-[260px]">
+                    {attachedImage.name}
+                  </p>
+                  <p className="text-[11px] text-emerald-700 font-medium">
+                    Đã nén tối ưu • Sẵn sàng phân tích AI
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setAttachedImage(null)}
+                  aria-label="Gỡ ảnh đính kèm"
+                  className="p-1.5 rounded-lg text-slate-500 hover:text-rose-700 hover:bg-rose-50 transition-colors cursor-pointer shrink-0"
+                >
+                  <X size={14} />
+                </button>
+              </div>
+            )}
+
+            {imageError && (
+              <p role="alert" className="text-xs text-rose-700 font-medium">
+                {imageError}
+              </p>
+            )}
+
             <form
               onSubmit={(e) => {
                 e.preventDefault();
@@ -368,6 +569,32 @@ export default function AiAssistant({ context, currentUser }: AiAssistantProps =
               }}
               className="flex items-center gap-2"
             >
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/jpeg,image/png,image/webp"
+                className="sr-only"
+                aria-label="Chọn ảnh văn bản hoặc hiện trường gửi Trợ lý AI"
+                onChange={(e) => {
+                  void handleSelectImage(e.target.files);
+                  e.currentTarget.value = "";
+                }}
+              />
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                disabled={isLoading}
+                aria-label="Đính kèm hình ảnh gửi Trợ lý AI"
+                title="Đính kèm ảnh văn bản / ảnh hiện trường để Gemini phân tích"
+                className={`h-11 w-11 md:h-10 md:w-10 shrink-0 inline-flex items-center justify-center rounded-lg border transition-colors cursor-pointer disabled:opacity-50 ${
+                  attachedImage
+                    ? "bg-emerald-50 border-emerald-500 text-emerald-700"
+                    : "bg-white border-slate-300 text-slate-600 hover:border-emerald-600 hover:text-emerald-700"
+                }`}
+              >
+                <ImagePlus size={18} aria-hidden="true" />
+              </button>
+
               <label htmlFor="ai-assistant-question-input" className="sr-only">
                 Nhập câu hỏi gửi Trợ lý Khu phố 3
               </label>
@@ -375,7 +602,7 @@ export default function AiAssistant({ context, currentUser }: AiAssistantProps =
                 id="ai-assistant-question-input"
                 name="aiQuestion"
                 type="text"
-                placeholder="Nhập câu hỏi (ví dụ: Tạm trú sắp hết hạn, số dư Quỹ, tuyến hẻm KP3)..."
+                placeholder="Nhập câu hỏi hoặc đính kèm ảnh văn bản/hiện trường..."
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
                 onKeyDown={(e) => {
@@ -384,13 +611,13 @@ export default function AiAssistant({ context, currentUser }: AiAssistantProps =
                   }
                 }}
                 disabled={isLoading}
-                className="flex-1 h-11 md:h-10 bg-white border border-slate-300 text-slate-900 text-sm px-3.5 rounded-lg placeholder:text-slate-500 focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-500/20 disabled:opacity-60"
+                className="flex-1 min-w-0 h-11 md:h-10 bg-white border border-slate-300 text-slate-900 text-sm px-3.5 rounded-lg placeholder:text-slate-500 focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-500/20 disabled:opacity-60"
               />
               <Button
                 type="submit"
                 variant="emerald"
                 size="form"
-                disabled={isLoading || !input.trim()}
+                disabled={isLoading || (!input.trim() && !attachedImage)}
                 leftIcon={<Send size={16} />}
               >
                 Gửi
@@ -400,7 +627,7 @@ export default function AiAssistant({ context, currentUser }: AiAssistantProps =
         </section>
 
         {/* Right FAQ Panel */}
-        <aside className="lg:col-span-1 space-y-4">
+        <aside className="xl:col-span-4 space-y-4">
           <div className="bg-white rounded-xl border border-slate-200 p-4 space-y-3">
             <div className="flex items-center gap-2 border-b border-slate-200 pb-2.5">
               <HelpCircle size={16} className="text-emerald-700" aria-hidden="true" />

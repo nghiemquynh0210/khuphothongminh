@@ -7,8 +7,10 @@ import { LoadingFade } from "../components/common/LoadingFade";
 import { InlineNotice } from "../components/ui/ConfirmModal";
 import {
   FieldReport,
+  Household,
   ReportMessage,
   ReportPriority,
+  Resident,
   TargetGisItem,
 } from "../types";
 import {
@@ -55,6 +57,8 @@ export interface ReportsPageProps {
     title?: string;
   } | null;
   readOnly?: boolean;
+  residents?: Resident[];
+  households?: Household[];
 }
 
 export default function ReportsPage(props: ReportsPageProps) {
@@ -62,6 +66,7 @@ export default function ReportsPage(props: ReportsPageProps) {
   const location = useCurrentLocation();
   const routeMatch = parseReportFormRoute(location.pathname, location.search);
   const [savedNotice, setSavedNotice] = useState<string | null>(null);
+  const [viewMode, setViewMode] = useState<"grid" | "table">("grid");
 
   useEffect(() => {
     if (!savedNotice) return;
@@ -270,6 +275,8 @@ export default function ReportsPage(props: ReportsPageProps) {
           onSubmitFeedback={handleSubmitFeedback}
           onNavigateToGis={props.onNavigateToGis}
           onCreateTask={props.onCreateTaskFromReport}
+          residents={props.residents}
+          households={props.households}
         />
       );
     }
@@ -280,6 +287,8 @@ export default function ReportsPage(props: ReportsPageProps) {
           mode="edit"
           reportId={routeMatch.reportId}
           reports={props.reports}
+          residents={props.residents}
+          households={props.households}
           isDataLoading={props.isDataLoading}
           readOnly={readOnly}
           currentUser={props.currentUser}
@@ -321,6 +330,8 @@ export default function ReportsPage(props: ReportsPageProps) {
       <ReportFormPage
         mode="create"
         reports={props.reports}
+        residents={props.residents}
+        households={props.households}
         isDataLoading={props.isDataLoading}
         readOnly={readOnly}
         currentUser={props.currentUser}
@@ -349,6 +360,8 @@ export default function ReportsPage(props: ReportsPageProps) {
         <FieldReflections
           {...props}
           basePath={basePath}
+          viewMode={viewMode}
+          onViewModeChange={setViewMode}
           onOpenDetail={(r) => navigate(getReportDetailPath(r.id, basePath))}
           onOpenCreate={() => navigate(getReportCreatePath(basePath))}
           onOpenEdit={(r) => navigate(getReportEditPath(r.id, basePath))}

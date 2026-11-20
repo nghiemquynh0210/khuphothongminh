@@ -15,6 +15,7 @@ import {
   LayoutGrid,
   Link2,
   List,
+  MessageCircle,
   Newspaper,
   Pin,
   Plus,
@@ -34,7 +35,9 @@ import {
   getNewsReadTime,
   getNewsSummary,
   getNewsViews,
+  normalizeNewsAuthor,
 } from "./newsHelpers";
+import ZaloArticleSyncModal from "./ZaloArticleSyncModal";
 
 export interface NewsNewspaperFeedProps {
   newsList: LocalNews[];
@@ -42,7 +45,9 @@ export interface NewsNewspaperFeedProps {
   onCreateNews?: () => void;
   onEditNews?: (news: LocalNews) => void;
   onDeleteNews?: (news: LocalNews) => void;
+  onRefreshNews?: () => void;
   showMasthead?: boolean;
+  compactHome?: boolean;
   title?: string;
   subtitle?: string;
   bannerNotice?: string;
@@ -55,7 +60,9 @@ export const NewsNewspaperFeed: React.FC<NewsNewspaperFeedProps> = ({
   onCreateNews,
   onEditNews,
   onDeleteNews,
+  onRefreshNews,
   showMasthead = true,
+  compactHome = false,
   title = "Bản tin & Báo điện tử Khu phố 3",
   subtitle = "Thông báo chính thức, hướng dẫn thủ tục và tin tức cộng đồng Phường An Phú",
   bannerNotice,
@@ -65,6 +72,7 @@ export const NewsNewspaperFeed: React.FC<NewsNewspaperFeedProps> = ({
   const [newsSearch, setNewsSearch] = useState("");
   const [newsFilter, setNewsFilter] = useState<string>("Tất cả");
   const [currentPage, setCurrentPage] = useState(1);
+  const [showZaloSyncModal, setShowZaloSyncModal] = useState(false);
 
   const canManage = Boolean(onEditNews || onDeleteNews || onCreateNews);
 
@@ -104,9 +112,12 @@ export const NewsNewspaperFeed: React.FC<NewsNewspaperFeedProps> = ({
   const totalPages = Math.max(1, Math.ceil(filteredNews.length / itemsPerPage));
   const activePage = Math.min(currentPage, totalPages);
   const paginatedNews = useMemo(() => {
+    if (compactHome) {
+      return sortedNews.slice(3, 6);
+    }
     const start = (activePage - 1) * itemsPerPage;
     return filteredNews.slice(start, start + itemsPerPage);
-  }, [filteredNews, activePage, itemsPerPage]);
+  }, [compactHome, sortedNews, filteredNews, activePage, itemsPerPage]);
 
   const handleSearchChange = (val: string) => {
     setNewsSearch(val);
@@ -122,29 +133,29 @@ export const NewsNewspaperFeed: React.FC<NewsNewspaperFeedProps> = ({
     <div className="space-y-6">
       {showMasthead && (
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-200">
-          <div>
-            <div className="flex items-center gap-2">
-              <span className="inline-flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-emerald-800 bg-emerald-50 border border-emerald-200 px-2.5 py-0.5 rounded-full">
-                <Newspaper size={13} /> Cổng Tin Tức KP3
-              </span>
-              <span className="text-xs text-slate-500 font-medium hidden sm:inline">
-                Cập nhật liên tục 24/7
-              </span>
-            </div>
-            <h2 className="text-xl sm:text-2xl font-bold text-slate-900 mt-1.5">
-              {title}
-            </h2>
-            <p className="text-xs sm:text-sm text-slate-600 mt-0.5">{subtitle}</p>
+          <h2 className="text-lg sm:text-xl font-bold text-slate-900">
+            {title}
+          </h2>
+          <div className="flex items-center gap-2 self-start sm:self-center flex-wrap">
+            {canManage && (
+              <button
+                type="button"
+                onClick={() => setShowZaloSyncModal(true)}
+                className="min-h-10 px-3.5 py-2 rounded-xl bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 text-xs sm:text-sm font-semibold inline-flex items-center gap-1.5 shrink-0 cursor-pointer transition-colors shadow-2xs"
+              >
+                <MessageCircle size={15} className="fill-current text-blue-600" /> Đồng bộ Zalo OA
+              </button>
+            )}
+            {onCreateNews && (
+              <button
+                type="button"
+                onClick={onCreateNews}
+                className="min-h-10 px-4 py-2 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white text-xs sm:text-sm font-semibold inline-flex items-center gap-2 shrink-0 cursor-pointer shadow-2xs"
+              >
+                <Plus size={16} /> Đăng bản tin mới
+              </button>
+            )}
           </div>
-          {onCreateNews && (
-            <button
-              type="button"
-              onClick={onCreateNews}
-              className="min-h-10 px-4 py-2 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white text-xs sm:text-sm font-semibold inline-flex items-center gap-2 shrink-0 cursor-pointer self-start sm:self-center"
-            >
-              <Plus size={16} /> Đăng bản tin mới
-            </button>
-          )}
         </div>
       )}
 
@@ -160,7 +171,18 @@ export const NewsNewspaperFeed: React.FC<NewsNewspaperFeedProps> = ({
 
       {/* Urgent Alert Strip */}
       {urgentNews && (
-        <div className="bg-rose-50 border border-rose-200 rounded-2xl p-3.5 sm:px-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 w-full max-w-full overflow-hidden">
+        <div
+          role="button"
+          tabIndex={0}
+          onClick={() => onSelectNews(urgentNews)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" || e.key === " ") {
+              e.preventDefault();
+              onSelectNews(urgentNews);
+            }
+          }}
+          className="bg-rose-50 hover:bg-rose-100/70 border border-rose-200 hover:border-rose-300 rounded-2xl p-3.5 sm:px-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 w-full max-w-full overflow-hidden cursor-pointer transition-colors group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-500"
+        >
           <div className="flex items-center gap-3 w-full sm:flex-1 min-w-0">
             <span className="p-2 bg-rose-700 text-white rounded-xl shrink-0">
               <BellRing size={16} />
@@ -174,32 +196,27 @@ export const NewsNewspaperFeed: React.FC<NewsNewspaperFeedProps> = ({
                   {urgentNews.date}
                 </span>
               </div>
-              <p className="text-xs sm:text-sm font-bold text-rose-950 truncate mt-0.5">
+              <p className="text-xs sm:text-sm font-bold text-rose-950 group-hover:text-rose-800 truncate mt-0.5 transition-colors">
                 {urgentNews.title}
               </p>
             </div>
           </div>
-          <button
-            type="button"
-            onClick={() => onSelectNews(urgentNews)}
-            className="shrink-0 text-xs font-bold bg-rose-700 hover:bg-rose-800 text-white px-4 py-2 rounded-xl transition-colors cursor-pointer flex items-center gap-1.5 w-full sm:w-auto justify-center"
-          >
+          <span className="shrink-0 text-xs font-bold bg-rose-700 group-hover:bg-rose-800 text-white px-4 py-2 rounded-xl transition-colors flex items-center gap-1.5 w-full sm:w-auto justify-center">
             Xem chỉ đạo ngay <ChevronRight size={14} />
-          </button>
+          </span>
         </div>
       )}
 
       {/* KHỐI TIÊU ĐIỂM BÁO CHÍ (SPOTLIGHT) */}
       {newsFilter === "Tất cả" && newsSearch === "" && heroNews && (
         <div className="space-y-3">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-2">
-              <Sparkles size={14} className="text-amber-600" /> Tiêu Điểm Truyền Thông Khu Phố
-            </span>
-            <span className="text-xs text-slate-600 font-medium">
-              Cập nhật liên tục 24/7
-            </span>
-          </div>
+          {!compactHome && (
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-2">
+                <Sparkles size={14} className="text-amber-600" /> Tiêu Điểm Truyền Thông Khu Phố
+              </span>
+            </div>
+          )}
 
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
             {/* Hero Spotlight Card */}
@@ -239,20 +256,21 @@ export const NewsNewspaperFeed: React.FC<NewsNewspaperFeedProps> = ({
                 </div>
 
                 <div className="pt-3 border-t border-slate-100 flex flex-wrap items-center justify-between gap-3 text-xs text-slate-600">
-                  <div className="flex items-center gap-4">
-                    <span className="flex items-center gap-1.5 font-medium text-slate-700">
-                      <User size={13} className="text-emerald-700" /> {heroNews.author}
+                  <div className="flex flex-wrap items-center gap-3 sm:gap-4 min-w-0">
+                    <span className="flex items-center gap-1.5 font-medium text-slate-700 min-w-0">
+                      <User size={13} className="text-emerald-700 shrink-0" />
+                      <span className="truncate">{normalizeNewsAuthor(heroNews.author)}</span>
                     </span>
-                    <span className="flex items-center gap-1.5 font-mono text-xs text-slate-600">
+                    <span className="flex items-center gap-1.5 font-mono text-xs text-slate-600 shrink-0">
                       <Clock size={12} className="text-emerald-700" /> {getNewsReadTime(heroNews)}
                     </span>
-                    <span className="hidden sm:flex items-center gap-1.5 font-mono text-xs text-slate-600">
+                    <span className="hidden sm:flex items-center gap-1.5 font-mono text-xs text-slate-600 shrink-0">
                       <Eye size={12} className="text-emerald-700" /> {getNewsViews(heroNews)} đọc
                     </span>
                   </div>
 
-                  <span className="inline-flex items-center gap-1 font-bold text-emerald-700 group-hover:underline">
-                    Đọc toàn văn <ChevronRight size={14} />
+                  <span className="inline-flex items-center gap-1 font-bold text-emerald-700 group-hover:underline shrink-0 whitespace-nowrap">
+                    Chi tiết <ChevronRight size={14} />
                   </span>
                 </div>
               </div>
@@ -262,6 +280,7 @@ export const NewsNewspaperFeed: React.FC<NewsNewspaperFeedProps> = ({
             <div className="lg:col-span-5 flex flex-col gap-4">
               {subFeaturedNews.map((subNews) => {
                 const theme = getCategoryTheme(subNews.category);
+                const subAuthor = normalizeNewsAuthor(subNews.author);
                 return (
                   <div
                     key={subNews.id}
@@ -300,11 +319,11 @@ export const NewsNewspaperFeed: React.FC<NewsNewspaperFeedProps> = ({
                       </div>
                     </div>
 
-                    <div className="mt-2 pt-2 border-t border-slate-100 flex items-center justify-between text-xs text-slate-600">
-                      <span className="truncate max-w-[180px] font-medium text-slate-600">
-                        {subNews.author}
+                    <div className="mt-2 pt-2 border-t border-slate-100 flex items-center justify-between gap-2 text-xs text-slate-600">
+                      <span className="min-w-0 flex-1 truncate font-medium text-slate-700" title={subAuthor}>
+                        {subAuthor}
                       </span>
-                      <span className="text-emerald-700 font-bold group-hover:underline flex items-center gap-0.5">
+                      <span className="text-emerald-700 font-bold group-hover:underline inline-flex items-center gap-0.5 shrink-0 whitespace-nowrap">
                         Chi tiết <ChevronRight size={12} />
                       </span>
                     </div>
@@ -316,7 +335,8 @@ export const NewsNewspaperFeed: React.FC<NewsNewspaperFeedProps> = ({
         </div>
       )}
 
-      {/* THANH TÌM KIẾM, BỘ LỌC CHUYÊN MỤC & CHẾ ĐỘ XEM */}
+      {/* THANH TÌM KIẾM, BỘ LỌC CHUYÊN MỤC & CHẾ ĐỘ XEM (Ẩn khi ở chế độ rút gọn Trang chủ để không lặp ô tìm kiếm) */}
+      {!compactHome && (
       <div className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-xs space-y-3">
         <div className="flex flex-col md:flex-row gap-3 items-stretch md:items-center justify-between">
           <div className="relative flex-1">
@@ -325,6 +345,8 @@ export const NewsNewspaperFeed: React.FC<NewsNewspaperFeedProps> = ({
               size={16}
             />
             <input
+              id="news-feed-search-input"
+              name="newsFeedSearch"
               type="text"
               placeholder="Tìm kiếm bản tin, thông báo hành chính, lịch tiêm ngừa, PCCC..."
               value={newsSearch}
@@ -437,9 +459,12 @@ export const NewsNewspaperFeed: React.FC<NewsNewspaperFeedProps> = ({
           </div>
         </div>
       </div>
+      )}
 
       {/* DANH SÁCH BẢN TIN */}
+      {(!compactHome || sortedNews.length > 3) && (
       <div className="space-y-4">
+        {!compactHome && (
         <div className="flex items-center justify-between">
           <span className="text-xs font-extrabold text-slate-600 uppercase tracking-wider">
             {newsFilter === "Tất cả"
@@ -451,6 +476,7 @@ export const NewsNewspaperFeed: React.FC<NewsNewspaperFeedProps> = ({
             Trang {activePage} / {totalPages}
           </span>
         </div>
+        )}
 
         {filteredNews.length === 0 ? (
           <div className="bg-white p-12 text-center text-slate-600 border border-slate-200 rounded-3xl shadow-xs space-y-3">
@@ -502,6 +528,11 @@ export const NewsNewspaperFeed: React.FC<NewsNewspaperFeedProps> = ({
                         >
                           {news.category}
                         </span>
+                        {(news.isFromZalo || news.zaloArticleId) && (
+                          <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-blue-600 text-white shadow-xs flex items-center gap-1">
+                            <MessageCircle size={10} className="fill-current" /> Zalo OA
+                          </span>
+                        )}
                         {news.isPinned && (
                           <span className="text-xs font-black px-2 py-0.5 rounded-full bg-rose-600 text-white shadow-xs flex items-center gap-1">
                             <Pin size={10} /> Ghim
@@ -558,47 +589,57 @@ export const NewsNewspaperFeed: React.FC<NewsNewspaperFeedProps> = ({
                     </div>
                   </div>
 
-                  <div className="p-4 sm:px-5 sm:py-3.5 bg-slate-50/50 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500">
-                    <div className="flex items-center gap-2 truncate max-w-[180px]">
-                      <div className="w-6 h-6 rounded-full bg-emerald-100 text-emerald-800 flex items-center justify-center font-bold text-xs shrink-0">
-                        {news.author.charAt(0)}
-                      </div>
-                      <span className="truncate text-xs font-medium text-slate-700">
-                        {news.author}
-                      </span>
-                    </div>
+                  <div className="p-4 sm:px-5 sm:py-3.5 bg-slate-50/50 border-t border-slate-100 space-y-2.5 text-xs text-slate-500">
+                    {(() => {
+                      const cleanAuthor = normalizeNewsAuthor(news.author);
+                      return (
+                        <div className="flex items-center justify-between gap-2.5 min-w-0">
+                          <div className="flex items-center gap-2 min-w-0 flex-1">
+                            <div className="w-6 h-6 rounded-full bg-emerald-100 text-emerald-800 flex items-center justify-center font-bold text-xs shrink-0">
+                              {cleanAuthor.charAt(0)}
+                            </div>
+                            <span
+                              className="truncate text-xs font-medium text-slate-700 min-w-0"
+                              title={cleanAuthor}
+                            >
+                              {cleanAuthor}
+                            </span>
+                          </div>
 
-                    <div className="flex items-center gap-1.5 shrink-0">
-                      {canManage && onEditNews && (
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            onEditNews(news);
-                          }}
-                          title="Sửa bản tin"
-                          className="min-h-[36px] min-w-[36px] inline-flex items-center justify-center p-1.5 rounded-lg text-slate-600 hover:text-blue-700 hover:bg-blue-50 border border-slate-200 transition-colors cursor-pointer"
-                        >
-                          <Edit3 size={13} />
-                        </button>
-                      )}
-                      {canManage && onDeleteNews && (
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            onDeleteNews(news);
-                          }}
-                          title="Xóa bản tin"
-                          className="min-h-[36px] min-w-[36px] inline-flex items-center justify-center p-1.5 rounded-lg text-slate-600 hover:text-rose-700 hover:bg-rose-50 border border-slate-200 transition-colors cursor-pointer"
-                        >
-                          <Trash2 size={13} />
-                        </button>
-                      )}
-                      <span className="text-emerald-700 font-bold text-xs flex items-center gap-0.5 ml-1">
-                        Đọc tiếp <ChevronRight size={13} />
-                      </span>
-                    </div>
+                          <span className="text-emerald-700 font-bold text-xs inline-flex items-center gap-0.5 shrink-0 whitespace-nowrap group-hover:underline">
+                            Chi tiết <ChevronRight size={13} />
+                          </span>
+                        </div>
+                      );
+                    })()}
+
+                    {canManage && (onEditNews || onDeleteNews) && (
+                      <div
+                        onClick={(e) => e.stopPropagation()}
+                        className="pt-2 border-t border-slate-200/70 flex items-center justify-end gap-1.5"
+                      >
+                        {onEditNews && (
+                          <button
+                            type="button"
+                            onClick={() => onEditNews(news)}
+                            title="Sửa bản tin"
+                            className="px-2.5 py-1 rounded-lg text-xs font-semibold text-slate-700 hover:text-blue-700 hover:bg-blue-50 bg-white border border-slate-200 inline-flex items-center gap-1 transition-colors cursor-pointer"
+                          >
+                            <Edit3 size={12} /> Sửa
+                          </button>
+                        )}
+                        {onDeleteNews && (
+                          <button
+                            type="button"
+                            onClick={() => onDeleteNews(news)}
+                            title="Xóa bản tin"
+                            className="px-2.5 py-1 rounded-lg text-xs font-semibold text-rose-700 hover:bg-rose-50 bg-white border border-rose-200 inline-flex items-center gap-1 transition-colors cursor-pointer"
+                          >
+                            <Trash2 size={12} /> Xóa
+                          </button>
+                        )}
+                      </div>
+                    )}
                   </div>
                 </div>
               );
@@ -624,11 +665,18 @@ export const NewsNewspaperFeed: React.FC<NewsNewspaperFeedProps> = ({
                       alt={news.title}
                       className="w-full h-full object-cover"
                     />
-                    <span
-                      className={`absolute top-2 left-2 text-xs font-black px-2 py-0.5 rounded-full border shadow-xs bg-white/95 ${theme.pill}`}
-                    >
-                      {news.category}
-                    </span>
+                    <div className="absolute top-2 left-2 flex items-center gap-1 flex-wrap">
+                      <span
+                        className={`text-xs font-black px-2 py-0.5 rounded-full border shadow-xs bg-white/95 ${theme.pill}`}
+                      >
+                        {news.category}
+                      </span>
+                      {(news.isFromZalo || news.zaloArticleId) && (
+                        <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-blue-600 text-white shadow-xs flex items-center gap-1">
+                          <MessageCircle size={9} className="fill-current" /> Zalo OA
+                        </span>
+                      )}
+                    </div>
                     <span className="absolute bottom-2 right-2 text-xs font-mono bg-black/60 text-white px-1.5 py-0.5 rounded">
                       {getNewsReadTime(news)}
                     </span>
@@ -669,8 +717,9 @@ export const NewsNewspaperFeed: React.FC<NewsNewspaperFeedProps> = ({
                     </p>
 
                     <div className="pt-2 flex flex-wrap items-center justify-between gap-2 text-xs text-slate-500">
-                      <span className="font-medium text-slate-700 flex items-center gap-1">
-                        <User size={12} className="text-emerald-600" /> {news.author}
+                      <span className="font-medium text-slate-700 flex items-center gap-1 min-w-0">
+                        <User size={12} className="text-emerald-600 shrink-0" />
+                        <span className="truncate">{normalizeNewsAuthor(news.author)}</span>
                       </span>
                       {news.attachedFile && (
                         <span className="text-xs font-mono text-rose-600 flex items-center gap-1 bg-rose-50 px-2 py-0.5 rounded-md">
@@ -680,7 +729,7 @@ export const NewsNewspaperFeed: React.FC<NewsNewspaperFeedProps> = ({
                     </div>
                   </div>
 
-                  <div className="flex sm:flex-col items-center justify-end gap-2 w-full sm:w-auto pt-3 sm:pt-0 border-t sm:border-t-0 border-slate-100">
+                  <div className="flex sm:flex-col items-center justify-end gap-2 w-full sm:w-auto pt-3 sm:pt-0 border-t sm:border-t-0 border-slate-100 shrink-0">
                     {canManage && onEditNews && (
                       <button
                         type="button"
@@ -688,7 +737,7 @@ export const NewsNewspaperFeed: React.FC<NewsNewspaperFeedProps> = ({
                           e.stopPropagation();
                           onEditNews(news);
                         }}
-                        className="px-3 py-1.5 rounded-lg text-xs font-semibold text-slate-600 hover:bg-slate-100 transition-colors flex items-center gap-1 cursor-pointer"
+                        className="px-3 py-1.5 rounded-lg text-xs font-semibold text-slate-600 hover:bg-slate-100 transition-colors flex items-center gap-1 cursor-pointer whitespace-nowrap"
                       >
                         <Edit3 size={12} /> Sửa
                       </button>
@@ -700,13 +749,13 @@ export const NewsNewspaperFeed: React.FC<NewsNewspaperFeedProps> = ({
                           e.stopPropagation();
                           onDeleteNews(news);
                         }}
-                        className="px-3 py-1.5 rounded-lg text-xs font-semibold text-rose-600 hover:bg-rose-50 transition-colors flex items-center gap-1 cursor-pointer"
+                        className="px-3 py-1.5 rounded-lg text-xs font-semibold text-rose-600 hover:bg-rose-50 transition-colors flex items-center gap-1 cursor-pointer whitespace-nowrap"
                       >
                         <Trash2 size={12} /> Xóa
                       </button>
                     )}
-                    <span className="px-3 py-1.5 rounded-lg text-xs font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 flex items-center gap-1">
-                      Đọc tin <ChevronRight size={13} />
+                    <span className="px-3 py-1.5 rounded-lg text-xs font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 flex items-center gap-1 whitespace-nowrap">
+                      Chi tiết <ChevronRight size={13} />
                     </span>
                   </div>
                 </div>
@@ -715,13 +764,24 @@ export const NewsNewspaperFeed: React.FC<NewsNewspaperFeedProps> = ({
           </div>
         )}
 
-        <Pagination
-          currentPage={activePage}
-          totalItems={filteredNews.length}
-          itemsPerPage={itemsPerPage}
-          onPageChange={setCurrentPage}
-        />
+        {!compactHome && (
+          <Pagination
+            currentPage={activePage}
+            totalItems={filteredNews.length}
+            itemsPerPage={itemsPerPage}
+            onPageChange={setCurrentPage}
+          />
+        )}
       </div>
+      )}
+
+      {canManage && (
+        <ZaloArticleSyncModal
+          isOpen={showZaloSyncModal}
+          onClose={() => setShowZaloSyncModal(false)}
+          onSyncSuccess={onRefreshNews}
+        />
+      )}
     </div>
   );
 };

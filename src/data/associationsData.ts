@@ -1,7 +1,117 @@
 import { Association, AssociationMember } from "../types";
+import { sortAssociationsAndMembers } from "../utils/leadershipSync";
 
 // Danh mục chuẩn 23 Chi hội & Tổ chức đoàn thể tại Khu phố 3, Phường An Phú
+// Nguyên tắc bất biến: Chi bộ Đảng (ASC_DANG) LUÔN đứng đầu tiên (index 0), Bí thư Chi bộ đứng đầu toàn Khu phố.
 export const INITIAL_ASSOCIATIONS: Association[] = [
+    {
+      id: "ASC_DANG",
+      name: "Chi bộ Đảng (Đảng viên)",
+      category: "Chính trị - Xã hội",
+      description: "Tổ chức hạt nhân lãnh đạo chính trị toàn diện tại cơ sở, đề ra nghị quyết chỉ đạo Ban Điều hành, Mặt trận và các đoàn thể Khu phố 3.",
+      leaderName: "Nghiêm Xuân Quỳnh",
+      leaderCccd: "079075001868",
+      members: [
+        {
+          id: "M_QUYNH_DANG",
+          fullName: "Nghiêm Xuân Quỳnh",
+          role: "Bí thư Chi bộ",
+          cccd: "079075001868",
+          phone: "0825681868",
+          birthDate: "02/10/1975",
+          joinDate: "19/05/2005",
+          decisionNumber: "QĐ-12/ĐU-AP",
+          decisionFile: {
+            name: "Quyet_dinh_cong_nhan_Bi_thu_Chi_bo_KP3.pdf",
+            type: "pdf",
+            size: "245 KB",
+            url: "https://example.com/decision_101.pdf"
+          }
+        },
+        {
+          id: "M_HA_DANG",
+          fullName: "Phạm Ngọc Hà",
+          role: "Phó Bí thư Chi bộ",
+          cccd: "079078009479",
+          phone: "0908579479",
+          birthDate: "15/06/1978",
+          joinDate: "03/02/2008",
+          decisionNumber: "QĐ-13/ĐU-AP",
+          decisionFile: {
+            name: "Quyet_dinh_chuan_y_Pho_Bi_thu.jpg",
+            type: "image",
+            size: "380 KB",
+            url: "https://images.unsplash.com/photo-1568602471122-7832951cc4c5?w=700"
+          }
+        },
+        {
+          id: "M_HUY_DANG",
+          fullName: "Nguyễn Trung Huy",
+          role: "Chi ủy viên",
+          cccd: "079080009988",
+          phone: "0962037937",
+          birthDate: "12/03/1980",
+          joinDate: "03/02/2012",
+          decisionNumber: "QĐ-22/ĐU-AP",
+          decisionFile: {
+            name: "Quyet_dinh_chuyen_dang_chinh_thuc_Huy.pdf",
+            type: "pdf",
+            size: "270 KB",
+            url: "https://example.com/decision_dang_huy.pdf"
+          }
+        },
+        {
+          id: "M_DAT_DANG",
+          fullName: "Dương Tấn Đạt",
+          role: "Chi ủy viên",
+          cccd: "079085005848",
+          phone: "0352475848",
+          birthDate: "20/09/1985",
+          joinDate: "19/05/2015",
+          decisionNumber: "QĐ-25/ĐU-AP"
+        },
+        {
+          id: "M101",
+          fullName: "Nguyễn Văn Hùng",
+          role: "Đảng viên",
+          cccd: "079068001234",
+          phone: "0903829112",
+          birthDate: "15/04/1968",
+          joinDate: "19/05/1992",
+          decisionNumber: "QĐ-05/ĐU-AP"
+        },
+        {
+          id: "M102",
+          fullName: "Lê Văn Sơn",
+          role: "Đảng viên",
+          cccd: "079070003112",
+          phone: "0944112233",
+          birthDate: "08/12/1970",
+          joinDate: "03/02/1996",
+          decisionNumber: "QĐ-08/ĐU-AP"
+        },
+        {
+          id: "M103",
+          fullName: "Nguyễn Thị Ngọc",
+          role: "Đảng viên",
+          cccd: "079073005511",
+          phone: "0908123456",
+          birthDate: "11/03/1973",
+          joinDate: "02/09/2000",
+          decisionNumber: "QĐ-19/ĐU-AP"
+        },
+        {
+          id: "M104",
+          fullName: "Trần Văn Thanh",
+          role: "Đảng viên",
+          cccd: "079081005555",
+          phone: "0919887766",
+          birthDate: "25/07/1981",
+          joinDate: "07/11/2010",
+          decisionNumber: "QĐ-45/ĐU-AP"
+        }
+      ]
+    },
     {
       id: "ASC_BDH",
       name: "Ban điều hành khu phố",
@@ -13,117 +123,59 @@ export const INITIAL_ASSOCIATIONS: Association[] = [
         {
           id: "M_HUY_BDH",
           fullName: "Nguyễn Trung Huy",
-          role: "Trưởng Ban điều hành",
+          role: "Trưởng Khu phố",
           cccd: "079080009988",
-          phone: "0909123888",
+          phone: "0962037937",
           birthDate: "12/03/1980",
           joinDate: "15/01/2020",
           decisionNumber: "QĐ-01/UBND-AP",
           decisionDate: "10/01/2020",
           decisionFile: {
-            name: "QĐ_chuan_y_Truong_Ban_dieu_hanh_KP3.pdf",
+            name: "QĐ_chuan_y_Truong_Khu_pho_3.pdf",
             type: "pdf",
             size: "310 KB",
             url: "https://example.com/decision_bdh_huy.pdf"
           }
         },
         {
-          id: "M_SON_BDH",
-          fullName: "Lê Văn Sơn",
-          role: "Phó Ban điều hành",
-          cccd: "079070003112",
-          phone: "0944112233",
-          birthDate: "08/12/1970",
-          joinDate: "15/01/2020",
+          id: "M_PHUONG_BDH",
+          fullName: "Nguyễn Thu Phương",
+          role: "Phó Trưởng Khu phố",
+          cccd: "079182003112",
+          phone: "0908112233",
+          birthDate: "14/05/1982",
+          joinDate: "15/01/2024",
           decisionNumber: "QĐ-02/UBND-AP"
         },
         {
-          id: "M_HUNG_BDH",
-          fullName: "Nguyễn Văn Hùng",
-          role: "Cố vấn Ban điều hành",
-          cccd: "079068001234",
-          phone: "0903829112",
-          birthDate: "15/04/1968",
-          joinDate: "15/01/2020",
+          id: "M_LOAN_BDH",
+          fullName: "Trần Thị Kim Loan",
+          role: "Phó Trưởng Khu phố",
+          cccd: "079179004221",
+          phone: "0908223344",
+          birthDate: "22/08/1979",
+          joinDate: "15/01/2024",
           decisionNumber: "QĐ-03/UBND-AP"
-        }
-      ]
-    },
-    {
-      id: "ASC_DANG",
-      name: "Chi bộ Đảng (Đảng viên)",
-      category: "Chính trị - Xã hội",
-      description: "Tổ chức hạt nhân lãnh đạo chính trị tại cơ sở, đề ra chủ trương chỉ đạo các mặt đời sống xã hội.",
-      leaderName: "Nguyễn Văn Hùng",
-      leaderCccd: "079068001234",
-      members: [
-        { 
-          id: "M101", 
-          fullName: "Nguyễn Văn Hùng", 
-          role: "Bí thư Chi bộ", 
-          cccd: "079068001234", 
-          phone: "0903829112", 
-          birthDate: "15/04/1968",
-          joinDate: "19/05/1992",
-          decisionNumber: "QĐ-12/ĐU-AP",
-          decisionFile: {
-            name: "Quyet_dinh_cong_nhan_Bi_thu_Chi_bo.pdf",
-            type: "pdf",
-            size: "245 KB",
-            url: "https://example.com/decision_101.pdf"
-          }
         },
-        { 
-          id: "M102", 
-          fullName: "Lê Văn Sơn", 
-          role: "Phó Bí thư", 
-          cccd: "079070003112", 
-          phone: "0944112233", 
-          birthDate: "08/12/1970",
-          joinDate: "03/02/1996",
-          decisionNumber: "QĐ-08/ĐU-AP",
-          decisionFile: {
-            name: "Quyet_dinh_chuan_y_Pho_Bi_thu.jpg",
-            type: "image",
-            size: "380 KB",
-            url: "https://images.unsplash.com/photo-1568602471122-7832951cc4c5?w=700"
-          }
+        {
+          id: "M_THANHPHUONG_BDH",
+          fullName: "Đinh Thị Thanh Phương",
+          role: "Phó Trưởng Khu phố",
+          cccd: "079184005332",
+          phone: "0908334455",
+          birthDate: "09/11/1984",
+          joinDate: "15/01/2024",
+          decisionNumber: "QĐ-04/UBND-AP"
         },
-        { 
-          id: "M_HUY_DANG", 
-          fullName: "Nguyễn Trung Huy", 
-          role: "Đảng viên", 
-          cccd: "079080009988", 
-          phone: "0909123888", 
-          birthDate: "12/03/1980",
-          joinDate: "03/02/2012",
-          decisionNumber: "QĐ-22/ĐU-AP",
-          decisionFile: {
-            name: "Quyet_dinh_chuyen_dang_chinh_thuc_Huy.pdf",
-            type: "pdf",
-            size: "270 KB",
-            url: "https://example.com/decision_dang_huy.pdf"
-          }
-        },
-        { 
-          id: "M103", 
-          fullName: "Nguyễn Thị Ngọc", 
-          role: "Chi ủy viên", 
-          cccd: "079073005511", 
-          phone: "0908123456", 
-          birthDate: "11/03/1973",
-          joinDate: "02/09/2000",
-          decisionNumber: "QĐ-19/ĐU-AP"
-        },
-        { 
-          id: "M104", 
-          fullName: "Trần Văn Thanh", 
-          role: "Đảng viên", 
-          cccd: "079081005555", 
-          phone: "0919887766", 
-          birthDate: "25/07/1981",
-          joinDate: "07/11/2010",
-          decisionNumber: "QĐ-45/ĐU-AP"
+        {
+          id: "M_DAT_BDH",
+          fullName: "Dương Tấn Đạt",
+          role: "Thành viên Ban điều hành",
+          cccd: "079085005848",
+          phone: "0352475848",
+          birthDate: "20/09/1985",
+          joinDate: "15/01/2022",
+          decisionNumber: "QĐ-03/UBND-AP"
         }
       ]
     },
@@ -348,17 +400,15 @@ export const INITIAL_ASSOCIATIONS: Association[] = [
       name: "Ban Công tác Mặt trận",
       category: "Đoàn thể nhân dân",
       description: "Tập hợp khối đại đoàn kết, phối hợp với các đoàn thể chăm lo an sinh xã hội cho khu phố.",
-      leaderName: "Nguyễn Văn Hùng",
-      leaderCccd: "079068001234",
+      leaderName: "Trần Thị Mỹ Dung",
+      leaderCccd: "074161001234",
       members: [
         {
-          id: "M_HUNG_MT",
-          fullName: "Nguyễn Văn Hùng",
+          id: "M_DUNG_MT",
+          fullName: "Trần Thị Mỹ Dung",
           role: "Trưởng Ban CTMT",
-          cccd: "079068001234",
-          phone: "0903829112",
-          birthDate: "15/04/1968",
-          joinDate: "05/05/2019",
+          cccd: "074161001234",
+          joinDate: "05/05/2024",
           decisionNumber: "QĐ-06/UBMT-AP"
         },
         {
@@ -368,6 +418,15 @@ export const INITIAL_ASSOCIATIONS: Association[] = [
           cccd: "079075003421",
           phone: "0987654321",
           birthDate: "10/08/1975",
+          joinDate: "05/05/2019"
+        },
+        {
+          id: "M_HUNG_MT",
+          fullName: "Nguyễn Văn Hùng",
+          role: "Ủy viên Ban CTMT",
+          cccd: "079068001234",
+          phone: "0903829112",
+          birthDate: "15/04/1968",
           joinDate: "05/05/2019"
         },
         {
@@ -746,7 +805,7 @@ export const INITIAL_ASSOCIATIONS: Association[] = [
 const STORAGE_KEY = "kp3_associations_data";
 
 export function getStoredAssociations(): Association[] {
-  if (typeof window === "undefined") return INITIAL_ASSOCIATIONS;
+  if (typeof window === "undefined") return sortAssociationsAndMembers(INITIAL_ASSOCIATIONS);
   try {
     const data = localStorage.getItem(STORAGE_KEY);
     if (data) {
@@ -761,20 +820,22 @@ export function getStoredAssociations(): Association[] {
           }
           return assoc;
         });
-        if (migrated) saveStoredAssociations(normalized);
-        return normalized;
+        const sorted = sortAssociationsAndMembers(normalized);
+        if (migrated) saveStoredAssociations(sorted);
+        return sorted;
       }
     }
   } catch (e) {
     console.warn("Could not load associations from storage:", e);
   }
-  return INITIAL_ASSOCIATIONS;
+  return sortAssociationsAndMembers(INITIAL_ASSOCIATIONS);
 }
 
 export function saveStoredAssociations(associations: Association[]): void {
   if (typeof window === "undefined") return;
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(associations));
+    const sorted = sortAssociationsAndMembers(associations);
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(sorted));
   } catch (e) {
     console.warn("Could not save associations to storage:", e);
   }

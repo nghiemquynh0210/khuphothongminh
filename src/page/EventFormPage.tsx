@@ -10,7 +10,7 @@ import {
   X,
 } from "lucide-react";
 import { CommunityEvent } from "../types";
-import { COVER_PRESETS } from "../components/news/newsHelpers";
+import { COVER_PRESETS, findVenueScheduleConflicts } from "../components/news/newsHelpers";
 import { PageHeader } from "../components/common/PageHeader";
 import { ReportSelect } from "../components/reports/ReportSelect";
 import { LoadingFade } from "../components/common/LoadingFade";
@@ -32,6 +32,7 @@ export interface EventFormPageProps {
   mode: "create" | "edit";
   eventId?: string;
   events: CommunityEvent[];
+  initialVenue?: string;
   isDataLoading?: boolean;
   basePath?: string;
   onAddEvent?: (newEvent: CommunityEvent) => void;
@@ -44,6 +45,7 @@ export default function EventFormPage({
   mode,
   eventId,
   events,
+  initialVenue,
   isDataLoading = false,
   basePath = ROUTES.DASHBOARD_CULTURAL,
   onAddEvent,
@@ -72,6 +74,7 @@ export default function EventFormPage({
     message: string;
   } | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [allowConflictOverride, setAllowConflictOverride] = useState(false);
 
   useEffect(() => {
     if (mode === "edit" && existingEvent) {
@@ -83,17 +86,53 @@ export default function EventFormPage({
       setDescription(existingEvent.description || "");
       setImageUrl(existingEvent.imageUrl || COVER_PRESETS[6]?.url || "");
       setStatus(existingEvent.status || "Sắp diễn ra");
+      setAllowConflictOverride(false);
     } else if (mode === "create") {
+      let resolvedVenue = initialVenue?.trim() || "";
+      if (!resolvedVenue) {
+        try {
+          resolvedVenue = (sessionStorage.getItem("kp3_preselected_venue") || "").trim();
+          sessionStorage.removeItem("kp3_preselected_venue");
+        } catch {}
+      } else {
+        try {
+          sessionStorage.removeItem("kp3_preselected_venue");
+        } catch {}
+      }
       setTitle("");
       setOrganizer("Ban Điều hành Khu phố 3");
       setExpectedAttendees(50);
       setDateTime("");
-      setLocation(CULTURAL_VENUES[0]);
+      setLocation(resolvedVenue || CULTURAL_VENUES[0]);
       setDescription("");
       setImageUrl(COVER_PRESETS[6]?.url || "");
       setStatus("Sắp diễn ra");
+      setAllowConflictOverride(false);
     }
-  }, [mode, existingEvent]);
+  }, [mode, existingEvent, initialVenue]);
+
+  const conflictingEvents = useMemo(
+    () =>
+      findVenueScheduleConflicts(
+        location,
+        dateTime,
+        events,
+        mode === "edit" ? eventId : undefined
+      ),
+    [location, dateTime, events, mode, eventId]
+  );
+
+  useEffect(() => {
+    setAllowConflictOverride(false);
+  }, [location, dateTime]);
+
+  const venueOptions = useMemo(() => {
+    const list = [...CULTURAL_VENUES];
+    if (location && !list.includes(location)) {
+      list.unshift(location);
+    }
+    return list.map((v) => ({ value: v, label: v }));
+  }, [location]);
 
   const handleBack = () => {
     if (onCancel) {
@@ -130,6 +169,13 @@ export default function EventFormPage({
       });
       return;
     }
+    if (conflictingEvents.length > 0 && !allowConflictOverride) {
+      setNotice({
+        type: "warning",
+        message: `Cảnh báo trùng lịch hội trường (Double-booking)! Địa điểm "${location}" đã được đăng ký cho sự kiện "${conflictingEvents[0].title}" (${conflictingEvents[0].dateTime}). Vui lòng chọn phòng/khung giờ khác hoặc xác nhận ghép lịch bên dưới.`,
+      });
+      return;
+    }
 
     setIsSubmitting(true);
 
@@ -156,11 +202,10 @@ export default function EventFormPage({
           navigate(getEventDetailPath(updatedEvent.id, basePath));
         }
       } else {
-        const baseNum = events.length + 1;
-        let generatedId = "EV" + baseNum.toString().padStart(3, "0");
-        if (events.some((ev) => ev.id === generatedId)) {
-          generatedId = "EV" + Date.now().toString().slice(-4);
-        }
+        const generatedId =
+          typeof crypto !== "undefined" && typeof crypto.randomUUID === "function"
+            ? crypto.randomUUID()
+            : `00000000-0000-4000-8000-${Date.now().toString(16).padStart(12, "0").slice(-12)}`;
 
         const newEvent: CommunityEvent = {
           id: generatedId,
@@ -370,12 +415,45 @@ export default function EventFormPage({
             </label>
             <ReportSelect
               aria-label="Chọn phòng Nhà Văn hóa"
-              value={CULTURAL_VENUES.includes(location) ? location : CULTURAL_VENUES[0]}
+              value={location || CULTURAL_VENUES[0]}
               onChange={(val) => setLocation(val)}
-              options={CULTURAL_VENUES.map((v) => ({ value: v, label: v }))}
+              options={venueOptions}
             />
           </div>
         </div>
+
+        {/* Double-booking Warning Box */}
+        {conflictingEvents.length > 0 && (
+          <div
+            role="alert"
+            className="p-4 rounded-2xl bg-amber-50 border border-amber-300 text-amber-950 space-y-2.5 text-xs"
+          >
+            <div className="flex items-start gap-2.5">
+              <AlertTriangle size={17} className="text-amber-700 shrink-0 mt-0.5" />
+              <div className="space-y-1 min-w-0">
+                <p className="font-bold text-amber-950">
+                  Cảnh báo trùng lịch hội trường (Double-booking): Phát hiện {conflictingEvents.length} sự kiện đã đặt cùng phòng &amp; khung giờ!
+                </p>
+                <ul className="list-disc list-inside space-y-1 text-amber-900">
+                  {conflictingEvents.map((cEv) => (
+                    <li key={cEv.id}>
+                      <strong>{cEv.title}</strong> — <span className="font-mono">{cEv.dateTime}</span> ({cEv.organizer})
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </div>
+            <label className="flex items-center gap-2 pt-2 border-t border-amber-200 cursor-pointer font-semibold text-amber-950">
+              <input
+                type="checkbox"
+                checked={allowConflictOverride}
+                onChange={(e) => setAllowConflictOverride(e.target.checked)}
+                className="rounded border-amber-400 accent-amber-700"
+              />
+              <span>Xác nhận vẫn đăng ký sử dụng chung / ghép lịch hội trường cho khung giờ này</span>
+            </label>
+          </div>
+        )}
 
         {/* Status (when editing) */}
         {mode === "edit" && (

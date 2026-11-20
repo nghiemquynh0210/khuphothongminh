@@ -25,6 +25,27 @@ export default defineConfig(({ mode }) => {
       // Disable file watching when DISABLE_HMR is true to save CPU during agent edits.
       watch: process.env.DISABLE_HMR === 'true' ? null : {},
     },
+    build: {
+      chunkSizeWarningLimit: 700,
+      rollupOptions: {
+        output: {
+          manualChunks(id) {
+            if (!id.includes('node_modules')) return undefined;
+            if (id.includes('leaflet')) return 'vendor-gis';
+            if (id.includes('recharts') || id.includes('d3-')) return 'vendor-charts';
+            if (id.includes('xlsx')) return 'vendor-xlsx';
+            if (id.includes('@supabase')) return 'vendor-supabase';
+            if (id.includes('motion') || id.includes('framer-motion') || id.includes('@animate-ui')) {
+              return 'vendor-motion';
+            }
+            if (id.includes('/react/') || id.includes('/react-dom/') || id.includes('\\react\\') || id.includes('\\react-dom\\') || id.includes('scheduler')) {
+              return 'vendor-react';
+            }
+            return undefined;
+          },
+        },
+      },
+    },
     // Vitest: kiểm thử tự động cho KP3 (Công cụ #23 trong danh sách 30)
     test: {
       globals: true,

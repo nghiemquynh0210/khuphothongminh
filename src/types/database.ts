@@ -65,6 +65,8 @@ export interface Database {
           member_count: number | null
           coordinates: string | null
           notes: string | null
+          cadastral_meta?: Json | null
+          timemark_meta?: Json | null
           created_at: string
           updated_at: string
         }
@@ -79,6 +81,8 @@ export interface Database {
           member_count?: number | null
           coordinates?: string | null
           notes?: string | null
+          cadastral_meta?: Json | null
+          timemark_meta?: Json | null
           created_at?: string
           updated_at?: string
         }
@@ -93,6 +97,8 @@ export interface Database {
           member_count?: number | null
           coordinates?: string | null
           notes?: string | null
+          cadastral_meta?: Json | null
+          timemark_meta?: Json | null
           created_at?: string
           updated_at?: string
         }
@@ -109,6 +115,7 @@ export interface Database {
           phone: string | null
           address: string
           relation_to_owner: string | null
+          owner_name: string | null
           status: string | null
           occupation: string | null
           workplace: string | null
@@ -131,6 +138,7 @@ export interface Database {
           phone?: string | null
           address: string
           relation_to_owner?: string | null
+          owner_name?: string | null
           status?: string | null
           occupation?: string | null
           workplace?: string | null
@@ -153,6 +161,7 @@ export interface Database {
           phone?: string | null
           address?: string
           relation_to_owner?: string | null
+          owner_name?: string | null
           status?: string | null
           occupation?: string | null
           workplace?: string | null
@@ -182,6 +191,15 @@ export interface Database {
           employee_count: number | null
           image_url: string | null
           coordinates: string | null
+          is_accommodation?: boolean | null
+          room_count?: number | null
+          guest_count?: number | null
+          pccc_passed?: boolean | null
+          scale?: string | null
+          has_cam_ket_an_ninh?: boolean | null
+          cadastral_meta?: Json | null
+          timemark_meta?: Json | null
+          linked_household_id?: string | null
           created_at: string
           updated_at: string
         }
@@ -201,6 +219,15 @@ export interface Database {
           employee_count?: number | null
           image_url?: string | null
           coordinates?: string | null
+          is_accommodation?: boolean | null
+          room_count?: number | null
+          guest_count?: number | null
+          pccc_passed?: boolean | null
+          scale?: string | null
+          has_cam_ket_an_ninh?: boolean | null
+          cadastral_meta?: Json | null
+          timemark_meta?: Json | null
+          linked_household_id?: string | null
           created_at?: string
           updated_at?: string
         }
@@ -220,6 +247,15 @@ export interface Database {
           employee_count?: number | null
           image_url?: string | null
           coordinates?: string | null
+          is_accommodation?: boolean | null
+          room_count?: number | null
+          guest_count?: number | null
+          pccc_passed?: boolean | null
+          scale?: string | null
+          has_cam_ket_an_ninh?: boolean | null
+          cadastral_meta?: Json | null
+          timemark_meta?: Json | null
+          linked_household_id?: string | null
           created_at?: string
           updated_at?: string
         }

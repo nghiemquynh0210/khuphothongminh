@@ -1,4 +1,4 @@
-import React, { useState, useRef } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import { 
   FileText, 
   Download, 
@@ -23,7 +23,10 @@ import {
   AlertTriangle,
   Paperclip,
   ShieldCheck,
-  BookOpen
+  BookOpen,
+  Printer,
+  Loader2,
+  ExternalLink
 } from "lucide-react";
 import { AdministrativeForm } from "../types";
 import { initialAdministrativeForms } from "../mockForms";
@@ -33,6 +36,194 @@ import { Modal } from "./ui/Modal";
 import { DetailRow, DetailGrid } from "./common/DetailRow";
 import { KP3_AREA_LIST, formatShortRecordId } from "../utils/kp3Utils";
 import { formatVNNumber } from "../utils/numberFormat";
+import { uploadFileToStorageBucket } from "../utils/imageUpload";
+import { upsertAdministrativeFormToDb } from "../utils/supabaseSync";
+import { downloadOfficialDocx } from "../utils/docxExport";
+
+function escapeHtmlText(str: string): string {
+  return String(str || "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
+function buildOfficialA4DocumentHtml(
+  rawContent: string,
+  fallbackTitle: string,
+  forWordExport: boolean
+): string {
+  const lines = String(rawContent || "")
+    .replace(/\r\n/g, "\n")
+    .split("\n");
+
+  // Strip leading Quốc hiệu / Tiêu ngữ / dashes so we render standard formal header once
+  let startIdx = 0;
+  while (startIdx < lines.length && startIdx < 8) {
+    const trimmed = lines[startIdx].trim();
+    const upper = trimmed.toUpperCase();
+    if (
+      !trimmed ||
+      upper.includes("CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM") ||
+      trimmed.includes("Độc lập - Tự do - Hạnh phúc") ||
+      trimmed.includes("Độc lập – Tự do – Hạnh phúc") ||
+      /^[-_─—=*]{3,}$/.test(trimmed)
+    ) {
+      startIdx++;
+    } else {
+      break;
+    }
+  }
+
+  const remaining = lines.slice(startIdx);
+  // Check if first non-empty line is an uppercase document title
+  let docHeading = "";
+  let bodyStartIdx = 0;
+  for (let i = 0; i < Math.min(remaining.length, 3); i++) {
+    const candidate = remaining[i].trim();
+    if (!candidate) continue;
+    if (
+      candidate === candidate.toUpperCase() &&
+      candidate.length >= 6 &&
+      candidate.length <= 120 &&
+      !candidate.startsWith("KÍNH GỬI") &&
+      !candidate.startsWith("1.")
+    ) {
+      docHeading = candidate;
+      bodyStartIdx = i + 1;
+    }
+    break;
+  }
+  if (!docHeading) {
+    docHeading = fallbackTitle.toUpperCase();
+  }
+
+  const bodyLines = remaining.slice(bodyStartIdx);
+  const today = new Date();
+  const dateLine = `An Phú, ngày ${String(today.getDate()).padStart(2, "0")} tháng ${String(
+    today.getMonth() + 1
+  ).padStart(2, "0")} năm ${today.getFullYear()}`;
+
+  const renderedParagraphs = bodyLines
+    .map((line) => {
+      const trimmed = line.trim();
+      if (!trimmed) {
+        return `<p style="margin: 4pt 0;">&nbsp;</p>`;
+      }
+      if (
+        /^NGƯỜI\s+(LÀM\s+ĐƠN|KÊ\s+KHAI|VIẾT\s+ĐƠN|ĐỀ\s+NGHỊ)/i.test(trimmed)
+      ) {
+        return `<div style="margin-top: 18pt; text-align: right; padding-right: 24pt;">
+          <p style="margin: 0 0 4pt 0; font-style: italic; font-size: 12.5pt;">${escapeHtmlText(dateLine)}</p>
+          <p style="margin: 0; font-weight: bold; text-transform: uppercase;">${escapeHtmlText(trimmed)}</p>
+        </div>`;
+      }
+      if (/^\(Ký[^)]*\)$/i.test(trimmed)) {
+        return `<p style="margin: 2pt 0 48pt 0; text-align: right; padding-right: 28pt; font-style: italic; font-size: 12pt;">${escapeHtmlText(
+          trimmed
+        )}</p>`;
+      }
+      if (/^Kính\s+gửi\s*:/i.test(trimmed)) {
+        return `<p style="margin: 8pt 0 10pt 0; font-weight: bold; text-align: center;">${escapeHtmlText(
+          trimmed
+        )}</p>`;
+      }
+      if (
+        trimmed === trimmed.toUpperCase() &&
+        trimmed.length > 5 &&
+        trimmed.endsWith(":")
+      ) {
+        return `<p style="margin: 10pt 0 4pt 0; font-weight: bold;">${escapeHtmlText(
+          trimmed
+        )}</p>`;
+      }
+      return `<p style="margin: 4pt 0; text-align: justify;">${escapeHtmlText(
+        trimmed
+      )}</p>`;
+    })
+    .join("\n");
+
+  const innerSheet = `
+    <div style="text-align: center; margin-bottom: 14pt;">
+      <p style="margin: 0; font-weight: bold; font-size: 12.5pt; text-transform: uppercase; letter-spacing: 0.2pt;">
+        CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM
+      </p>
+      <p style="margin: 2pt 0 4pt 0; font-weight: bold; font-size: 13pt;">
+        Độc lập - Tự do - Hạnh phúc
+      </p>
+      <div style="width: 150px; border-bottom: 1.5px solid #000; margin: 0 auto;"></div>
+    </div>
+    <h1 style="margin: 14pt 0 10pt 0; text-align: center; font-size: 14pt; font-weight: bold; text-transform: uppercase; line-height: 1.35;">
+      ${escapeHtmlText(docHeading)}
+    </h1>
+    <div>
+      ${renderedParagraphs}
+    </div>
+  `;
+
+  if (forWordExport) {
+    return `<html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'>
+<head>
+<meta charset="utf-8">
+<title>${escapeHtmlText(fallbackTitle)}</title>
+<style>
+  @page Section1 {
+    size: 595.3pt 841.9pt;
+    margin: 56.7pt 56.7pt 56.7pt 70.9pt;
+    mso-header-margin: 35.4pt;
+    mso-footer-margin: 35.4pt;
+  }
+  div.Section1 { page: Section1; }
+  body, p, div, td, li {
+    font-family: 'Times New Roman', Times, serif;
+    font-size: 13pt;
+    line-height: 1.5;
+    color: #000000;
+  }
+</style>
+</head>
+<body>
+  <div class="Section1">
+    ${innerSheet}
+  </div>
+</body>
+</html>`;
+  }
+
+  return `<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<title>${escapeHtmlText(fallbackTitle)}</title>
+<style>
+  @page {
+    size: A4 portrait;
+    margin: 20mm 20mm 20mm 25mm;
+  }
+  body {
+    font-family: 'Times New Roman', Times, serif;
+    font-size: 13pt;
+    line-height: 1.5;
+    color: #000;
+    max-width: 175mm;
+    margin: 0 auto;
+    padding: 8mm 0;
+  }
+  @media print {
+    body { max-width: none; padding: 0; }
+    .no-print { display: none !important; }
+  }
+</style>
+</head>
+<body>
+  <div class="no-print" style="margin-bottom: 14px; padding: 8px 12px; background: #ecfdf5; border: 1px solid #a7f3d0; border-radius: 8px; display: flex; justify-content: space-between; align-items: center; font-family: system-ui, sans-serif; font-size: 12px;">
+    <span><strong>Bản xem in khổ A4 chuẩn hành chính</strong> — Khu phố 3, Phường An Phú</span>
+    <button onclick="window.print()" style="background: #047857; color: #fff; border: none; border-radius: 6px; padding: 6px 14px; font-weight: 700; cursor: pointer;">In ngay (A4)</button>
+  </div>
+  ${innerSheet}
+</body>
+</html>`;
+}
 
 interface AdministrativeFormsProps {
   forms?: AdministrativeForm[];
@@ -47,15 +238,23 @@ interface AdministrativeFormsProps {
 }
 
 export default function AdministrativeForms({ 
-  forms = initialAdministrativeForms, 
+  forms: controlledForms, 
   onAddForm,
   onUpdateForm,
   onDeleteForm,
   currentUser 
 }: AdministrativeFormsProps) {
   // Local fallback if parent does not control state
-  const [localForms, setLocalForms] = useState<AdministrativeForm[]>(forms);
-  const currentForms = forms || localForms;
+  const [localForms, setLocalForms] = useState<AdministrativeForm[]>(
+    controlledForms || initialAdministrativeForms
+  );
+  const [prevControlled, setPrevControlled] = useState(controlledForms);
+  if (controlledForms !== prevControlled) {
+    setPrevControlled(controlledForms);
+    if (controlledForms) setLocalForms(controlledForms);
+  }
+  const currentForms =
+    controlledForms && (onAddForm || onUpdateForm) ? controlledForms : localForms;
 
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedCategory, setSelectedCategory] = useState<string>("Tất cả");
@@ -93,6 +292,8 @@ export default function AdministrativeForms({
   const [formFileSize, setFormFileSize] = useState("48 KB");
   const [formTemplateContent, setFormTemplateContent] = useState("");
   const [attachedFileName, setAttachedFileName] = useState<string | null>(null);
+  const [attachedFileUrl, setAttachedFileUrl] = useState<string | null>(null);
+  const [isUploadingFile, setIsUploadingFile] = useState(false);
 
   // Hidden File Inputs
   const directFileInputRef = useRef<HTMLInputElement>(null);
@@ -124,11 +325,70 @@ export default function AdministrativeForms({
     return matchesCategory && matchesSearch;
   });
 
-  // Download form as formatted document
-  const handleDownloadForm = (form: AdministrativeForm, format: "doc" | "txt" = "doc") => {
-    const filename = `${form.code.replace(/[^a-zA-Z0-9]/g, "_")}_${form.title.replace(/[^a-zA-Z0-9]/g, "_")}.${format}`;
-    const fileHeader = `\uFEFF` + form.templateContent; // Add UTF-8 BOM so Vietnamese characters display properly in Word
-    const blob = new Blob([fileHeader], { type: format === "doc" ? "application/msword;charset=utf-8" : "text/plain;charset=utf-8" });
+  const bumpFormDownloadCount = (form: AdministrativeForm) => {
+    const updated: AdministrativeForm = {
+      ...form,
+      downloadCount: (form.downloadCount || 0) + 1,
+    };
+    if (onUpdateForm) {
+      onUpdateForm(updated);
+    } else {
+      setLocalForms((prev) => prev.map((f) => (f.id === updated.id ? updated : f)));
+    }
+    upsertAdministrativeFormToDb(updated);
+  };
+
+  // Download form: real Storage file if uploaded, otherwise Native Word (.docx)
+  const handleDownloadForm = async (form: AdministrativeForm, format: "doc" | "txt" = "doc") => {
+    bumpFormDownloadCount(form);
+    const realFileUrl = (form as any).fileUrl as string | undefined;
+    const realFileName = (form as any).fileName as string | undefined;
+
+    if (realFileUrl && format === "doc") {
+      const link = document.createElement("a");
+      link.href = realFileUrl;
+      link.target = "_blank";
+      link.rel = "noopener noreferrer";
+      if (realFileName) {
+        link.download = realFileName;
+      }
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      showToast(
+        `Đang tải tệp biểu mẫu gốc "${realFileName || form.code}" từ Kho lưu trữ số Khu phố 3!`
+      );
+      return;
+    }
+
+    const safeCode = form.code.replace(/[^a-zA-Z0-9_-]/g, "_");
+
+    if (format === "doc") {
+      const filename = `${safeCode}_KhuPho3_AnPhu.docx`;
+      try {
+        await downloadOfficialDocx({
+          title: form.title,
+          rawContent: form.templateContent,
+          documentNumber: `Mẫu số: ${form.code}/BĐH-KP3`,
+        }, filename);
+        showToast(`Đã xuất văn bản Word (.docx) chuẩn Nghị định 30: ${filename}`);
+        return;
+      } catch (err) {
+        console.warn("Lỗi xuất docx native, chuyển sang fallback doc:", err);
+      }
+    }
+
+    const filename = `${safeCode}_KhuPho3_AnPhu.${format}`;
+    const payload =
+      format === "doc"
+        ? "\uFEFF" + buildOfficialA4DocumentHtml(form.templateContent, form.title, true)
+        : "\uFEFF" + form.templateContent;
+    const blob = new Blob([payload], {
+      type:
+        format === "doc"
+          ? "application/msword;charset=utf-8"
+          : "text/plain;charset=utf-8",
+    });
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.href = url;
@@ -138,7 +398,31 @@ export default function AdministrativeForms({
     document.body.removeChild(link);
     URL.revokeObjectURL(url);
 
-    showToast(`Đã tải xuống biểu mẫu: "${form.code} - ${form.title}" thành công!`);
+    showToast(`Đã tải xuống biểu mẫu Word chuẩn hành chính: "${form.code} - ${form.title}"!`);
+  };
+
+  // Print A4 Window
+  const handlePrintA4Document = (contentText: string, docTitle: string, sourceForm?: AdministrativeForm) => {
+    if (sourceForm) {
+      bumpFormDownloadCount(sourceForm);
+    }
+    const html = buildOfficialA4DocumentHtml(contentText, docTitle, false);
+    const printWin = window.open("", "_blank", "width=900,height=820");
+    if (!printWin) {
+      showToast("Trình duyệt đang chặn cửa sổ bật lên. Vui lòng cho phép Pop-up để mở bản in A4!");
+      return;
+    }
+    printWin.document.open();
+    printWin.document.write(html);
+    printWin.document.close();
+    printWin.focus();
+    window.setTimeout(() => {
+      try {
+        printWin.print();
+      } catch {
+        // ignore
+      }
+    }, 300);
   };
 
   // Open Fill and Print Modal
@@ -148,39 +432,159 @@ export default function AdministrativeForms({
     setPhone(currentUser?.role === "canbo" ? (currentUser.phone || "") : "");
     setBirthDate("");
     setCccd("");
-    setAddress("Số 42/ Lương Định Của, Khu phố 3, Phường An Phú, TP. Hồ Chí Minh");
+    setAddress("42/3 Lương Định Của, Khu phố 3, Phường An Phú, TP. Hồ Chí Minh");
     setCustomDetail("");
   };
 
-  // Generate Personalized Content
+  // Generate Personalized Content matching BOTH [BRACKETS] and "Họ và tên...: ..." formats
   const getPersonalizedContent = () => {
     if (!fillModalForm) return "";
     let content = fillModalForm.templateContent;
-    if (fullName) content = content.replace(/\[NGUYỄN VĂN A\]/g, fullName).replace(/\[LÊ THỊ B\]/g, fullName).replace(/\[TRẦN THỊ C\]/g, fullName).replace(/\[PHẠM VĂN D\]/g, fullName);
-    if (birthDate) content = content.replace(/\[01\/01\/1990\]/g, birthDate).replace(/\[01\/01\/1980\]/g, birthDate).replace(/\[15\/08\/1985\]/g, birthDate);
-    if (cccd) content = content.replace(/\[079090001234\]/g, cccd).replace(/\[079080004567\]/g, cccd).replace(/\[079185002345\]/g, cccd);
-    if (phone) content = content.replace(/\[0901234567\]/g, phone).replace(/\[0918765432\]/g, phone).replace(/\[0938987654\]/g, phone);
-    if (address) content = content.replace(/Số 42\/3 Lương Định Của, Khu phố 3, Phường An Phú, TP. Hồ Chí Minh/g, address);
-    if (customDetail) content += `\n\nNỘI DUNG BỔ SUNG CỦA NGƯỜI LÀM ĐƠN:\n${customDetail}`;
+
+    const cleanName = fullName.trim();
+    const cleanBirth = birthDate.trim();
+    const cleanCccd = cccd.trim();
+    const cleanPhone = phone.trim();
+    const cleanAddress = address.trim();
+    const cleanDetail = customDetail.trim();
+
+    if (cleanName) {
+      const before = content;
+      content = content
+        .replace(/\[(?:HỌ\s*(?:VÀ\s*)?TÊN|NGƯỜI\s*LÀM\s*ĐƠN|NGƯỜI\s*KÊ\s*KHAI|NGUYỄN\s*VĂN\s*A|LÊ\s*THỊ\s*B|TRẦN\s*THỊ\s*C|PHẠM\s*VĂN\s*D)\]/gi, cleanName);
+      if (content === before) {
+        content = content.replace(
+          /((?:Tôi\s+tên\s+là|Họ\s*(?:và\s*)?tên(?:\s*chủ\s*hộ|\s*người\s*kê\s*khai|\s*người\s*làm\s*đơn)?|Người\s*kê\s*khai)[^:\n]{0,30}:\s*)(?:\.{2,}|_{2,}|\[[^\]]*\]|(?=\s*(?:\r?\n|$)))/gi,
+          `$1${cleanName}`
+        );
+      }
+    }
+
+    if (cleanBirth) {
+      const before = content;
+      content = content.replace(
+        /\[(?:NGÀY\s*(?:THÁNG\s*NĂM\s*)?SINH|NĂM\s*SINH|01\/01\/1990|01\/01\/1980|15\/08\/1985)\]/gi,
+        cleanBirth
+      );
+      if (content === before) {
+        content = content.replace(
+          /((?:Sinh\s*ngày|Ngày(?:\s*tháng\s*năm)?\s*sinh|Năm\s*sinh)[^:\n]{0,20}:\s*)(?:\.{2,}|_{2,}|\[[^\]]*\])/gi,
+          `$1${cleanBirth}`
+        );
+      }
+    }
+
+    if (cleanCccd) {
+      const before = content;
+      content = content.replace(
+        /\[(?:SỐ\s*CCCD|CCCD|SỐ\s*ĐỊNH\s*DANH(?:\s*CÁ\s*NHÂN)?|CMND\/CCCD|079090001234|079080004567|079185002345)\]/gi,
+        cleanCccd
+      );
+      if (content === before) {
+        content = content.replace(
+          /((?:Số\s*(?:CCCD|CMND|ĐDCN|định\s*danh)|CCCD(?:\s*\/\s*CMND)?)[^:\n]{0,25}:\s*)(?:\.{2,}|_{2,}|\[[^\]]*\])/gi,
+          `$1${cleanCccd}`
+        );
+      }
+    }
+
+    if (cleanPhone) {
+      const before = content;
+      content = content.replace(
+        /\[(?:SỐ\s*ĐIỆN\s*THOẠI|ĐIỆN\s*THOẠI|SĐT|0901234567|0918765432|0938987654)\]/gi,
+        cleanPhone
+      );
+      if (content === before) {
+        content = content.replace(
+          /((?:Số\s*điện\s*thoại|Điện\s*thoại(?:\s*liên\s*hệ)?|SĐT)[^:\n]{0,20}:\s*)(?:\.{2,}|_{2,}|\[[^\]]*\])/gi,
+          `$1${cleanPhone}`
+        );
+      }
+    }
+
+    if (cleanAddress) {
+      const before = content;
+      content = content
+        .replace(
+          /\[(?:ĐỊA\s*CHỈ(?:\s*THƯỜNG\s*TRÚ|\s*TẠM\s*TRÚ|\s*HIỆN\s*TẠI)?|NƠI\s*CƯ\s*TRÚ|CHỖ\s*Ở\s*HIỆN\s*(?:TẠI|NAY)|Số\s*\.\.\.[^[\]]*|Khu\s*phố\s*3,\s*Phường\s*An\s*Phú,\s*TP\.\s*Hồ\s*Chí\s*Minh)\]/gi,
+          cleanAddress
+        )
+        .replace(
+          /Số 42\/3 Lương Định Của, Khu phố 3, Phường An Phú, TP\. Hồ Chí Minh/g,
+          cleanAddress
+        );
+      if (content === before) {
+        content = content.replace(
+          /((?:Địa\s*chỉ(?:\s*thường\s*trú|\s*tạm\s*trú|\s*cư\s*trú)?|Nơi\s*(?:thường\s*trú|cư\s*trú)|Chỗ\s*ở\s*hiện\s*(?:tại|nay))[^:\n]{0,30}:\s*)(?:\.{2,}|_{2,}|\[[^\]]*\])/gi,
+          `$1${cleanAddress}`
+        );
+      }
+    }
+
+    if (cleanDetail) {
+      const beforeDetail = content;
+      content = content.replace(
+        /\[(?:NỘI\s*DUNG\s*ĐỀ\s*NGHỊ|LÝ\s*DO|Kê\s*khai\s*nội\s*dung[^\]]*)\]/gi,
+        cleanDetail
+      );
+      if (content === beforeDetail) {
+        const signMatch = content.search(/\n\s*(?:Tôi\s+xin\s+cam\s+kết|Tôi\s+cam\s+kết|NGƯỜI\s+(?:LÀM\s+ĐƠN|KÊ\s+KHAI))/i);
+        if (signMatch > 0) {
+          content =
+            content.slice(0, signMatch) +
+            `\n\nNỘI DUNG ĐỀ NGHỊ / KÊ KHAI CHI TIẾT:\n${cleanDetail}\n` +
+            content.slice(signMatch);
+        } else {
+          content += `\n\nNỘI DUNG ĐỀ NGHỊ / KÊ KHAI CHI TIẾT:\n${cleanDetail}`;
+        }
+      }
+    }
+
     return content;
   };
 
-  // Download filled form
-  const handleDownloadFilled = () => {
+  // Download filled form as formatted Native Word (.docx) or fallback (.doc)
+  const handleDownloadFilled = async () => {
     if (!fillModalForm) return;
+    bumpFormDownloadCount(fillModalForm);
     const personalized = getPersonalizedContent();
-    const filename = `Don_da_dien_${fillModalForm.code.replace(/[^a-zA-Z0-9]/g, "_")}_${fullName || "Cudan"}.doc`;
-    const blob = new Blob([`\uFEFF` + personalized], { type: "application/msword;charset=utf-8" });
+    const safeCode = fillModalForm.code.replace(/[^a-zA-Z0-9_-]/g, "_");
+    const safePerson = (fullName || "CuDanKP3").trim().replace(/\s+/g, "_");
+    const filename = `Don_da_dien_${safeCode}_${safePerson}.docx`;
+
+    try {
+      await downloadOfficialDocx({
+        title: fillModalForm.title,
+        rawContent: personalized,
+        signerLeftTitle: "NGƯỜI KÊ KHAI / LÀM ĐƠN",
+        signerLeftName: fullName || "(Ký và ghi rõ họ tên)",
+        signerRightTitle: "TM. BAN ĐIỀU HÀNH KHU PHỐ 3",
+        signerRightName: "Trưởng Ban điều hành\n\n\nNguyễn Trung Huy",
+        documentNumber: `Số: ...... /BĐH-${safeCode}`,
+      }, filename);
+      showToast(`Đã xuất văn bản Word (.docx) chuẩn A4: ${filename}`);
+      setFillModalForm(null);
+      return;
+    } catch (err) {
+      console.warn("Lỗi xuất docx native, dùng fallback .doc:", err);
+    }
+
+    const fallbackName = `Don_da_dien_${safeCode}_${safePerson}.doc`;
+    const wordHtml =
+      "\uFEFF" + buildOfficialA4DocumentHtml(personalized, fillModalForm.title, true);
+    const blob = new Blob([wordHtml], {
+      type: "application/msword;charset=utf-8",
+    });
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.href = url;
-    link.download = filename;
+    link.download = fallbackName;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
     URL.revokeObjectURL(url);
 
-    showToast(`Đã xuất văn bản đã điền thông tin: ${filename}`);
+    showToast(`Đã xuất văn bản Word chuẩn A4: ${fallbackName}`);
     setFillModalForm(null);
   };
 
@@ -206,7 +610,8 @@ export default function AdministrativeForms({
     setFormFileFormat("DOCX / PDF");
     setFormFileSize("45 KB");
     setAttachedFileName(null);
-    setFormTemplateContent(`CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM\nĐộc lập - Tự do - Hạnh phúc\n-----------------\n\nĐƠN ĐỀ NGHỊ\n\nKính gửi: UBND Phường An Phú, TP. Hồ Chí Minh\n\n1. Tôi tên là: [HỌ VÀ TÊN]\n2. Sinh ngày: [01/01/1990]       Số CCCD: [079090001234]\n3. Địa chỉ thường trú: [Số ..., Khu phố 3, Phường An Phú, TP. Hồ Chí Minh]\n4. Điện thoại: [0901234567]\n\nNỘI DUNG ĐỀ NGHỊ:\n[Kê khai nội dung đề nghị giải quyết tại đây...]\n\nTôi cam kết thông tin kê khai trên là hoàn toàn chính xác.\n\nNGƯỜI LÀM ĐƠN\n(Ký và ghi rõ họ tên)`);
+    setAttachedFileUrl(null);
+    setFormTemplateContent(`CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM\nĐộc lập - Tự do - Hạnh phúc\n-----------------\n\nĐƠN ĐỀ NGHỊ\n\nKính gửi: UBND Phường An Phú, TP. Hồ Chí Minh\n\n1. Tôi tên là: [HỌ VÀ TÊN]\n2. Sinh ngày: [NGÀY SINH]       Số CCCD: [SỐ CCCD]\n3. Địa chỉ thường trú: [ĐỊA CHỈ]\n4. Điện thoại: [SỐ ĐIỆN THOẠI]\n\nNỘI DUNG ĐỀ NGHỊ:\n[NỘI DUNG ĐỀ NGHỊ]\n\nTôi cam kết thông tin kê khai trên là hoàn toàn chính xác.\n\nNGƯỜI LÀM ĐƠN\n(Ký và ghi rõ họ tên)`);
     setIsFormModalOpen(true);
   };
 
@@ -225,12 +630,13 @@ export default function AdministrativeForms({
     setFormFileFormat(form.fileFormat);
     setFormFileSize(form.fileSize);
     setFormTemplateContent(form.templateContent);
-    setAttachedFileName(null);
+    setAttachedFileName((form as any).fileName || null);
+    setAttachedFileUrl((form as any).fileUrl || null);
     setIsFormModalOpen(true);
   };
 
-  // Handle File Upload from disk (both direct bar or inside modal)
-  const processUploadedFile = (file: File) => {
+  // Handle File Upload from disk -> upload real .docx/.pdf to Supabase Storage ("admin-forms" / "templates")
+  const processUploadedFile = async (file: File) => {
     const ext = file.name.split(".").pop()?.toLowerCase();
     const sizeInKB = Math.max(12, Math.round(file.size / 1024));
     const cleanBaseName = file.name.replace(/\.[^/.]+$/, "").replace(/[_-]/g, " ");
@@ -241,7 +647,7 @@ export default function AdministrativeForms({
     if (ext === "pdf") {
       setFormFileFormat("PDF");
     } else if (ext === "doc" || ext === "docx") {
-      setFormFileFormat("DOCX / PDF");
+      setFormFileFormat("DOCX");
     }
 
     // Auto set title if blank or creating
@@ -258,13 +664,35 @@ export default function AdministrativeForms({
       };
       reader.readAsText(file);
     } else {
-      // For Word or PDF files, construct a standard template structure
+      // For Word or PDF files, construct a standard fillable template structure
       if (!formTemplateContent || formTemplateContent.includes("ĐƠN ĐỀ NGHỊ")) {
-        setFormTemplateContent(`CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM\nĐộc lập - Tự do - Hạnh phúc\n-----------------\n\n${cleanBaseName.toUpperCase()}\n(Đính kèm theo tệp số: ${file.name})\n\nKính gửi: UBND Phường An Phú, TP. Hồ Chí Minh\n\n1. Người kê khai: [HỌ VÀ TÊN]\n2. Ngày sinh: [01/01/1990]       CCCD: [079090001234]\n3. Nơi cư trú: [Khu phố 3, Phường An Phú, TP. Hồ Chí Minh]\n4. Điện thoại liên hệ: [0901234567]\n\nNỘI DUNG KÊ KHAI THEO BIỂU MẪU ĐÍNH KÈM:\n[Tệp gốc: ${file.name} - Kích thước: ${sizeInKB} KB]\n\nNGƯỜI KÊ KHAI\n(Ký và ghi rõ họ tên)`);
+        setFormTemplateContent(`CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM\nĐộc lập - Tự do - Hạnh phúc\n-----------------\n\n${cleanBaseName.toUpperCase()}\n\nKính gửi: UBND Phường An Phú, TP. Hồ Chí Minh\n\n1. Người kê khai: [HỌ VÀ TÊN]\n2. Ngày sinh: [NGÀY SINH]       Số CCCD: [SỐ CCCD]\n3. Địa chỉ cư trú: [ĐỊA CHỈ]\n4. Số điện thoại: [SỐ ĐIỆN THOẠI]\n\nNỘI DUNG ĐỀ NGHỊ:\n[NỘI DUNG ĐỀ NGHỊ]\n\nTôi cam kết thông tin kê khai trên là hoàn toàn chính xác.\n\nNGƯỜI KÊ KHAI\n(Ký và ghi rõ họ tên)`);
       }
     }
 
-    showToast(`Đã nhận diện tệp "${file.name}" (${sizeInKB} KB) thành công!`);
+    try {
+      setIsUploadingFile(true);
+      const uploadedUrl = await uploadFileToStorageBucket(
+        file,
+        "admin-forms",
+        "templates"
+      );
+      if (uploadedUrl) {
+        setAttachedFileUrl(uploadedUrl);
+        showToast(
+          `Đã tải tệp gốc "${file.name}" (${sizeInKB} KB) lên Kho lưu trữ Supabase Storage thành công!`
+        );
+      } else {
+        showToast(`Đã nhận diện tệp "${file.name}" (${sizeInKB} KB).`);
+      }
+    } catch (err: any) {
+      console.warn("Template storage upload warning:", err);
+      showToast(
+        `Đã nhận diện cấu trúc "${file.name}" (${sizeInKB} KB). Lưu ý: Không thể tải tệp nhị phân lên Cloud (${err?.message || "kiểm tra đăng nhập"}).`
+      );
+    } finally {
+      setIsUploadingFile(false);
+    }
   };
 
   const handleDirectFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -314,9 +742,12 @@ export default function AdministrativeForms({
         fileFormat: formFileFormat,
         fileSize: formFileSize || "48 KB",
         downloadCount: 0,
-        templateContent: formTemplateContent.trim()
-      };
+        templateContent: formTemplateContent.trim(),
+        ...(attachedFileUrl ? { fileUrl: attachedFileUrl } : {}),
+        ...(attachedFileName ? { fileName: attachedFileName } : {}),
+      } as AdministrativeForm;
 
+      upsertAdministrativeFormToDb(newForm);
       if (onAddForm) {
         onAddForm(newForm);
       } else {
@@ -339,9 +770,12 @@ export default function AdministrativeForms({
         fee: formFee.trim(),
         fileFormat: formFileFormat,
         fileSize: formFileSize,
-        templateContent: formTemplateContent.trim()
-      };
+        templateContent: formTemplateContent.trim(),
+        fileUrl: attachedFileUrl || undefined,
+        fileName: attachedFileName || undefined,
+      } as AdministrativeForm;
 
+      upsertAdministrativeFormToDb(updatedForm);
       if (onUpdateForm) {
         onUpdateForm(updatedForm);
       } else {
@@ -388,74 +822,37 @@ export default function AdministrativeForms({
         className="hidden"
       />
 
-      {/* Hero Header Banner */}
-      <div className="bg-white p-5 md:p-6 rounded-2xl border border-slate-200 relative">
-        <div className="space-y-1.5 max-w-3xl">
-          <div className="inline-flex flex-wrap items-center gap-2 px-2.5 py-1 rounded-md bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-bold tracking-wide uppercase">
-            <FileText size={13} className="text-emerald-700" />
-            <span>Kho Biểu Mẫu Điện Tử • Đề Án 06/CP • KP3 An Phú</span>
-            <span className="w-1.5 h-1.5 rounded-full bg-emerald-600"></span>
-            <span className="font-normal text-xs text-emerald-800">
-              {currentUser?.role === "canbo" ? "Quyền Quản Trị Cán Bộ" : "Tải về trực tiếp & Miễn phí"}
-            </span>
-          </div>
-          <h1 className="text-xl md:text-2xl font-bold text-slate-900 tracking-tight">
-            Kho Biểu Mẫu Hành Chính Điện Tử Khu Phố 3
+      {/* Compact Header Bar */}
+      <div className="bg-white px-4 py-3.5 sm:px-5 sm:py-4 rounded-2xl border border-slate-200/90 shadow-2xs flex flex-col md:flex-row md:items-center justify-between gap-3">
+        <div className="flex flex-wrap items-center gap-3">
+          <h1 className="text-base sm:text-lg md:text-xl font-bold text-slate-900 tracking-tight">
+            Kho Biểu Mẫu Hành Chính ({formatVNNumber(currentForms.length)})
           </h1>
         </div>
 
-        <div className="mt-4 pt-3.5 border-t border-slate-200/80 flex flex-wrap gap-4 md:gap-8 text-xs text-slate-600">
-          <div className="flex items-center gap-2 font-medium">
-            <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
-            <span>Tổng số: <strong className="text-slate-800 font-bold">{formatVNNumber(currentForms.length)} Biểu mẫu chuẩn hóa</strong></span>
-          </div>
-          <div className="flex items-center gap-2 font-medium">
-            <CheckCircle2 size={14} className="text-emerald-600" />
-            <span>Định dạng: <strong className="text-slate-800 font-bold">Word (.DOCX) & In trực tuyến</strong></span>
-          </div>
-          <div className="flex items-center gap-2 font-medium">
-            <Clock size={14} className="text-teal-600" />
-            <span>Phục vụ: <strong className="text-slate-800 font-bold">Cư dân & Cán bộ 24/7</strong></span>
-          </div>
-        </div>
-      </div>
-
-      {/* CÁN BỘ ADMINISTRATIVE MANAGEMENT BAR */}
-      {currentUser?.role === "canbo" && (
-        <div className="bg-white p-5 rounded-2xl border border-indigo-200 shadow-2xs flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
-          <div className="space-y-1">
-            <div className="inline-flex items-center gap-2 px-2.5 py-0.5 rounded-full bg-indigo-50 text-indigo-700 border border-indigo-200 text-xs font-bold uppercase tracking-wider">
-              <ShieldCheck size={13} className="text-indigo-600" />
-              <span>Khu Vực Thiết Lập Của Cán Bộ</span>
-            </div>
-            <h3 className="text-base font-extrabold text-slate-800">
-              Quản Trị Biểu Mẫu Hành Chính Khu Phố
-            </h3>
-            <p className="text-xs text-slate-600 max-w-xl leading-relaxed">
-              Cán bộ có quyền <strong>Thêm mới, Chỉnh sửa, Xóa</strong> và <strong>Upload trực tiếp file văn bản mẫu</strong> (.doc, .docx, .pdf, .txt) để công dân tải về.
-            </p>
-          </div>
-
-          <div className="flex flex-wrap items-center gap-2.5 shrink-0">
+        {currentUser?.role === "canbo" && (
+          <div className="flex flex-wrap items-center gap-2 shrink-0">
             <button
+              type="button"
               onClick={() => directFileInputRef.current?.click()}
-              className="px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold transition-all shadow-xs flex items-center gap-2 cursor-pointer group"
+              className="px-3.5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold transition-colors flex items-center gap-1.5 cursor-pointer"
               title="Tải lên tệp biểu mẫu có sẵn từ máy tính"
             >
-              <Upload size={15} />
-              <span>Upload File Biểu Mẫu</span>
+              <Upload size={14} />
+              <span>Tải File Mẫu</span>
             </button>
 
             <button
+              type="button"
               onClick={handleOpenCreateModal}
-              className="px-4 py-2.5 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl text-xs font-bold transition-colors flex items-center gap-2 cursor-pointer whitespace-nowrap"
+              className="px-3.5 py-2 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl text-xs font-bold transition-colors flex items-center gap-1.5 cursor-pointer whitespace-nowrap"
             >
-              <Plus size={15} />
-              <span>+ Thêm Biểu Mẫu Mới</span>
+              <Plus size={14} />
+              <span>Thêm Biểu Mẫu</span>
             </button>
           </div>
-        </div>
-      )}
+        )}
+      </div>
 
       {/* Search and Filters Bar */}
       <div className="bg-white p-4 md:p-5 rounded-3xl border border-slate-200 space-y-4">
@@ -549,21 +946,37 @@ export default function AdministrativeForms({
           filteredForms.map((form) => (
             <div
               key={form.id}
-              className="bg-white rounded-2xl border border-slate-100 p-5 shadow-xs hover:shadow-md hover:border-emerald-200 transition-all flex flex-col justify-between gap-4 group relative"
+              role="button"
+              tabIndex={0}
+              aria-label={`Xem trước biểu mẫu ${form.title}`}
+              onClick={() => setPreviewForm(form)}
+              onKeyDown={(e) => {
+                if (e.target !== e.currentTarget) return;
+                if (e.key === "Enter" || e.key === " ") {
+                  e.preventDefault();
+                  setPreviewForm(form);
+                }
+              }}
+              className="bg-white rounded-2xl border border-slate-200/80 p-5 shadow-xs hover:shadow-md hover:border-emerald-400 transition-all flex flex-col justify-between gap-4 group relative cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600"
             >
               <div className="space-y-2.5">
                 {/* Header tags & Cán Bộ Action Buttons */}
-                <div className="flex items-center justify-between gap-2">
-                  <div className="flex items-center gap-2">
-                    <span className="px-2.5 py-1 rounded-lg bg-emerald-50 text-emerald-800 border border-emerald-200/60 font-mono font-bold text-xs">
+                <div className="flex flex-wrap items-center justify-between gap-2 gap-y-2">
+                  <div className="flex flex-wrap items-center gap-2 min-w-0">
+                    <span className="px-2.5 py-1 rounded-lg bg-emerald-50 text-emerald-800 border border-emerald-200/60 font-mono font-bold text-xs shrink-0">
                       {form.code}
                     </span>
                     <span className="text-xs text-slate-700 font-medium px-2 py-0.5 bg-slate-100 rounded-md">
                       {form.category}
                     </span>
+                    {(form as any).fileUrl && (
+                      <span className="text-[11px] font-bold px-2 py-0.5 rounded-md bg-indigo-50 text-indigo-700 border border-indigo-200 shrink-0">
+                        Tệp gốc đính kèm
+                      </span>
+                    )}
                   </div>
 
-                  <div className="flex items-center gap-2">
+                  <div className="flex flex-wrap items-center gap-2 shrink-0">
                     <div className="flex items-center gap-1.5 text-xs text-slate-600 font-mono">
                       <span className="bg-slate-100 px-2 py-0.5 rounded text-slate-600 font-semibold">{form.fileFormat}</span>
                       <span>{form.fileSize}</span>
@@ -571,7 +984,10 @@ export default function AdministrativeForms({
 
                     {/* Cán Bộ Sửa / Xóa Controls */}
                     {currentUser?.role === "canbo" && (
-                      <div className="flex items-center gap-1 pl-2 border-l border-slate-200">
+                      <div
+                        onClick={(e) => e.stopPropagation()}
+                        className="flex items-center gap-1 pl-2 border-l border-slate-200"
+                      >
                         <button
                           onClick={() => handleOpenEditModal(form)}
                           className="p-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded-lg text-xs font-semibold transition-colors cursor-pointer flex items-center gap-1"
@@ -629,7 +1045,10 @@ export default function AdministrativeForms({
               </div>
 
               {/* Action Buttons */}
-              <div className="pt-3 border-t border-slate-100 flex flex-wrap items-center justify-between gap-2">
+              <div
+                onClick={(e) => e.stopPropagation()}
+                className="pt-3 border-t border-slate-100 flex flex-wrap items-center justify-between gap-2"
+              >
                 <div className="flex items-center gap-2">
                   <button
                     onClick={() => setPreviewForm(form)}
@@ -643,10 +1062,19 @@ export default function AdministrativeForms({
                   <button
                     onClick={() => handleOpenFillModal(form)}
                     className="p-2 text-indigo-700 hover:text-indigo-900 hover:bg-indigo-50 rounded-xl transition-colors text-xs font-semibold flex items-center gap-1 cursor-pointer"
-                    title="Điền thông tin và in trực tiếp"
+                    title="Điền thông tin và in trực tiếp khổ A4"
                   >
                     <PenTool size={14} />
-                    <span>Điền & In</span>
+                    <span>Điền &amp; In</span>
+                  </button>
+
+                  <button
+                    onClick={() => handlePrintA4Document(form.templateContent, form.title, form)}
+                    className="p-2 text-slate-700 hover:text-slate-900 hover:bg-slate-100 rounded-xl transition-colors text-xs font-semibold flex items-center gap-1 cursor-pointer"
+                    title="In đơn chuẩn khổ A4"
+                  >
+                    <Printer size={14} />
+                    <span className="hidden xl:inline">In A4</span>
                   </button>
                 </div>
 
@@ -654,31 +1082,17 @@ export default function AdministrativeForms({
                   onClick={() => handleDownloadForm(form, "doc")}
                   className="px-3.5 py-2 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl text-xs font-bold transition-colors flex items-center gap-1.5 cursor-pointer whitespace-nowrap"
                 >
-                  <Download size={14} />
-                  <span>Tải Biểu Mẫu (.DOC)</span>
+                  {(form as any).fileUrl ? <ExternalLink size={14} /> : <Download size={14} />}
+                  <span>
+                    {(form as any).fileUrl
+                      ? `Tải Tệp Gốc (${form.fileFormat})`
+                      : "Tải Biểu Mẫu (.DOC)"}
+                  </span>
                 </button>
               </div>
             </div>
           ))
         )}
-      </div>
-
-      {/* Guide Note Box */}
-      <div className="bg-emerald-50/70 border border-emerald-200/80 rounded-3xl p-5 md:p-6 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
-        <div className="space-y-1 max-w-2xl">
-          <h4 className="font-bold text-slate-800 text-sm flex items-center gap-2">
-            <Sparkles size={16} className="text-emerald-600" />
-            Hướng dẫn nộp hồ sơ sau khi tải và hoàn tất biểu mẫu
-          </h4>
-          <p className="text-xs text-slate-600 leading-relaxed">
-            Người dân sau khi điền biểu mẫu có thể nộp trực tiếp tại <strong>Văn phòng Ban Điều hành Khu phố 3</strong> (đối với các xác nhận cư trú, an ninh trật tự) hoặc nộp tại <strong>Bộ phận Tiếp nhận và Trả kết quả (Một cửa) UBND Phường An Phú</strong> / Cổng Dịch vụ công Quốc gia.
-          </p>
-        </div>
-        <div className="shrink-0 flex items-center gap-2">
-          <span className="text-xs font-mono text-emerald-800 bg-white px-3 py-1.5 rounded-xl border border-emerald-200 font-bold">
-            Hotline Hỗ Trợ: 028.3740.xxxx
-          </span>
-        </div>
       </div>
 
       {/* PREVIEW MODAL */}
@@ -744,13 +1158,26 @@ export default function AdministrativeForms({
                 <div className="flex flex-wrap items-center gap-2">
                   <button
                     type="button"
+                    onClick={() =>
+                      handlePrintA4Document(
+                        previewForm.templateContent,
+                        previewForm.title,
+                        previewForm
+                      )
+                    }
+                    className="min-h-9 px-3 py-1.5 bg-white hover:bg-slate-100 text-slate-800 border border-slate-200 rounded-lg text-xs font-semibold transition-colors cursor-pointer inline-flex items-center gap-1.5"
+                  >
+                    <Printer size={13} /> In Đơn Chuẩn A4
+                  </button>
+                  <button
+                    type="button"
                     onClick={() => {
                       handleOpenFillModal(previewForm);
                       setPreviewForm(null);
                     }}
-                    className="min-h-9 px-3 py-1.5 bg-white hover:bg-slate-100 text-slate-800 border border-slate-200 rounded-lg text-xs font-semibold transition-colors cursor-pointer inline-flex items-center gap-1.5"
+                    className="min-h-9 px-3 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-800 border border-indigo-200 rounded-lg text-xs font-semibold transition-colors cursor-pointer inline-flex items-center gap-1.5"
                   >
-                    <PenTool size={13} /> Điền thông tin nhanh
+                    <PenTool size={13} /> Điền &amp; In A4
                   </button>
                   <button
                     type="button"
@@ -767,7 +1194,8 @@ export default function AdministrativeForms({
                     }}
                     className="min-h-9 px-4 py-1.5 bg-emerald-700 hover:bg-emerald-800 text-white rounded-lg text-xs font-semibold transition-colors cursor-pointer inline-flex items-center gap-1.5"
                   >
-                    <Download size={13} /> Tải .DOC
+                    <Download size={13} />{" "}
+                    {(previewForm as any).fileUrl ? "Tải Tệp Gốc" : "Tải .DOC"}
                   </button>
                 </div>
               </div>
@@ -815,13 +1243,27 @@ export default function AdministrativeForms({
           description={`Mã ${fillModalForm.code} • ${fillModalForm.category} • Hỗ trợ tự động điền cư dân KP3`}
           bodyClassName="p-5 sm:p-6 space-y-4 text-xs"
           footer={
-            <div className="flex justify-end items-center gap-2">
+            <div className="flex flex-wrap justify-end items-center gap-2">
               <button
                 type="button"
                 onClick={() => setFillModalForm(null)}
                 className="min-h-9 px-4 py-1.5 border border-slate-200 bg-white text-slate-700 hover:bg-slate-100 rounded-lg text-xs font-semibold cursor-pointer"
               >
                 Hủy bỏ
+              </button>
+              <button
+                type="button"
+                onClick={() =>
+                  handlePrintA4Document(
+                    getPersonalizedContent(),
+                    fillModalForm.title,
+                    fillModalForm
+                  )
+                }
+                className="min-h-9 px-4 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-semibold transition-colors inline-flex items-center gap-1.5 cursor-pointer"
+              >
+                <Printer size={14} />
+                <span>In Đơn Chuẩn A4</span>
               </button>
               <button
                 type="button"
@@ -952,9 +1394,9 @@ export default function AdministrativeForms({
             <form onSubmit={handleSaveForm} className="p-6 overflow-y-auto space-y-4 text-xs">
               {/* Upload file attachment box */}
               <div className="p-4 rounded-2xl bg-indigo-50/60 border border-indigo-200/80 space-y-2">
-                <div className="flex items-center justify-between">
+                <div className="flex flex-wrap items-center justify-between gap-2">
                   <div className="flex items-center gap-2 text-indigo-900 font-bold text-xs">
-                    <FileUp size={16} className="text-indigo-600" />
+                    <FileUp size={16} className="text-indigo-600 shrink-0" />
                     <span>Upload Tệp Văn Bản Gốc (.DOCX, .DOC, .PDF, .TXT)</span>
                   </div>
                   <input
@@ -966,31 +1408,49 @@ export default function AdministrativeForms({
                   />
                   <button
                     type="button"
+                    disabled={isUploadingFile}
                     onClick={() => modalFileInputRef.current?.click()}
-                    className="px-3 py-1 bg-white hover:bg-indigo-100 text-indigo-700 rounded-lg font-bold border border-indigo-200 transition-colors cursor-pointer text-xs flex items-center gap-1 shadow-2xs"
+                    className="px-3 py-1.5 bg-white hover:bg-indigo-100 text-indigo-700 rounded-lg font-bold border border-indigo-200 transition-colors cursor-pointer text-xs flex items-center gap-1 shadow-2xs shrink-0 disabled:opacity-50"
                   >
-                    <Upload size={12} />
-                    <span>Chọn file từ máy tính</span>
+                    {isUploadingFile ? (
+                      <>
+                        <Loader2 size={12} className="animate-spin" />
+                        <span>Đang tải lên Cloud...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Upload size={12} />
+                        <span>Chọn file từ máy tính</span>
+                      </>
+                    )}
                   </button>
                 </div>
                 {attachedFileName ? (
-                  <div className="p-2.5 bg-white rounded-xl border border-indigo-200 flex items-center justify-between text-indigo-800">
+                  <div className="p-2.5 bg-white rounded-xl border border-indigo-200 flex flex-wrap items-center justify-between gap-2 text-indigo-800">
                     <div className="flex items-center gap-2 min-w-0">
                       <Paperclip size={14} className="text-indigo-600 shrink-0" />
                       <span className="font-mono font-bold text-xs truncate">{attachedFileName}</span>
-                      <span className="text-xs text-slate-600">({formFileSize})</span>
+                      <span className="text-xs text-slate-600 shrink-0">({formFileSize})</span>
+                      {attachedFileUrl && (
+                        <span className="text-[11px] bg-emerald-50 text-emerald-700 border border-emerald-200 px-2 py-0.5 rounded font-semibold shrink-0">
+                          Đã lưu Cloud
+                        </span>
+                      )}
                     </div>
                     <button
                       type="button"
-                      onClick={() => setAttachedFileName(null)}
-                      className="text-rose-500 hover:text-rose-700 text-xs font-bold cursor-pointer"
+                      onClick={() => {
+                        setAttachedFileName(null);
+                        setAttachedFileUrl(null);
+                      }}
+                      className="text-rose-500 hover:text-rose-700 text-xs font-bold cursor-pointer shrink-0"
                     >
                       Gỡ file
                     </button>
                   </div>
                 ) : (
                   <p className="text-xs text-slate-500 leading-snug">
-                    Tải lên file Word hoặc PDF để tự động trích xuất tên file, định dạng và kích thước tệp vào biểu mẫu.
+                    Tải lên file Word (.docx) hoặc PDF gốc để lưu trực tiếp vào Kho lưu trữ số Supabase Storage (admin-forms) cho người dân tải nguyên bản.
                   </p>
                 )}
               </div>

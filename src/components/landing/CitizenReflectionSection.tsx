@@ -1,10 +1,13 @@
-import React, { useState } from "react";
+import React, { useMemo, useState } from "react";
 import {
   Camera,
   CheckCircle2,
+  Clock,
   Inbox,
   LocateFixed,
   MapPin,
+  MessageSquare,
+  Search,
   Send,
   Shield,
   X
@@ -12,6 +15,9 @@ import {
 import { FieldReport } from "../../types";
 import { EmptyState } from "./LandingCommon";
 import { uploadReportImages } from "../../utils/imageUpload";
+import { KP3_CENTER } from "../../utils/gisUtils";
+import { formatShortRecordId } from "../../utils/kp3Utils";
+import { extractTimemarkFromImage } from "../../utils/timemarkParser";
 import {
   REPORT_PRIORITY_CONFIG,
   computeSlaDeadlineIso,
@@ -54,6 +60,48 @@ export default function CitizenReflectionSection({
   const [repLoading, setRepLoading] = useState(false);
   const [repSubmittedId, setRepSubmittedId] = useState<string | null>(null);
   const [locating, setLocating] = useState(false);
+  const [timemarkData, setTimemarkData] = useState<{
+    timemarkHash?: string;
+    timemarkVerified?: boolean;
+    photoElevation?: string;
+    photoDirection?: string;
+    photoTakenAt?: string;
+    lat?: number;
+    lng?: number;
+    coordinates?: string;
+  } | null>(null);
+
+  // Tra cứu tiến độ hồ sơ phản ánh (Mã PA-... hoặc SĐT)
+  const [lookupQuery, setLookupQuery] = useState("");
+  const [submittedLookupQuery, setSubmittedLookupQuery] = useState("");
+
+  const lookupResults = useMemo(() => {
+    const raw = submittedLookupQuery.trim();
+    if (!raw) return null;
+    const qLower = raw.toLowerCase();
+    const qDigits = raw.replace(/\D/g, "");
+    const isPhoneSearch = qDigits.length >= 9 && !qLower.startsWith("pa");
+
+    let localPhoneMap: Record<string, string> = {};
+    try {
+      const saved = localStorage.getItem("kp3_citizen_report_phones_v1");
+      if (saved) localPhoneMap = JSON.parse(saved) || {};
+    } catch {}
+
+    return reports.filter((r) => {
+      const shortCode = formatShortRecordId(r.id, "PA").toLowerCase();
+      const idLower = String(r.id || "").toLowerCase();
+      if (idLower === qLower || shortCode === qLower) return true;
+      if (qLower.length >= 4 && (idLower.includes(qLower) || shortCode.includes(qLower))) {
+        return true;
+      }
+      if (isPhoneSearch && !r.isAnonymous) {
+        const repDigits = String(r.reporterPhone || localPhoneMap[r.id] || "").replace(/\D/g, "");
+        if (repDigits && repDigits === qDigits) return true;
+      }
+      return false;
+    });
+  }, [reports, submittedLookupQuery]);
 
   const recentReports = reports.slice(0, 3);
 
@@ -64,6 +112,31 @@ export default function CitizenReflectionSection({
       setRepErrors(prev => ({ ...prev, image: "Mỗi phản ánh đính kèm tối đa 3 ảnh hiện trường." }));
       return;
     }
+
+    if (files.length > 0) {
+      try {
+        const ocrResult = await extractTimemarkFromImage(files[0]);
+        if (ocrResult) {
+          if (!repLocation.trim() && ocrResult.address) {
+            setRepLocation(ocrResult.address);
+          }
+          setTimemarkData({
+            timemarkHash: ocrResult.timemarkHash,
+            timemarkVerified: ocrResult.isVerified,
+            photoElevation: ocrResult.elevation,
+            photoDirection: ocrResult.direction,
+            photoTakenAt: ocrResult.rawTime || ocrResult.recordedTime,
+            lat: ocrResult.lat,
+            lng: ocrResult.lng,
+            coordinates: ocrResult.coordinates,
+          });
+          showToast(`Tự động trích xuất Timemark: Tọa độ ${ocrResult.coordinates}`);
+        }
+      } catch (ocrErr) {
+        console.warn("[CitizenReflection] Timemark check skipped:", ocrErr);
+      }
+    }
+
     const { urls, errors } = await uploadReportImages(files, "landing");
     if (errors.length > 0) {
       setRepErrors(prev => ({ ...prev, image: errors[0] }));
@@ -150,7 +223,11 @@ export default function CitizenReflectionSection({
     }
 
     setRepLoading(true);
-    const id = `PA-${Date.now().toString().slice(-6)}`;
+    const id =
+      typeof crypto !== "undefined" && typeof crypto.randomUUID === "function"
+        ? crypto.randomUUID()
+        : `00000000-0000-4000-8000-${Date.now().toString(16).padStart(12, "0").slice(-12)}`;
+    const displayTrackingCode = formatShortRecordId(id, "PA");
     const timeStr = `${now.getHours().toString().padStart(2, "0")}:${now.getMinutes().toString().padStart(2, "0")} ${now.getDate().toString().padStart(2, "0")}/${(now.getMonth() + 1).toString().padStart(2, "0")}/${now.getFullYear()}`;
     const reporterName = repAnonymous ? "Cư dân (Ẩn danh)" : repName.trim();
 
@@ -170,7 +247,14 @@ export default function CitizenReflectionSection({
       reportedAt: timeStr,
       createdAt: now.toLocaleDateString("vi-VN"),
       location: repLocation.trim(),
-      coordinates: { x: 50, y: 50 },
+      coordinates: timemarkData?.coordinates || { x: 50, y: 50 },
+      lat: timemarkData?.lat || KP3_CENTER.lat,
+      lng: timemarkData?.lng || KP3_CENTER.lng,
+      timemarkHash: timemarkData?.timemarkHash,
+      timemarkVerified: timemarkData?.timemarkVerified,
+      photoElevation: timemarkData?.photoElevation,
+      photoDirection: timemarkData?.photoDirection,
+      photoTakenAt: timemarkData?.photoTakenAt,
       description: repDescription.trim(),
       status: "Đã tiếp nhận",
       beforeImage: repImages[0] || undefined,
@@ -189,7 +273,16 @@ export default function CitizenReflectionSection({
     try {
       onAddReport(newReport);
       localStorage.setItem(RATE_KEY, JSON.stringify([...log, now.getTime()]));
-      setRepSubmittedId(id);
+      if (!repAnonymous && repPhone.trim()) {
+        try {
+          const prevMap = JSON.parse(localStorage.getItem("kp3_citizen_report_phones_v1") || "{}");
+          localStorage.setItem(
+            "kp3_citizen_report_phones_v1",
+            JSON.stringify({ ...prevMap, [id]: repPhone.trim() })
+          );
+        } catch {}
+      }
+      setRepSubmittedId(displayTrackingCode);
       setRepTitle("");
       setRepLocation("");
       setRepDescription("");
@@ -214,6 +307,175 @@ export default function CitizenReflectionSection({
         </div>
 
         <div className="p-5 sm:p-8 space-y-8">
+          {/* KHỐI TRA CỨU TIẾN ĐỘ HỒ SƠ PHẢN ÁNH 1022 */}
+          <div className="p-4 sm:p-5 rounded-2xl bg-slate-50 border border-slate-200 space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+              <div>
+                <h3 className="text-sm sm:text-base font-extrabold text-gov-navy flex items-center gap-2">
+                  <Search size={17} className="text-gov-blue shrink-0" aria-hidden="true" />
+                  <span>Tra cứu Tiến độ Hồ sơ Phản ánh</span>
+                </h3>
+                <p className="text-xs text-slate-600 mt-0.5">
+                  Nhập mã hồ sơ (VD: <span className="font-mono font-semibold">PA-839201</span>) hoặc Số điện thoại đã gửi để theo dõi kết quả xử lý
+                </p>
+              </div>
+              {submittedLookupQuery && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setLookupQuery("");
+                    setSubmittedLookupQuery("");
+                  }}
+                  className="self-start sm:self-auto text-xs font-bold text-slate-600 hover:text-slate-900 px-2.5 py-1.5 rounded-lg border border-slate-200 bg-white cursor-pointer"
+                >
+                  Đóng kết quả tra cứu
+                </button>
+              )}
+            </div>
+
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                setSubmittedLookupQuery(lookupQuery.trim());
+              }}
+              className="flex flex-col sm:flex-row gap-2.5"
+            >
+              <label htmlFor="citizen-report-lookup-input" className="sr-only">
+                Nhập mã PA-... hoặc Số điện thoại để tra cứu tiến độ phản ánh
+              </label>
+              <input
+                id="citizen-report-lookup-input"
+                type="search"
+                value={lookupQuery}
+                onChange={(e) => setLookupQuery(e.target.value)}
+                placeholder="Nhập mã PA-... hoặc Số điện thoại liên hệ..."
+                className={`${inputCls} flex-1`}
+              />
+              <button
+                type="submit"
+                disabled={!lookupQuery.trim()}
+                className={`${btnPrimary} shrink-0`}
+              >
+                <Search size={16} aria-hidden="true" />
+                <span>Tra cứu hồ sơ</span>
+              </button>
+            </form>
+
+            {lookupResults !== null && (
+              <div className="pt-2 space-y-3" aria-live="polite">
+                {lookupResults.length === 0 ? (
+                  <div className="p-4 rounded-xl bg-white border border-amber-200 text-xs sm:text-sm text-amber-900">
+                    Không tìm thấy hồ sơ phản ánh khớp với <strong>&quot;{submittedLookupQuery}&quot;</strong>. Vui lòng kiểm tra lại mã <span className="font-mono">PA-...</span> hoặc số điện thoại.
+                  </div>
+                ) : (
+                  lookupResults.map((item) => {
+                    // Bảo mật tuyệt đối: Ẩn toàn bộ ghi chú trao đổi nội bộ của cán bộ (isInternal === true)
+                    const publicMessages = (item.messages || []).filter((m) => !m.isInternal);
+                    const shortCode = formatShortRecordId(item.id, "PA");
+                    return (
+                      <div
+                        key={item.id}
+                        className="p-4 sm:p-5 rounded-xl bg-white border border-slate-200 space-y-3.5 shadow-2xs"
+                      >
+                        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 pb-3">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <span className="px-2.5 py-0.5 rounded-lg bg-slate-100 border border-slate-200 font-mono text-xs font-bold text-slate-900">
+                              {shortCode}
+                            </span>
+                            <span className="px-2.5 py-0.5 rounded-lg bg-blue-50 border border-blue-200 text-xs font-semibold text-gov-navy">
+                              {item.category}
+                            </span>
+                          </div>
+                          <span
+                            className={`px-3 py-1 rounded-full text-xs font-bold border ${
+                              item.status === "Đã giải quyết"
+                                ? "bg-emerald-50 text-emerald-800 border-emerald-200"
+                                : item.status === "Đang xử lý"
+                                ? "bg-amber-50 text-amber-800 border-amber-200"
+                                : "bg-blue-50 text-blue-800 border-blue-200"
+                            }`}
+                          >
+                            {item.status}
+                          </span>
+                        </div>
+
+                        <div className="space-y-1">
+                          <h4 className="font-bold text-sm sm:text-base text-slate-900">
+                            {item.title}
+                          </h4>
+                          <p className="text-xs text-slate-600 flex flex-wrap items-center gap-x-3 gap-y-1">
+                            <span className="inline-flex items-center gap-1">
+                              <MapPin size={13} className="text-rose-600 shrink-0" aria-hidden="true" />
+                              {item.location}
+                            </span>
+                            <span className="inline-flex items-center gap-1">
+                              <Clock size={13} className="text-slate-500 shrink-0" aria-hidden="true" />
+                              Tiếp nhận: {item.reportedAt}
+                            </span>
+                            {item.assignedUnit && (
+                              <span className="font-medium text-emerald-800">
+                                Đơn vị xử lý: {item.assignedUnit}
+                              </span>
+                            )}
+                          </p>
+                          <p className="text-xs sm:text-sm text-slate-700 pt-1 leading-relaxed">
+                            {item.description}
+                          </p>
+                        </div>
+
+                        {item.timeline && item.timeline.length > 0 && (
+                          <div className="rounded-xl bg-slate-50 border border-slate-200/80 p-3.5 space-y-2">
+                            <p className="text-xs font-bold uppercase tracking-wider text-slate-700">
+                              Tiến trình giải quyết ({item.timeline.length} bước)
+                            </p>
+                            <ol className="space-y-2 text-xs">
+                              {item.timeline.map((step, sIdx) => (
+                                <li key={`${item.id}-tl-${sIdx}`} className="flex items-start gap-2.5">
+                                  <span className="w-2 h-2 rounded-full bg-emerald-600 shrink-0 mt-1.5" aria-hidden="true" />
+                                  <div className="min-w-0">
+                                    <span className="font-bold text-slate-900">{step.title}</span>{" "}
+                                    <span className="font-mono text-slate-500">({step.time})</span>
+                                    <p className="text-slate-600 mt-0.5">{step.description}</p>
+                                  </div>
+                                </li>
+                              ))}
+                            </ol>
+                          </div>
+                        )}
+
+                        {publicMessages.length > 0 && (
+                          <div className="rounded-xl bg-emerald-50/50 border border-emerald-200/80 p-3.5 space-y-2">
+                            <p className="text-xs font-bold uppercase tracking-wider text-emerald-900 flex items-center gap-1.5">
+                              <MessageSquare size={13} className="text-emerald-700" aria-hidden="true" />
+                              <span>Phản hồi chính thức từ Ban Điều hành ({publicMessages.length})</span>
+                            </p>
+                            <div className="space-y-2">
+                              {publicMessages.map((msg) => (
+                                <div
+                                  key={msg.id}
+                                  className="p-2.5 rounded-lg bg-white border border-emerald-100 text-xs space-y-1"
+                                >
+                                  <div className="flex flex-wrap items-center justify-between gap-1">
+                                    <span className="font-bold text-slate-900">
+                                      {msg.senderName}
+                                      {msg.senderTitle ? ` (${msg.senderTitle})` : ""}
+                                    </span>
+                                    <span className="font-mono text-slate-500">{msg.createdAt}</span>
+                                  </div>
+                                  <p className="text-slate-700 leading-relaxed">{msg.content}</p>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })
+                )}
+              </div>
+            )}
+          </div>
+
           {repSubmittedId ? (
             <div className="p-6 rounded-2xl bg-emerald-50 border border-emerald-200 text-center space-y-3" role="status" aria-live="polite">
               <CheckCircle2 size={40} className="mx-auto text-emerald-600" aria-hidden="true" />
@@ -222,8 +484,18 @@ export default function CitizenReflectionSection({
               <p className="inline-block px-4 py-2 rounded-xl bg-white border border-emerald-300 font-mono font-bold text-emerald-800">
                 {repSubmittedId}
               </p>
-              <div>
-                <button onClick={() => setRepSubmittedId(null)} className={btnPrimary}>
+              <div className="flex flex-wrap justify-center gap-2.5">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setLookupQuery(repSubmittedId);
+                    setSubmittedLookupQuery(repSubmittedId);
+                  }}
+                  className={btnGhost}
+                >
+                  <Search size={16} aria-hidden="true" /> Tra cứu hồ sơ này
+                </button>
+                <button type="button" onClick={() => setRepSubmittedId(null)} className={btnPrimary}>
                   Gửi phản ánh khác
                 </button>
               </div>
@@ -247,27 +519,35 @@ export default function CitizenReflectionSection({
                 <legend className="text-sm font-bold text-gov-text mb-2">
                   1. Nhóm vấn đề <span className="text-gov-danger">*</span>
                 </legend>
-                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2">
-                  {REPORT_CATEGORIES.map(c => (
-                    <label
-                      key={c.id}
-                      className={`min-h-12 flex items-center justify-center text-center px-3 rounded-xl border text-sm font-semibold cursor-pointer transition-colors has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-gov-blue ${
-                        repCategory === c.id
-                          ? "bg-gov-navy text-white border-gov-navy"
-                          : "bg-white text-slate-700 border-slate-300 hover:border-gov-blue"
-                      }`}
-                    >
-                      <input
-                        type="radio"
-                        name="rep-category"
-                        value={c.id}
-                        checked={repCategory === c.id}
-                        onChange={() => setRepCategory(c.id)}
-                        className="sr-only"
-                      />
-                      {c.label}
-                    </label>
-                  ))}
+                <div className="grid grid-cols-2 sm:grid-cols-6 lg:grid-cols-5 gap-2">
+                  {REPORT_CATEGORIES.map((c, idx) => {
+                    const spanCls =
+                      idx < 3
+                        ? "col-span-1 sm:col-span-2 lg:col-span-1"
+                        : idx === 3
+                        ? "col-span-1 sm:col-span-3 lg:col-span-1"
+                        : "col-span-2 sm:col-span-3 lg:col-span-1";
+                    return (
+                      <label
+                        key={c.id}
+                        className={`${spanCls} min-h-12 flex items-center justify-center text-center px-3 rounded-xl border text-sm font-semibold cursor-pointer transition-colors has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-gov-blue ${
+                          repCategory === c.id
+                            ? "bg-gov-navy text-white border-gov-navy"
+                            : "bg-white text-slate-700 border-slate-300 hover:border-gov-blue"
+                        }`}
+                      >
+                        <input
+                          type="radio"
+                          name="rep-category"
+                          value={c.id}
+                          checked={repCategory === c.id}
+                          onChange={() => setRepCategory(c.id)}
+                          className="sr-only"
+                        />
+                        {c.label}
+                      </label>
+                    );
+                  })}
                 </div>
               </fieldset>
 

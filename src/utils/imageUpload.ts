@@ -1,5 +1,11 @@
 import { supabase, isSupabaseConfigured } from "../lib/supabase";
 
+export type StorageBucketName =
+  | "field-reports"
+  | "cadastral-docs"
+  | "task-attachments"
+  | "admin-forms";
+
 export const ALLOWED_IMAGE_MIME_TYPES = [
   "image/jpeg",
   "image/jpg",
@@ -24,13 +30,13 @@ export function readFileAsDataUrl(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onload = () => resolve(String(reader.result || ""));
-    reader.onerror = () => reject(new Error("Không thể đọc tệp hình ảnh."));
+    reader.onerror = () => reject(new Error("Không thể đọc tệp."));
     reader.readAsDataURL(file);
   });
 }
 
 /**
- * Nén ảnh phía trình duyệt để hiển thị nhanh và tiết kiệm bộ nhớ / băng thông.
+ * Nén ảnh phía trình duyệt để hiển thị nhanh và tiết kiệm băng thông (< 400KB).
  */
 export async function compressImageToDataUrl(
   file: File,
@@ -94,9 +100,87 @@ function dataUrlToBlob(dataUrl: string): Blob | null {
 }
 
 /**
- * Nén ảnh và tải lên Supabase Storage (bucket "field-reports") nếu khả dụng,
- * fallback an toàn về DataURL đã nén để hoạt động mượt kể cả khi offline hoặc chạy cục bộ.
+ * Tải bất kỳ tệp nào (Ảnh đã nén, PDF Sổ đỏ/GPKD, Word Biểu mẫu, Đính kèm Nhiệm vụ)
+ * lên Supabase Storage thông qua `/api/upload-storage` (chống lỗi RLS storage.objects),
+ * tự động fallback sang client Storage SDK hoặc DataURL gọn nhẹ khi offline.
  */
+export async function getStaffAuthHeaders(): Promise<Record<string, string>> {
+  if (!isSupabaseConfigured || !supabase) return {};
+  try {
+    const { data } = await supabase.auth.getSession();
+    const token = data?.session?.access_token;
+    if (token) {
+      return { Authorization: `Bearer ${token}` };
+    }
+  } catch {}
+  return {};
+}
+
+export async function uploadFileToStorageBucket(
+  file: File,
+  bucket: StorageBucketName,
+  folderPrefix: string = "uploads"
+): Promise<string> {
+  const isImage = file.type.startsWith("image/");
+  const dataUrl = isImage
+    ? await compressImageToDataUrl(file, { maxWidth: 1500, maxHeight: 1500, quality: 0.84 })
+    : await readFileAsDataUrl(file);
+
+  const resolvedMime = isImage ? "image/jpeg" : file.type || "application/octet-stream";
+  const resolvedName = isImage && !/\.jpe?g$/i.test(file.name) ? `${file.name}.jpg` : file.name;
+
+  // 1. Ưu tiên gọi Serverless /api/upload-storage (dưới ngưỡng 4.1 MB)
+  if (dataUrl.length <= 5_500_000 && typeof fetch !== "undefined") {
+    try {
+      const authHeaders = await getStaffAuthHeaders();
+      const resp = await fetch("/api/upload-storage", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", ...authHeaders },
+        body: JSON.stringify({
+          bucket,
+          folder: folderPrefix,
+          fileName: resolvedName,
+          mimeType: resolvedMime,
+          fileBase64: dataUrl,
+        }),
+      });
+      if (resp.ok) {
+        const json = await resp.json();
+        if (json?.ok && json?.publicUrl) {
+          return String(json.publicUrl);
+        }
+      }
+    } catch {
+      // Fallback sang SDK hoặc DataURL bên dưới
+    }
+  }
+
+  // 2. Fallback qua Supabase Storage SDK trực tiếp
+  if (isSupabaseConfigured && supabase) {
+    try {
+      const blob = dataUrlToBlob(dataUrl) || file;
+      const safeName = resolvedName.replace(/[^a-zA-Z0-9._-]/g, "_");
+      const objectPath = `${folderPrefix}/${Date.now()}-${Math.random()
+        .toString(36)
+        .slice(2, 7)}-${safeName}`;
+      const { error: uploadError } = await supabase.storage
+        .from(bucket)
+        .upload(objectPath, blob, { contentType: resolvedMime, upsert: true });
+
+      if (!uploadError) {
+        const { data: pub } = supabase.storage.from(bucket).getPublicUrl(objectPath);
+        if (pub?.publicUrl) {
+          return pub.publicUrl;
+        }
+      }
+    } catch {
+      // Fallback xuống DataURL
+    }
+  }
+
+  return dataUrl;
+}
+
 export async function uploadReportImages(
   files: File[],
   folderPrefix: string = "evidence"
@@ -110,46 +194,17 @@ export async function uploadReportImages(
       errors.push(err);
       continue;
     }
-
-    const compressedDataUrl = await compressImageToDataUrl(file);
-
-    if (isSupabaseConfigured && supabase) {
-      try {
-        const blob = dataUrlToBlob(compressedDataUrl);
-        if (blob) {
-          const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, "_");
-          const path = `${folderPrefix}/${Date.now()}-${Math.random().toString(36).slice(2, 7)}-${safeName}.jpg`;
-          const { error: uploadError } = await supabase.storage
-            .from("field-reports")
-            .upload(path, blob, { contentType: "image/jpeg", upsert: false });
-
-          if (!uploadError) {
-            const { data: pub } = supabase.storage.from("field-reports").getPublicUrl(path);
-            if (pub?.publicUrl) {
-              urls.push(pub.publicUrl);
-              continue;
-            }
-          }
-        }
-      } catch {
-        // Fallback xuống DataURL nén bên dưới khi bucket chưa khởi tạo
-      }
-    }
-
-    urls.push(compressedDataUrl);
+    const url = await uploadFileToStorageBucket(file, "field-reports", folderPrefix);
+    urls.push(url);
   }
 
   return { urls, errors };
 }
 
-/**
- * Nén và tải 1 hình ảnh lên Supabase Storage (bucket "field-reports"),
- * tự động fallback DataURL khi offline hoặc upload bị từ chối.
- */
 export async function uploadSingleImage(
   file: File,
   folderPrefix: string = "cms",
-  options: { maxWidth?: number; maxHeight?: number; quality?: number } = {}
+  options: { maxWidth?: number; maxHeight?: number; quality?: number; bucket?: StorageBucketName } = {}
 ): Promise<string> {
   const err = validateImageFile(file);
   if (err) {
@@ -162,29 +217,29 @@ export async function uploadSingleImage(
     quality: options.quality ?? 0.85,
   });
 
-  if (isSupabaseConfigured && supabase) {
+  const bucket = options.bucket || "field-reports";
+  if (compressedDataUrl.length <= 5_500_000 && typeof fetch !== "undefined") {
     try {
-      const blob = dataUrlToBlob(compressedDataUrl);
-      if (blob) {
-        const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, "_");
-        const path = `${folderPrefix}/${Date.now()}-${Math.random().toString(36).slice(2, 7)}-${safeName}.jpg`;
-        const { error: uploadError } = await supabase.storage
-          .from("field-reports")
-          .upload(path, blob, { contentType: "image/jpeg", upsert: false });
-
-        if (!uploadError) {
-          const { data: pub } = supabase.storage.from("field-reports").getPublicUrl(path);
-          if (pub?.publicUrl) {
-            return pub.publicUrl;
-          }
+      const authHeaders = await getStaffAuthHeaders();
+      const resp = await fetch("/api/upload-storage", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", ...authHeaders },
+        body: JSON.stringify({
+          bucket,
+          folder: folderPrefix,
+          fileName: `${file.name.replace(/[^a-zA-Z0-9._-]/g, "_")}.jpg`,
+          mimeType: "image/jpeg",
+          fileBase64: compressedDataUrl,
+        }),
+      });
+      if (resp.ok) {
+        const json = await resp.json();
+        if (json?.ok && json?.publicUrl) {
+          return String(json.publicUrl);
         }
       }
-    } catch {
-      // Fallback sang DataURL nén bên dưới
-    }
+    } catch {}
   }
 
   return compressedDataUrl;
 }
-
-

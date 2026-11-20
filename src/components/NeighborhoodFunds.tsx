@@ -44,7 +44,14 @@ import { StatusBadge } from "./ui/StatusBadge";
 import { EmptyState } from "./ui/EmptyState";
 import { ConfirmModal } from "./ui/ConfirmModal";
 import { formatVNNumber } from "../utils/numberFormat";
-import { loadFundCategoriesFromDb, saveFundCategoriesToDb } from "../utils/supabaseSync";
+import {
+  loadFundCategoriesFromDb,
+  saveFundCategoriesToDb,
+  loadPortalSetting,
+  savePortalSetting,
+} from "../utils/supabaseSync";
+import { getStoredAssociations } from "../data/associationsData";
+import { extractKeyLeadersSummary } from "../utils/leadershipSync";
 import VietQrModal from "./funds/VietQrModal";
 import HouseholdFundLookup from "./funds/HouseholdFundLookup";
 import FundCatalogManager from "./funds/FundCatalogManager";
@@ -74,6 +81,7 @@ export type FundsSubTab = "thu" | "chi" | "danhmuc" | "baocao" | "qr_portal";
 interface NeighborhoodFundsProps {
   contributions: FundContribution[];
   onAddContribution: (newCont: FundContribution) => void;
+  onBatchAddContributions?: (newItems: FundContribution[]) => void;
   onUpdateContribution?: (updatedCont: FundContribution) => void;
   onDeleteContribution?: (id: string) => void;
   onUpdateContributionStatus: (
@@ -87,12 +95,14 @@ interface NeighborhoodFundsProps {
   onUpdateExpenditure?: (updatedExp: FundExpenditure) => void;
   onDeleteExpenditure?: (id: string) => void;
   onSyncRenamedFund?: (oldNames: string[], newName: string) => void;
+  defaultApproverName?: string;
   readOnly?: boolean;
 }
 
 export default function NeighborhoodFunds({
   contributions,
   onAddContribution,
+  onBatchAddContributions,
   onUpdateContribution,
   onDeleteContribution,
   onUpdateContributionStatus,
@@ -102,8 +112,12 @@ export default function NeighborhoodFunds({
   onUpdateExpenditure,
   onDeleteExpenditure,
   onSyncRenamedFund,
+  defaultApproverName,
   readOnly = false,
 }: NeighborhoodFundsProps) {
+  const resolvedApproverName =
+    defaultApproverName ||
+    extractKeyLeadersSummary(getStoredAssociations()).partySecretary.name;
   const [activeSubTab, setActiveSubTab] = useState<FundsSubTab>(
     readOnly ? "qr_portal" : "thu"
   );
@@ -208,6 +222,47 @@ export default function NeighborhoodFunds({
   const [selectedReceipt, setSelectedReceipt] =
     useState<ReceiptPreviewData | null>(null);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const [pendingConfirmations, setPendingConfirmations] = useState<
+    Array<{
+      id: string;
+      contributionId: string;
+      householdCode: string;
+      ownerName: string;
+      fundName: string;
+      amount: number;
+      transferMemo: string;
+      reportedAt: string;
+      status: "pending_review" | "verified";
+    }>
+  >([]);
+
+  useEffect(() => {
+    if (readOnly) return;
+    let active = true;
+    loadPortalSetting<any[]>("pending_fund_confirmations").then((rows) => {
+      if (active && Array.isArray(rows)) {
+        setPendingConfirmations(rows.filter((r) => r && r.status === "pending_review"));
+      }
+    });
+    return () => {
+      active = false;
+    };
+  }, [readOnly, activeSubTab]);
+
+  const handleVerifyPendingTransfer = (confItem: any) => {
+    const todayStr = new Date().toLocaleDateString("vi-VN");
+    if (confItem.contributionId && !String(confItem.contributionId).startsWith("BUNDLE-")) {
+      onUpdateContributionStatus(confItem.contributionId, "Đã nộp", todayStr);
+    } else if (confItem.householdCode) {
+      contributions
+        .filter((c) => c.householdCode === confItem.householdCode && c.status !== "Đã nộp")
+        .forEach((c) => onUpdateContributionStatus(c.id, "Đã nộp", todayStr));
+    }
+    const nextRemaining = pendingConfirmations.filter((p) => p.id !== confItem.id);
+    setPendingConfirmations(nextRemaining);
+    savePortalSetting("pending_fund_confirmations", nextRemaining, true);
+    showToast(`Đã đối soát & duyệt thu VietQR cho hộ ${confItem.householdCode}.`);
+  };
 
   const showToast = (msg: string) => {
     setToastMessage(msg);
@@ -334,13 +389,15 @@ export default function NeighborhoodFunds({
         .map((c) => c.householdCode)
     );
 
-    let createdCount = 0;
+    const newItems: FundContribution[] = [];
     selectedHouseholds.forEach((hh, idx) => {
       if (existingKeys.has(hh.code)) return;
-      createdCount += 1;
       const receiptCode = `${category.code}-${hh.code.replace(/[^A-Z0-9]/gi, "")}`;
-      onAddContribution({
-        id: `FD-${Date.now().toString().slice(-4)}-${idx}`,
+      newItems.push({
+        id:
+          typeof crypto !== "undefined" && typeof crypto.randomUUID === "function"
+            ? crypto.randomUUID()
+            : `FD-${Date.now().toString().slice(-4)}-${idx}`,
         receiptCode,
         householdCode: hh.code,
         ownerName: hh.ownerName,
@@ -353,9 +410,14 @@ export default function NeighborhoodFunds({
       });
     });
 
-    if (createdCount > 0) {
+    if (newItems.length > 0) {
+      if (onBatchAddContributions) {
+        onBatchAddContributions(newItems);
+      } else {
+        newItems.forEach((item) => onAddContribution(item));
+      }
       showToast(
-        `Đã phát hành ${createdCount} phiếu nhắc thu cho "${category.name}".`
+        `Đã phát hành ${newItems.length} phiếu nhắc thu cho "${category.name}".`
       );
       setFundFilter(category.name);
       setStatusFilter("Chưa nộp");
@@ -442,7 +504,7 @@ export default function NeighborhoodFunds({
         subDetail: `${payer.label} (${payer.codeLabel})`,
         evidence: "Biên lai thu quỹ cộng đồng điện tử",
         fundName: item.fundName,
-        approvedBy: "Nguyễn Văn Hùng",
+        approvedBy: resolvedApproverName,
       });
     } else {
       setSelectedReceipt({
@@ -790,44 +852,47 @@ export default function NeighborhoodFunds({
           label="Tồn quỹ thực tế"
           value={formatVNNumber(balanceFund)}
           badge="VNĐ"
-          highlighted={true}
+          highlighted={activeSubTab === "baocao"}
           icon={Coins}
           color={balanceFund >= 0 ? "emerald" : "rose"}
           subtext={
             totalOpeningBalance !== 0
-              ? `Dư đầu kỳ ${formatVNNumber(totalOpeningBalance)}đ`
-              : balanceFund >= 0
-              ? "Quỹ đang thặng dư"
-              : "Chi vượt thu kỳ này"
+              ? `Đầu kỳ: ${formatVNNumber(totalOpeningBalance)}đ`
+              : undefined
           }
-          subtextRight={balanceFund >= 0 ? "Thặng dư" : "Cần cân đối"}
+          onClick={() => setActiveSubTab("baocao")}
         />
         <StatCard
           label="Tổng thu quỹ"
           value={formatVNNumber(totalRevenue)}
           badge="VNĐ"
+          highlighted={activeSubTab === "thu"}
           icon={ArrowUpRight}
           color="blue"
           subtext={`${payerBreakdown.householdCount} hộ • ${payerBreakdown.orgCount} ĐV`}
           subtextRight={`${pendingContributions.length} chờ thu`}
+          onClick={() => setActiveSubTab("thu")}
         />
         <StatCard
           label="Tổng chi quỹ"
           value={formatVNNumber(totalExpense)}
           badge="VNĐ"
+          highlighted={activeSubTab === "chi"}
           icon={ArrowDownRight}
           color="rose"
-          subtext={`${expenditures.length} phiếu đã lập`}
-          subtextRight="Công khai"
+          subtext={`${expenditures.length} phiếu chi`}
+          onClick={() => setActiveSubTab("chi")}
         />
         <StatCard
           label="Tiến độ năm"
           value={targetProgressPercent}
           badge="%"
+          highlighted={activeSubTab === "danhmuc"}
           icon={TrendingUp}
           color="amber"
-          subtext={`${paidContributions.length}/${contributions.length} phiếu nộp`}
+          subtext={`${paidContributions.length}/${contributions.length} phiếu`}
           subtextRight={`Mục tiêu ${Math.round(totalAnnualTarget / 1_000_000)}tr`}
+          onClick={() => setActiveSubTab("danhmuc")}
         />
       </div>
 
@@ -1009,6 +1074,42 @@ export default function NeighborhoodFunds({
 
       {/* TAB 1: SỔ THU QUỸ */}
       {activeSubTab === "thu" && (
+        <div className="space-y-4">
+          {!readOnly && pendingConfirmations.length > 0 && (
+            <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 space-y-2.5 text-xs">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <span className="font-bold text-amber-950 flex items-center gap-1.5">
+                  <QrCode size={15} className="text-amber-700 shrink-0" />
+                  Có {pendingConfirmations.length} thông báo &ldquo;Báo đã chuyển khoản VietQR&rdquo; từ cư dân chờ Thủ quỹ đối soát:
+                </span>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                {pendingConfirmations.slice(0, 6).map((item) => (
+                  <div
+                    key={item.id}
+                    className="bg-white border border-amber-200 rounded-lg p-2.5 flex flex-wrap items-center justify-between gap-2"
+                  >
+                    <div className="min-w-0">
+                      <span className="font-bold text-slate-900 block truncate">
+                        {item.householdCode} • {item.fundName}
+                      </span>
+                      <span className="text-slate-600 font-mono">
+                        {Number(item.amount || 0).toLocaleString("vi-VN")}đ • {item.reportedAt}
+                      </span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => handleVerifyPendingTransfer(item)}
+                      className="px-2.5 py-1.5 rounded-lg bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-xs cursor-pointer whitespace-nowrap shrink-0"
+                    >
+                      Đối soát &amp; Duyệt thu
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
         <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
           {viewMode === "table" ? (
             <div
@@ -1021,11 +1122,11 @@ export default function NeighborhoodFunds({
                 <thead className="sticky top-0 z-10 bg-slate-50 border-b border-slate-200 text-xs font-semibold text-slate-700 uppercase tracking-wider">
                   <tr>
                     <th className="px-3 xl:px-4 py-3 whitespace-nowrap">Biên lai</th>
-                    <th className="px-3 xl:px-4 py-3">Đối tượng đóng góp</th>
-                    <th className="px-3 xl:px-4 py-3">Loại quỹ</th>
+                    <th className="px-3 xl:px-4 py-3 min-w-[200px]">Đối tượng đóng góp</th>
+                    <th className="px-3 xl:px-4 py-3 min-w-[150px]">Loại quỹ</th>
                     <th className="px-3 xl:px-4 py-3 whitespace-nowrap text-right">Số tiền</th>
                     <th className="px-3 xl:px-4 py-3 whitespace-nowrap">Trạng thái & Ngày</th>
-                    <th className="px-3 xl:px-4 py-3 whitespace-nowrap text-right">Thao tác</th>
+                    <th className="px-3 xl:px-4 py-3 whitespace-nowrap text-right sticky right-0 bg-slate-50 z-20 shadow-[-4px_0_8px_-4px_rgba(15,23,42,0.06)]">Thao tác</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
@@ -1051,14 +1152,26 @@ export default function NeighborhoodFunds({
                       const payer = inferPayerMeta(cont);
 
                       return (
-                        <tr key={cont.id} className="bg-white">
+                        <tr
+                          key={cont.id}
+                          tabIndex={0}
+                          onClick={() => handleOpenReceipt("THU", cont)}
+                          onKeyDown={(e) => {
+                            if (e.target !== e.currentTarget) return;
+                            if (e.key === "Enter" || e.key === " ") {
+                              e.preventDefault();
+                              handleOpenReceipt("THU", cont);
+                            }
+                          }}
+                          className="bg-white hover:bg-blue-50/40 cursor-pointer transition-colors group"
+                        >
                           <td
                             className="px-3 xl:px-4 py-3 font-mono text-xs font-semibold text-slate-700 whitespace-nowrap"
                             title={`Mã hệ thống: ${cont.id}`}
                           >
                             {shortCode}
                           </td>
-                          <td className="px-3 xl:px-4 py-3">
+                          <td className="px-3 xl:px-4 py-3 min-w-[200px]">
                             <div className="flex items-center gap-2.5 min-w-0">
                               <div className="w-8 h-8 rounded-full bg-slate-100 border border-slate-200 text-[#073B72] flex items-center justify-center font-bold text-xs shrink-0">
                                 {cont.ownerName.charAt(0)}
@@ -1073,8 +1186,8 @@ export default function NeighborhoodFunds({
                               </div>
                             </div>
                           </td>
-                          <td className="px-3 xl:px-4 py-3">
-                            <span className="inline-flex items-center px-2.5 py-0.5 rounded-md text-xs font-semibold bg-blue-50 text-[#073B72] border border-blue-200 whitespace-nowrap">
+                          <td className="px-3 xl:px-4 py-3 min-w-[150px]">
+                            <span className="inline-flex items-center px-2.5 py-0.5 rounded-md text-xs font-semibold bg-blue-50 text-[#073B72] border border-blue-200 leading-snug">
                               {cont.fundName}
                             </span>
                           </td>
@@ -1093,7 +1206,10 @@ export default function NeighborhoodFunds({
                               </span>
                             </div>
                           </td>
-                          <td className="px-3 xl:px-4 py-3 whitespace-nowrap text-right">
+                          <td
+                            onClick={(e) => e.stopPropagation()}
+                            className="px-3 xl:px-4 py-3 whitespace-nowrap text-right sticky right-0 bg-white group-hover:bg-blue-50 z-10 shadow-[-4px_0_8px_-4px_rgba(15,23,42,0.06)]"
+                          >
                             <div className="inline-flex items-center justify-end gap-1.5">
                               <button
                                 type="button"
@@ -1174,7 +1290,7 @@ export default function NeighborhoodFunds({
               </table>
             </div>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 p-4 bg-slate-50">
+            <div className="grid grid-cols-1 md:grid-cols-2 2xl:grid-cols-3 gap-4 p-4 bg-slate-50">
               {filteredContributions.length === 0 ? (
                 <div className="col-span-full">
                   <EmptyState
@@ -1191,7 +1307,18 @@ export default function NeighborhoodFunds({
                   return (
                     <div
                       key={cont.id}
-                      className="bg-white p-4 rounded-xl border border-slate-200 flex flex-col justify-between gap-3"
+                      role="button"
+                      tabIndex={0}
+                      aria-label={`Xem biên lai thu ${shortCode}`}
+                      onClick={() => handleOpenReceipt("THU", cont)}
+                      onKeyDown={(e) => {
+                        if (e.target !== e.currentTarget) return;
+                        if (e.key === "Enter" || e.key === " ") {
+                          e.preventDefault();
+                          handleOpenReceipt("THU", cont);
+                        }
+                      }}
+                      className="bg-white p-4 rounded-xl border border-slate-200 hover:border-blue-400 hover:shadow-sm transition-all flex flex-col justify-between gap-3 cursor-pointer group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
                     >
                       <div className="flex justify-between items-start gap-2">
                         <div className="min-w-0">
@@ -1216,20 +1343,23 @@ export default function NeighborhoodFunds({
                         <span className="text-xs font-semibold text-[#073B72] bg-blue-50 border border-blue-200 px-2 py-0.5 rounded-md truncate">
                           {cont.fundName}
                         </span>
-                        <span className="font-bold text-slate-900 text-sm font-mono tabular-nums shrink-0">
+                        <span className="font-bold text-slate-900 text-sm font-mono tabular-nums shrink-0 whitespace-nowrap">
                           {cont.amount.toLocaleString("vi-VN")}đ
                         </span>
                       </div>
 
-                      <div className="pt-2.5 border-t border-slate-100 flex justify-between items-center gap-2">
-                        <span className="text-xs text-slate-600 font-mono">
+                      <div className="pt-2.5 border-t border-slate-100 flex flex-wrap justify-between items-center gap-2">
+                        <span className="text-xs text-slate-600 font-mono whitespace-nowrap shrink-0">
                           {cont.paidAt || "Chờ nộp"}
                         </span>
-                        <div className="flex items-center gap-1.5 shrink-0">
+                        <div
+                          onClick={(e) => e.stopPropagation()}
+                          className="flex items-center gap-1.5 shrink-0"
+                        >
                           <button
                             type="button"
                             onClick={() => handleOpenReceipt("THU", cont)}
-                            className="p-1.5 bg-white hover:bg-slate-100 text-slate-700 rounded-lg border border-slate-200 cursor-pointer"
+                            className="p-1.5 bg-white hover:bg-slate-100 text-slate-700 rounded-lg border border-slate-200 cursor-pointer shrink-0"
                             title="In biên lai"
                             aria-label={`In biên lai ${shortCode}`}
                           >
@@ -1241,7 +1371,7 @@ export default function NeighborhoodFunds({
                                 <button
                                   type="button"
                                   onClick={() => onUpdateContributionStatus(cont.id, "Chưa nộp")}
-                                  className="text-xs font-semibold text-rose-700 bg-rose-50 hover:bg-rose-100 border border-rose-200 px-2.5 py-1 rounded-lg cursor-pointer"
+                                  className="text-xs font-semibold text-rose-700 bg-rose-50 hover:bg-rose-100 border border-rose-200 px-2.5 py-1 rounded-lg cursor-pointer whitespace-nowrap shrink-0"
                                 >
                                   Hủy thu
                                 </button>
@@ -1250,7 +1380,7 @@ export default function NeighborhoodFunds({
                                   <button
                                     type="button"
                                     onClick={() => setActiveVietQrContribution(cont)}
-                                    className="text-xs font-semibold text-white bg-[#073B72] hover:bg-[#06305d] px-2.5 py-1 rounded-lg cursor-pointer"
+                                    className="text-xs font-semibold text-white bg-[#073B72] hover:bg-[#06305d] px-2.5 py-1 rounded-lg cursor-pointer whitespace-nowrap shrink-0"
                                   >
                                     QR
                                   </button>
@@ -1260,7 +1390,7 @@ export default function NeighborhoodFunds({
                                       const todayStr = new Date().toLocaleDateString("vi-VN");
                                       onUpdateContributionStatus(cont.id, "Đã nộp", todayStr);
                                     }}
-                                    className="text-xs font-semibold text-white bg-emerald-600 hover:bg-emerald-700 px-2.5 py-1 rounded-lg cursor-pointer"
+                                    className="text-xs font-semibold text-white bg-emerald-600 hover:bg-emerald-700 px-2.5 py-1 rounded-lg cursor-pointer whitespace-nowrap shrink-0"
                                   >
                                     Thu tiền
                                   </button>
@@ -1272,7 +1402,7 @@ export default function NeighborhoodFunds({
                                   setEditingContribution(cont);
                                   setShowAddThuModal(true);
                                 }}
-                                className="p-1.5 bg-white hover:bg-slate-100 text-slate-700 rounded-lg border border-slate-200 cursor-pointer"
+                                className="p-1.5 bg-white hover:bg-slate-100 text-slate-700 rounded-lg border border-slate-200 cursor-pointer shrink-0"
                                 title="Sửa phiếu thu"
                                 aria-label={`Sửa phiếu thu ${shortCode}`}
                               >
@@ -1282,7 +1412,7 @@ export default function NeighborhoodFunds({
                                 <button
                                   type="button"
                                   onClick={() => setDeleteContTarget(cont)}
-                                  className="p-1.5 bg-rose-50 hover:bg-rose-100 text-rose-700 rounded-lg border border-rose-200 cursor-pointer"
+                                  className="p-1.5 bg-rose-50 hover:bg-rose-100 text-rose-700 rounded-lg border border-rose-200 cursor-pointer shrink-0"
                                   title="Xóa phiếu thu"
                                   aria-label={`Xóa phiếu thu ${shortCode}`}
                                 >
@@ -1308,6 +1438,7 @@ export default function NeighborhoodFunds({
             onPageChange={setCurrentContributionsPage}
           />
         </div>
+        </div>
       )}
 
       {/* TAB 2: SỔ CHI QUYẾT TOÁN */}
@@ -1324,11 +1455,11 @@ export default function NeighborhoodFunds({
                 <thead className="sticky top-0 z-10 bg-slate-50 border-b border-slate-200 text-xs font-semibold text-slate-700 uppercase tracking-wider">
                   <tr>
                     <th className="px-3 xl:px-4 py-3 whitespace-nowrap">Phiếu chi</th>
-                    <th className="px-3 xl:px-4 py-3">Nội dung & Chứng từ</th>
-                    <th className="px-3 xl:px-4 py-3">Quỹ trích chi</th>
+                    <th className="px-3 xl:px-4 py-3 min-w-[200px]">Nội dung & Chứng từ</th>
+                    <th className="px-3 xl:px-4 py-3 min-w-[150px]">Quỹ trích chi</th>
                     <th className="px-3 xl:px-4 py-3 whitespace-nowrap text-right">Số tiền chi</th>
-                    <th className="px-3 xl:px-4 py-3">Đơn vị nhận & Ngày</th>
-                    <th className="px-3 xl:px-4 py-3 whitespace-nowrap text-right">Thao tác</th>
+                    <th className="px-3 xl:px-4 py-3 min-w-[160px]">Đơn vị nhận & Ngày</th>
+                    <th className="px-3 xl:px-4 py-3 whitespace-nowrap text-right sticky right-0 bg-slate-50 z-20 shadow-[-4px_0_8px_-4px_rgba(15,23,42,0.06)]">Thao tác</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
@@ -1351,11 +1482,23 @@ export default function NeighborhoodFunds({
                         "PC"
                       );
                       return (
-                        <tr key={exp.id} className="bg-white">
+                        <tr
+                          key={exp.id}
+                          tabIndex={0}
+                          onClick={() => handleOpenReceipt("CHI", exp)}
+                          onKeyDown={(e) => {
+                            if (e.target !== e.currentTarget) return;
+                            if (e.key === "Enter" || e.key === " ") {
+                              e.preventDefault();
+                              handleOpenReceipt("CHI", exp);
+                            }
+                          }}
+                          className="bg-white hover:bg-rose-50/40 cursor-pointer transition-colors group"
+                        >
                           <td className="px-3 xl:px-4 py-3 font-mono text-xs font-semibold text-slate-700 whitespace-nowrap">
                             {shortVoucher}
                           </td>
-                          <td className="px-3 xl:px-4 py-3 max-w-md">
+                          <td className="px-3 xl:px-4 py-3 min-w-[200px] max-w-md">
                             <p className="font-semibold text-slate-900 line-clamp-2 leading-snug">
                               {exp.title}
                             </p>
@@ -1366,15 +1509,15 @@ export default function NeighborhoodFunds({
                               )}
                             </div>
                           </td>
-                          <td className="px-3 xl:px-4 py-3">
-                            <span className="inline-flex items-center px-2.5 py-0.5 rounded-md text-xs font-semibold bg-rose-50 text-rose-800 border border-rose-200 whitespace-nowrap">
+                          <td className="px-3 xl:px-4 py-3 min-w-[150px]">
+                            <span className="inline-flex items-center px-2.5 py-0.5 rounded-md text-xs font-semibold bg-rose-50 text-rose-800 border border-rose-200 leading-snug">
                               {exp.fundName}
                             </span>
                           </td>
                           <td className="px-3 xl:px-4 py-3 font-mono font-bold text-rose-700 text-sm text-right whitespace-nowrap tabular-nums">
                             -{exp.amount.toLocaleString("vi-VN")}đ
                           </td>
-                          <td className="px-3 xl:px-4 py-3">
+                          <td className="px-3 xl:px-4 py-3 min-w-[160px]">
                             <span className="font-semibold text-slate-900 block">
                               {exp.receiver}
                             </span>
@@ -1382,7 +1525,10 @@ export default function NeighborhoodFunds({
                               {exp.spentAt}
                             </span>
                           </td>
-                          <td className="px-3 xl:px-4 py-3 whitespace-nowrap text-right">
+                          <td
+                            onClick={(e) => e.stopPropagation()}
+                            className="px-3 xl:px-4 py-3 whitespace-nowrap text-right sticky right-0 bg-white group-hover:bg-rose-50 z-10 shadow-[-4px_0_8px_-4px_rgba(15,23,42,0.06)]"
+                          >
                             <div className="inline-flex items-center justify-end gap-1.5">
                               <button
                                 type="button"
@@ -1426,7 +1572,7 @@ export default function NeighborhoodFunds({
               </table>
             </div>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 p-4 bg-slate-50">
+            <div className="grid grid-cols-1 md:grid-cols-2 2xl:grid-cols-3 gap-4 p-4 bg-slate-50">
               {filteredExpenditures.length === 0 ? (
                 <div className="col-span-full">
                   <EmptyState
@@ -1444,7 +1590,18 @@ export default function NeighborhoodFunds({
                   return (
                     <div
                       key={exp.id}
-                      className="bg-white p-4 rounded-xl border border-slate-200 flex flex-col justify-between gap-3"
+                      role="button"
+                      tabIndex={0}
+                      aria-label={`Xem phiếu chi ${shortVoucher}`}
+                      onClick={() => handleOpenReceipt("CHI", exp)}
+                      onKeyDown={(e) => {
+                        if (e.target !== e.currentTarget) return;
+                        if (e.key === "Enter" || e.key === " ") {
+                          e.preventDefault();
+                          handleOpenReceipt("CHI", exp);
+                        }
+                      }}
+                      className="bg-white p-4 rounded-xl border border-slate-200 hover:border-rose-400 hover:shadow-sm transition-all flex flex-col justify-between gap-3 cursor-pointer group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-500"
                     >
                       <div className="space-y-1.5">
                         <div className="flex justify-between items-start gap-2">
@@ -1476,11 +1633,14 @@ export default function NeighborhoodFunds({
                         </span>
                       </div>
 
-                      <div className="pt-2.5 border-t border-slate-100 flex justify-between items-center gap-2">
-                        <span className="text-xs text-slate-600 font-mono">
+                      <div className="pt-2.5 border-t border-slate-100 flex flex-wrap justify-between items-center gap-2">
+                        <span className="text-xs text-slate-600 font-mono whitespace-nowrap shrink-0">
                           {exp.spentAt}
                         </span>
-                        <div className="flex items-center gap-1.5">
+                        <div
+                          onClick={(e) => e.stopPropagation()}
+                          className="flex items-center gap-1.5"
+                        >
                           <button
                             type="button"
                             onClick={() => handleOpenReceipt("CHI", exp)}
@@ -1564,11 +1724,8 @@ export default function NeighborhoodFunds({
                 <h3 className="font-bold text-slate-900 text-base">
                   Biểu đồ Thu – Chi – Tồn theo Từng Quỹ (Năm 2026)
                 </h3>
-                <p className="text-xs text-slate-600 mt-0.5">
-                  Tổng hợp đầy đủ {categories.length} quỹ hiện hành trong danh mục KP3
-                </p>
               </div>
-              <StatusBadge status="completed" label="Tự động đối soát" size="sm" />
+              <StatusBadge status="completed" label={`${categories.length} quỹ`} size="sm" />
             </div>
 
             <div className="h-72 w-full">
@@ -1654,13 +1811,29 @@ export default function NeighborhoodFunds({
                 </thead>
                 <tbody className="divide-y divide-slate-100">
                   {listFundsStats.map((stat) => (
-                    <tr key={stat.category.id} className="bg-white">
+                    <tr
+                      key={stat.category.id}
+                      tabIndex={0}
+                      onClick={() => {
+                        setFundFilter(stat.name);
+                        setActiveSubTab("thu");
+                      }}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" || e.key === " ") {
+                          e.preventDefault();
+                          setFundFilter(stat.name);
+                          setActiveSubTab("thu");
+                        }
+                      }}
+                      className="bg-white hover:bg-emerald-50/40 cursor-pointer transition-colors group"
+                      title={`Xem sổ thu chi tiết của ${stat.name}`}
+                    >
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-2">
                           <span className="font-mono text-xs font-bold px-1.5 py-0.5 rounded bg-slate-100 border border-slate-200 text-slate-700">
                             {stat.shortLabel}
                           </span>
-                          <span className="font-bold text-slate-900">
+                          <span className="font-bold text-slate-900 group-hover:text-emerald-800 transition-colors">
                             {stat.name}
                           </span>
                         </div>

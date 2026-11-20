@@ -25,6 +25,7 @@ import {
   DEFAULT_LEADERSHIP_MEMBERS,
   mergeLandingConfig,
 } from "./landingConstants";
+import { enforcePartySecretaryFirst } from "../../utils/leadershipSync";
 
 export interface CitizenAboutKP3SectionProps {
   landingConfig?: LandingConfig;
@@ -38,10 +39,16 @@ export default function CitizenAboutKP3Section({
 
   const merged = mergeLandingConfig(landingConfig);
   const about = merged.about || DEFAULT_LANDING_CONFIG.about!;
-  const leadership =
+  const leadership = enforcePartySecretaryFirst(
     merged.leadership && merged.leadership.length > 0
       ? merged.leadership
-      : DEFAULT_LEADERSHIP_MEMBERS;
+      : DEFAULT_LEADERSHIP_MEMBERS
+  );
+  const associationDirectory = (
+    merged.associationLeaders && merged.associationLeaders.length > 0
+      ? merged.associationLeaders
+      : DEFAULT_LANDING_CONFIG.associationLeaders || []
+  ).filter((a) => a.assocId !== "ASC_DANG" && a.assocId !== "ASC_BDH");
   const galleryImages = merged.galleryImages || [];
 
   const handleShare = () => {
@@ -59,7 +66,7 @@ export default function CitizenAboutKP3Section({
           <div className="relative z-10 max-w-3xl space-y-4">
             <div className="flex flex-wrap items-center gap-2">
               <span className="px-3 py-1 rounded-full bg-red-700 border border-red-500 text-white text-xs font-black uppercase tracking-wider inline-flex items-center gap-1.5">
-                <Landmark size={13} aria-hidden="true" /> KHU PHỐ 04 / 14 KHU PHỐ
+                <Landmark size={13} aria-hidden="true" /> KHU PHỐ 03 / 14 KHU PHỐ
               </span>
               <span className="px-3 py-1 rounded-full bg-white/10 text-blue-100 text-xs font-semibold border border-white/25 inline-flex items-center gap-1">
                 <Globe size={13} aria-hidden="true" /> DỮ LIỆU ĐẢNG BỘ PHƯỜNG AN PHÚ
@@ -95,7 +102,7 @@ export default function CitizenAboutKP3Section({
         </div>
 
         {/* 2. Quy Mô Địa Bàn & Chỉ Số Phát Triển (KPI Cards) */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3 sm:gap-4">
           <div className="bg-white p-5 rounded-2xl border border-slate-200 space-y-1">
             <span className="text-slate-600 text-xs font-semibold flex items-center gap-1.5">
               <Home size={15} className="text-blue-700" aria-hidden="true" /> Hộ gia đình
@@ -274,68 +281,120 @@ export default function CitizenAboutKP3Section({
             </a>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            {leadership.map((cu, idx) => (
-              <div 
-                key={cu.id}
-                className={`p-5 rounded-2xl border transition-colors flex flex-col justify-between space-y-3 ${
-                  cu.isHighlight 
-                    ? "bg-rose-50/50 border-rose-200" 
-                    : "bg-white border-slate-200 hover:border-slate-300"
-                }`}
-              >
-                <div className="space-y-2">
-                  <div className="flex flex-wrap items-start justify-between gap-2">
-                    {cu.avatar ? (
-                      <img
-                        src={cu.avatar}
-                        alt={cu.name}
-                        className="w-14 h-[84px] rounded-xl object-cover object-top border border-slate-200 bg-slate-100 shrink-0"
-                      />
-                    ) : (
-                      <span className="text-xs font-mono font-bold px-2 py-0.5 rounded-full bg-slate-100 text-slate-700">
-                        #{String(idx + 1).padStart(2, "0")}
+          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+            {leadership.map((cu, idx) => {
+              const isTop = idx === 0 || Boolean(cu.isTopLeader);
+              return (
+                <div 
+                  key={cu.id}
+                  className={`p-5 rounded-2xl border transition-colors flex flex-col justify-between space-y-3 ${
+                    isTop
+                      ? "bg-rose-50/70 border-rose-300 ring-1 ring-rose-200/80"
+                      : cu.isHighlight 
+                      ? "bg-rose-50/40 border-rose-200" 
+                      : "bg-white border-slate-200 hover:border-slate-300"
+                  }`}
+                >
+                  <div className="space-y-2">
+                    {isTop && (
+                      <span className="inline-flex items-center gap-1 text-[11px] font-extrabold uppercase tracking-wider text-rose-800 bg-rose-100 border border-rose-200 px-2.5 py-0.5 rounded-full">
+                        ★ Người đứng đầu Khu phố 3
                       </span>
                     )}
-                    <span className={`text-xs font-bold px-2.5 py-0.5 rounded-full border ${
-                      cu.isHighlight 
-                        ? "bg-red-700 text-white border-red-700" 
-                        : "bg-slate-50 text-slate-700 border-slate-200"
-                    }`}>
-                      {cu.role}
-                    </span>
-                  </div>
-
-                  <div>
-                    <h3 className="font-extrabold text-base text-slate-900">
-                      {cu.name}
-                    </h3>
-                    {cu.subRole && (
-                      <span className="text-xs font-bold text-emerald-700 block mt-0.5">
-                        {cu.subRole}
+                    <div className="flex flex-wrap items-start justify-between gap-2">
+                      {cu.avatar ? (
+                        <img
+                          src={cu.avatar}
+                          alt={cu.name}
+                          className="w-14 h-[84px] rounded-xl object-cover object-top border border-slate-200 bg-slate-100 shrink-0"
+                        />
+                      ) : (
+                        <span className="text-xs font-mono font-bold px-2 py-0.5 rounded-full bg-slate-100 text-slate-700">
+                          #{String(idx + 1).padStart(2, "0")}
+                        </span>
+                      )}
+                      <span className={`text-xs font-bold px-2.5 py-0.5 rounded-full border ${
+                        isTop || cu.isHighlight 
+                          ? "bg-red-700 text-white border-red-700" 
+                          : "bg-slate-50 text-slate-700 border-slate-200"
+                      }`}>
+                        {cu.role}
                       </span>
-                    )}
+                    </div>
+
+                    <div>
+                      <h3 className="font-extrabold text-base text-slate-900">
+                        {cu.name}
+                      </h3>
+                      {cu.subRole && (
+                        <span className="text-xs font-bold text-emerald-700 block mt-0.5">
+                          {cu.subRole}
+                        </span>
+                      )}
+                    </div>
+
+                    <p className="text-xs text-slate-600 leading-relaxed">
+                      {cu.description || cu.scope}
+                    </p>
                   </div>
 
-                  <p className="text-xs text-slate-600 leading-relaxed">
-                    {cu.description || cu.scope}
-                  </p>
+                  {cu.phone && (
+                    <div className="pt-3 border-t border-slate-200 flex flex-wrap items-center justify-between gap-2">
+                      <span className="text-xs text-slate-600 font-medium">Điện thoại:</span>
+                      <a 
+                        href={`tel:${cu.phone}`} 
+                        className="min-h-[36px] text-xs font-black font-mono text-gov-blue hover:text-gov-navy flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-blue-50 hover:bg-blue-100 border border-blue-200 transition-colors"
+                      >
+                        <Phone size={12} aria-hidden="true" /> {cu.phone}
+                      </a>
+                    </div>
+                  )}
                 </div>
-
-                {cu.phone && (
-                  <div className="pt-3 border-t border-slate-200 flex flex-wrap items-center justify-between gap-2">
-                    <span className="text-xs text-slate-600 font-medium">Điện thoại:</span>
-                    <a 
-                      href={`tel:${cu.phone}`} 
-                      className="min-h-[36px] text-xs font-black font-mono text-gov-blue hover:text-gov-navy flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-blue-50 hover:bg-blue-100 border border-blue-200 transition-colors"
-                    >
-                      <Phone size={12} aria-hidden="true" /> {cu.phone}
-                    </a>
-                  </div>
-                )}
-              </div>
-            ))}
+              );
+            })}
           </div>
+
+          {/* Trưởng / Phó các Chi hội Đoàn thể & Tổ tự quản tại Khu Phố 3 */}
+          {associationDirectory.length > 0 && (
+            <div className="pt-4 border-t border-slate-200 space-y-3">
+              <div>
+                <span className="text-xs font-black text-emerald-700 uppercase tracking-widest block">
+                  MẶT TRẬN, ĐOÀN THỂ &amp; TỰ QUẢN CƠ SỞ
+                </span>
+                <h3 className="text-base sm:text-lg font-extrabold text-slate-900 mt-0.5">
+                  Trưởng / Phó các Ban, Chi hội &amp; Tổ chuyên trách ({associationDirectory.length} đơn vị)
+                </h3>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                {associationDirectory.map((assoc) => (
+                  <div
+                    key={assoc.assocId}
+                    className="p-3.5 rounded-xl border border-slate-200 bg-slate-50/70 space-y-1"
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <h4 className="text-xs sm:text-sm font-bold text-slate-900 line-clamp-2 leading-snug">
+                        {assoc.assocName}
+                      </h4>
+                      <span className="text-[11px] font-mono font-semibold text-slate-500 bg-white px-2 py-0.5 rounded-full border border-slate-200 shrink-0">
+                        {assoc.memberCount} TV
+                      </span>
+                    </div>
+                    <p className="text-xs text-slate-700">
+                      {assoc.headRole}: <strong className="text-slate-900">{assoc.headName}</strong>
+                    </p>
+                    {assoc.deputyList && assoc.deputyList.length > 0 && (
+                      <p className="text-xs text-slate-600">
+                        {assoc.deputyList[0].role}:{" "}
+                        <span className="font-semibold text-slate-800">
+                          {assoc.deputyList.map((d) => d.name).join(", ")}
+                        </span>
+                      </p>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
 
         {/* 5. Cổng Liên Kết Số Hóa Đảng Ủy Phường An Phú (Inter-portal Navigation) */}

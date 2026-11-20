@@ -25,6 +25,7 @@ import {
   getNewsReadTime,
   getNewsSummary,
   getNewsViews,
+  normalizeNewsAuthor,
 } from "../components/news/newsHelpers";
 import { DetailGrid, DetailRow } from "../components/common/DetailRow";
 import { LoadingFade } from "../components/common/LoadingFade";
@@ -172,6 +173,7 @@ export default function NewsDetailPage({
   const readTime = getNewsReadTime(news);
   const summary = getNewsSummary(news);
   const heroImg = getNewsImage(news);
+  const displayAuthor = normalizeNewsAuthor(news.author);
 
   return (
     <div className="space-y-5 animate-in fade-in duration-200">
@@ -180,55 +182,15 @@ export default function NewsDetailPage({
         badgeText={`Bản tin điện tử • ${shortNewsId}`}
         badgeSubtext={news.category}
         title={news.title}
-        description={`${news.author} • Phát hành ngày ${news.date} • ${readTime} • ${views} lượt đọc`}
+        description={`${displayAuthor} • Phát hành ngày ${news.date} • ${readTime} • ${views} lượt đọc`}
         actions={
-          <div className="flex flex-wrap items-center gap-2">
-            <div className="flex items-center gap-1 border border-slate-200 rounded-xl p-0.5 bg-white">
-              <button
-                type="button"
-                onClick={handlePrev}
-                disabled={!hasPrev}
-                className="p-1.5 rounded-lg text-slate-600 hover:bg-slate-100 disabled:opacity-30 disabled:pointer-events-none cursor-pointer"
-                title="Bản tin trước"
-              >
-                <ChevronLeft size={16} />
-              </button>
-              <span className="text-[11px] font-mono text-slate-500 px-1">
-                {currentIdx + 1}/{newsList.length}
-              </span>
-              <button
-                type="button"
-                onClick={handleNext}
-                disabled={!hasNext}
-                className="p-1.5 rounded-lg text-slate-600 hover:bg-slate-100 disabled:opacity-30 disabled:pointer-events-none cursor-pointer"
-                title="Bản tin tiếp theo"
-              >
-                <ChevronRight size={16} />
-              </button>
-            </div>
-
+          <div className="flex flex-wrap items-center gap-2 shrink-0">
             <button
               type="button"
               onClick={handleBack}
-              className="px-3 py-2 border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-xs font-bold rounded-xl transition-colors cursor-pointer flex items-center gap-1.5 shadow-2xs"
+              className="px-3 py-2 border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-xs font-bold rounded-xl transition-colors cursor-pointer flex items-center gap-1.5 shadow-2xs whitespace-nowrap shrink-0"
             >
               <ArrowLeft size={14} /> Quay lại
-            </button>
-
-            <button
-              type="button"
-              onClick={() => handleCopyShareLink(news)}
-              className="px-3 py-2 border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-xs font-bold rounded-xl transition-colors cursor-pointer flex items-center gap-1.5 shadow-2xs"
-            >
-              <Share2 size={14} /> Chia sẻ
-            </button>
-
-            <button
-              type="button"
-              onClick={() => window.print()}
-              className="px-3 py-2 border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-xs font-bold rounded-xl transition-colors cursor-pointer flex items-center gap-1.5 shadow-2xs"
-            >
-              <Printer size={14} /> In bài
             </button>
 
             <button
@@ -237,7 +199,7 @@ export default function NewsDetailPage({
                 if (onEdit) onEdit(news);
                 else navigate(getNewsEditPath(news.id, basePath));
               }}
-              className="px-3 py-2 border border-emerald-300 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 text-xs font-bold rounded-xl transition-colors cursor-pointer flex items-center gap-1.5"
+              className="px-3 py-2 border border-emerald-300 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 text-xs font-bold rounded-xl transition-colors cursor-pointer flex items-center gap-1.5 whitespace-nowrap shrink-0"
             >
               <Edit3 size={14} /> Chỉnh sửa
             </button>
@@ -245,7 +207,7 @@ export default function NewsDetailPage({
             <button
               type="button"
               onClick={() => setDeleteTarget(news)}
-              className="px-3 py-2 border border-rose-200 bg-rose-50 hover:bg-rose-100 text-rose-700 text-xs font-bold rounded-xl transition-colors cursor-pointer flex items-center gap-1.5"
+              className="px-3 py-2 border border-rose-200 bg-rose-50 hover:bg-rose-100 text-rose-700 text-xs font-bold rounded-xl transition-colors cursor-pointer flex items-center gap-1.5 whitespace-nowrap shrink-0"
             >
               <Trash2 size={14} /> Xóa bài
             </button>
@@ -263,6 +225,65 @@ export default function NewsDetailPage({
 
       {/* Main Article Container */}
       <article className="bg-white rounded-3xl border border-slate-200 overflow-hidden shadow-sm">
+        {/* Article Utility Toolbar (Navigation, Share & Print) */}
+        <div className="px-5 sm:px-8 py-3 bg-slate-50/80 border-b border-slate-100 flex flex-wrap items-center justify-between gap-2 text-xs print:hidden">
+          <div className="flex items-center gap-1.5">
+            <div className="inline-flex items-center gap-1 border border-slate-200 rounded-xl p-0.5 bg-white">
+              <button
+                type="button"
+                onClick={handlePrev}
+                disabled={!hasPrev}
+                className="p-1.5 rounded-lg text-slate-600 hover:bg-slate-100 disabled:opacity-30 disabled:pointer-events-none cursor-pointer"
+                title="Bản tin trước"
+              >
+                <ChevronLeft size={15} />
+              </button>
+              <span className="text-[11px] font-mono text-slate-600 px-1.5">
+                Tin {currentIdx + 1}/{newsList.length}
+              </span>
+              <button
+                type="button"
+                onClick={handleNext}
+                disabled={!hasNext}
+                className="p-1.5 rounded-lg text-slate-600 hover:bg-slate-100 disabled:opacity-30 disabled:pointer-events-none cursor-pointer"
+                title="Bản tin tiếp theo"
+              >
+                <ChevronRight size={15} />
+              </button>
+            </div>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2">
+            {(news.zaloLinkView || news.links?.some((l) => l.url.includes("officialaccount.me") || l.url.includes("zalo"))) && (
+              <a
+                href={news.zaloLinkView || news.links?.find((l) => l.url.includes("officialaccount.me") || l.url.includes("zalo"))?.url}
+                target="_blank"
+                rel="noreferrer"
+                className="px-3 py-1.5 border border-blue-200 bg-blue-50 hover:bg-blue-100 text-blue-700 text-xs font-bold rounded-xl transition-colors cursor-pointer inline-flex items-center gap-1.5 whitespace-nowrap shadow-2xs"
+              >
+                <span>Xem trên Zalo OA</span>
+                <ExternalLink size={12} />
+              </a>
+            )}
+
+            <button
+              type="button"
+              onClick={() => handleCopyShareLink(news)}
+              className="px-3 py-1.5 border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-xs font-bold rounded-xl transition-colors cursor-pointer inline-flex items-center gap-1.5 whitespace-nowrap"
+            >
+              <Share2 size={13} /> Chia sẻ
+            </button>
+
+            <button
+              type="button"
+              onClick={() => window.print()}
+              className="px-3 py-1.5 border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-xs font-bold rounded-xl transition-colors cursor-pointer inline-flex items-center gap-1.5 whitespace-nowrap"
+            >
+              <Printer size={13} /> In bài
+            </button>
+          </div>
+        </div>
+
         {/* Article Header & Meta */}
         <div className="p-5 sm:p-8 space-y-4 border-b border-slate-100">
           <div className="flex flex-wrap items-center gap-2">
@@ -271,6 +292,12 @@ export default function NewsDetailPage({
             >
               {news.category}
             </span>
+            {(news.isFromZalo || news.zaloArticleId) && (
+              <span className="font-bold px-2.5 py-0.5 rounded-full border text-xs bg-blue-50 text-blue-800 border-blue-200 inline-flex items-center gap-1.5 shadow-2xs">
+                <span className="w-2 h-2 rounded-full bg-blue-600 animate-pulse" />
+                Nguồn: Zalo OA Ban Điều Hành KP3
+              </span>
+            )}
             <span className="text-xs font-mono text-slate-500">
               Mã lưu trữ: {shortNewsId}
             </span>
@@ -284,7 +311,7 @@ export default function NewsDetailPage({
           </h1>
 
           <DetailGrid>
-            <DetailRow label="Cơ quan / Tác giả" value={news.author} />
+            <DetailRow label="Cơ quan / Tác giả" value={displayAuthor} />
             <DetailRow label="Ngày phát hành" value={news.date} isMono />
             <DetailRow label="Thời gian đọc" value={readTime} />
             <DetailRow
@@ -297,20 +324,34 @@ export default function NewsDetailPage({
 
         {/* Hero Featured Image */}
         {heroImg && (
-          <div className="w-full h-72 sm:h-96 bg-slate-100 overflow-hidden relative border-b border-slate-100">
+          <div
+            className="w-full bg-slate-900 overflow-hidden relative border-b border-slate-100 group cursor-pointer flex items-center justify-center min-h-[220px] max-h-[520px]"
+            onClick={() => setLightboxImage(heroImg)}
+            title="Nhấn để phóng to ảnh tư liệu"
+          >
             <img
               src={heroImg}
               alt={news.title}
-              className="w-full h-full object-cover"
+              className="max-h-[520px] w-auto max-w-full object-contain mx-auto group-hover:scale-[1.02] transition-transform duration-300"
             />
-            <div className="absolute bottom-3 right-3 bg-slate-950/70 text-white text-[11px] font-medium px-2.5 py-1 rounded-lg backdrop-blur-xs">
-              Ảnh tư liệu hoạt động KP3
+            <div className="absolute bottom-3 right-3 bg-slate-950/75 text-white text-[11px] font-medium px-2.5 py-1 rounded-lg backdrop-blur-xs flex items-center gap-1.5 shadow-md">
+              <Eye size={12} />
+              <span>Xem phóng to ảnh</span>
             </div>
           </div>
         )}
 
         {/* Article Body */}
-        <div className="p-5 sm:p-8 space-y-6 max-w-4xl">
+        <div
+          className="p-5 sm:p-8 space-y-6 max-w-4xl"
+          onClick={(e) => {
+            const target = e.target as HTMLElement;
+            if (target && target.tagName === "IMG") {
+              const src = (target as HTMLImageElement).src;
+              if (src) setLightboxImage(src);
+            }
+          }}
+        >
           {/* Sa-pô (Lead paragraph) */}
           {summary && (
             <div className="p-4 sm:p-5 rounded-2xl bg-slate-50 border-l-4 border-l-emerald-600 text-sm sm:text-base font-semibold text-slate-800 leading-relaxed italic">
@@ -319,9 +360,16 @@ export default function NewsDetailPage({
           )}
 
           {/* Full Content */}
-          <div className="prose prose-slate max-w-none text-slate-800 text-sm sm:text-base leading-relaxed whitespace-pre-line space-y-4">
-            {news.content}
-          </div>
+          {news.content && (news.content.includes("<p>") || news.content.includes("<div>") || news.content.includes("<img")) ? (
+            <div
+              className="prose prose-slate max-w-none text-slate-800 text-sm sm:text-base leading-relaxed space-y-4"
+              dangerouslySetInnerHTML={{ __html: news.content }}
+            />
+          ) : (
+            <div className="prose prose-slate max-w-none text-slate-800 text-sm sm:text-base leading-relaxed whitespace-pre-line space-y-4">
+              {news.content}
+            </div>
+          )}
 
           {/* Image Gallery */}
           {news.imageGallery && news.imageGallery.length > 0 && (
@@ -372,7 +420,7 @@ export default function NewsDetailPage({
                     className="p-3 rounded-xl border border-slate-200 hover:border-emerald-300 hover:bg-emerald-50/40 transition-colors flex items-center justify-between group text-xs"
                   >
                     <span className="font-bold text-slate-800 group-hover:text-emerald-900 truncate">
-                      {lnk.title}
+                      {lnk.label || (lnk as any).title || lnk.url}
                     </span>
                     <ExternalLink
                       size={13}

@@ -6,6 +6,7 @@ import {
   MapPin,
   MessageSquare,
   ShieldAlert,
+  Sparkles,
 } from "lucide-react";
 import { FieldReport } from "../../types";
 import {
@@ -17,6 +18,7 @@ import {
 } from "../../data/reportConfig";
 import { Button, StatusBadge, StatusType } from "../ui";
 import { ReportImage } from "./ImageLightboxModal";
+import { formatShortRecordId } from "../../utils/kp3Utils";
 
 export interface ReportCardProps {
   report: FieldReport;
@@ -59,14 +61,22 @@ export function ReportCard({
   );
 
   return (
-    <article className="bg-white rounded-xl border border-slate-200/80 hover:border-emerald-500/70 transition-colors flex flex-col justify-between overflow-hidden h-full">
+    <article
+      role="button"
+      tabIndex={0}
+      aria-label={`Xem chi tiết phản ánh ${report.title}`}
+      onClick={() => onOpenDetail(report)}
+      onKeyDown={(e) => {
+        if (e.target !== e.currentTarget) return;
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          onOpenDetail(report);
+        }
+      }}
+      className="bg-white rounded-xl border border-slate-200/80 hover:border-emerald-500/70 hover:shadow-md transition-all flex flex-col justify-between overflow-hidden h-full cursor-pointer group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600"
+    >
       {/* 1. Thumbnail Header */}
-      <button
-        type="button"
-        onClick={() => onOpenDetail(report)}
-        className="relative block w-full h-40 bg-slate-100 border-b border-slate-200/80 overflow-hidden text-left cursor-pointer group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600"
-        aria-label={`Xem chi tiết và ảnh phản ánh ${report.title}`}
-      >
+      <div className="relative block w-full h-40 bg-slate-100 border-b border-slate-200/80 overflow-hidden text-left">
         {beforeImgs.length > 0 && afterImgs.length > 0 ? (
           <div className="grid grid-cols-2 w-full h-full gap-0.5 bg-white">
             <div className="relative h-full overflow-hidden">
@@ -110,6 +120,13 @@ export function ReportCard({
           {report.category}
         </span>
 
+        {/* Timemark Verified Badge */}
+        {report.timemarkVerified && (
+          <span className="absolute top-2.5 right-2.5 px-2 py-0.5 rounded-full text-[11px] font-bold bg-amber-500 text-white shadow-2xs flex items-center gap-1">
+            <Sparkles size={10} /> Timemark GPS
+          </span>
+        )}
+
         {/* Photo Count Chip */}
         {totalPhotos > 0 && !(beforeImgs.length > 0 && afterImgs.length > 0) && (
           <span className="absolute bottom-2.5 right-2.5 inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-slate-900/85 text-white text-xs font-semibold">
@@ -117,14 +134,14 @@ export function ReportCard({
             <span>{totalPhotos} ảnh</span>
           </span>
         )}
-      </button>
+      </div>
 
       {/* 2. Body Info (concise, touch-safe title >= 32px) */}
       <div className="p-4 flex-1 flex flex-col gap-2">
         <div className="flex items-center justify-between gap-2 flex-wrap">
           <div className="flex items-center gap-1.5">
-            <span className="font-mono text-xs font-semibold text-slate-600">
-              {report.id}
+            <span className="font-mono text-xs font-semibold text-slate-600" title={report.id}>
+              {formatShortRecordId(report.id, "PA")}
             </span>
             {priority !== "Bình thường" && (
               <span
@@ -138,13 +155,9 @@ export function ReportCard({
           <StatusBadge status={statusInfo.type} label={statusInfo.label} size="sm" />
         </div>
 
-        <button
-          type="button"
-          onClick={() => onOpenDetail(report)}
-          className="w-full min-h-8 py-1 flex items-center text-left text-sm font-bold text-slate-900 hover:text-emerald-700 leading-snug cursor-pointer transition-colors focus-visible:outline-none focus-visible:underline"
-        >
+        <h3 className="w-full min-h-8 py-1 flex items-center text-left text-sm font-bold text-slate-900 group-hover:text-emerald-700 leading-snug transition-colors">
           <span className="line-clamp-2 text-pretty">{report.title}</span>
-        </button>
+        </h3>
 
         <div className="flex items-center justify-between gap-2 text-xs text-slate-600 min-w-0 pt-0.5">
           <span className="inline-flex items-center gap-1.5 min-w-0">
@@ -191,7 +204,10 @@ export function ReportCard({
           {report.assignedUnit || "Ban Điều hành KP3"}
         </span>
 
-        <div className="flex items-center gap-1.5 shrink-0">
+        <div
+          className="flex items-center gap-1.5 shrink-0"
+          onClick={(e) => e.stopPropagation()}
+        >
           {!readOnly && report.status === "Đã tiếp nhận" && (
             <Button
               variant="outline"

@@ -12,6 +12,7 @@ import {
   BookOpen,
   Newspaper,
   Megaphone,
+  MessageCircle,
   User,
   Tag,
   Search,
@@ -44,16 +45,21 @@ import { StatCard } from "./common/StatCard";
 import { PageHeader } from "./common/PageHeader";
 import { ConfirmModal, InlineNotice } from "./ui/ConfirmModal";
 import { formatVNNumber } from "../utils/numberFormat";
+import { loadPortalSetting, savePortalSetting } from "../utils/supabaseSync";
 import { initialNewsList } from "../mockData";
 import {
   COVER_PRESETS,
+  doesEventMatchVenue,
+  findVenueScheduleConflicts,
   getCategoryTheme,
   getNewsImage,
   getNewsReadTime,
   getNewsSummary,
   getNewsViews,
+  normalizeNewsItem,
 } from "./news/newsHelpers";
 import { NewsNewspaperFeed } from "./news/NewsNewspaperFeed";
+import ZaloArticleSyncModal from "./news/ZaloArticleSyncModal";
 import {
   ROUTES,
   getEventCreatePath,
@@ -87,9 +93,12 @@ export interface CommunityEventsProps {
   onOpenCreateNews?: () => void;
   onOpenEditNews?: (news: LocalNews) => void;
   onOpenDetailNews?: (news: LocalNews) => void;
-  onOpenCreateEvent?: () => void;
+  onOpenCreateEvent?: (venueName?: string) => void;
   onOpenEditEvent?: (event: CommunityEvent) => void;
   onOpenDetailEvent?: (event: CommunityEvent) => void;
+  activeSubTab?: "news" | "events";
+  onActiveSubTabChange?: (tab: "news" | "events") => void;
+  onRefreshNews?: () => void;
 }
 
 export default function CommunityEvents({ 
@@ -102,6 +111,7 @@ export default function CommunityEvents({
   onAddNews,
   onUpdateNews,
   onDeleteNews,
+  onRefreshNews,
   basePath = ROUTES.DASHBOARD_CULTURAL,
   onOpenCreateNews,
   onOpenEditNews,
@@ -109,20 +119,31 @@ export default function CommunityEvents({
   onOpenCreateEvent,
   onOpenEditEvent,
   onOpenDetailEvent,
+  activeSubTab: activeSubTabProp,
+  onActiveSubTabChange,
 }: CommunityEventsProps) {
-  const [activeSubTab, setActiveSubTab] = useState<"news" | "events">("news");
+  const [internalSubTab, setInternalSubTab] = useState<"news" | "events">("news");
+  const activeSubTab = activeSubTabProp ?? internalSubTab;
+  const setActiveSubTab = (tab: "news" | "events") => {
+    setInternalSubTab(tab);
+    onActiveSubTabChange?.(tab);
+  };
   const [currentEventsPage, setCurrentEventsPage] = useState(1);
   const eventsPerPage = 6;
 
   // States for News Board & Events
-  const [newsList, setNewsList] = useState<LocalNews[]>(propNewsList || initialNewsList);
+  const [newsList, setNewsList] = useState<LocalNews[]>(() =>
+    (propNewsList || initialNewsList).map(normalizeNewsItem)
+  );
   const [notice, setNotice] = useState<{ message: string; type: "success" | "error" | "info" | "warning" } | null>(null);
+  const [showZaloSyncModal, setShowZaloSyncModal] = useState(false);
   const [confirmResetNews, setConfirmResetNews] = useState(false);
   const [deleteNewsTarget, setDeleteNewsTarget] = useState<{ id: string; title: string } | null>(null);
   const [deleteEventTarget, setDeleteEventTarget] = useState<{ id: string; title: string } | null>(null);
   const [eventFilter, setEventFilter] = useState<"Tất cả" | "Sắp diễn ra" | "Đang diễn ra" | "Đã kết thúc">("Tất cả");
+  const [eventSearchQuery, setEventSearchQuery] = useState("");
 
-  // RSVP counter persisted locally per event id
+  // RSVP counter persisted locally & synced to Supabase portal_settings
   const [eventRsvpMap, setEventRsvpMap] = useState<Record<string, { registered: boolean; extraCount: number }>>(() => {
     try {
       const saved = localStorage.getItem(EVENT_RSVP_KEY);
@@ -130,6 +151,21 @@ export default function CommunityEvents({
     } catch {}
     return {};
   });
+
+  React.useEffect(() => {
+    let active = true;
+    loadPortalSetting<Record<string, { registered: boolean; extraCount: number }>>("event_rsvp_map").then((cloudMap) => {
+      if (active && cloudMap && typeof cloudMap === "object") {
+        setEventRsvpMap(cloudMap);
+        try {
+          localStorage.setItem(EVENT_RSVP_KEY, JSON.stringify(cloudMap));
+        } catch {}
+      }
+    });
+    return () => {
+      active = false;
+    };
+  }, []);
 
   const handleToggleRsvp = (evId: string, evTitle: string) => {
     const current = eventRsvpMap[evId] || { registered: false, extraCount: 0 };
@@ -145,9 +181,10 @@ export default function CommunityEvents({
     try {
       localStorage.setItem(EVENT_RSVP_KEY, JSON.stringify(nextMap));
     } catch {}
+    savePortalSetting("event_rsvp_map", nextMap, true);
     setNotice({
       message: nextRegistered
-        ? `Đã xác nhận đăng ký tham dự sự kiện "${evTitle}".`
+        ? `Đã xác nhận đăng ký tham dự sự kiện "${evTitle}" (đã đồng bộ Cloud).`
         : `Đã hủy đăng ký tham dự sự kiện "${evTitle}".`,
       type: nextRegistered ? "success" : "info"
     });
@@ -156,7 +193,7 @@ export default function CommunityEvents({
   // Sync internal state when propNewsList changes
   React.useEffect(() => {
     if (propNewsList && propNewsList.length > 0) {
-      setNewsList(propNewsList);
+      setNewsList(propNewsList.map(normalizeNewsItem));
     }
   }, [propNewsList]);
 
@@ -205,9 +242,17 @@ export default function CommunityEvents({
     }
   };
 
-  const handleCreateEvent = (venue?: string) => {
+  const handleCreateEvent = (venueName?: string) => {
+    try {
+      if (venueName && venueName.trim()) {
+        sessionStorage.setItem("kp3_preselected_venue", venueName.trim());
+      } else {
+        sessionStorage.removeItem("kp3_preselected_venue");
+      }
+    } catch {}
+
     if (onOpenCreateEvent) {
-      onOpenCreateEvent();
+      onOpenCreateEvent(venueName);
     } else {
       navigate(getEventCreatePath(basePath));
     }
@@ -241,21 +286,31 @@ export default function CommunityEvents({
   };
 
   const executeResetToSampleNews = () => {
-    setNewsList(initialNewsList);
+    const normalizedSample = initialNewsList.map(normalizeNewsItem);
+    setNewsList(normalizedSample);
     try {
-      localStorage.setItem("kp3_local_news", JSON.stringify(initialNewsList));
+      localStorage.setItem("kp3_local_news", JSON.stringify(normalizedSample));
     } catch {}
     setConfirmResetNews(false);
     setNotice({ message: "Đã đồng bộ lại danh sách bản tin mẫu đầy đủ hình ảnh minh họa.", type: "success" });
   };
 
   // Filter Logic
+  const qEvent = eventSearchQuery.trim().toLowerCase();
   const filteredEvents = events.filter(ev => {
-    if (eventFilter === "Tất cả") return true;
-    return ev.status === eventFilter;
+    const matchStatus = eventFilter === "Tất cả" || ev.status === eventFilter;
+    if (!matchStatus) return false;
+    if (!qEvent) return true;
+    return (
+      ev.id.toLowerCase().includes(qEvent) ||
+      ev.title.toLowerCase().includes(qEvent) ||
+      ev.location.toLowerCase().includes(qEvent) ||
+      ev.organizer.toLowerCase().includes(qEvent) ||
+      ev.description.toLowerCase().includes(qEvent)
+    );
   });
 
-  const activeNewsList = propNewsList && propNewsList.length > 0 ? propNewsList : newsList;
+  const activeNewsList = (propNewsList && propNewsList.length > 0 ? propNewsList : newsList).map(normalizeNewsItem);
 
   // Pagination for Events
   const totalEventsItems = filteredEvents.length;
@@ -277,6 +332,14 @@ export default function CommunityEvents({
           <div className="flex flex-wrap items-center gap-2.5 shrink-0 w-full sm:w-auto">
             {activeSubTab === "news" ? (
               <>
+                <button
+                  type="button"
+                  onClick={() => setShowZaloSyncModal(true)}
+                  title="Đồng bộ bài viết từ Zalo OA Ban Điều Hành KP3"
+                  className="px-3 py-2 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-xl font-bold text-xs transition-colors flex items-center gap-1.5 cursor-pointer border border-blue-200 shadow-2xs"
+                >
+                  <MessageCircle size={14} className="fill-current text-blue-600" /> Đồng bộ Zalo OA
+                </button>
                 <button
                   type="button"
                   onClick={handleResetToSampleNews}
@@ -315,34 +378,32 @@ export default function CommunityEvents({
       )}
 
       {/* Stats Counter Cards - Standardized StatCard Component */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3 sm:gap-4">
         <StatCard
           label="Tổng bản tin & thông báo"
           value={activeNewsList.length}
-          badge="bản tin số"
-          highlighted={true}
+          badge="bản tin"
+          highlighted={activeSubTab === "news"}
           icon={Newspaper}
           color="emerald"
-          subtext="Thông báo hành chính, y tế & đời sống"
-          subtextRight="Kênh tin tức"
+          onClick={() => setActiveSubTab("news")}
         />
         <StatCard
           label="Thông báo khẩn cấp"
           value={activeNewsList.filter(n => n.category === "Thông báo khẩn").length}
-          badge="ưu tiên cao"
+          badge="tin khẩn"
           icon={AlertTriangle}
           color="rose"
-          subtext="Cần cư dân theo dõi & phổ biến ngay"
-          subtextRight="Còi báo động"
+          onClick={() => setActiveSubTab("news")}
         />
         <StatCard
           label="Lịch sự kiện & sinh hoạt"
           value={events.length}
           badge="sự kiện"
+          highlighted={activeSubTab === "events"}
           icon={CalendarDays}
           color="blue"
-          subtext="Nhà văn hóa & Không gian cộng đồng"
-          subtextRight="Kế hoạch năm"
+          onClick={() => setActiveSubTab("events")}
         />
         <StatCard
           label="Dự kiến công dân tham gia"
@@ -350,8 +411,7 @@ export default function CommunityEvents({
           badge="lượt người"
           icon={Users}
           color="purple"
-          subtext="Quy mô sinh hoạt toàn khu phố"
-          subtextRight="Cộng đồng KP3"
+          onClick={() => setActiveSubTab("events")}
         />
       </div>
 
@@ -392,6 +452,7 @@ export default function CommunityEvents({
           onSelectNews={handleSelectNews}
           onEditNews={handleEditNews}
           onDeleteNews={(item) => handleDeleteNewsItem(item.id, item.title)}
+          onRefreshNews={onRefreshNews}
           showMasthead={false}
           itemsPerPage={6}
         />
@@ -453,24 +514,36 @@ export default function CommunityEvents({
                 Theo dõi tình trạng đăng ký hội trường và chọn phòng để lên lịch mới nhanh chóng
               </p>
             </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3">
               {CULTURAL_VENUES.map((venue) => {
-                const venueShort = venue.split("(")[0].trim();
                 const bookedEvents = events.filter(
                   (e) =>
                     e.status !== "Đã kết thúc" &&
                     e.status !== "Đã hủy" &&
-                    (e.location.toLowerCase().includes(venueShort.toLowerCase().slice(0, 12)) ||
-                      (venue === CULTURAL_VENUES[0] && e.location.toLowerCase().includes("nhà văn hóa")))
+                    doesEventMatchVenue(e.location, venue)
+                );
+                const hasDoubleBooking = bookedEvents.some((ev) =>
+                  findVenueScheduleConflicts(venue, ev.dateTime, bookedEvents, ev.id).length > 0
                 );
                 return (
                   <div
                     key={venue}
-                    className="p-3 rounded-xl border border-slate-200 bg-slate-50/70 flex flex-col justify-between gap-2.5"
+                    className={`p-3.5 rounded-xl border flex flex-col justify-between gap-2.5 ${
+                      hasDoubleBooking
+                        ? "border-amber-300 bg-amber-50/70"
+                        : "border-slate-200 bg-slate-50/70"
+                    }`}
                   >
-                    <div>
-                      <span className="text-xs font-bold text-slate-900 leading-snug block">{venue}</span>
-                      <p className="text-xs text-slate-600 mt-1">
+                    <div className="space-y-1">
+                      <div className="flex items-start justify-between gap-1.5">
+                        <span className="text-xs font-bold text-slate-900 leading-snug block">{venue}</span>
+                        {hasDoubleBooking && (
+                          <span className="text-[11px] font-bold px-1.5 py-0.5 rounded bg-amber-100 text-amber-800 border border-amber-300 shrink-0 whitespace-nowrap">
+                            Trùng lịch
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-xs text-slate-600">
                         {bookedEvents.length > 0
                           ? `${bookedEvents.length} lịch sắp tới: ${bookedEvents[0].dateTime}`
                           : "Trống lịch — Sẵn sàng đặt chỗ"}
@@ -489,23 +562,38 @@ export default function CommunityEvents({
             </div>
           </div>
 
-          {/* Event Filters */}
-          <div className="flex flex-wrap border-b border-slate-200 gap-4 sm:gap-6">
-            {(["Tất cả", "Sắp diễn ra", "Đang diễn ra", "Đã kết thúc"] as const).map((tab) => (
-              <button
-                key={tab}
-                type="button"
-                onClick={() => handleEventFilterChange(tab)}
-                className={`pb-3 text-xs font-semibold transition-colors relative cursor-pointer
-                  ${eventFilter === tab ? "text-emerald-700 font-bold" : "text-slate-600 hover:text-slate-900"}
-                `}
-              >
-                {tab}
-                {eventFilter === tab && (
-                  <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-emerald-600 rounded-full" />
-                )}
-              </button>
-            ))}
+          {/* Event Filters & Quick Search */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-slate-200 gap-3 pb-2 sm:pb-0">
+            <div className="flex flex-wrap gap-4 sm:gap-6">
+              {(["Tất cả", "Sắp diễn ra", "Đang diễn ra", "Đã kết thúc"] as const).map((tab) => (
+                <button
+                  key={tab}
+                  type="button"
+                  onClick={() => handleEventFilterChange(tab)}
+                  className={`pb-3 text-xs font-semibold transition-colors relative cursor-pointer
+                    ${eventFilter === tab ? "text-emerald-700 font-bold" : "text-slate-600 hover:text-slate-900"}
+                  `}
+                >
+                  {tab}
+                  {eventFilter === tab && (
+                    <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-emerald-600 rounded-full" />
+                  )}
+                </button>
+              ))}
+            </div>
+            <div className="relative w-full sm:w-64 sm:pb-2">
+              <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 sm:-translate-y-[65%] text-slate-500 pointer-events-none" />
+              <input
+                type="search"
+                value={eventSearchQuery}
+                onChange={(e) => {
+                  setEventSearchQuery(e.target.value);
+                  setCurrentEventsPage(1);
+                }}
+                placeholder="Tìm sự kiện, địa điểm, đơn vị..."
+                className="w-full h-9 pl-9 pr-3 bg-white border border-slate-300 rounded-xl text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600"
+              />
+            </div>
           </div>
 
           {/* Event Cards Grid với Ảnh Minh Họa Sống Động */}
@@ -535,14 +623,22 @@ export default function CommunityEvents({
                   <div
                     key={ev.id}
                     id={`event-card-${ev.id}`}
-                    className="group bg-white rounded-2xl border border-slate-200 hover:border-emerald-300 transition-colors flex flex-col justify-between overflow-hidden"
+                    role="button"
+                    tabIndex={0}
+                    aria-label={`Xem chi tiết sự kiện ${ev.title}`}
+                    onClick={() => handleSelectEvent(ev)}
+                    onKeyDown={(e) => {
+                      if (e.target !== e.currentTarget) return;
+                      if (e.key === "Enter" || e.key === " ") {
+                        e.preventDefault();
+                        handleSelectEvent(ev);
+                      }
+                    }}
+                    className="group bg-white rounded-2xl border border-slate-200 hover:border-emerald-400 hover:shadow-md transition-all flex flex-col justify-between overflow-hidden cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600"
                   >
                     <div>
                       {/* Event Cover Image */}
-                      <div
-                        className="relative aspect-video w-full overflow-hidden bg-slate-100 cursor-pointer"
-                        onClick={() => handleSelectEvent(ev)}
-                      >
+                      <div className="relative aspect-video w-full overflow-hidden bg-slate-100">
                         <img
                           src={eventImg}
                           alt={ev.title}
@@ -559,13 +655,9 @@ export default function CommunityEvents({
                       </div>
 
                       <div className="p-4 sm:p-5 space-y-3">
-                        <button
-                          type="button"
-                          onClick={() => handleSelectEvent(ev)}
-                          className="text-left font-bold text-slate-900 text-sm leading-snug line-clamp-2 group-hover:text-emerald-700 transition-colors cursor-pointer"
-                        >
+                        <h3 className="text-left font-bold text-slate-900 text-sm leading-snug line-clamp-2 group-hover:text-emerald-700 transition-colors">
                           {ev.title}
-                        </button>
+                        </h3>
                         <p className="text-slate-600 text-xs line-clamp-3 leading-relaxed">
                           {ev.description}
                         </p>
@@ -581,11 +673,11 @@ export default function CommunityEvents({
                             <span className="truncate">{ev.location}</span>
                           </div>
 
-                          <div className="flex items-center justify-between pt-1 gap-2">
-                            <span className="text-xs font-semibold truncate max-w-[160px] text-slate-700">
+                          <div className="flex items-center justify-between pt-1 gap-2 min-w-0">
+                            <span className="text-xs font-semibold truncate min-w-0 flex-1 text-slate-700" title={ev.organizer}>
                               Tổ chức: {ev.organizer}
                             </span>
-                            <span className="text-xs font-bold bg-slate-100 text-slate-800 px-2.5 py-0.5 rounded-full flex items-center gap-1 shrink-0">
+                            <span className="text-xs font-bold bg-slate-100 text-slate-800 px-2.5 py-0.5 rounded-full flex items-center gap-1 shrink-0 whitespace-nowrap">
                               <Users size={12} /> {totalAttendees} người
                             </span>
                           </div>
@@ -594,7 +686,10 @@ export default function CommunityEvents({
                     </div>
 
                     {/* Operations & RSVP */}
-                    <div className="p-3 bg-slate-50 border-t border-slate-200 space-y-2">
+                    <div
+                      onClick={(e) => e.stopPropagation()}
+                      className="p-3 bg-slate-50 border-t border-slate-200 space-y-2"
+                    >
                       {ev.status !== "Đã kết thúc" && ev.status !== "Đã hủy" && (
                         <button
                           type="button"
@@ -723,6 +818,12 @@ export default function CommunityEvents({
         description="Khôi phục danh sách 6 bản tin mẫu kèm hình ảnh minh họa và công văn đính kèm cho Khu phố 3?"
         confirmLabel="Đồng bộ lại"
         variant="warning"
+      />
+
+      <ZaloArticleSyncModal
+        isOpen={showZaloSyncModal}
+        onClose={() => setShowZaloSyncModal(false)}
+        onSyncSuccess={onRefreshNews}
       />
 
     </div>

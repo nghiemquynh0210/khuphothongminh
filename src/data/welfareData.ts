@@ -266,7 +266,7 @@ export const INITIAL_EMERGENCY_RECORDS: EmergencySupportRecord[] = [
     giftItems: "50kg Gạo + 2 Thùng mì tôm + Nhu yếu phẩm sinh hoạt",
     reason: "Hộ nghèo bị chập điện gây cháy một phần mái tôn và gian bếp, hư hỏng đồ dùng gia đình đột xuất.",
     disbursedDate: "2026-10-18",
-    disbursedBy: "Lê Văn Sơn (Phó Ban điều hành KP3)",
+    disbursedBy: "Nguyễn Thu Phương (Phó Trưởng Khu phố 3)",
     approver: "Nguyễn Trung Huy (Trưởng ban ĐHKP)",
     fundingSource: "Quỹ Vì người nghèo & Vận động đột xuất tại Khu phố 3",
     status: "Đã hỗ trợ ngay",

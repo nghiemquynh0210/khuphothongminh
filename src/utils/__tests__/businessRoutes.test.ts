@@ -78,3 +78,58 @@ describe("businessRoutes", () => {
   });
 });
 
+import { filterStayingResidents } from "../../page/BusinessDetailPage";
+import type { Resident } from "../../types";
+
+describe("filterStayingResidents quick search & expiry filter", () => {
+  const sampleResidents: Resident[] = [
+    {
+      id: "R1",
+      fullName: "Nguyễn Quốc Khải",
+      gender: "Nam",
+      birthDate: "12/05/1998",
+      cccd: "091200006098",
+      phone: "0913137155",
+      status: "Tạm trú",
+      occupation: "Công nhân",
+      address: "17/A3 Khu phố 3",
+      permanentAddress: "Xã Đông Thái, Tỉnh An Giang",
+      householdId: "Tạm trú",
+      relationToOwner: "Người thuê trọ",
+      temporaryExpDate: "2020-01-01",
+    },
+    {
+      id: "R2",
+      fullName: "Đặng Thị Hồng Thắm",
+      gender: "Nữ",
+      birthDate: "20/11/2001",
+      cccd: "083301004412",
+      phone: "0988776655",
+      status: "Tạm trú",
+      occupation: "Nhân viên",
+      address: "17/A3 Khu phố 3",
+      permanentAddress: "Huyện Châu Thành, Tỉnh Bến Tre",
+      householdId: "Tạm trú",
+      relationToOwner: "Người thuê trọ",
+      temporaryExpDate: "2030-12-31",
+    },
+  ];
+
+  it("matches Vietnamese names without diacritics, CCCD, phone, hometown, and birth year", () => {
+    expect(filterStayingResidents(sampleResidents, "nguyen quoc khai")).toHaveLength(1);
+    expect(filterStayingResidents(sampleResidents, "dang thi")).toHaveLength(1);
+    expect(filterStayingResidents(sampleResidents, "006098")).toHaveLength(1);
+    expect(filterStayingResidents(sampleResidents, "098877")).toHaveLength(1);
+    expect(filterStayingResidents(sampleResidents, "ben tre")).toHaveLength(1);
+    expect(filterStayingResidents(sampleResidents, "1998")).toHaveLength(1);
+    expect(filterStayingResidents(sampleResidents, "khong ton tai")).toHaveLength(0);
+  });
+
+  it("filters accurately by temporary residence expiry status", () => {
+    const expiredOnly = filterStayingResidents(sampleResidents, "", "expired");
+    expect(expiredOnly).toHaveLength(1);
+    expect(expiredOnly[0].id).toBe("R1");
+  });
+});
+
+

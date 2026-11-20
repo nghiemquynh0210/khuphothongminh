@@ -16,6 +16,11 @@ import { PageHeader } from "../components/common/PageHeader";
 import { LoadingFade } from "../components/common/LoadingFade";
 import { InlineNotice } from "../components/ui/ConfirmModal";
 import {
+  classifyMemberRoleTier,
+  getAssociationRolePresets,
+  normalizeSingleAssociation,
+} from "../utils/leadershipSync";
+import {
   ROUTES,
   navigate,
 } from "../routes";
@@ -82,13 +87,14 @@ export default function PartyAssociationFormPage({
 
   useEffect(() => {
     if (mode === "edit" && targetAssoc) {
+      const presets = getAssociationRolePresets(targetAssoc);
       setName(targetAssoc.name || "");
       setNameError("");
       setCategory(targetAssoc.category || "Đoàn thể nhân dân");
       setDescription(targetAssoc.description || "");
       setLeaderCccd(targetAssoc.leaderCccd !== "N/A" ? targetAssoc.leaderCccd : "");
       const leaderMember = targetAssoc.members?.find((m) => m.cccd === targetAssoc.leaderCccd);
-      setLeaderRole(leaderMember ? leaderMember.role : "Chi hội trưởng");
+      setLeaderRole(leaderMember ? leaderMember.role : presets.headRole);
       return;
     }
 
@@ -103,28 +109,54 @@ export default function PartyAssociationFormPage({
   }, [mode, targetAssoc]);
 
   const leaderCandidates = useMemo(() => {
-    return residents
-      .filter((r) => r.cccd && r.cccd !== "N/A")
-      .sort((a, b) => a.fullName.localeCompare(b.fullName, "vi"));
-  }, [residents]);
+    const byCccd = new Map<string, { cccd: string; fullName: string; phone?: string; birthDate?: string; labelTag: string }>();
+    for (const m of targetAssoc?.members || []) {
+      if (m.cccd && m.cccd !== "N/A") {
+        byCccd.set(m.cccd, {
+          cccd: m.cccd,
+          fullName: m.fullName,
+          phone: m.phone,
+          birthDate: m.birthDate,
+          labelTag: `Hội viên hiện hữu: ${m.role}`,
+        });
+      }
+    }
+    for (const r of residents) {
+      if (r.cccd && r.cccd !== "N/A" && !byCccd.has(r.cccd)) {
+        byCccd.set(r.cccd, {
+          cccd: r.cccd,
+          fullName: r.fullName,
+          phone: r.phone,
+          birthDate: r.birthDate,
+          labelTag: r.occupation || "Cư dân KP3",
+        });
+      }
+    }
+    return Array.from(byCccd.values()).sort((a, b) => a.fullName.localeCompare(b.fullName, "vi"));
+  }, [residents, targetAssoc]);
+
+  const [leaderSearchQuery, setLeaderSearchQuery] = useState("");
 
   const leaderSelectOptions = useMemo(() => {
-    const list = leaderCandidates.map((r) => ({
+    const q = leaderSearchQuery.trim().toLowerCase();
+    const filtered = leaderCandidates.filter((r) => {
+      if (r.cccd === leaderCccd) return true;
+      if (!q) return true;
+      return (
+        r.fullName.toLowerCase().includes(q) ||
+        r.cccd.toLowerCase().includes(q) ||
+        r.labelTag.toLowerCase().includes(q)
+      );
+    });
+    const list = filtered.slice(0, 80).map((r) => ({
       value: r.cccd,
-      label: `${r.fullName} • CCCD: ${r.cccd} (${r.occupation || "Cư dân"})`,
+      label: `${r.fullName} • CCCD: ${r.cccd} (${r.labelTag})`,
     }));
     return [
-      { value: "", label: "-- Chọn đại diện đứng đầu từ CSDL Cư dân KP3 --" },
+      { value: "", label: "-- Chọn đại diện đứng đầu từ Hội viên / CSDL Cư dân KP3 --" },
       ...list,
     ];
-  }, [leaderCandidates]);
-
-  const categoryOptions = useMemo(() => {
-    return ASSOC_CATEGORIES.map((cat) => ({
-      value: cat,
-      label: cat,
-    }));
-  }, []);
+  }, [leaderCandidates, leaderSearchQuery, leaderCccd]);
 
   const handleBack = () => {
     if (onCancel) {
@@ -142,41 +174,53 @@ export default function PartyAssociationFormPage({
       return;
     }
 
-    const leaderResident = residents.find((r) => r.cccd === leaderCccd);
-    const leaderName = leaderResident ? leaderResident.fullName : "Chưa xác định";
+    const pickedCandidate = leaderCandidates.find((r) => r.cccd === leaderCccd);
+    const leaderName = pickedCandidate
+      ? pickedCandidate.fullName
+      : leaderCccd && targetAssoc?.leaderCccd === leaderCccd
+        ? targetAssoc.leaderName
+        : "Chưa xác định";
 
     if (mode === "edit") {
       if (!targetAssoc) return;
+      const presets = getAssociationRolePresets(targetAssoc);
+      const effectiveHeadRole = leaderRole.trim() || presets.headRole;
 
-      let updatedMembers: AssociationMember[] = [...(targetAssoc.members || [])];
-      if (leaderResident) {
-        const idx = updatedMembers.findIndex((m) => m.cccd === leaderResident.cccd);
+      let updatedMembers: AssociationMember[] = (targetAssoc.members || []).map((m) => {
+        if (pickedCandidate && m.cccd !== pickedCandidate.cccd && classifyMemberRoleTier(m.role) === "head") {
+          return { ...m, role: presets.handoverFallbackRole };
+        }
+        return m;
+      });
+
+      if (pickedCandidate) {
+        const idx = updatedMembers.findIndex((m) => m.cccd === pickedCandidate.cccd);
         if (idx >= 0) {
           updatedMembers[idx] = {
             ...updatedMembers[idx],
-            role: leaderRole || "Chi hội trưởng",
+            role: effectiveHeadRole,
           };
         } else {
           updatedMembers.unshift({
             id: "M" + Date.now(),
-            fullName: leaderResident.fullName,
-            role: leaderRole || "Chi hội trưởng",
-            cccd: leaderResident.cccd,
-            phone: leaderResident.phone,
-            birthDate: leaderResident.birthDate,
+            fullName: pickedCandidate.fullName,
+            role: effectiveHeadRole,
+            cccd: pickedCandidate.cccd,
+            phone: pickedCandidate.phone,
+            birthDate: pickedCandidate.birthDate,
           });
         }
       }
 
-      const updatedAssoc: Association = {
+      const updatedAssoc: Association = normalizeSingleAssociation({
         ...targetAssoc,
         name: name.trim(),
-        category,
+        category: category as Association["category"],
         description: description.trim() || "Chưa có mô tả chi tiết.",
         leaderName,
         leaderCccd: leaderCccd || "N/A",
         members: updatedMembers,
-      };
+      });
 
       if (onUpdateAssociation) {
         onUpdateAssociation(updatedAssoc);
@@ -191,26 +235,26 @@ export default function PartyAssociationFormPage({
 
     // Mode create
     const newId = "ASC" + (associations.length + 1).toString().padStart(3, "0");
-    const newAssoc: Association = {
+    const newAssoc: Association = normalizeSingleAssociation({
       id: newId,
       name: name.trim(),
-      category,
+      category: category as Association["category"],
       description: description.trim() || "Chưa có mô tả chi tiết.",
       leaderName,
       leaderCccd: leaderCccd || "N/A",
-      members: leaderResident
+      members: pickedCandidate
         ? [
             {
               id: "M" + Date.now(),
-              fullName: leaderResident.fullName,
+              fullName: pickedCandidate.fullName,
               role: leaderRole || "Chi hội trưởng",
-              cccd: leaderResident.cccd,
-              phone: leaderResident.phone,
-              birthDate: leaderResident.birthDate,
+              cccd: pickedCandidate.cccd,
+              phone: pickedCandidate.phone,
+              birthDate: pickedCandidate.birthDate,
             },
           ]
         : [],
-    };
+    });
 
     if (onAddAssociation) {
       onAddAssociation(newAssoc);
@@ -262,13 +306,11 @@ export default function PartyAssociationFormPage({
             ? "Thêm Chi hội mới"
             : `Chỉnh sửa Chi hội • ${targetAssoc?.id || assocId}`
         }
-        badgeSubtext="MẶT TRẬN & ĐOÀN THỂ KP3"
         title={
           mode === "create"
             ? "Tạo Chi Hội / Tổ Chức Phong Trào Mới"
             : `Chỉnh Sửa Chi Hội: ${targetAssoc?.name || assocId}`
         }
-        description="Kiện toàn bộ máy tổ chức, bổ nhiệm người đứng đầu và phân công nhiệm vụ đoàn thể Khu phố 3."
         actions={
           <Button
             type="button"
@@ -296,51 +338,57 @@ export default function PartyAssociationFormPage({
         className="bg-white rounded-2xl border border-slate-200/90 shadow-sm p-5 sm:p-6 space-y-5"
       >
         <div className="space-y-4">
-          <Input
-            id="assoc-name-input"
-            label="Tên Chi hội / Tổ chức phong trào"
-            required
-            value={name}
-            onChange={(e) => {
-              setName(e.target.value);
-              if (e.target.value.trim()) setNameError("");
-            }}
-            onBlur={() => {
-              if (!name.trim()) setNameError("Vui lòng nhập tên chi hội hoặc tổ chức.");
-            }}
-            error={nameError}
-            placeholder="Ví dụ: Chi hội Khuyến học Khu phố 3, CLB Dưỡng sinh NCT..."
-          />
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <Input
+              id="assoc-name-input"
+              label="Tên Chi hội / Tổ chức phong trào"
+              required
+              value={name}
+              onChange={(e) => {
+                setName(e.target.value);
+                if (e.target.value.trim()) setNameError("");
+              }}
+              onBlur={() => {
+                if (!name.trim()) setNameError("Vui lòng nhập tên chi hội hoặc tổ chức.");
+              }}
+              error={nameError}
+              placeholder="Ví dụ: Chi hội Khuyến học Khu phố 3, CLB Dưỡng sinh NCT..."
+            />
+
+            <Input
+              id="assoc-leader-role-input"
+              label="Chức danh người đứng đầu"
+              value={leaderRole}
+              onChange={(e) => setLeaderRole(e.target.value)}
+              placeholder="Ví dụ: Chi hội trưởng, Chủ nhiệm CLB, Bí thư..."
+            />
+          </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-1.5">
               <label className="block text-sm font-medium text-slate-700">
-                Khối trực thuộc / Phân loại tổ chức <span className="text-rose-500">*</span>
+                Phân nhóm hệ thống chính trị
               </label>
               <ReportSelect
-                aria-label="Khối trực thuộc"
+                aria-label="Phân nhóm hệ thống chính trị"
                 value={category}
                 onChange={(val) => setCategory(val)}
-                options={categoryOptions}
+                options={ASSOC_CATEGORIES.map((c) => ({ value: c, label: c }))}
               />
             </div>
 
-            <div className="space-y-1.5">
-              <label className="block text-sm font-medium text-slate-700">
-                Chức danh người đứng đầu
-              </label>
-              <Input
-                id="assoc-leader-role-input"
-                value={leaderRole}
-                onChange={(e) => setLeaderRole(e.target.value)}
-                placeholder="Ví dụ: Chi hội trưởng, Chủ nhiệm CLB, Bí thư..."
-              />
-            </div>
+            <Input
+              id="assoc-leader-search"
+              label="Tìm nhanh nhân sự từ CSDL Cư dân KP3"
+              value={leaderSearchQuery}
+              onChange={(e) => setLeaderSearchQuery(e.target.value)}
+              placeholder="Gõ họ tên hoặc số CCCD để lọc danh sách bên dưới..."
+            />
           </div>
 
           <div className="space-y-1.5">
             <label className="block text-sm font-medium text-slate-700">
-              Người đứng đầu (Chọn từ CSDL Dân cư KP3)
+              Người đứng đầu (Hiển thị tối đa 80 ứng viên khớp tìm kiếm)
             </label>
             <ReportSelect
               aria-label="Người đứng đầu"
@@ -348,9 +396,6 @@ export default function PartyAssociationFormPage({
               onChange={(val) => setLeaderCccd(val)}
               options={leaderSelectOptions}
             />
-            <p className="text-xs text-slate-500 mt-1">
-              Hệ thống sẽ tự động thêm nhân sự này vào danh sách hội viên ban đầu của Chi hội.
-            </p>
           </div>
 
           <div className="space-y-1.5">

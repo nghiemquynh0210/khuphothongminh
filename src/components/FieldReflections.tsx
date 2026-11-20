@@ -1,8 +1,10 @@
 import React, { useEffect, useMemo, useState } from "react";
+import * as XLSX from "xlsx";
 import {
   AlertTriangle,
   CheckCircle2,
   Clock,
+  FileSpreadsheet,
   LayoutGrid,
   List,
   MessageSquareWarning,
@@ -27,6 +29,9 @@ import {
 import { PageHeader } from "./common/PageHeader";
 import { StatCard } from "./common/StatCard";
 import { Button, EmptyState } from "./ui";
+import Pagination from "./Pagination";
+import { formatShortRecordId } from "../utils/kp3Utils";
+import { recordAuditLog } from "../utils/auditLogger";
 import { ReportSelect } from "./reports/ReportSelect";
 import { ReportCard } from "./reports/ReportCard";
 import { ReportTable } from "./reports/ReportTable";
@@ -65,6 +70,8 @@ export interface FieldReflectionsProps {
   onOpenCreate?: () => void;
   onOpenEdit?: (report: FieldReport) => void;
   onOpenResolve?: (report: FieldReport) => void;
+  viewMode?: "grid" | "table";
+  onViewModeChange?: (mode: "grid" | "table") => void;
   currentUser?: {
     username?: string;
     fullName?: string;
@@ -81,6 +88,8 @@ export default function FieldReflections({
   onOpenDetail,
   onOpenCreate,
   onOpenResolve,
+  viewMode: viewModeProp,
+  onViewModeChange,
   currentUser,
   readOnly: readOnlyProp,
 }: FieldReflectionsProps) {
@@ -106,9 +115,21 @@ export default function FieldReflections({
   const [statusFilter, setStatusFilter] = useState<string>("Tất cả");
   const [priorityFilter, setPriorityFilter] = useState<string>("Tất cả");
   const [onlySlaRisk, setOnlySlaRisk] = useState(false);
-  const [viewMode, setViewMode] = useState<"grid" | "table">("grid");
+  const [internalViewMode, setInternalViewMode] = useState<"grid" | "table">("grid");
+  const viewMode = viewModeProp ?? internalViewMode;
+  const setViewMode = (mode: "grid" | "table") => {
+    setInternalViewMode(mode);
+    onViewModeChange?.(mode);
+  };
+
+  const REPORTS_PER_PAGE = 12;
+  const [currentPage, setCurrentPage] = useState(1);
 
   const [toastMsg, setToastMsg] = useState<string | null>(null);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, categoryFilter, statusFilter, priorityFilter, onlySlaRisk]);
 
   useEffect(() => {
     if (!toastMsg) return;
@@ -199,7 +220,56 @@ export default function FieldReflections({
       actorName,
       `Tổ công tác (${report.assignedUnit || "Ban Điều hành KP3"}) đã tiếp nhận và xuống kiểm tra hiện trường.`
     );
-    setToastMsg(`Đã chuyển hồ sơ ${report.id} sang trạng thái Đang xử lý.`);
+    setToastMsg(`Đã chuyển hồ sơ ${formatShortRecordId(report.id, "PA")} sang trạng thái Đang xử lý.`);
+  };
+
+  const totalPages = Math.max(1, Math.ceil(filteredReports.length / REPORTS_PER_PAGE));
+  const safeCurrentPage = Math.min(currentPage, totalPages);
+  const paginatedReports = useMemo(() => {
+    const start = (safeCurrentPage - 1) * REPORTS_PER_PAGE;
+    return filteredReports.slice(start, start + REPORTS_PER_PAGE);
+  }, [filteredReports, safeCurrentPage]);
+
+  const handleExport1022Excel = () => {
+    const rows = filteredReports.map((r) => {
+      const sla = getSlaStatus(r);
+      return {
+        "Mã HS": formatShortRecordId(r.id, "PA"),
+        "Tiêu đề": r.title,
+        "Phân loại": r.category,
+        "Địa điểm": r.location,
+        "Thời gian gửi": r.reportedAt,
+        "Đơn vị xử lý": r.assignedUnit || "Ban Điều hành KP3",
+        "Trạng thái": r.status,
+        "Đánh giá SLA": `${sla.label} (${sla.deadlineLabel})`,
+      };
+    });
+
+    const ws = XLSX.utils.json_to_sheet(rows);
+    ws["!cols"] = [
+      { wch: 14 },
+      { wch: 38 },
+      { wch: 20 },
+      { wch: 32 },
+      { wch: 18 },
+      { wch: 26 },
+      { wch: 16 },
+      { wch: 28 },
+    ];
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "PhanAnh1022_KP3");
+    const fileName = `Bao_cao_1022_KP3_${new Date().toISOString().slice(0, 10)}.xlsx`;
+    XLSX.writeFile(wb, fileName);
+
+    recordAuditLog({
+      actorName,
+      actorRole: "Cán bộ BĐH Khu phố 3",
+      category: "DATA_EXPORT",
+      actionTitle: "Xuất Báo cáo Phản ánh 1022 (.xlsx)",
+      targetSummary: `${filteredReports.length} hồ sơ phản ánh (${fileName})`,
+    });
+
+    setToastMsg(`Đã xuất báo cáo ${filteredReports.length} hồ sơ 1022 ra tệp ${fileName}.`);
   };
 
   return (
@@ -229,6 +299,17 @@ export default function FieldReflections({
         }
         actions={
           <div className="flex flex-wrap items-center gap-2 shrink-0">
+            {!readOnly && (
+              <Button
+                type="button"
+                variant="outline"
+                size="md"
+                leftIcon={<FileSpreadsheet size={15} className="text-emerald-700" />}
+                onClick={handleExport1022Excel}
+              >
+                Xuất Báo cáo 1022 (.xlsx)
+              </Button>
+            )}
             <Button
               variant="emerald"
               size="md"
@@ -255,17 +336,16 @@ export default function FieldReflections({
         </div>
       )}
 
-      {/* 4 Non-Truncating KPI Cards */}
+      {/* 4 KPI Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3.5 sm:gap-4">
         <StatCard
           label="Tổng hồ sơ"
           value={kpi.total}
-          badge="vụ"
+          badge="hồ sơ"
           icon={MessageSquareWarning}
           color="emerald"
           highlighted={statusFilter === "Tất cả" && !onlySlaRisk}
-          subtext={`${kpi.withPhotos} hồ sơ có ảnh`}
-          subtextRight="KP3 1022"
+          subtext={kpi.withPhotos > 0 ? `${kpi.withPhotos} có ảnh` : undefined}
           onClick={() => {
             setStatusFilter("Tất cả");
             setOnlySlaRisk(false);
@@ -274,12 +354,11 @@ export default function FieldReflections({
         <StatCard
           label="Mới tiếp nhận"
           value={kpi.pending}
-          badge="chờ"
+          badge="chờ xử lý"
           icon={Clock}
           color="amber"
           highlighted={statusFilter === "Đã tiếp nhận"}
-          subtext="Cần xác minh"
-          subtextRight={kpi.slaRiskCount > 0 ? `${kpi.slaRiskCount} gấp SLA` : "Trong hạn"}
+          subtext={kpi.slaRiskCount > 0 ? `${kpi.slaRiskCount} gấp SLA` : undefined}
           onClick={() =>
             setStatusFilter((s) => (s === "Đã tiếp nhận" ? "Tất cả" : "Đã tiếp nhận"))
           }
@@ -287,12 +366,11 @@ export default function FieldReflections({
         <StatCard
           label="Đang xử lý"
           value={kpi.inProgress}
-          badge="vụ"
+          badge="hồ sơ"
           icon={AlertTriangle}
           color="blue"
           highlighted={statusFilter === "Đang xử lý"}
-          subtext="Tổ đang xử lý"
-          subtextRight={`${kpi.totalMessages} trao đổi`}
+          subtext={kpi.totalMessages > 0 ? `${kpi.totalMessages} trao đổi` : undefined}
           onClick={() =>
             setStatusFilter((s) => (s === "Đang xử lý" ? "Tất cả" : "Đang xử lý"))
           }
@@ -300,12 +378,10 @@ export default function FieldReflections({
         <StatCard
           label="Đã giải quyết"
           value={kpi.resolved}
-          badge="xong"
+          badge={`${kpi.resolvedRate}%`}
           icon={CheckCircle2}
           color="emerald"
           highlighted={statusFilter === "Đã giải quyết"}
-          subtext="Đạt tiêu chuẩn"
-          subtextRight={`${kpi.resolvedRate}% xong`}
           onClick={() =>
             setStatusFilter((s) => (s === "Đã giải quyết" ? "Tất cả" : "Đã giải quyết"))
           }
@@ -380,7 +456,7 @@ export default function FieldReflections({
             className="w-full lg:w-44"
             options={[
               { value: "Tất cả", label: "Tất cả nhóm" },
-              ...REPORT_CATEGORIES.slice(0, 6).map((c) => ({
+              ...REPORT_CATEGORIES.map((c) => ({
                 value: c.id,
                 label: c.label,
               })),
@@ -465,25 +541,33 @@ export default function FieldReflections({
           }
         />
       ) : viewMode === "table" ? (
-        <ReportTable
-          reports={filteredReports}
-          readOnly={readOnly}
-          onOpenDetail={(r) =>
-            onOpenDetail
-              ? onOpenDetail(r)
-              : navigate(getReportDetailPath(r.id, basePath))
-          }
-          onStartProcess={handleStartProcess}
-          onOpenResolve={(r) =>
-            onOpenResolve
-              ? onOpenResolve(r)
-              : navigate(getReportResolvePath(r.id, basePath))
-          }
-        />
+        <div className="space-y-3">
+          <ReportTable
+            reports={paginatedReports}
+            readOnly={readOnly}
+            onOpenDetail={(r) =>
+              onOpenDetail
+                ? onOpenDetail(r)
+                : navigate(getReportDetailPath(r.id, basePath))
+            }
+            onStartProcess={handleStartProcess}
+            onOpenResolve={(r) =>
+              onOpenResolve
+                ? onOpenResolve(r)
+                : navigate(getReportResolvePath(r.id, basePath))
+            }
+          />
+          <Pagination
+            currentPage={safeCurrentPage}
+            onPageChange={setCurrentPage}
+            totalItems={filteredReports.length}
+            itemsPerPage={REPORTS_PER_PAGE}
+          />
+        </div>
       ) : (
         <div className="space-y-3">
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-            {filteredReports.map((report) => (
+            {paginatedReports.map((report) => (
               <React.Fragment key={report.id}>
                 <ReportCard
                   report={report}
@@ -503,9 +587,12 @@ export default function FieldReflections({
               </React.Fragment>
             ))}
           </div>
-          <p className="text-xs text-slate-600 px-1">
-            Đang hiển thị {filteredReports.length} / {normalizedReports.length} hồ sơ phản ánh hiện trường KP3.
-          </p>
+          <Pagination
+            currentPage={safeCurrentPage}
+            onPageChange={setCurrentPage}
+            totalItems={filteredReports.length}
+            itemsPerPage={REPORTS_PER_PAGE}
+          />
         </div>
       )}
     </div>

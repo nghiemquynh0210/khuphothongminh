@@ -101,6 +101,8 @@ export function SheetClose({
 export interface SheetContentProps extends React.HTMLAttributes<HTMLDivElement> {
   side?: "top" | "bottom" | "left" | "right";
   showClose?: boolean;
+  className?: string;
+  children?: React.ReactNode;
 }
 
 export function SheetContent({

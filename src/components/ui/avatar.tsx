@@ -3,6 +3,7 @@ import { cn } from "../../lib/utils";
 
 export interface AvatarProps extends React.HTMLAttributes<HTMLDivElement> {
   className?: string;
+  children?: React.ReactNode;
 }
 
 export function Avatar({ className, ...props }: AvatarProps) {

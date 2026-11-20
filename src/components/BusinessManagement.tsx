@@ -95,7 +95,10 @@ import { ReportSelect } from "./reports/ReportSelect";
 import { ConfirmModal, InlineNotice } from "./ui/ConfirmModal";
 import { Modal } from "./ui/Modal";
 import { KP3_AREA_LIST, extractKp3Area, isSmallBusinessOrHostel, formatShortRecordId } from "../utils/kp3Utils";
+import { recordAuditLog } from "../utils/auditLogger";
 import { getBusinessCreatePath, getBusinessDetailPath, getBusinessEditPath, navigate } from "../routes";
+import { normalizeEntityLandParcels } from "../utils/landParcelsUtils";
+import { getNormalizedLinkedHouseholdCodes } from "../utils/addressCoLocationUtils";
 
 export interface IndustrySectorDef {
   id: string;
@@ -553,6 +556,7 @@ export default function BusinessManagement({
                           (b.legalRepresentative && b.legalRepresentative.toLowerCase().includes(searchLower)) ||
                           (b.focalPointName && b.focalPointName.toLowerCase().includes(searchLower)) ||
                           (b.linkedHouseholdCode && b.linkedHouseholdCode.toLowerCase().includes(searchLower)) ||
+                          Boolean(b.linkedHouseholdCodes?.some(code => code.toLowerCase().includes(searchLower))) ||
                           (b.address && b.address.toLowerCase().includes(searchLower)) ||
                           (b.toBanDo && b.toBanDo.includes(searchTerm)) ||
                           (b.soThua && b.soThua.includes(searchTerm)) ||
@@ -579,7 +583,7 @@ export default function BusinessManagement({
     } else if (establishmentFilter === "pccc-fail") {
       matchesEstablishmentFilter = !b.safetyCertified;
     } else if (establishmentFilter === "has-sodo") {
-      matchesEstablishmentFilter = Boolean(b.soDoFile);
+      matchesEstablishmentFilter = Boolean(b.soDoFile || b.landParcels?.some(p => p.soDoFile));
     }
 
     let matchesPccc = true;
@@ -640,7 +644,7 @@ export default function BusinessManagement({
   // Analytics & Statistics for Local Establishments
   const totalAccomCount = businesses.filter(b => isAccommodationBusiness(b)).length;
   const totalRooms = businesses.reduce((acc, b) => acc + (b.soPhong || 0), 0);
-  const totalSoDoFiles = businesses.filter(b => Boolean(b.soDoFile)).length;
+  const totalSoDoFiles = businesses.filter(b => Boolean(b.soDoFile || b.landParcels?.some(p => p.soDoFile))).length;
   const totalCertifiedPccc = businesses.filter(b => b.safetyCertified).length;
   const totalLocalWorkers = businesses.reduce((acc, b) => acc + (b.localWorkersCount ?? Math.floor(b.employeeCount / 2)), 0);
   const totalTempWorkers = businesses.reduce((acc, b) => acc + (b.temporaryWorkersCount ?? Math.ceil(b.employeeCount / 2)), 0);
@@ -654,55 +658,123 @@ export default function BusinessManagement({
   const startIndex = (activePage - 1) * itemsPerPage;
   const paginatedBusinesses = filteredBusinesses.slice(startIndex, startIndex + itemsPerPage);
 
-  const handleExportBusinessesCsv = () => {
-    const headers = [
-      "Mã cơ sở",
-      "Tên cơ sở kinh doanh",
-      "Số GPKD",
-      "Ngành nghề",
-      "Chủ cơ sở",
-      "Số điện thoại",
-      "Địa chỉ",
-      "Tuyến đường",
-      "Loại mặt bằng",
-      "Chứng nhận PCCC",
-      "Cơ sở lưu trú",
-      "Số phòng",
-      "Số người lưu trú",
-      "Tờ BĐ",
-      "Thửa đất",
-      "Trạng thái hoạt động"
-    ];
+  const handleExportBusinessesExcel = () => {
+    const sheet1Rows = filteredBusinesses.map((b, idx) => {
+      const isAccom = isAccommodationBusiness(b);
+      const stayingCount = isAccom
+        ? residents.filter((r) => isResidentInAccommodation(r, b)).length || b.soNguoiLuuTru || 0
+        : 0;
+      return {
+        "STT": idx + 1,
+        "Mã cơ sở": b.internalCode || b.id,
+        "Tên cơ sở kinh doanh": b.name,
+        "Số GPKD": b.licenseNumber || "Chưa cập nhật",
+        "Ngành nghề": b.type || "Chưa cập nhật",
+        "Nhóm ngành": getBusinessIndustryGroup(b),
+        "Chủ cơ sở": b.owner || "Chưa cập nhật",
+        "Số điện thoại": b.phone || "Chưa cập nhật",
+        "Địa chỉ": b.address || "Chưa cập nhật",
+        "Khu vực KP3": extractKp3Area(b.address),
+        "Loại mặt bằng": b.premisesType || "Nhà phố",
+        "Chứng nhận PCCC": b.safetyCertified ? "Đạt chuẩn" : "Chưa đạt",
+        "Cơ sở lưu trú": isAccom ? "Có" : "Không",
+        "Số phòng": isAccom ? b.soPhong || 0 : 0,
+        "Số người lưu trú thực tế": stayingCount,
+        "Tờ BĐ": b.toBanDo || "Chưa cập nhật",
+        "Thửa đất": b.soThua || "Chưa cập nhật",
+        "Trạng thái hoạt động": b.status || "Đang hoạt động",
+      };
+    });
 
-    const rows = filteredBusinesses.map(b => [
-      `"${b.internalCode || b.id}"`,
-      `"${b.name.replace(/"/g, '""')}"`,
-      `"${b.licenseNumber || ""}"`,
-      `"${b.type || ""}"`,
-      `"${b.owner || ""}"`,
-      `"${b.phone || ""}"`,
-      `"${b.address.replace(/"/g, '""')}"`,
-      `"${b.streetArea || ""}"`,
-      `"${b.premisesType || "Nhà phố"}"`,
-      b.safetyCertified ? '"Đạt chuẩn"' : '"Chưa đạt"',
-      b.isAccommodation ? '"Có"' : '"Không"',
-      b.soPhong || 0,
-      b.soNguoiLuuTru || 0,
-      `"${b.toBanDo || ""}"`,
-      `"${b.soThua || ""}"`,
-      `"${b.status || ""}"`
-    ]);
+    const accomSource = filteredBusinesses.filter((b) => isAccommodationBusiness(b));
+    const sheet2Rows = accomSource.map((b, idx) => {
+      const staying = residents.filter((r) => isResidentInAccommodation(r, b));
+      let expiringSoon = 0;
+      let expired = 0;
+      staying.forEach((r) => {
+        const exp = getTemporaryResidenceExpiryStatus(r.temporaryExpDate);
+        if (exp.isWarning) expiringSoon++;
+        if (exp.isExpired) expired++;
+      });
+      return {
+        "STT": idx + 1,
+        "Mã cơ sở": b.internalCode || b.id,
+        "Tên Nhà trọ / Lưu trú": b.name,
+        "Chủ nhà trọ": b.owner || "Chưa cập nhật",
+        "Số điện thoại": b.phone || "Chưa cập nhật",
+        "Địa chỉ": b.address,
+        "Số tầng": b.soTang || "Chưa cập nhật",
+        "Số phòng": b.soPhong || 0,
+        "Cư dân lưu trú (CSDL)": staying.length > 0 ? staying.length : b.soNguoiLuuTru || 0,
+        "Sắp hết hạn tạm trú (<30 ngày)": expiringSoon,
+        "Đã quá hạn tạm trú": expired,
+        "An toàn PCCC": b.safetyCertified ? "Đạt chuẩn" : "Cần kiểm tra",
+        "Cam kết ANTT": (b as any).hasCamKetAnNinh ? "Đã ký cam kết" : "Chưa cập nhật",
+      };
+    });
 
-    const csvContent = "\uFEFF" + [headers.join(","), ...rows.map(r => r.join(","))].join("\r\n");
-    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.setAttribute("href", url);
-    link.setAttribute("download", `Danh_sach_Co_so_Kinh_doanh_KP3_${new Date().toISOString().split("T")[0]}.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    showToast("Đã xuất danh sách cơ sở kinh doanh KP3 thành công!", "success");
+    const sheet3Rows = filteredBusinesses.map((b, idx) => {
+      const parcels = normalizeEntityLandParcels(b);
+      const sheetSummary =
+        parcels.length > 0
+          ? parcels.map((p) => p.toBanDo || "-").join(", ")
+          : b.toBanDo || "Chưa cập nhật";
+      const plotSummary =
+        parcels.length > 0
+          ? parcels.map((p) => p.soThua || "-").join(", ")
+          : b.soThua || "Chưa cập nhật";
+      const hasSoDo = Boolean(b.soDoFile || parcels.some((p) => p.soDoFile));
+      return {
+        "STT": idx + 1,
+        "Tên cơ sở": b.name,
+        "Chủ sở hữu / Đại diện": b.owner || "Chưa cập nhật",
+        "Địa chỉ": b.address,
+        "Mã hộ liên kết": getNormalizedLinkedHouseholdCodes(b).join(", ") || "Chưa liên kết",
+        "Số thửa đất": parcels.length || (b.soThua ? 1 : 0),
+        "Tờ bản đồ": sheetSummary,
+        "Số thửa": plotSummary,
+        "Diện tích (m²)": b.dienTich || "Chưa cập nhật",
+        "Loại đất": b.loaiDat || "ODT",
+        "Số GCN QSDĐ": b.soGcn || "Chưa cập nhật",
+        "Hồ sơ Sổ đỏ đính kèm": hasSoDo ? "Đã nộp" : "Chưa nộp",
+        "Chứng nhận PCCC": b.safetyCertified ? "Đạt chuẩn" : "Chưa đạt",
+        "Số biên bản kiểm tra": b.inspections?.length || 0,
+      };
+    });
+
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(
+      wb,
+      XLSX.utils.json_to_sheet(sheet1Rows),
+      "Co_So_Kinh_Doanh"
+    );
+    XLSX.utils.book_append_sheet(
+      wb,
+      XLSX.utils.json_to_sheet(
+        sheet2Rows.length > 0
+          ? sheet2Rows
+          : [{ "Ghi chú": "Không có cơ sở nhà trọ/lưu trú trong bộ lọc hiện tại" }]
+      ),
+      "Nha_Tro_Luu_Tru"
+    );
+    XLSX.utils.book_append_sheet(
+      wb,
+      XLSX.utils.json_to_sheet(sheet3Rows),
+      "Dia_Chinh_PCCC"
+    );
+
+    const fileName = `Danh_Sach_Co_So_Kinh_Doanh_KP3_${new Date().toISOString().split("T")[0]}.xlsx`;
+    XLSX.writeFile(wb, fileName);
+
+    void recordAuditLog({
+      actorName: "Cán bộ Kinh tế Cơ sở",
+      actorRole: "Ban điều hành Khu phố 3",
+      category: "DATA_EXPORT",
+      actionTitle: "Xuất báo cáo Cơ sở Kinh doanh đa sheet (.xlsx)",
+      targetSummary: `Đã xuất ${filteredBusinesses.length} cơ sở kinh doanh (${accomSource.length} nhà trọ) ra tệp ${fileName}`,
+    });
+
+    showToast(`Đã xuất ${filteredBusinesses.length} cơ sở kinh doanh ra file Excel (.xlsx) đa sheet!`, "success");
   };
 
   return (
@@ -725,47 +797,49 @@ export default function BusinessManagement({
         badgeSubtext="ĐỀ ÁN 06/CP"
         title="Quản lý Cơ sở Kinh doanh KP3"
         actions={
-          <>
+          <div className="flex flex-wrap items-center gap-2">
             <button 
               type="button"
               onClick={handleAutoDetectHostels}
               disabled={isDetectingHostels}
-              className="flex items-center gap-1.5 bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-300 px-3.5 py-2.5 rounded-xl font-bold text-xs transition-all cursor-pointer shadow-xs disabled:opacity-50"
+              className="flex items-center gap-1.5 min-h-[40px] bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-300 px-3 py-2 rounded-xl font-bold text-xs transition-all cursor-pointer shadow-xs disabled:opacity-50 whitespace-nowrap"
               title="Tự động phân tích cư dân để nhận diện và thêm các cơ sở nhà trọ / lưu trú"
             >
-              <Sparkles size={15} className={`text-amber-600 ${isDetectingHostels ? "animate-spin" : ""}`} />
-              <span>Tự động nhận diện Nhà trọ</span>
+              <Sparkles size={15} className={`text-amber-600 shrink-0 ${isDetectingHostels ? "animate-spin" : ""}`} />
+              <span>Nhận diện Nhà trọ</span>
             </button>
             <button 
               type="button"
-              onClick={handleExportBusinessesCsv}
-              className="flex items-center gap-1.5 bg-white hover:bg-slate-50 text-slate-700 px-3.5 py-2.5 rounded-xl font-bold text-xs border border-slate-200 transition-all cursor-pointer shadow-xs"
-              title="Xuất danh sách cơ sở kinh doanh dạng CSV"
+              onClick={handleExportBusinessesExcel}
+              className="flex items-center gap-1.5 min-h-[40px] bg-white hover:bg-slate-50 text-slate-700 px-3 py-2 rounded-xl font-bold text-xs border border-slate-200 transition-all cursor-pointer shadow-xs whitespace-nowrap"
+              title="Xuất danh sách cơ sở kinh doanh ra tệp Excel (.xlsx) đa sheet"
             >
-              <Download size={15} className="text-slate-600" /> Xuất File CSV
+              <Download size={15} className="text-slate-600 shrink-0" /> Xuất Excel (.xlsx)
             </button>
             <button 
               type="button"
               onClick={handleOpenCreateModal}
-              className="flex items-center gap-2 min-h-[40px] bg-emerald-700 hover:bg-emerald-800 text-white px-4 py-2 rounded-xl font-bold text-xs transition-colors cursor-pointer whitespace-nowrap"
+              className="flex items-center gap-1.5 min-h-[40px] bg-emerald-700 hover:bg-emerald-800 text-white px-3.5 py-2 rounded-xl font-bold text-xs transition-colors cursor-pointer whitespace-nowrap"
             >
-              <Plus size={16} /> Đăng ký Cơ sở Mới
+              <Plus size={16} className="shrink-0" /> Đăng ký Cơ sở
             </button>
-          </>
+          </div>
         }
       />
 
       {/* KPI Stats Overview Bar */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
         <StatCard
           label="Tổng cơ sở kinh doanh"
           value={businesses.length}
-          badge="Tại chỗ"
+          badge="cơ sở"
           icon={<Briefcase size={22} />}
           color="blue"
-          subtext="Hộ kinh doanh cá thể & cơ sở"
-          subtextRight="CSDL KP3"
-          highlighted={true}
+          highlighted={establishmentFilter === "all"}
+          onClick={() => {
+            setEstablishmentFilter("all");
+            setCurrentPage(1);
+          }}
         />
         <StatCard
           label="Nhà trọ & Lưu trú"
@@ -773,8 +847,13 @@ export default function BusinessManagement({
           badge={`${formatVNNumber(totalRooms)} phòng`}
           icon={<Building size={22} />}
           color="amber"
-          subtext="Cơ sở phòng trọ lưu trú"
-          subtextRight="An ninh lưu trú"
+          highlighted={establishmentFilter === "accommodation"}
+          onClick={() => {
+            setEstablishmentFilter(
+              establishmentFilter === "accommodation" ? "all" : "accommodation"
+            );
+            setCurrentPage(1);
+          }}
         />
         <StatCard
           label="Hồ sơ Sổ đỏ đính kèm"
@@ -782,8 +861,13 @@ export default function BusinessManagement({
           badge={`/ ${formatVNNumber(businesses.length)}`}
           icon={<FileText size={22} />}
           color="indigo"
-          subtext="Giấy chứng nhận QSDĐ"
-          subtextRight="Địa chính ODT"
+          highlighted={establishmentFilter === "has-sodo"}
+          onClick={() => {
+            setEstablishmentFilter(
+              establishmentFilter === "has-sodo" ? "all" : "has-sodo"
+            );
+            setCurrentPage(1);
+          }}
         />
         <StatCard
           label="Đạt chuẩn an toàn PCCC"
@@ -791,8 +875,13 @@ export default function BusinessManagement({
           badge="cơ sở"
           icon={<ShieldCheck size={22} />}
           color="emerald"
-          subtext="Đạt điều kiện PCCC"
-          subtextRight="Kiểm tra định kỳ"
+          highlighted={establishmentFilter === "pccc-pass"}
+          onClick={() => {
+            setEstablishmentFilter(
+              establishmentFilter === "pccc-pass" ? "all" : "pccc-pass"
+            );
+            setCurrentPage(1);
+          }}
         />
       </div>
 
@@ -873,22 +962,22 @@ export default function BusinessManagement({
           </div>
         </div>
 
-        <div className="flex flex-col lg:flex-row gap-3 items-stretch lg:items-center justify-between">
-          <div className="relative flex-1 min-w-0">
+        <div className="flex flex-col 2xl:flex-row gap-3 items-stretch 2xl:items-center justify-between">
+          <div className="relative flex-1 min-w-0 w-full">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
             <input 
               id="business-search-input"
               name="businessSearchTerm"
               aria-label="Tìm kiếm cơ sở kinh doanh"
               type="text" 
-              placeholder="Tìm theo tên cơ sở, chủ hộ, số GPKD, địa chỉ, ngành nghề, Tờ BĐ, số Thửa..."
+              placeholder="Tìm tên cơ sở, chủ hộ, số GPKD, địa chỉ, Tờ/Thửa..."
               value={searchTerm}
               onChange={(e) => handleSearchChange(e.target.value)}
               className="w-full pl-10 pr-4 py-2 border border-slate-200 rounded-xl text-xs sm:text-sm focus:outline-none focus:border-indigo-500 bg-white"
             />
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-2">
+          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-2 2xl:w-auto">
             {/* Category Filter */}
             <ReportSelect
               aria-label="Nhóm ngành nghề"
@@ -913,20 +1002,6 @@ export default function BusinessManagement({
                 { value: "Tất cả", label: "Tất cả PCCC" },
                 { value: "Đạt chuẩn", label: "Đạt chuẩn an toàn PCCC" },
                 { value: "Chưa đạt", label: "Chưa đạt / Cần nhắc nhở" },
-              ]}
-              className="w-full"
-            />
-
-            {/* Street Filter */}
-            <ReportSelect
-              aria-label="Tuyến đường"
-              value={streetFilter}
-              onChange={(nextVal) => { setStreetFilter(nextVal); setCurrentPage(1); }}
-              options={[
-                { value: "Tất cả", label: "Tất cả tuyến đường" },
-                { value: "Mặt tiền Lương Định Của", label: "Mặt tiền Lương Định Của" },
-                { value: "Hẻm 42 Lương Định Của", label: "Hẻm 42 Lương Định Của" },
-                { value: "Hẻm 18 Lương Định Của", label: "Hẻm 18 Lương Định Của" },
               ]}
               className="w-full"
             />
@@ -1008,7 +1083,7 @@ export default function BusinessManagement({
 
         {viewMode === "card" ? (
           /* Card Grid View: Toàn bộ chiều rộng, 1-4 cột */
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-4">
             {filteredBusinesses.length === 0 ? (
               <div className="col-span-full bg-white rounded-2xl border border-slate-100 p-12 text-center text-sm text-slate-400 space-y-2">
                 <Briefcase size={36} className="mx-auto text-slate-300" />
@@ -1030,8 +1105,17 @@ export default function BusinessManagement({
                   <div 
                     key={b.id}
                     id={`business-card-${b.id}`}
+                    role="button"
+                    tabIndex={0}
                     onClick={() => handleOpenDetailModal(b)}
-                    className={`group bg-white rounded-2xl border p-4 hover:border-indigo-300 transition-colors cursor-pointer flex flex-col justify-between relative
+                    onKeyDown={(e) => {
+                      if (e.target !== e.currentTarget) return;
+                      if (e.key === "Enter" || e.key === " ") {
+                        e.preventDefault();
+                        handleOpenDetailModal(b);
+                      }
+                    }}
+                    className={`group bg-white rounded-2xl border p-4 hover:border-indigo-300 hover:shadow-xs transition-all cursor-pointer flex flex-col justify-between relative focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500
                       ${isSelected ? "border-indigo-500 ring-2 ring-indigo-500/20" : "border-slate-200"}
                     `}
                   >
@@ -1066,6 +1150,15 @@ export default function BusinessManagement({
                           </span>
                         </div>
 
+                        {/* Huy hiệu Timemark xác thực góc trên trái ảnh */}
+                        {b.timemarkVerified && (
+                          <div className="absolute top-2 left-2">
+                            <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-emerald-950/90 text-emerald-300 border border-emerald-500/50 flex items-center gap-1 shadow-xs backdrop-blur-xs">
+                              <Camera size={10} className="text-emerald-400" /> Timemark GPS
+                            </span>
+                          </div>
+                        )}
+
                         {/* Huy hiệu cơ sở lưu trú ở góc dưới trái ảnh */}
                         {isAccom && (
                           <div className="absolute bottom-2 left-2">
@@ -1081,11 +1174,26 @@ export default function BusinessManagement({
                         <h3 className="font-bold text-slate-900 text-sm leading-snug group-hover:text-indigo-600 transition-colors line-clamp-1" title={b.name}>
                           {b.name}
                         </h3>
-                        <div className="text-xs text-slate-600 flex items-center gap-1 mt-1">
-                          <MapPin size={12} className="shrink-0 text-slate-500" />
-                          <span className="line-clamp-1 text-slate-600 font-medium" title={b.address}>
-                            {b.address}
+                        <div className="text-xs text-slate-600 flex flex-wrap items-center gap-1.5 mt-1">
+                          <span className="inline-flex items-center gap-1 min-w-0 line-clamp-1 text-slate-600 font-medium" title={b.address}>
+                            <MapPin size={12} className="shrink-0 text-slate-500" />
+                            <span className="truncate">{b.address}</span>
                           </span>
+                          {(() => {
+                            const linkedCodes = getNormalizedLinkedHouseholdCodes(b);
+                            if (linkedCodes.length === 0) return null;
+                            return (
+                              <span className="inline-flex items-center gap-1 text-[10px] font-bold px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-800 border border-emerald-200 shrink-0">
+                                <Home size={10} />
+                                {linkedCodes.length > 1 ? `Ghép ${linkedCodes.length} hộ` : `Hộ ${linkedCodes[0]}`}
+                              </span>
+                            );
+                          })()}
+                          {normalizeEntityLandParcels(b).length >= 2 && (
+                            <span className="inline-flex items-center gap-1 text-[10px] font-bold px-1.5 py-0.5 rounded bg-indigo-50 text-indigo-800 border border-indigo-200 shrink-0">
+                              <Layers size={10} /> {String(normalizeEntityLandParcels(b).length).padStart(2, "0")} Sổ đỏ
+                            </span>
+                          )}
                         </div>
                       </div>
 
@@ -1097,9 +1205,9 @@ export default function BusinessManagement({
                           <div className="py-2 px-3 rounded-xl bg-amber-50 border border-amber-200 text-amber-950 flex flex-wrap items-center justify-between gap-2">
                             <div className="flex items-center gap-1.5 text-xs font-bold">
                               <Bed size={14} className="text-amber-800 shrink-0" />
-                              <span>{b.soPhong || 0} phòng</span>
+                              <span>{b.soPhong || 1} phòng</span>
                               <span className="text-amber-800">•</span>
-                              <span>{b.soTang || 0} tầng</span>
+                              <span>{b.soTang && b.soTang > 0 ? `${b.soTang} tầng` : "Nhà trọ"}</span>
                             </div>
                             <span className="text-xs font-bold text-amber-900 bg-amber-100 px-2.5 py-0.5 rounded-full border border-amber-300 shrink-0">
                               {actualCount} người
@@ -1137,33 +1245,61 @@ export default function BusinessManagement({
                       </div>
 
                       <div className="flex items-center justify-between gap-2">
-                        {b.soDoFile ? (
-                          <button
-                            type="button"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setViewingDoc({
-                                title: "Hồ sơ Giấy chứng nhận QSDĐ (Sổ đỏ)",
-                                businessName: b.name,
-                                file: b.soDoFile!,
-                                business: b
-                              });
-                            }}
-                            className={`min-h-[32px] text-xs font-bold px-2.5 py-1 rounded-md flex items-center gap-1 transition-colors cursor-pointer whitespace-nowrap ${
-                              b.soDoFile.type === "pdf" 
-                                ? "bg-rose-50 text-rose-800 border border-rose-200 hover:bg-rose-100" 
-                                : "bg-blue-50 text-blue-800 border border-blue-200 hover:bg-blue-100"
-                            }`}
-                            title="Nhấp để xem tệp Sổ đỏ"
-                          >
-                            <FileText size={11} />
-                            <span>Sổ đỏ</span>
-                          </button>
-                        ) : (
-                          <span className="text-xs text-slate-600 bg-slate-50 px-2 py-1 rounded border border-slate-200 italic">
-                            Chưa sổ
-                          </span>
-                        )}
+                        <div className="flex flex-wrap items-center gap-1.5">
+                          {(() => {
+                            const primarySoDo = b.soDoFile || b.landParcels?.find((p) => p.soDoFile)?.soDoFile;
+                            const soDoCount = (b.landParcels?.filter((p) => p.soDoFile).length || 0) || (b.soDoFile ? 1 : 0);
+                            if (primarySoDo) {
+                              return (
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setViewingDoc({
+                                      title: "Hồ sơ Giấy chứng nhận QSDĐ (Sổ đỏ)",
+                                      businessName: b.name,
+                                      file: primarySoDo,
+                                      business: b
+                                    });
+                                  }}
+                                  className={`min-h-[32px] text-xs font-bold px-2.5 py-1 rounded-md flex items-center gap-1 transition-colors cursor-pointer whitespace-nowrap ${
+                                    primarySoDo.type === "pdf" 
+                                      ? "bg-rose-50 text-rose-800 border border-rose-200 hover:bg-rose-100" 
+                                      : "bg-blue-50 text-blue-800 border border-blue-200 hover:bg-blue-100"
+                                  }`}
+                                  title="Nhấp để xem tệp Sổ đỏ"
+                                >
+                                  <FileText size={11} />
+                                  <span>{soDoCount >= 2 ? `${String(soDoCount).padStart(2, "0")} Sổ đỏ` : "Sổ đỏ"}</span>
+                                </button>
+                              );
+                            }
+                            return (
+                              <span className="text-xs text-slate-600 bg-slate-50 px-2 py-1 rounded border border-slate-200 italic">
+                                Chưa sổ
+                              </span>
+                            );
+                          })()}
+                          {b.giayPhepFile && (
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setViewingDoc({
+                                  title: "Giấy chứng nhận Đăng ký Hộ kinh doanh / GPKD",
+                                  businessName: b.name,
+                                  file: b.giayPhepFile!,
+                                  business: b
+                                });
+                              }}
+                              className="min-h-[32px] text-xs font-bold px-2 py-1 rounded-md flex items-center gap-1 bg-amber-50 text-amber-800 border border-amber-200 hover:bg-amber-100 transition-colors cursor-pointer whitespace-nowrap"
+                              title="Xem bản chụp Giấy phép kinh doanh"
+                            >
+                              <FileCheck size={11} />
+                              <span>GPKD</span>
+                            </button>
+                          )}
+                        </div>
 
                         {b.safetyCertified && (
                           <span className="inline-flex items-center gap-0.5 text-emerald-800 bg-emerald-50 border border-emerald-200 px-2 py-1 rounded-md font-bold text-xs whitespace-nowrap">
@@ -1184,13 +1320,13 @@ export default function BusinessManagement({
                 <table className="w-full text-left border-collapse text-xs">
                   <thead>
                     <tr className="bg-slate-50 border-b border-slate-200 text-slate-700 font-bold uppercase text-xs tracking-wider">
-                      <th className="p-3.5">Cơ sở / Ngành nghề</th>
-                      <th className="p-3.5">Chủ sở hữu & Liên hệ</th>
-                      <th className="p-3.5">Đặc điểm Lưu trú</th>
-                      <th className="p-3.5">Địa chính / Thửa đất</th>
-                      <th className="p-3.5">Sổ đỏ & PCCC</th>
-                      <th className="p-3.5 text-center">Trạng thái</th>
-                      <th className="p-3.5 text-center">Thao tác</th>
+                      <th className="p-3.5 min-w-[220px]">Cơ sở / Ngành nghề</th>
+                      <th className="p-3.5 whitespace-nowrap">Chủ sở hữu & Liên hệ</th>
+                      <th className="p-3.5 whitespace-nowrap">Đặc điểm Lưu trú</th>
+                      <th className="p-3.5 whitespace-nowrap">Địa chính / Thửa đất</th>
+                      <th className="p-3.5 whitespace-nowrap">Sổ đỏ & PCCC</th>
+                      <th className="p-3.5 text-center whitespace-nowrap">Trạng thái</th>
+                      <th className="p-3.5 text-center whitespace-nowrap sticky right-0 bg-slate-50 shadow-[-4px_0_8px_-4px_rgba(0,0,0,0.08)] z-10">Thao tác</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
@@ -1203,12 +1339,12 @@ export default function BusinessManagement({
                         <tr 
                           key={b.id}
                           onClick={() => handleOpenDetailModal(b)}
-                          className={`hover:bg-indigo-50/40 transition-colors cursor-pointer ${
+                          className={`group hover:bg-slate-50 transition-colors cursor-pointer ${
                             isSelected ? "bg-indigo-50/70 font-medium" : ""
                           }`}
                         >
                           {/* Cột 1: Cơ sở / Ngành nghề */}
-                          <td className="p-3.5">
+                          <td className="p-3.5 min-w-[220px]">
                             <div className="flex items-center gap-3">
                               <div className="w-10 h-10 rounded-xl overflow-hidden bg-slate-100 border border-slate-200 shrink-0 shadow-2xs">
                                 <img 
@@ -1228,6 +1364,30 @@ export default function BusinessManagement({
                                     <span>{sectorMeta.shortName}</span>
                                   </span>
                                   <span className="font-mono text-slate-600 font-semibold text-xs bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200">{b.licenseNumber}</span>
+                                  {b.timemarkVerified && (
+                                    <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-800 border border-emerald-300 flex items-center gap-1">
+                                      <Camera size={10} /> Timemark
+                                    </span>
+                                  )}
+                                  {(() => {
+                                    const linkedCodes = getNormalizedLinkedHouseholdCodes(b);
+                                    if (linkedCodes.length === 0) return null;
+                                    return (
+                                      <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-indigo-50 text-indigo-700 border border-indigo-200 flex items-center gap-1">
+                                        <Home size={10} /> {linkedCodes.length > 1 ? `Ghép ${linkedCodes.length} hộ (${linkedCodes.join(", ")})` : `Hộ ${linkedCodes[0]}`}
+                                      </span>
+                                    );
+                                  })()}
+                                  {normalizeEntityLandParcels(b).length >= 2 && (
+                                    <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-blue-50 text-blue-800 border border-blue-200 flex items-center gap-1">
+                                      <Layers size={10} /> Ghép {String(normalizeEntityLandParcels(b).length).padStart(2, "0")} thửa
+                                    </span>
+                                  )}
+                                  {b.giayPhepFile && (
+                                    <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-amber-50 text-amber-800 border border-amber-200 flex items-center gap-1">
+                                      <FileCheck size={10} /> Đã lưu GPKD
+                                    </span>
+                                  )}
                                   <span className="text-xs text-slate-600">• {b.type}</span>
                                 </div>
                               </div>
@@ -1254,7 +1414,7 @@ export default function BusinessManagement({
                               return (
                                 <div className="space-y-1">
                                   <span className="inline-flex items-center gap-1 font-bold text-amber-900 bg-amber-100 px-2 py-0.5 rounded-full text-xs border border-amber-200">
-                                    <Building size={11} className="text-amber-700" /> {b.soPhong || 0} phòng / {b.soTang || 0} tầng
+                                    <Building size={11} className="text-amber-700" /> {b.soPhong || 1} phòng{b.soTang && b.soTang > 0 ? ` / ${b.soTang} tầng` : ""}
                                   </span>
                                   <div className="text-xs font-bold text-amber-950 flex items-center gap-1.5">
                                     <span>{actualCount} người</span>
@@ -1335,8 +1495,8 @@ export default function BusinessManagement({
                             </span>
                           </td>
 
-                          {/* Cột 7: Thao tác (Cân đối, chuẩn UI) */}
-                          <td className="p-3.5 text-center whitespace-nowrap">
+                          {/* Cột 7: Thao tác (Cân đối, chuẩn UI, sticky right) */}
+                          <td className="p-3.5 text-center whitespace-nowrap sticky right-0 bg-white group-hover:bg-slate-50 shadow-[-4px_0_8px_-4px_rgba(0,0,0,0.08)] z-10">
                             <div className="flex items-center justify-center gap-1.5" onClick={(e) => e.stopPropagation()}>
                               <button
                                 type="button"
@@ -1389,7 +1549,7 @@ export default function BusinessManagement({
         <div className="fixed inset-0 bg-slate-900/80 flex items-center justify-center z-50 p-4 backdrop-blur-sm animate-in fade-in duration-200">
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[92vh] flex flex-col overflow-hidden animate-in zoom-in-95 duration-150 border border-slate-200">
             {/* Modal Header */}
-            <div className="bg-slate-950 text-white p-4 px-6 flex justify-between items-center shrink-0">
+            <div className="bg-slate-950 text-white p-4 sm:px-6 flex flex-wrap justify-between items-center gap-2 shrink-0">
               <div className="flex items-center gap-3 min-w-0">
                 <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${
                   viewingDoc.file.type === "pdf" ? "bg-rose-600 text-white" : "bg-blue-600 text-white"
@@ -1451,7 +1611,7 @@ export default function BusinessManagement({
             </div>
 
             {/* Viewer Content */}
-            <div className="flex-1 overflow-y-auto p-6 bg-slate-50">
+            <div className="flex-1 overflow-y-auto p-3 sm:p-6 bg-slate-50">
               {viewingDoc.file.type === "image" ? (
                 <div className="flex flex-col items-center justify-center space-y-3">
                   <div className="bg-white p-3 rounded-2xl shadow-md border border-slate-200 max-w-full">
@@ -1469,7 +1629,7 @@ export default function BusinessManagement({
               ) : (
                 /* PDF Viewer */
                 <div className="space-y-4">
-                  {viewingDoc.file.url.startsWith("data:application/pdf") ? (
+                  {(viewingDoc.file.url.startsWith("data:application/pdf") || /^https?:\/\//i.test(viewingDoc.file.url)) ? (
                     <div className="bg-white rounded-xl shadow-md border border-slate-200 overflow-hidden">
                       <iframe 
                         src={viewingDoc.file.url} 
@@ -1479,23 +1639,23 @@ export default function BusinessManagement({
                     </div>
                   ) : (
                     /* Official Authentic Vietnamese Land Use Certificate Layout */
-                    <div className="bg-[#fffdf9] p-8 md:p-10 rounded-2xl shadow-md border-2 border-amber-600/40 max-w-2xl mx-auto space-y-6 text-slate-800 font-serif relative overflow-hidden">
+                    <div className="bg-[#fffdf9] p-4 sm:p-8 rounded-2xl shadow-md border-2 border-amber-600/40 max-w-2xl mx-auto space-y-5 sm:space-y-6 text-slate-800 relative overflow-hidden">
                       {/* Decorative border line */}
                       <div className="absolute inset-1 border border-amber-500/20 pointer-events-none rounded-xl"></div>
                       
                       {/* Header */}
-                      <div className="text-center space-y-1 font-sans border-b border-amber-200/80 pb-4">
+                      <div className="text-center space-y-1 border-b border-amber-200/80 pb-4">
                         <div className="text-xs font-black uppercase tracking-wider text-slate-900">CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM</div>
                         <div className="font-bold text-xs text-slate-700 underline decoration-1 underline-offset-4">Độc lập - Tự do - Hạnh phúc</div>
                         <div className="text-[10px] text-amber-900 font-bold tracking-widest pt-2 uppercase">BỘ TÀI NGUYÊN VÀ MÔI TRƯỜNG</div>
-                        <h2 className="text-lg font-black text-rose-800 pt-1 tracking-tight font-serif uppercase">
+                        <h2 className="text-base sm:text-lg font-black text-rose-800 pt-1 tracking-tight uppercase">
                           GIẤY CHỨNG NHẬN QUYỀN SỬ DỤNG ĐẤT
                         </h2>
                         <h3 className="text-xs font-bold text-rose-700 uppercase">
                           QUYỀN SỞ HỮU NHÀ Ở VÀ TÀI SẢN KHÁC GẮN LIỀN VỚI ĐẤT
                         </h3>
                         <div className="text-[10px] text-slate-500 font-mono pt-1">
-                          Số phát hành: <strong className="text-rose-700 font-mono">{viewingDoc.business.soGcn || "CH-098234"}</strong> • Số vào sổ: {viewingDoc.business.soVaoSo || "CS-2023-112"}
+                          Số phát hành: <strong className="text-rose-700 font-mono">{viewingDoc.business.soGcn || "Chưa cập nhật"}</strong> • Số vào sổ: {viewingDoc.business.soVaoSo || "Chưa cập nhật"}
                         </div>
                       </div>
 
@@ -1504,7 +1664,7 @@ export default function BusinessManagement({
                         <h4 className="font-bold text-slate-900 font-sans uppercase text-[11px] text-amber-900">
                           I. Người sử dụng đất, chủ sở hữu nhà ở và tài sản khác gắn liền với đất:
                         </h4>
-                        <div className="pl-3 space-y-1 text-slate-700">
+                        <div className="pl-2 sm:pl-3 space-y-1 text-slate-700">
                           <p>Ông/Bà: <strong className="text-slate-900">{viewingDoc.business.tenChuSuDung || viewingDoc.business.owner}</strong></p>
                           <p>Địa chỉ thường trú: <strong>{viewingDoc.business.address}</strong></p>
                         </div>
@@ -1515,17 +1675,17 @@ export default function BusinessManagement({
                         <h4 className="font-bold text-slate-900 font-sans uppercase text-[11px] text-amber-900">
                           II. Thửa đất, nhà ở và tài sản khác gắn liền với đất:
                         </h4>
-                        <div className="pl-3 space-y-1 text-slate-700">
-                          <div className="grid grid-cols-2 gap-2">
-                            <p>1. Thửa đất số: <strong className="font-mono text-slate-900">{viewingDoc.business.soThua || "55"}</strong></p>
-                            <p>2. Tờ bản đồ số: <strong className="font-mono text-slate-900">{viewingDoc.business.toBanDo || "272"}</strong></p>
+                        <div className="pl-2 sm:pl-3 space-y-1 text-slate-700">
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 sm:gap-2">
+                            <p>1. Thửa đất số: <strong className="font-mono text-slate-900">{viewingDoc.business.soThua || "—"}</strong></p>
+                            <p>2. Tờ bản đồ số: <strong className="font-mono text-slate-900">{viewingDoc.business.toBanDo || "—"}</strong></p>
                           </div>
                           <p>3. Địa chỉ thửa đất: <strong>{viewingDoc.business.address}</strong></p>
-                          <div className="grid grid-cols-2 gap-2">
-                            <p>4. Diện tích: <strong className="text-slate-900">{viewingDoc.business.dienTich ? `${viewingDoc.business.dienTich} m²` : "150 m²"}</strong></p>
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 sm:gap-2">
+                            <p>4. Diện tích: <strong className="text-slate-900">{viewingDoc.business.dienTich ? `${viewingDoc.business.dienTich} m²` : "—"}</strong></p>
                             <p>5. Hình thức sử dụng: <strong>Sử dụng riêng</strong></p>
                           </div>
-                          <div className="grid grid-cols-2 gap-2">
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 sm:gap-2">
                             <p>6. Mục đích sử dụng: <strong className="text-emerald-800">{viewingDoc.business.loaiDat || "Đất ở tại đô thị (ODT)"}</strong></p>
                             <p>7. Thời hạn sử dụng: <strong>Lâu dài</strong></p>
                           </div>
@@ -1540,13 +1700,13 @@ export default function BusinessManagement({
                             III. Tài sản gắn liền với đất (Công trình Nhà trọ / Lưu trú):
                           </h4>
                           <p className="text-[11px] text-slate-700 pl-2">
-                            Công trình xây dựng: Nhà ở kết hợp cho thuê trọ • Kết cấu bê tông cốt thép • <strong>{viewingDoc.business.soTang || 3} tầng</strong> • Quy mô <strong>{viewingDoc.business.soPhong || 12} phòng lưu trú</strong>.
+                            Công trình xây dựng: Nhà ở kết hợp cho thuê trọ • Kết cấu bê tông cốt thép • <strong>{viewingDoc.business.soTang || "—"} tầng</strong> • Quy mô <strong>{viewingDoc.business.soPhong || "—"} phòng lưu trú</strong>.
                           </p>
                         </div>
                       )}
 
                       {/* Signatures & Seal */}
-                      <div className="pt-4 border-t border-amber-200 flex justify-between items-end text-xs font-sans">
+                      <div className="pt-4 border-t border-amber-200 flex flex-col sm:flex-row justify-between items-center sm:items-end gap-4 text-xs font-sans">
                         <div className="text-center space-y-1">
                           <span className="text-[10px] text-slate-400 block">Trích lục số hóa bởi</span>
                           <span className="font-bold text-slate-700 text-[11px]">Văn phòng Đăng ký Đất đai</span>

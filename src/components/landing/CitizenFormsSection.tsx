@@ -99,7 +99,18 @@ export default function CitizenFormsSection({
             {filteredForms.map(f => (
               <li
                 key={f.id}
-                className="p-4 rounded-2xl border border-slate-200 hover:border-gov-blue transition-colors flex flex-col justify-between gap-3"
+                role="button"
+                tabIndex={0}
+                aria-label={`Xem hướng dẫn biểu mẫu ${f.title}`}
+                onClick={() => setPreviewForm(f)}
+                onKeyDown={(e) => {
+                  if (e.target !== e.currentTarget) return;
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    setPreviewForm(f);
+                  }
+                }}
+                className="p-4 rounded-2xl border border-slate-200 hover:border-gov-blue hover:shadow-sm transition-all flex flex-col justify-between gap-3 cursor-pointer group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gov-blue bg-white"
               >
                 <div className="space-y-2">
                   <div className="flex items-center justify-between gap-2 text-xs">
@@ -110,13 +121,16 @@ export default function CitizenFormsSection({
                       {f.fileFormat} · {f.fileSize}
                     </span>
                   </div>
-                  <h3 className="font-bold text-sm text-gov-navy line-clamp-2">{f.title}</h3>
+                  <h3 className="font-bold text-sm text-gov-navy group-hover:text-gov-blue line-clamp-2 transition-colors">{f.title}</h3>
                   <p className="text-xs text-slate-500 line-clamp-2">{f.description}</p>
                   <p className="text-xs text-slate-500">
                     Nơi tiếp nhận: <span className="text-gov-text">{f.issuingBody}</span>
                   </p>
                 </div>
-                <div className="flex gap-2 pt-2 border-t border-slate-100">
+                <div
+                  onClick={(e) => e.stopPropagation()}
+                  className="flex gap-2 pt-2 border-t border-slate-100"
+                >
                   <button onClick={() => setPreviewForm(f)} className={`${btnGhost} flex-1 whitespace-nowrap`}>
                     <Eye size={16} aria-hidden="true" /> Hướng dẫn
                   </button>

@@ -1,16 +1,24 @@
-import React, { useState } from "react";
+import React, { useMemo, useState } from "react";
 import {
+  Building2,
+  Camera,
   Check,
+  Compass,
   Copy,
   Crosshair,
   ExternalLink,
   FileWarning,
+  Home,
+  Layers,
   Navigation,
   Radar,
+  ShieldCheck,
+  Store,
   Trash2,
   Video,
   X,
 } from "lucide-react";
+import { Business, Household } from "../../types";
 import {
   KP3_CENTER,
   calculateDistanceMeters,
@@ -23,6 +31,15 @@ import {
   detectToDanPhoFromCoord,
   formatLatLngVN,
 } from "../../data/gisConfig";
+import { isEnterpriseRecord } from "../../utils/kp3Utils";
+import { resolveCoLocatedEntities } from "../../utils/addressCoLocationUtils";
+import { normalizeEntityLandParcels, summarizeLandParcels } from "../../utils/landParcelsUtils";
+import {
+  getBusinessDetailPath,
+  getEnterpriseDetailPath,
+  getHouseholdDetailPath,
+  navigate,
+} from "../../routes";
 import { GisPin } from "./gisTypes";
 
 interface GisPinDetailDrawerProps {
@@ -36,6 +53,8 @@ interface GisPinDetailDrawerProps {
   onDeleteCustomPin?: (pinId: string) => void;
   onTriggerLiveStream?: (pin: GisPin) => void;
   onNavigateToReport?: (reportId?: string) => void;
+  households?: Household[];
+  businesses?: Business[];
   readOnly?: boolean;
 }
 
@@ -63,10 +82,52 @@ export default function GisPinDetailDrawer({
   onDeleteCustomPin,
   onTriggerLiveStream,
   onNavigateToReport,
+  households = [],
+  businesses = [],
   readOnly = false,
 }: GisPinDetailDrawerProps) {
   const [copiedCoords, setCopiedCoords] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
+
+  const sourceHousehold = useMemo(() => {
+    if (!pin || pin.type !== "household" || !pin.sourceId) return undefined;
+    return households.find((h) => h.id === pin.sourceId);
+  }, [pin, households]);
+
+  const sourceBusiness = useMemo(() => {
+    if (!pin || pin.type !== "business" || !pin.sourceId) return undefined;
+    return businesses.find((b) => b.id === pin.sourceId);
+  }, [pin, businesses]);
+
+  const coLocation = useMemo(() => {
+    if (readOnly || (!sourceHousehold && !sourceBusiness)) return null;
+    if (sourceHousehold) {
+      return resolveCoLocatedEntities({
+        focusHousehold: sourceHousehold,
+        households,
+        businesses,
+      });
+    }
+    if (sourceBusiness) {
+      return resolveCoLocatedEntities({
+        focusBusiness: sourceBusiness,
+        households,
+        businesses,
+      });
+    }
+    return null;
+  }, [readOnly, sourceHousehold, sourceBusiness, households, businesses]);
+
+  const parcelSummary = useMemo(() => {
+    const entity = sourceHousehold || sourceBusiness;
+    if (!entity) return null;
+    const parcels = normalizeEntityLandParcels(entity);
+    if (parcels.length === 0) return null;
+    return {
+      count: parcels.length,
+      ...summarizeLandParcels(parcels),
+    };
+  }, [sourceHousehold, sourceBusiness]);
 
   if (!pin) return null;
 
@@ -110,6 +171,12 @@ export default function GisPinDetailDrawer({
                 Phân khu GIS #{pin.toNumber || detectedZone?.toNumber}
               </span>
             )}
+            {pin.timemarkVerified && (
+              <span className="px-2.5 py-0.5 rounded-md bg-amber-50 border border-amber-200 text-amber-900 text-xs font-bold inline-flex items-center gap-1">
+                <Camera size={12} className="text-amber-600" />
+                Timemark GPS 100% Chân thực
+              </span>
+            )}
           </div>
           <h3 className="text-base font-bold text-slate-900 leading-snug text-pretty">
             {pin.name}
@@ -130,6 +197,36 @@ export default function GisPinDetailDrawer({
       <p className="text-xs text-slate-700 bg-slate-50 border border-slate-200 rounded-xl p-3 leading-relaxed">
         {pin.details}
       </p>
+
+      {pin.timemarkVerified && (
+        <div className="bg-gradient-to-r from-amber-50/80 to-amber-100/50 border border-amber-200/90 rounded-xl p-3 text-xs space-y-2">
+          <div className="flex items-center justify-between gap-2">
+            <span className="font-bold text-amber-950 flex items-center gap-1.5 text-[12.5px]">
+              <ShieldCheck size={14} className="text-amber-700" />
+              Đã xác thực tọa độ qua ảnh Timemark Camera
+            </span>
+            {pin.timemarkHash && (
+              <code className="text-[11px] font-mono font-bold bg-white px-2 py-0.5 rounded border border-amber-200 text-amber-800">
+                Hash: {pin.timemarkHash}
+              </code>
+            )}
+          </div>
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 text-[11.5px] text-amber-900 font-medium">
+            <div>
+              <span className="text-amber-700 block text-[10.5px]">Độ cao thực địa:</span>
+              <span className="font-bold">{pin.photoElevation || "37.1m"}</span>
+            </div>
+            <div>
+              <span className="text-amber-700 block text-[10.5px]">Phương hướng:</span>
+              <span className="font-bold">{pin.photoHeading || "71° E"}</span>
+            </div>
+            <div>
+              <span className="text-amber-700 block text-[10.5px]">Thời gian chụp:</span>
+              <span className="font-bold">{pin.photoDate || "Đã kiểm chứng"}</span>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Structured GIS metadata */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 text-xs">
@@ -158,8 +255,91 @@ export default function GisPinDetailDrawer({
         </div>
       </div>
 
+      {/* Co-located Households / Enterprises / Businesses & Multi-Parcel Summary */}
+      {!readOnly && (parcelSummary || (coLocation && coLocation.totalOtherEntities > 0)) && (
+        <div className="bg-slate-50/90 border border-slate-200 rounded-xl p-3.5 space-y-2.5 text-xs">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <span className="font-bold text-slate-900 flex items-center gap-1.5">
+              <Layers size={14} className="text-indigo-700" />
+              Tổ hợp Địa chính & Chủ thể Cùng Địa Chỉ
+            </span>
+            {parcelSummary && (
+              <span className="px-2 py-0.5 rounded-md bg-indigo-50 border border-indigo-200 text-indigo-800 font-mono font-bold text-[11px]">
+                {parcelSummary.count >= 2
+                  ? `Ghép ${String(parcelSummary.count).padStart(2, "0")} Sổ đỏ · ∑ ${parcelSummary.totalArea || "—"} m²`
+                  : `Tờ ${parcelSummary.toBanDoSummary || "—"}, Thửa ${parcelSummary.soThuaSummary || "—"} · ${parcelSummary.totalArea || "—"} m²`}
+              </span>
+            )}
+          </div>
+
+          {coLocation && coLocation.totalOtherEntities > 0 && (
+            <div className="flex flex-wrap gap-1.5 pt-0.5">
+              {coLocation.households.map((hh) => (
+                <button
+                  key={`gis-coloc-hh-${hh.id}`}
+                  type="button"
+                  onClick={() => navigate(getHouseholdDetailPath(hh.id))}
+                  className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white hover:bg-emerald-50 text-emerald-900 border border-emerald-200 font-bold transition-colors cursor-pointer"
+                >
+                  <Home size={12} className="text-emerald-700" />
+                  <span>Hộ {hh.code} · {hh.ownerName}</span>
+                </button>
+              ))}
+              {coLocation.enterprises.map((ent) => (
+                <button
+                  key={`gis-coloc-ent-${ent.id}`}
+                  type="button"
+                  onClick={() => navigate(getEnterpriseDetailPath(ent.id))}
+                  className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white hover:bg-indigo-50 text-indigo-900 border border-indigo-200 font-bold transition-colors cursor-pointer"
+                >
+                  <Building2 size={12} className="text-indigo-700" />
+                  <span className="truncate max-w-[220px]">{ent.name}</span>
+                </button>
+              ))}
+              {coLocation.businesses.map((biz) => (
+                <button
+                  key={`gis-coloc-biz-${biz.id}`}
+                  type="button"
+                  onClick={() => navigate(getBusinessDetailPath(biz.id))}
+                  className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white hover:bg-amber-50 text-amber-950 border border-amber-200 font-bold transition-colors cursor-pointer"
+                >
+                  <Store size={12} className="text-amber-700" />
+                  <span className="truncate max-w-[220px]">{biz.name}</span>
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Action buttons */}
       <div className="flex flex-wrap items-center gap-2 pt-1">
+        {!readOnly && sourceHousehold && (
+          <button
+            type="button"
+            onClick={() => navigate(getHouseholdDetailPath(sourceHousehold.id))}
+            className="min-h-9 px-3.5 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-bold flex items-center gap-1.5 cursor-pointer"
+          >
+            <Home size={14} /> Mở hồ sơ Hộ khẩu
+          </button>
+        )}
+
+        {!readOnly && sourceBusiness && (
+          <button
+            type="button"
+            onClick={() =>
+              navigate(
+                isEnterpriseRecord(sourceBusiness)
+                  ? getEnterpriseDetailPath(sourceBusiness.id)
+                  : getBusinessDetailPath(sourceBusiness.id)
+              )
+            }
+            className="min-h-9 px-3.5 rounded-xl bg-indigo-700 hover:bg-indigo-800 text-white text-xs font-bold flex items-center gap-1.5 cursor-pointer"
+          >
+            {isEnterpriseRecord(sourceBusiness) ? <Building2 size={14} /> : <Store size={14} />}
+            {isEnterpriseRecord(sourceBusiness) ? "Mở hồ sơ Doanh nghiệp" : "Mở hồ sơ Cơ sở KD"}
+          </button>
+        )}
         <button
           type="button"
           onClick={() => onToggleRoute(pin)}

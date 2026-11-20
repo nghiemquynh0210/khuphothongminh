@@ -6,6 +6,7 @@ import {
   ExternalLink,
   FileText,
   Info,
+  MessageCircle,
   Save,
   Trash2,
 } from "lucide-react";
@@ -132,34 +133,41 @@ export default function CitizenModals({
   const [newsLinks, setNewsLinks] = useState<NewsLinkAttachment[]>([]);
   const [newsError, setNewsError] = useState("");
 
-  useEffect(() => {
-    if (!newsEditorState?.open) return;
-    const item = newsEditorState.item;
-    if (item) {
-      setNewsTitle(item.title);
-      setNewsCategory(item.category);
-      setNewsAuthor(item.author);
-      setNewsDate(item.date);
-      setNewsSummary(item.summary || "");
-      setNewsPinned(Boolean(item.isPinned));
-      setNewsContent(item.content);
-      setNewsImageUrl(getNewsImage(item));
-      setNewsImageGallery(item.imageGallery || []);
-      setNewsLinks(item.links || []);
-    } else {
-      setNewsTitle("");
-      setNewsCategory("Hành chính");
-      setNewsAuthor("Ban Điều hành Khu phố 3");
-      setNewsDate(new Date().toLocaleDateString("vi-VN"));
-      setNewsSummary("");
-      setNewsPinned(false);
-      setNewsContent("");
-      setNewsImageUrl(COVER_PRESETS[1].url);
-      setNewsImageGallery([]);
-      setNewsLinks([]);
+  const [prevNewsSession, setPrevNewsSession] = useState<string | null>(null);
+  const currentNewsSession = newsEditorState?.open
+    ? `${newsEditorState.open ? "open" : "closed"}_${newsEditorState.item?.id || "new"}`
+    : null;
+
+  if (currentNewsSession !== prevNewsSession) {
+    setPrevNewsSession(currentNewsSession);
+    if (newsEditorState?.open) {
+      const item = newsEditorState.item;
+      if (item) {
+        setNewsTitle(item.title);
+        setNewsCategory(item.category);
+        setNewsAuthor(item.author);
+        setNewsDate(item.date);
+        setNewsSummary(item.summary || "");
+        setNewsPinned(Boolean(item.isPinned));
+        setNewsContent(item.content);
+        setNewsImageUrl(getNewsImage(item));
+        setNewsImageGallery(item.imageGallery || []);
+        setNewsLinks(item.links || []);
+      } else {
+        setNewsTitle("");
+        setNewsCategory("Hành chính");
+        setNewsAuthor("Ban Điều hành Khu phố 3");
+        setNewsDate(new Date().toLocaleDateString("vi-VN"));
+        setNewsSummary("");
+        setNewsPinned(false);
+        setNewsContent("");
+        setNewsImageUrl(COVER_PRESETS[1].url);
+        setNewsImageGallery([]);
+        setNewsLinks([]);
+      }
+      setNewsError("");
     }
-    setNewsError("");
-  }, [newsEditorState]);
+  }
 
   // 3. Event Editor State
   const [evTitle, setEvTitle] = useState("");
@@ -172,28 +180,35 @@ export default function CitizenModals({
   const [evDescription, setEvDescription] = useState("");
   const [evError, setEvError] = useState("");
 
-  useEffect(() => {
-    if (!eventEditorState?.open) return;
-    const item = eventEditorState.item;
-    if (item) {
-      setEvTitle(item.title);
-      setEvDateTime(item.dateTime);
-      setEvLocation(item.location);
-      setEvOrganizer(item.organizer);
-      setEvStatus(item.status);
-      setEvAttendees(String(item.expectedAttendees || 50));
-      setEvDescription(item.description);
-    } else {
-      setEvTitle("");
-      setEvDateTime("08:00 - 11:00, Chủ Nhật tuần này");
-      setEvLocation("Nhà Văn hóa Khu phố 3");
-      setEvOrganizer("Ban Điều hành Khu phố 3");
-      setEvStatus("Sắp diễn ra");
-      setEvAttendees("60");
-      setEvDescription("");
+  const [prevEventSession, setPrevEventSession] = useState<string | null>(null);
+  const currentEventSession = eventEditorState?.open
+    ? `${eventEditorState.open ? "open" : "closed"}_${eventEditorState.item?.id || "new"}`
+    : null;
+
+  if (currentEventSession !== prevEventSession) {
+    setPrevEventSession(currentEventSession);
+    if (eventEditorState?.open) {
+      const item = eventEditorState.item;
+      if (item) {
+        setEvTitle(item.title);
+        setEvDateTime(item.dateTime);
+        setEvLocation(item.location);
+        setEvOrganizer(item.organizer);
+        setEvStatus(item.status);
+        setEvAttendees(String(item.expectedAttendees || 50));
+        setEvDescription(item.description);
+      } else {
+        setEvTitle("");
+        setEvDateTime("08:00 - 11:00, Chủ Nhật tuần này");
+        setEvLocation("Nhà Văn hóa Khu phố 3");
+        setEvOrganizer("Ban Điều hành Khu phố 3");
+        setEvStatus("Sắp diễn ra");
+        setEvAttendees("60");
+        setEvDescription("");
+      }
+      setEvError("");
     }
-    setEvError("");
-  }, [eventEditorState]);
+  }
 
   const handleNewsSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -441,14 +456,40 @@ export default function CitizenModals({
                 value={newsDetail.isPinned ? "Ưu tiên hiển thị đầu trang" : "Bản tin thường"}
               />
             </DetailGrid>
+            {(newsDetail.isFromZalo || newsDetail.zaloArticleId) && (
+              <div className="flex flex-wrap items-center justify-between gap-2 p-3 rounded-xl bg-blue-50/90 border border-blue-200 text-xs">
+                <div className="flex items-center gap-1.5 font-bold text-blue-900">
+                  <MessageCircle size={15} className="text-blue-600 fill-current" />
+                  <span>Nguồn: Zalo OA Ban Điều Hành Khu Phố 3</span>
+                </div>
+                {newsDetail.zaloLinkView && (
+                  <a
+                    href={newsDetail.zaloLinkView}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="px-2.5 py-1 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-bold inline-flex items-center gap-1 transition-colors"
+                  >
+                    <span>Xem trên Zalo OA</span>
+                    <ExternalLink size={12} />
+                  </a>
+                )}
+              </div>
+            )}
             {newsDetail.summary && (
               <div className="p-3.5 rounded-xl bg-emerald-50/70 border-l-4 border-emerald-700 text-sm font-semibold text-emerald-950 leading-relaxed">
                 {newsDetail.summary}
               </div>
             )}
-            <div className="text-sm text-slate-800 leading-relaxed whitespace-pre-line p-4 rounded-xl bg-slate-50 border border-slate-200">
-              {newsDetail.content}
-            </div>
+            {/<[a-z][\s\S]*>/i.test(newsDetail.content) ? (
+              <div
+                className="text-sm text-slate-800 leading-relaxed p-4 rounded-xl bg-slate-50 border border-slate-200 prose prose-slate max-w-none [&_img]:rounded-xl [&_img]:max-h-[450px] [&_img]:mx-auto [&_p]:mb-3 [&_h2]:text-base [&_h2]:font-bold [&_h3]:text-sm [&_h3]:font-bold"
+                dangerouslySetInnerHTML={{ __html: newsDetail.content }}
+              />
+            ) : (
+              <div className="text-sm text-slate-800 leading-relaxed whitespace-pre-line p-4 rounded-xl bg-slate-50 border border-slate-200">
+                {newsDetail.content}
+              </div>
+            )}
             {newsDetail.imageGallery && newsDetail.imageGallery.length > 0 && (
               <div className="space-y-2 pt-2">
                 <p className="text-xs font-bold uppercase tracking-wider text-slate-600">
@@ -541,7 +582,7 @@ export default function CitizenModals({
             id="landing-news-title"
             label="Tiêu đề bài viết"
             required
-            aria-invalid={Boolean(newsError && !newsTitle.trim()) ? "true" : "false"}
+            aria-invalid={newsError && !newsTitle.trim() ? "true" : "false"}
             value={newsTitle}
             onChange={(e) => {
               setNewsTitle(e.target.value);
@@ -604,7 +645,7 @@ export default function CitizenModals({
               id="landing-news-content"
               rows={5}
               required
-              aria-invalid={Boolean(newsError && !newsContent.trim()) ? "true" : "false"}
+              aria-invalid={newsError && !newsContent.trim() ? "true" : "false"}
               value={newsContent}
               onChange={(e) => {
                 setNewsContent(e.target.value);
@@ -671,7 +712,7 @@ export default function CitizenModals({
             id="landing-ev-title"
             label="Tên sự kiện / hoạt động"
             required
-            aria-invalid={Boolean(evError && !evTitle.trim()) ? "true" : "false"}
+            aria-invalid={evError && !evTitle.trim() ? "true" : "false"}
             value={evTitle}
             onChange={(e) => {
               setEvTitle(e.target.value);
@@ -685,7 +726,7 @@ export default function CitizenModals({
               id="landing-ev-datetime"
               label="Thời gian tổ chức"
               required
-              aria-invalid={Boolean(evError && !evDateTime.trim()) ? "true" : "false"}
+              aria-invalid={evError && !evDateTime.trim() ? "true" : "false"}
               value={evDateTime}
               onChange={(e) => setEvDateTime(e.target.value)}
             />
@@ -693,7 +734,7 @@ export default function CitizenModals({
               id="landing-ev-location"
               label="Địa điểm"
               required
-              aria-invalid={Boolean(evError && !evLocation.trim()) ? "true" : "false"}
+              aria-invalid={evError && !evLocation.trim() ? "true" : "false"}
               value={evLocation}
               onChange={(e) => setEvLocation(e.target.value)}
             />

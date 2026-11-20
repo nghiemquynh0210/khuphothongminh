@@ -78,16 +78,16 @@ export function DetailRow({
     <a
       href={href}
       className={`text-slate-900 font-semibold leading-snug break-words hover:underline decoration-slate-400 underline-offset-2 ${
-        isMono ? "font-mono" : ""
-      } ${isNumeric ? "tabular-nums" : ""}`}
+        isMono || isNumeric ? "tabular-nums" : ""
+      }`}
     >
       {value}
     </a>
   ) : typeof value === "string" || typeof value === "number" ? (
     <span
       className={`text-slate-900 font-semibold leading-snug [overflow-wrap:anywhere] ${
-        isMono ? "font-mono" : ""
-      } ${isNumeric ? "tabular-nums" : ""}`}
+        isMono || isNumeric ? "tabular-nums" : ""
+      }`}
     >
       {value}
     </span>

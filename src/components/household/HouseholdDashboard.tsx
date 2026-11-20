@@ -76,10 +76,7 @@ export default function HouseholdDashboard({ households, residents }: HouseholdD
       <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
         <section className="bg-white p-5 border border-slate-200 rounded-xl space-y-4">
           <div className="flex items-center justify-between border-b border-slate-200 pb-3">
-            <div>
-              <h3 className="font-bold text-slate-900 text-sm">Phân bổ Quy mô Hộ gia đình</h3>
-              <p className="text-xs text-slate-600 mt-0.5">Số lượng thành viên theo từng sổ hộ khẩu điện tử</p>
-            </div>
+            <h3 className="font-bold text-slate-900 text-sm">Phân bổ Quy mô Hộ gia đình</h3>
             <TrendingUp size={16} className="text-emerald-700" aria-hidden="true" />
           </div>
 
@@ -107,10 +104,7 @@ export default function HouseholdDashboard({ households, residents }: HouseholdD
 
         <section className="bg-white p-5 border border-slate-200 rounded-xl space-y-4">
           <div className="flex justify-between items-center border-b border-slate-200 pb-3">
-            <div>
-              <h3 className="font-bold text-slate-900 text-sm">Biến động Cư trú gần đây</h3>
-              <p className="text-xs text-slate-600 mt-0.5">Nhật ký nhập khẩu, tách hộ và khai báo lưu trú</p>
-            </div>
+            <h3 className="font-bold text-slate-900 text-sm">Biến động Cư trú gần đây</h3>
             <Calendar size={16} className="text-slate-600" aria-hidden="true" />
           </div>
 

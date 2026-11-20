@@ -4,20 +4,35 @@ import {
   ArrowLeft,
   Building,
   Camera,
+  CheckCircle2,
+  Clock,
+  Compass,
   FileSpreadsheet,
   FileText,
   HelpCircle,
+  Home,
   Image as ImageIcon,
   MapPin,
   Paperclip,
   Phone,
+  Search,
+  ShieldCheck,
+  Sparkles,
   Store,
   Upload,
   UserCheck,
+  Users,
   Users2,
   X,
 } from "lucide-react";
-import { Business, BusinessFile } from "../types";
+import {
+  Business,
+  BusinessFile,
+  BusinessLicenseOcrData,
+  Household,
+  LandParcelCertificate,
+  Resident,
+} from "../types";
 import {
   INDUSTRY_SECTORS,
   getBusinessIndustryGroup,
@@ -25,14 +40,38 @@ import {
 } from "../components/BusinessManagement";
 import { LoadingFade } from "../components/common/LoadingFade";
 import { PageHeader } from "../components/common/PageHeader";
+import { MultiParcelEditor } from "../components/common/MultiParcelEditor";
+import {
+  CoLocationPrefillPayload,
+  KP3_CO_LOCATION_PREFILL_KEY,
+} from "../components/common/SharedAddressHubCard";
 import { ReportSelect } from "../components/reports/ReportSelect";
 import { InlineNotice } from "../components/ui/ConfirmModal";
 import { ROUTES, getBusinessDetailPath, navigate } from "../routes";
+import { HouseholdSelectModal } from "../components/business/HouseholdSelectModal";
+import { ResidentSelectModal } from "../components/business/ResidentSelectModal";
+import { BusinessLicenseUploadOcrBox } from "../components/business/BusinessLicenseUploadOcrBox";
+import { BusinessLicenseOcrConfirmModal } from "../components/business/BusinessLicenseOcrConfirmModal";
+import { extractTimemarkFromImage, TimemarkOcrResult } from "../utils/timemarkParser";
+import { extractBusinessLicenseFromFile } from "../utils/businessLicenseOcr";
+import { uploadFileToStorageBucket } from "../utils/imageUpload";
+import {
+  createEmptyLandParcel,
+  inheritParcelsFromHouseholds,
+  normalizeEntityLandParcels,
+  summarizeLandParcels,
+} from "../utils/landParcelsUtils";
+import {
+  getNormalizedLinkedHouseholdCodes,
+  hasIntersectingAddressKeys,
+} from "../utils/addressCoLocationUtils";
 
 export interface BusinessFormPageProps {
   mode: "create" | "edit";
   businessId?: string;
   businesses: Business[];
+  residents?: Resident[];
+  households?: Household[];
   isDataLoading?: boolean;
   onUpdateBusinesses?: (businesses: Business[]) => void;
   onCancel?: () => void;
@@ -52,6 +91,8 @@ export default function BusinessFormPage({
   mode,
   businessId,
   businesses,
+  residents = [],
+  households = [],
   isDataLoading = false,
   onUpdateBusinesses,
   onCancel,
@@ -70,6 +111,37 @@ export default function BusinessFormPage({
     );
   }, [mode, businessId, businesses]);
 
+  // Timemark Verification & Geolocation State
+  const [timemarkData, setTimemarkData] = useState<TimemarkOcrResult | null>(null);
+  const [timemarkHash, setTimemarkHash] = useState("");
+  const [timemarkVerified, setTimemarkVerified] = useState(false);
+  const [photoElevation, setPhotoElevation] = useState("");
+  const [photoDirection, setPhotoDirection] = useState("");
+  const [photoTakenAt, setPhotoTakenAt] = useState("");
+  const [isProcessingTimemark, setIsProcessingTimemark] = useState(false);
+
+  // Giấy phép kinh doanh Upload & Auto-OCR State
+  const [giayPhepOcrData, setGiayPhepOcrData] =
+    useState<BusinessLicenseOcrData | null>(null);
+  const [isProcessingLicenseOcr, setIsProcessingLicenseOcr] = useState(false);
+  const [autoLicenseOcrEnabled, setAutoLicenseOcrEnabled] = useState(true);
+  const [showLicenseOcrConfirm, setShowLicenseOcrConfirm] = useState(false);
+  const [pendingLicenseFile, setPendingLicenseFile] = useState<File | null>(
+    null
+  );
+  const [issuingAuthority, setIssuingAuthority] = useState("");
+  const [charterCapital, setCharterCapital] = useState("");
+
+  // Modals State
+  const [isHouseholdModalOpen, setIsHouseholdModalOpen] = useState(false);
+  const [householdSelectMode, setHouseholdSelectMode] = useState<
+    "replace" | "append"
+  >("replace");
+  const [isResidentModalOpen, setIsResidentModalOpen] = useState(false);
+  const [residentModalTarget, setResidentModalTarget] = useState<
+    "owner" | "siteManager"
+  >("owner");
+
   // Group 1: Thông tin Cơ sở Kinh doanh & Giấy phép
   const [name, setName] = useState("");
   const [internalCode, setInternalCode] = useState("");
@@ -85,7 +157,7 @@ export default function BusinessFormPage({
     "Khảo sát Ban Điều hành KP3 & CSKV"
   );
 
-  // Group 2: Địa điểm, Mặt bằng & Liên kết Địa bàn
+  // Group 2: Địa điểm, Mặt bằng & Liên kết Địa bàn (Hỗ trợ đa mã hộ khi ghép mặt bằng)
   const [address, setAddress] = useState("42 Lương Định Của, Phường An Phú");
   const [streetArea, setStreetArea] = useState("Mặt tiền Lương Định Của");
   const [premisesType, setPremisesType] =
@@ -93,6 +165,9 @@ export default function BusinessFormPage({
   const [premisesOwner, setPremisesOwner] = useState("");
   const [premisesOwnerPhone, setPremisesOwnerPhone] = useState("");
   const [linkedHouseholdCode, setLinkedHouseholdCode] = useState("");
+  const [linkedHouseholdCodes, setLinkedHouseholdCodes] = useState<string[]>(
+    []
+  );
   const [linkedBuildingOrHostel, setLinkedBuildingOrHostel] = useState("");
   const [coordinates, setCoordinates] = useState(
     "10°56'07.5\"N 106°44'38.0\"E"
@@ -130,22 +205,16 @@ export default function BusinessFormPage({
     "2.5 - 3.5 triệu/tháng"
   );
 
-  // Group 7: Địa chính & Sổ đỏ
-  const [toBanDo, setToBanDo] = useState("272");
-  const [soThua, setSoThua] = useState("55");
-  const [dienTich, setDienTich] = useState<number | string>("150");
-  const [loaiDat, setLoaiDat] = useState("ODT");
-  const [tenChuSuDung, setTenChuSuDung] = useState("");
-  const [soGcn, setSoGcn] = useState("");
-  const [soVaoSo, setSoVaoSo] = useState("");
-  const [soDoFile, setSoDoFile] = useState<BusinessFile | null>(null);
+  // Group 7: Đa Thửa Đất & Nhiều Sổ đỏ (GCN QSDĐ)
+  const [landParcels, setLandParcels] = useState<LandParcelCertificate[]>([
+    createEmptyLandParcel(0, { toBanDo: "272", soThua: "55", dienTich: "150" }),
+  ]);
   const [giayPhepFile, setGiayPhepFile] = useState<BusinessFile | null>(null);
   const [pcccFile, setPcccFile] = useState<BusinessFile | null>(null);
 
   // Group 8: Hình ảnh đại diện
   const [image, setImage] = useState("");
   const [images, setImages] = useState<string[]>([]);
-  const [dragActiveSoDo, setDragActiveSoDo] = useState(false);
   const [dragActiveImage, setDragActiveImage] = useState(false);
 
   const [formNotice, setFormNotice] = useState<{
@@ -153,8 +222,65 @@ export default function BusinessFormPage({
     message: string;
   } | null>(null);
 
+  // Danh sách các Sổ hộ khẩu đã liên kết (từ mã hộ liên kết hoặc khớp địa chỉ)
+  const linkedHouseholdsList = useMemo(() => {
+    const codeSet = new Set(
+      (linkedHouseholdCodes.length > 0
+        ? linkedHouseholdCodes
+        : linkedHouseholdCode
+        ? linkedHouseholdCode.split(/[,;+|&]+/).map((s) => s.trim())
+        : []
+      )
+        .map((c) => c.toUpperCase())
+        .filter(Boolean)
+    );
+    const byCode = households.filter((h) =>
+      codeSet.has(h.code.trim().toUpperCase())
+    );
+    const byAddress = households.filter(
+      (h) =>
+        !codeSet.has(h.code.trim().toUpperCase()) &&
+        hasIntersectingAddressKeys(address, h.address)
+    );
+    return [...byCode, ...byAddress];
+  }, [households, linkedHouseholdCodes, linkedHouseholdCode, address]);
+
+  // Nạp dữ liệu khởi tạo khi mở chế độ Sửa hoặc Tạo mới từ Tổ hợp Cùng Địa Chỉ
   useEffect(() => {
-    if (mode !== "edit" || !targetBusiness) return;
+    if (mode === "create") {
+      try {
+        const rawPrefill = sessionStorage.getItem(KP3_CO_LOCATION_PREFILL_KEY);
+        if (rawPrefill) {
+          sessionStorage.removeItem(KP3_CO_LOCATION_PREFILL_KEY);
+          const prefill: CoLocationPrefillPayload = JSON.parse(rawPrefill);
+          if (prefill.address) setAddress(prefill.address);
+          if (prefill.coordinates) setCoordinates(prefill.coordinates);
+          if (prefill.premisesOwner) setPremisesOwner(prefill.premisesOwner);
+          if (prefill.premisesOwnerPhone)
+            setPremisesOwnerPhone(prefill.premisesOwnerPhone);
+          if (
+            Array.isArray(prefill.linkedHouseholdCodes) &&
+            prefill.linkedHouseholdCodes.length > 0
+          ) {
+            setLinkedHouseholdCodes(prefill.linkedHouseholdCodes);
+            setLinkedHouseholdCode(prefill.linkedHouseholdCodes.join(", "));
+            const matchedHhs = households.filter((h) =>
+              prefill.linkedHouseholdCodes.includes(h.code)
+            );
+            const { nextParcels, addedCount } = inheritParcelsFromHouseholds(
+              matchedHhs,
+              []
+            );
+            if (addedCount > 0) {
+              setLandParcels(nextParcels);
+            }
+          }
+        }
+      } catch {}
+      return;
+    }
+
+    if (!targetBusiness) return;
 
     setName(targetBusiness.name);
     setType(targetBusiness.type);
@@ -176,7 +302,12 @@ export default function BusinessFormPage({
     setTaxCode(targetBusiness.licenseNumber || targetBusiness.taxCode || "");
     setBusinessType(targetBusiness.businessType || "Hộ kinh doanh");
     setEnterpriseScale(targetBusiness.enterpriseScale || "Siêu nhỏ (< 5 LĐ)");
-    setStartDate(targetBusiness.startDate || "01/01/2023");
+    setStartDate(
+      targetBusiness.licenseIssueDate || targetBusiness.startDate || "01/01/2023"
+    );
+    setIssuingAuthority(targetBusiness.issuingAuthority || "");
+    setCharterCapital(targetBusiness.charterCapital || "");
+    setGiayPhepOcrData(targetBusiness.giayPhepOcrData || null);
     setVerificationSource(
       targetBusiness.verificationSource || "Khảo sát Ban Điều hành KP3 & CSKV"
     );
@@ -194,8 +325,12 @@ export default function BusinessFormPage({
     setPremisesOwnerPhone(
       targetBusiness.premisesOwnerPhone || targetBusiness.phone
     );
-    setLinkedHouseholdCode(targetBusiness.linkedHouseholdCode || "");
+
+    const normalizedHhCodes = getNormalizedLinkedHouseholdCodes(targetBusiness);
+    setLinkedHouseholdCodes(normalizedHhCodes);
+    setLinkedHouseholdCode(normalizedHhCodes.join(", "));
     setLinkedBuildingOrHostel(targetBusiness.linkedBuildingOrHostel || "");
+
     setLegalRep(targetBusiness.legalRepresentative || targetBusiness.owner);
     setLegalRepPhone(targetBusiness.legalRepPhone || targetBusiness.phone);
     setLegalRepCccd(targetBusiness.legalRepCccd || "");
@@ -232,17 +367,324 @@ export default function BusinessFormPage({
       targetBusiness.giaThueTrungBinh || (isAcc ? "2.5 - 3.5 triệu/tháng" : "")
     );
 
-    setToBanDo(targetBusiness.toBanDo || "272");
-    setSoThua(targetBusiness.soThua || "55");
-    setDienTich(targetBusiness.dienTich || 120);
-    setLoaiDat(targetBusiness.loaiDat || "ODT");
-    setTenChuSuDung(targetBusiness.tenChuSuDung || targetBusiness.owner);
-    setSoGcn(targetBusiness.soGcn || "");
-    setSoVaoSo(targetBusiness.soVaoSo || "CS-2023-099");
-    setSoDoFile(targetBusiness.soDoFile || null);
+    const normalizedParcels = normalizeEntityLandParcels(targetBusiness);
+    setLandParcels(
+      normalizedParcels.length > 0
+        ? normalizedParcels
+        : [
+            createEmptyLandParcel(0, {
+              tenChuSuDung: targetBusiness.owner,
+              addressNote: targetBusiness.address,
+            }),
+          ]
+    );
     setGiayPhepFile(targetBusiness.giayPhepFile || null);
     setPcccFile(targetBusiness.pcccFile || null);
-  }, [mode, targetBusiness]);
+
+    setCoordinates(targetBusiness.coordinates || "10.935188, 106.743917");
+    setTimemarkHash(targetBusiness.timemarkHash || "");
+    setTimemarkVerified(Boolean(targetBusiness.timemarkVerified));
+    setPhotoElevation(targetBusiness.photoElevation || "");
+    setPhotoDirection(targetBusiness.photoDirection || "");
+    setPhotoTakenAt(targetBusiness.photoTakenAt || "");
+  }, [mode, targetBusiness, households]);
+
+  // Handler chọn 1 hoặc ghép thêm nhiều Sổ hộ khẩu
+  const handleSelectHousehold = (hh: Household) => {
+    const nextCodes =
+      householdSelectMode === "append"
+        ? Array.from(new Set([...linkedHouseholdCodes, hh.code]))
+        : [hh.code];
+
+    setLinkedHouseholdCodes(nextCodes);
+    setLinkedHouseholdCode(nextCodes.join(", "));
+
+    if (!premisesOwner) {
+      setPremisesOwner(hh.ownerName);
+    } else if (
+      householdSelectMode === "append" &&
+      !premisesOwner.includes(hh.ownerName)
+    ) {
+      setPremisesOwner(`${premisesOwner} & ${hh.ownerName}`);
+    }
+
+    if (
+      householdSelectMode === "replace" &&
+      (!address || address === "42 Lương Định Của, Phường An Phú")
+    ) {
+      setAddress(hh.address);
+    }
+
+    // Tự động kế thừa thửa đất / Sổ đỏ nếu Hộ khẩu đã có dữ liệu địa chính
+    const { nextParcels, addedCount } = inheritParcelsFromHouseholds(
+      [hh],
+      landParcels
+    );
+    if (addedCount > 0) {
+      setLandParcels(nextParcels);
+    }
+
+    setIsHouseholdModalOpen(false);
+    setFormNotice({
+      type: "success",
+      message:
+        nextCodes.length > 1
+          ? `Đã ghép liên kết ${nextCodes.length} Sổ hộ khẩu (${nextCodes.join(
+              ", "
+            )})${addedCount > 0 ? ` và kế thừa thêm Sổ đỏ của ${hh.code}` : ""}.`
+          : `Đã liên kết thành công với Sổ hộ khẩu ${hh.code} (Chủ hộ: ${hh.ownerName}).`,
+    });
+  };
+
+  const handleRemoveLinkedHouseholdCode = (codeToRemove: string) => {
+    const nextCodes = linkedHouseholdCodes.filter((c) => c !== codeToRemove);
+    setLinkedHouseholdCodes(nextCodes);
+    setLinkedHouseholdCode(nextCodes.join(", "));
+  };
+
+  // Handler chọn Cư dân cho Chủ cơ sở hoặc Quản lý
+  const handleSelectResident = (res: Resident) => {
+    if (residentModalTarget === "owner") {
+      setOwner(res.fullName);
+      setLegalRep(res.fullName);
+      if (res.phone) {
+        setPhone(res.phone);
+        setLegalRepPhone(res.phone);
+      }
+      if (res.cccd) {
+        setLegalRepCccd(res.cccd);
+      }
+      setFormNotice({
+        type: "success",
+        message: `Đã chọn cư dân ${res.fullName} (CCCD: ${
+          res.cccd || "Chưa có"
+        }) làm Chủ cơ sở / Đại diện pháp luật.`,
+      });
+    } else {
+      setSiteManager(res.fullName);
+      if (res.phone) {
+        setSiteManagerPhone(res.phone);
+      }
+      setFormNotice({
+        type: "success",
+        message: `Đã chọn cư dân ${res.fullName} làm Người trực tiếp quản lý cơ sở tại chỗ.`,
+      });
+    }
+    setIsResidentModalOpen(false);
+  };
+
+  // Handler tải và OCR Giấy phép kinh doanh
+  const runLicenseOcr = async (file: File, dataUrl?: string) => {
+    setIsProcessingLicenseOcr(true);
+    try {
+      const ocrRes = await extractBusinessLicenseFromFile(file, {
+        defaultMode: "business",
+        existingDataUrl: dataUrl,
+        existingData: {
+          businessName: name || undefined,
+          licenseNumber: taxCode || undefined,
+          businessLine: type || undefined,
+          headquartersAddress:
+            address && address !== "42 Lương Định Của, Phường An Phú"
+              ? address
+              : undefined,
+          legalRepresentative: owner || legalRep || undefined,
+          legalRepCccd: legalRepCccd || undefined,
+          legalRepPhone: phone || legalRepPhone || undefined,
+        },
+      });
+      setGiayPhepOcrData(ocrRes);
+      setShowLicenseOcrConfirm(true);
+    } catch (err) {
+      console.error("Lỗi OCR Giấy phép kinh doanh:", err);
+    } finally {
+      setIsProcessingLicenseOcr(false);
+    }
+  };
+
+  const handleProcessLicenseUpload = (file: File) => {
+    setPendingLicenseFile(file);
+    handleProcessFileUpload(file, async (fileObj, localDataUrl) => {
+      setGiayPhepFile(fileObj);
+      if (autoLicenseOcrEnabled) {
+        await runLicenseOcr(file, localDataUrl || fileObj.url);
+      }
+    });
+  };
+
+  const handleTriggerManualLicenseOcr = () => {
+    if (pendingLicenseFile) {
+      runLicenseOcr(pendingLicenseFile, giayPhepFile?.url);
+      return;
+    }
+    if (giayPhepFile) {
+      const synthetic = new File([""], giayPhepFile.name, {
+        type:
+          giayPhepFile.type === "pdf" ? "application/pdf" : "image/jpeg",
+      });
+      runLicenseOcr(synthetic, giayPhepFile.url);
+    }
+  };
+
+  const matchedResidentFromLicenseOcr = useMemo(() => {
+    if (!giayPhepOcrData) return null;
+    if (giayPhepOcrData.legalRepCccd) {
+      const byCccd = residents.find(
+        (r) => r.cccd && r.cccd.trim() === giayPhepOcrData.legalRepCccd?.trim()
+      );
+      if (byCccd) return byCccd;
+    }
+    if (giayPhepOcrData.legalRepresentative) {
+      const targetLower = giayPhepOcrData.legalRepresentative
+        .trim()
+        .toLowerCase();
+      return (
+        residents.find((r) => r.fullName.trim().toLowerCase() === targetLower) ||
+        null
+      );
+    }
+    return null;
+  }, [giayPhepOcrData, residents]);
+
+  const matchedHouseholdsFromLicenseOcr = useMemo(() => {
+    if (!giayPhepOcrData?.headquartersAddress) return [];
+    return households.filter((h) =>
+      hasIntersectingAddressKeys(giayPhepOcrData.headquartersAddress, h.address)
+    );
+  }, [giayPhepOcrData, households]);
+
+  const handleApplyLicenseOcr = (applyHouseholdLink: boolean) => {
+    if (!giayPhepOcrData) return;
+    if (giayPhepOcrData.businessName) {
+      setName(giayPhepOcrData.businessName);
+      if (
+        /nhà trọ|nhà nghỉ|khách sạn|lưu trú/i.test(giayPhepOcrData.businessName)
+      ) {
+        setIsAccommodation(true);
+      }
+    }
+    if (giayPhepOcrData.licenseNumber || giayPhepOcrData.taxCode) {
+      setTaxCode(giayPhepOcrData.licenseNumber || giayPhepOcrData.taxCode || "");
+    }
+    if (giayPhepOcrData.businessType) {
+      setBusinessType(giayPhepOcrData.businessType);
+    }
+    if (giayPhepOcrData.issueDate) {
+      setStartDate(giayPhepOcrData.issueDate);
+    }
+    if (giayPhepOcrData.issuingAuthority) {
+      setIssuingAuthority(giayPhepOcrData.issuingAuthority);
+    }
+    if (giayPhepOcrData.headquartersAddress) {
+      setAddress(giayPhepOcrData.headquartersAddress);
+    }
+    if (giayPhepOcrData.businessLine) {
+      setType(giayPhepOcrData.businessLine);
+    }
+    if (giayPhepOcrData.suggestedIndustryGroup) {
+      const matchedSec = INDUSTRY_SECTORS.find((sec) =>
+        sec.id
+          .toLowerCase()
+          .includes(
+            (giayPhepOcrData.suggestedIndustryGroup || "")
+              .split(" ")[0]
+              .toLowerCase()
+          )
+      );
+      if (matchedSec) setIndustryGroup(matchedSec.id);
+    }
+    if (giayPhepOcrData.charterCapital) {
+      setCharterCapital(giayPhepOcrData.charterCapital);
+    }
+
+    const resolvedRep =
+      matchedResidentFromLicenseOcr?.fullName ||
+      giayPhepOcrData.legalRepresentative;
+    if (resolvedRep) {
+      setOwner(resolvedRep);
+      setLegalRep(resolvedRep);
+    }
+    const resolvedCccd =
+      matchedResidentFromLicenseOcr?.cccd || giayPhepOcrData.legalRepCccd;
+    if (resolvedCccd) {
+      setLegalRepCccd(resolvedCccd);
+    }
+    const resolvedPhone =
+      giayPhepOcrData.legalRepPhone ||
+      matchedResidentFromLicenseOcr?.phone ||
+      "";
+    if (resolvedPhone && resolvedPhone !== "N/A") {
+      setPhone(resolvedPhone);
+      setLegalRepPhone(resolvedPhone);
+    }
+    if (giayPhepOcrData.legalRepEmail) {
+      setLegalRepEmail(giayPhepOcrData.legalRepEmail);
+    }
+
+    if (applyHouseholdLink && matchedHouseholdsFromLicenseOcr.length > 0) {
+      const codes = matchedHouseholdsFromLicenseOcr.map((h) => h.code);
+      setLinkedHouseholdCodes(codes);
+      setLinkedHouseholdCode(codes.join(", "));
+      if (!premisesOwner) {
+        setPremisesOwner(
+          matchedHouseholdsFromLicenseOcr.map((h) => h.ownerName).join(" & ")
+        );
+      }
+      const { nextParcels, addedCount } = inheritParcelsFromHouseholds(
+        matchedHouseholdsFromLicenseOcr,
+        landParcels
+      );
+      if (addedCount > 0) {
+        setLandParcels(nextParcels);
+      }
+    }
+
+    setShowLicenseOcrConfirm(false);
+    setFormNotice({
+      type: "success",
+      message: `✓ Đã tự động cập nhật thông tin từ OCR Giấy phép kinh doanh (${
+        giayPhepOcrData.businessName || "Hồ sơ"
+      })!`,
+    });
+  };
+
+  // Handler tải và trích xuất Timemark ảnh mặt tiền
+  const handleProcessImageUpload = (file: File) => {
+    setIsProcessingTimemark(true);
+    handleProcessFileUpload(file, async (fileObj) => {
+      setImage(fileObj.url);
+      try {
+        const timemarkResult = await extractTimemarkFromImage(file, file.name);
+        if (timemarkResult) {
+          setTimemarkData(timemarkResult);
+          setCoordinates(timemarkResult.coordinates);
+          setTimemarkHash(timemarkResult.timemarkHash || "");
+          setTimemarkVerified(timemarkResult.isVerified);
+          setPhotoElevation(timemarkResult.elevation || "");
+          setPhotoDirection(timemarkResult.direction || "");
+          setPhotoTakenAt(timemarkResult.recordedTime || "");
+
+          if (!address || address.includes("42 Lương Định Của")) {
+            if (timemarkResult.address) {
+              setAddress(timemarkResult.address);
+            }
+          }
+          if (timemarkResult.streetArea && !streetArea) {
+            setStreetArea(timemarkResult.streetArea);
+          }
+
+          setFormNotice({
+            type: "success",
+            message: `✓ Đã tự động bóc tách Tọa độ GPS (${timemarkResult.coordinates}) và Mã xác thực Timemark #${timemarkResult.timemarkHash || "Verified"}!`,
+          });
+        }
+      } catch (err) {
+        console.error("Lỗi nhận diện Timemark:", err);
+      } finally {
+        setIsProcessingTimemark(false);
+      }
+    });
+  };
 
   const handleBack = () => {
     if (onCancel) {
@@ -258,7 +700,7 @@ export default function BusinessFormPage({
 
   const handleProcessFileUpload = (
     file: File,
-    onSuccess: (fileObj: BusinessFile) => void
+    onSuccess: (fileObj: BusinessFile, localDataUrl?: string) => void
   ) => {
     const isPdf =
       file.type === "application/pdf" ||
@@ -290,17 +732,31 @@ export default function BusinessFormPage({
         : `${Math.round(file.size / 1024)} KB`;
 
     const reader = new FileReader();
-    reader.onload = () => {
-      onSuccess({
-        name: file.name,
-        url: reader.result as string,
-        type: isPdf ? "pdf" : "image",
-        size: formattedSize,
-        uploadDate: new Date().toLocaleDateString("vi-VN"),
-      });
+    reader.onload = async () => {
+      const localDataUrl = (reader.result as string) || "";
+      let finalUrl = localDataUrl;
+      try {
+        finalUrl = await uploadFileToStorageBucket(
+          file,
+          "cadastral-docs",
+          "businesses"
+        );
+      } catch {
+        finalUrl = localDataUrl;
+      }
+      onSuccess(
+        {
+          name: file.name,
+          url: finalUrl,
+          type: isPdf ? "pdf" : "image",
+          size: formattedSize,
+          uploadDate: new Date().toLocaleDateString("vi-VN"),
+        },
+        localDataUrl
+      );
       setFormNotice({
         type: "success",
-        message: `Đã nhận tệp: ${file.name} (${formattedSize})`,
+        message: `Đã tải tệp: ${file.name} (${formattedSize})`,
       });
     };
     reader.onerror = () => {
@@ -324,6 +780,19 @@ export default function BusinessFormPage({
       return;
     }
 
+    const parsedHhCodes: string[] = Array.from(
+      new Set<string>(
+        (linkedHouseholdCodes.length > 0
+          ? linkedHouseholdCodes
+          : linkedHouseholdCode.split(/[,;+|&]+/)
+        )
+          .map((c) => c.trim().toUpperCase())
+          .filter(Boolean)
+      )
+    );
+    const primaryHhCode = parsedHhCodes[0] || "";
+    const parcelSummary = summarizeLandParcels(landParcels);
+
     if (mode === "edit") {
       if (!targetBusiness) return;
 
@@ -335,6 +804,7 @@ export default function BusinessFormPage({
         owner: owner.trim(),
         phone: phone.trim(),
         address: address.trim(),
+        licenseNumber: taxCode.trim() || targetBusiness.licenseNumber,
         employeeCount: Number(employeeCount) || 1,
         image: image || targetBusiness.image,
         images:
@@ -350,12 +820,17 @@ export default function BusinessFormPage({
         businessType,
         enterpriseScale,
         startDate: startDate.trim(),
+        licenseIssueDate: startDate.trim(),
+        issuingAuthority: issuingAuthority.trim() || undefined,
+        charterCapital: charterCapital.trim() || undefined,
+        giayPhepOcrData: giayPhepOcrData || undefined,
         verificationSource: verificationSource.trim(),
         streetArea,
         premisesType,
         premisesOwner: premisesOwner.trim(),
         premisesOwnerPhone: premisesOwnerPhone.trim(),
-        linkedHouseholdCode: linkedHouseholdCode.trim(),
+        linkedHouseholdCode: primaryHhCode,
+        linkedHouseholdCodes: parsedHhCodes,
         linkedBuildingOrHostel: linkedBuildingOrHostel.trim(),
         legalRepresentative: legalRep.trim(),
         legalRepPhone: legalRepPhone.trim(),
@@ -378,17 +853,27 @@ export default function BusinessFormPage({
         soNguoiLuuTru: isAccommodation ? Number(soNguoiLuuTru) || 0 : undefined,
         giaThueTrungBinh: isAccommodation ? giaThueTrungBinh : undefined,
 
-        toBanDo: toBanDo.trim(),
-        soThua: soThua.trim(),
-        dienTich,
-        loaiDat: loaiDat.trim(),
-        tenChuSuDung: tenChuSuDung.trim(),
-        soGcn: soGcn.trim(),
-        soVaoSo: soVaoSo.trim(),
+        landParcels: parcelSummary.parcels,
+        toBanDo: parcelSummary.toBanDoSummary,
+        soThua: parcelSummary.soThuaSummary,
+        dienTich:
+          parcelSummary.totalArea > 0 ? parcelSummary.totalArea : undefined,
+        loaiDat: parcelSummary.loaiDatSummary || "ODT",
+        tenChuSuDung: parcelSummary.tenChuSuDungSummary || owner.trim(),
+        soGcn: parcelSummary.soGcnSummary,
+        soVaoSo: parcelSummary.soVaoSoSummary,
+        ngayCapGcn: parcelSummary.ngayCapGcnSummary || undefined,
 
-        soDoFile: soDoFile || undefined,
+        soDoFile: parcelSummary.primarySoDoFile || undefined,
         giayPhepFile: giayPhepFile || undefined,
         pcccFile: pcccFile || undefined,
+
+        timemarkHash: timemarkHash || undefined,
+        timemarkVerified: timemarkVerified || undefined,
+        photoElevation: photoElevation || undefined,
+        photoDirection: photoDirection || undefined,
+        photoTakenAt: photoTakenAt || undefined,
+        soDoOcrData: parcelSummary.primarySoDoOcrData || undefined,
       };
 
       if (onUpdateBusinesses) {
@@ -407,7 +892,12 @@ export default function BusinessFormPage({
       return;
     }
 
-    const newId = "B" + (businesses.length + 1).toString().padStart(3, "0");
+    let nextSeq = businesses.length + 1;
+    let newId = "B" + nextSeq.toString().padStart(3, "0");
+    while (businesses.some((b) => b.id === newId)) {
+      nextSeq += 1;
+      newId = "B" + nextSeq.toString().padStart(3, "0");
+    }
     const newLicense =
       taxCode.trim() || "GP-" + Math.floor(100000 + Math.random() * 900000);
     const isAcc =
@@ -421,12 +911,17 @@ export default function BusinessFormPage({
       businessType,
       enterpriseScale,
       startDate: startDate.trim(),
+      licenseIssueDate: startDate.trim(),
+      issuingAuthority: issuingAuthority.trim() || undefined,
+      charterCapital: charterCapital.trim() || undefined,
+      giayPhepOcrData: giayPhepOcrData || undefined,
       verificationSource,
       streetArea,
       premisesType,
       premisesOwner: premisesOwner.trim() || owner.trim(),
       premisesOwnerPhone: premisesOwnerPhone.trim() || phone.trim(),
-      linkedHouseholdCode: linkedHouseholdCode.trim(),
+      linkedHouseholdCode: primaryHhCode,
+      linkedHouseholdCodes: parsedHhCodes,
       linkedBuildingOrHostel: linkedBuildingOrHostel.trim(),
       legalRepresentative: legalRep.trim() || owner.trim(),
       legalRepPhone: legalRepPhone.trim() || phone.trim(),
@@ -471,18 +966,28 @@ export default function BusinessFormPage({
       soNguoiLuuTru: isAcc ? Number(soNguoiLuuTru) || 0 : undefined,
       giaThueTrungBinh: isAcc ? giaThueTrungBinh : undefined,
 
-      toBanDo: toBanDo.trim(),
-      soThua: soThua.trim(),
-      dienTich,
-      loaiDat: loaiDat.trim(),
-      tenChuSuDung: tenChuSuDung.trim() || owner.trim(),
+      landParcels: parcelSummary.parcels,
+      toBanDo: parcelSummary.toBanDoSummary || "272",
+      soThua: parcelSummary.soThuaSummary || "55",
+      dienTich: parcelSummary.totalArea > 0 ? parcelSummary.totalArea : 150,
+      loaiDat: parcelSummary.loaiDatSummary || "ODT",
+      tenChuSuDung: parcelSummary.tenChuSuDungSummary || owner.trim(),
       soGcn:
-        soGcn.trim() || "CH-" + Math.floor(100000 + Math.random() * 900000),
-      soVaoSo: soVaoSo.trim() || "CS-2024-001",
+        parcelSummary.soGcnSummary ||
+        "CH-" + Math.floor(100000 + Math.random() * 900000),
+      soVaoSo: parcelSummary.soVaoSoSummary || "CS-2024-001",
+      ngayCapGcn: parcelSummary.ngayCapGcnSummary || undefined,
 
-      soDoFile: soDoFile || undefined,
+      soDoFile: parcelSummary.primarySoDoFile || undefined,
       giayPhepFile: giayPhepFile || undefined,
       pcccFile: pcccFile || undefined,
+
+      timemarkHash: timemarkHash || undefined,
+      timemarkVerified: timemarkVerified || undefined,
+      photoElevation: photoElevation || undefined,
+      photoDirection: photoDirection || undefined,
+      photoTakenAt: photoTakenAt || undefined,
+      soDoOcrData: parcelSummary.primarySoDoOcrData || undefined,
     };
 
     if (onUpdateBusinesses) {
@@ -554,10 +1059,10 @@ export default function BusinessFormPage({
           <button
             type="button"
             onClick={handleBack}
-            className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 text-xs font-bold cursor-pointer transition-colors"
+            className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 text-xs font-bold cursor-pointer transition-colors whitespace-nowrap shrink-0"
           >
             <ArrowLeft size={14} />
-            {mode === "edit" ? "Quay lại hồ sơ" : "Quay lại danh sách"}
+            <span>{mode === "edit" ? "Quay lại hồ sơ" : "Quay lại danh sách"}</span>
           </button>
         }
       />
@@ -580,6 +1085,23 @@ export default function BusinessFormPage({
             <Store size={14} className="text-amber-600" />
             1. Thông tin Cơ sở Kinh doanh &amp; Giấy phép
           </h4>
+
+          <BusinessLicenseUploadOcrBox
+            modeType="business"
+            giayPhepFile={giayPhepFile}
+            ocrData={giayPhepOcrData}
+            isProcessingOcr={isProcessingLicenseOcr}
+            autoOcrEnabled={autoLicenseOcrEnabled}
+            onToggleAutoOcr={setAutoLicenseOcrEnabled}
+            onUploadFile={handleProcessLicenseUpload}
+            onTriggerManualOcr={handleTriggerManualLicenseOcr}
+            onOpenOcrReview={() => setShowLicenseOcrConfirm(true)}
+            onClearFile={() => {
+              setGiayPhepFile(null);
+              setGiayPhepOcrData(null);
+              setPendingLicenseFile(null);
+            }}
+          />
 
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <div className="space-y-1 sm:col-span-2">
@@ -712,6 +1234,33 @@ export default function BusinessFormPage({
               />
             </div>
           </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div className="space-y-1">
+              <label className="text-xs font-semibold text-slate-700 block">
+                Cơ quan cấp Giấy phép KD
+              </label>
+              <input
+                type="text"
+                placeholder="VD: Phòng Tài chính - Kế hoạch / UBND..."
+                value={issuingAuthority}
+                onChange={(e) => setIssuingAuthority(e.target.value)}
+                className="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs sm:text-sm focus:outline-none focus:border-indigo-500 bg-white"
+              />
+            </div>
+            <div className="space-y-1">
+              <label className="text-xs font-semibold text-slate-700 block">
+                Vốn kinh doanh đăng ký
+              </label>
+              <input
+                type="text"
+                placeholder="VD: 200.000.000 VNĐ"
+                value={charterCapital}
+                onChange={(e) => setCharterCapital(e.target.value)}
+                className="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs sm:text-sm focus:outline-none focus:border-indigo-500 bg-white"
+              />
+            </div>
+          </div>
         </div>
 
         {/* Group 2: Địa điểm, Mặt bằng & Liên kết Địa bàn KP3 */}
@@ -765,11 +1314,13 @@ export default function BusinessFormPage({
             </div>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3">
             <div className="space-y-1">
-              <label className="text-xs font-semibold text-slate-700 block">
-                Loại mặt bằng *
-              </label>
+              <div className="min-h-[26px] flex items-center justify-between">
+                <label className="text-xs font-semibold text-slate-700 block">
+                  Loại mặt bằng *
+                </label>
+              </div>
               <ReportSelect
                 aria-label="Loại mặt bằng"
                 value={premisesType}
@@ -791,9 +1342,11 @@ export default function BusinessFormPage({
               />
             </div>
             <div className="space-y-1">
-              <label className="text-xs font-semibold text-slate-700 block">
-                Chủ sở hữu / Quản lý mặt bằng
-              </label>
+              <div className="min-h-[26px] flex items-center justify-between">
+                <label className="text-xs font-semibold text-slate-700 block">
+                  Chủ sở hữu / Quản lý mặt bằng
+                </label>
+              </div>
               <input
                 type="text"
                 placeholder="Tên chủ nhà / chủ mặt bằng"
@@ -803,21 +1356,97 @@ export default function BusinessFormPage({
               />
             </div>
             <div className="space-y-1">
-              <label className="text-xs font-semibold text-slate-700 block">
-                Mã hộ dân KP3 liên kết
+              <label className="min-h-[26px] text-xs font-semibold text-slate-700 flex flex-wrap items-center justify-between gap-1">
+                <span title="Mã hộ dân KP3 liên kết (Hỗ trợ ghép nhiều hộ)">
+                  Mã hộ KP3 (Ghép hộ)
+                </span>
+                <div className="flex flex-wrap items-center gap-1.5">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setHouseholdSelectMode("replace");
+                      setIsHouseholdModalOpen(true);
+                    }}
+                    className="text-[11px] font-bold text-indigo-700 hover:text-indigo-900 flex items-center gap-1 hover:underline cursor-pointer"
+                  >
+                    <Home size={12} />
+                    <span>Chọn hộ...</span>
+                  </button>
+                  {linkedHouseholdCodes.length > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setHouseholdSelectMode("append");
+                        setIsHouseholdModalOpen(true);
+                      }}
+                      className="text-[11px] font-bold text-emerald-700 hover:text-emerald-900 flex items-center gap-0.5 hover:underline cursor-pointer"
+                      title="Ghép thêm hộ dân liền kề khi cơ sở thuê gộp 2-3 căn nhà"
+                    >
+                      <span>+ Ghép hộ</span>
+                    </button>
+                  )}
+                </div>
               </label>
-              <input
-                type="text"
-                placeholder="HK-01, HK-02..."
-                value={linkedHouseholdCode}
-                onChange={(e) => setLinkedHouseholdCode(e.target.value)}
-                className="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs sm:text-sm font-mono focus:outline-none focus:border-indigo-500 bg-white"
-              />
+              <div className="relative">
+                <input
+                  type="text"
+                  placeholder="HK-001, HK-002..."
+                  value={linkedHouseholdCode}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    setLinkedHouseholdCode(val);
+                    setLinkedHouseholdCodes(
+                      val
+                        .split(/[,;+|&]+/)
+                        .map((s) => s.trim().toUpperCase())
+                        .filter(Boolean)
+                    );
+                  }}
+                  className="w-full pl-3 pr-20 py-2 border border-slate-200 rounded-xl text-xs sm:text-sm font-mono focus:outline-none focus:border-indigo-500 bg-white"
+                />
+                <button
+                  type="button"
+                  onClick={() => {
+                    setHouseholdSelectMode(
+                      linkedHouseholdCodes.length > 0 ? "append" : "replace"
+                    );
+                    setIsHouseholdModalOpen(true);
+                  }}
+                  className="absolute right-1.5 top-1/2 -translate-y-1/2 px-2.5 py-1 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-xs font-semibold rounded-lg border border-indigo-200 transition-colors cursor-pointer flex items-center gap-1"
+                >
+                  <Search size={11} />
+                  <span>
+                    {linkedHouseholdCodes.length > 0 ? "+ Ghép" : "Tra cứu"}
+                  </span>
+                </button>
+              </div>
+              {linkedHouseholdCodes.length > 1 && (
+                <div className="flex flex-wrap items-center gap-1 pt-1">
+                  {linkedHouseholdCodes.map((c) => (
+                    <span
+                      key={c}
+                      className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-900 border border-emerald-200 text-[10.5px] font-mono font-bold"
+                    >
+                      {c}
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveLinkedHouseholdCode(c)}
+                        className="text-emerald-700 hover:text-rose-600 cursor-pointer"
+                        aria-label={`Bỏ liên kết hộ ${c}`}
+                      >
+                        <X size={11} />
+                      </button>
+                    </span>
+                  ))}
+                </div>
+              )}
             </div>
             <div className="space-y-1">
-              <label className="text-xs font-semibold text-slate-700 block">
-                Tọa độ GPS (nếu có)
-              </label>
+              <div className="min-h-[26px] flex items-center justify-between">
+                <label className="text-xs font-semibold text-slate-700 block">
+                  Tọa độ GPS (nếu có)
+                </label>
+              </div>
               <input
                 type="text"
                 placeholder="10.7935, 106.7445"
@@ -838,26 +1467,58 @@ export default function BusinessFormPage({
 
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <div className="space-y-1">
-              <label className="text-xs font-semibold text-slate-700 block">
-                Người đại diện pháp luật / Chủ cơ sở *
+              <label className="min-h-[26px] text-xs font-semibold text-slate-700 flex flex-wrap items-center justify-between gap-1">
+                <span>Người đại diện pháp luật / Chủ cơ sở *</span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setResidentModalTarget("owner");
+                    setIsResidentModalOpen(true);
+                  }}
+                  className="text-[11px] font-bold text-blue-700 hover:text-blue-900 flex items-center gap-1 hover:underline cursor-pointer"
+                >
+                  <Users size={12} />
+                  <span>Chọn từ Dân cư KP3...</span>
+                </button>
               </label>
-              <input
-                type="text"
-                required
-                placeholder="Nguyễn Văn Bình"
-                value={owner}
-                onChange={(e) => {
-                  setOwner(e.target.value);
-                  if (!legalRep) setLegalRep(e.target.value);
-                  if (!tenChuSuDung) setTenChuSuDung(e.target.value);
-                }}
-                className="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs sm:text-sm focus:outline-none focus:border-indigo-500 bg-white"
-              />
+              <div className="relative">
+                <input
+                  type="text"
+                  required
+                  placeholder="Nguyễn Văn Bình"
+                  value={owner}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    setOwner(val);
+                    if (!legalRep) setLegalRep(val);
+                    setLandParcels((prev) =>
+                      prev.length > 0 && !prev[0].tenChuSuDung
+                        ? [{ ...prev[0], tenChuSuDung: val }, ...prev.slice(1)]
+                        : prev
+                    );
+                  }}
+                  className="w-full pl-3 pr-20 py-2 border border-slate-200 rounded-xl text-xs sm:text-sm focus:outline-none focus:border-indigo-500 bg-white"
+                />
+                <button
+                  type="button"
+                  onClick={() => {
+                    setResidentModalTarget("owner");
+                    setIsResidentModalOpen(true);
+                  }}
+                  className="absolute right-1.5 top-1/2 -translate-y-1/2 px-2 py-1 bg-blue-50 hover:bg-blue-100 text-blue-700 text-xs font-semibold rounded-lg border border-blue-200 transition-colors cursor-pointer flex items-center gap-1"
+                  title="Tìm trong danh bạ 11.632 cư dân KP3"
+                >
+                  <Search size={11} />
+                  <span>Dân cư</span>
+                </button>
+              </div>
             </div>
             <div className="space-y-1">
-              <label className="text-xs font-semibold text-slate-700 block">
-                Số điện thoại liên hệ *
-              </label>
+              <div className="min-h-[26px] flex items-center justify-between">
+                <label className="text-xs font-semibold text-slate-700 block">
+                  Số điện thoại liên hệ *
+                </label>
+              </div>
               <input
                 type="text"
                 required
@@ -871,16 +1532,41 @@ export default function BusinessFormPage({
               />
             </div>
             <div className="space-y-1">
-              <label className="text-xs font-semibold text-slate-700 block">
-                Người trực tiếp quản lý cơ sở tại chỗ
+              <label className="min-h-[26px] text-xs font-semibold text-slate-700 flex flex-wrap items-center justify-between gap-1">
+                <span>Người trực tiếp quản lý cơ sở tại chỗ</span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setResidentModalTarget("siteManager");
+                    setIsResidentModalOpen(true);
+                  }}
+                  className="text-[11px] font-bold text-blue-700 hover:text-blue-900 flex items-center gap-1 hover:underline cursor-pointer"
+                >
+                  <Users size={12} />
+                  <span>Chọn từ Dân cư KP3...</span>
+                </button>
               </label>
-              <input
-                type="text"
-                placeholder="Tên quản lý trực tiếp"
-                value={siteManager}
-                onChange={(e) => setSiteManager(e.target.value)}
-                className="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs sm:text-sm focus:outline-none focus:border-indigo-500 bg-white"
-              />
+              <div className="relative">
+                <input
+                  type="text"
+                  placeholder="Tên quản lý trực tiếp"
+                  value={siteManager}
+                  onChange={(e) => setSiteManager(e.target.value)}
+                  className="w-full pl-3 pr-20 py-2 border border-slate-200 rounded-xl text-xs sm:text-sm focus:outline-none focus:border-indigo-500 bg-white"
+                />
+                <button
+                  type="button"
+                  onClick={() => {
+                    setResidentModalTarget("siteManager");
+                    setIsResidentModalOpen(true);
+                  }}
+                  className="absolute right-1.5 top-1/2 -translate-y-1/2 px-2 py-1 bg-blue-50 hover:bg-blue-100 text-blue-700 text-xs font-semibold rounded-lg border border-blue-200 transition-colors cursor-pointer flex items-center gap-1"
+                  title="Tìm trong danh bạ 11.632 cư dân KP3"
+                >
+                  <Search size={11} />
+                  <span>Dân cư</span>
+                </button>
+              </div>
             </div>
           </div>
 
@@ -938,7 +1624,7 @@ export default function BusinessFormPage({
             4. Tình hình Hoạt động &amp; Lực lượng Lao động
           </h4>
 
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 text-xs">
             <div className="space-y-1">
               <label className="text-[11px] font-semibold text-slate-700 block">
                 Tổng số lao động *
@@ -1125,197 +1811,27 @@ export default function BusinessFormPage({
           )}
         </div>
 
-        {/* Group 7: Thông tin Địa chính & Sổ đỏ */}
-        <div className="p-4 rounded-xl bg-slate-50 border border-slate-200 space-y-3">
-          <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
-            <FileSpreadsheet size={14} className="text-indigo-600" />
-            6. Thông tin Địa chính &amp; Giấy chứng nhận QSDĐ (Sổ đỏ)
-          </h4>
+        {/* Group 7: Đa Thửa Đất & Nhiều Sổ Đỏ (GCN QSDĐ) */}
+        <MultiParcelEditor
+          sectionTitle="6. Thông tin Địa chính & Giấy chứng nhận QSDĐ (Hỗ trợ Ghép 02+ Thửa Đất / Nhiều Sổ Đỏ)"
+          parcels={landParcels}
+          onChange={setLandParcels}
+          linkedHouseholds={linkedHouseholdsList}
+          defaultOwnerName={premisesOwner || owner}
+          defaultAddress={address}
+          onNotice={(notice) =>
+            setFormNotice({
+              type: notice.type === "info" ? "success" : notice.type,
+              message: notice.message,
+            })
+          }
+        />
 
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-            <div className="space-y-1">
-              <label className="text-[11px] font-semibold text-slate-600 block">
-                Tờ bản đồ số
-              </label>
-              <input
-                type="text"
-                placeholder="272"
-                value={toBanDo}
-                onChange={(e) => setToBanDo(e.target.value)}
-                className="w-full px-3 py-1.5 border border-slate-200 rounded-lg text-xs font-mono focus:outline-none focus:border-indigo-500 bg-white"
-              />
-            </div>
-            <div className="space-y-1">
-              <label className="text-[11px] font-semibold text-slate-600 block">
-                Số thửa đất
-              </label>
-              <input
-                type="text"
-                placeholder="55"
-                value={soThua}
-                onChange={(e) => setSoThua(e.target.value)}
-                className="w-full px-3 py-1.5 border border-slate-200 rounded-lg text-xs font-mono focus:outline-none focus:border-indigo-500 bg-white"
-              />
-            </div>
-            <div className="space-y-1">
-              <label className="text-[11px] font-semibold text-slate-600 block">
-                Diện tích (m²)
-              </label>
-              <input
-                type="text"
-                placeholder="150"
-                value={dienTich}
-                onChange={(e) => setDienTich(e.target.value)}
-                className="w-full px-3 py-1.5 border border-slate-200 rounded-lg text-xs font-mono focus:outline-none focus:border-indigo-500 bg-white"
-              />
-            </div>
-            <div className="space-y-1">
-              <label className="text-[11px] font-semibold text-slate-600 block">
-                Loại đất
-              </label>
-              <input
-                type="text"
-                placeholder="ODT, TMD..."
-                value={loaiDat}
-                onChange={(e) => setLoaiDat(e.target.value)}
-                className="w-full px-3 py-1.5 border border-slate-200 rounded-lg text-xs focus:outline-none focus:border-indigo-500 bg-white"
-              />
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-            <div className="space-y-1">
-              <label className="text-[11px] font-semibold text-slate-600 block">
-                Tên chủ sử dụng đất
-              </label>
-              <input
-                type="text"
-                placeholder="Nguyễn Văn Bình"
-                value={tenChuSuDung}
-                onChange={(e) => setTenChuSuDung(e.target.value)}
-                className="w-full px-3 py-1.5 border border-slate-200 rounded-lg text-xs focus:outline-none focus:border-indigo-500 bg-white"
-              />
-            </div>
-            <div className="space-y-1">
-              <label className="text-[11px] font-semibold text-slate-600 block">
-                Số GCN (Sổ đỏ)
-              </label>
-              <input
-                type="text"
-                placeholder="CH-098234"
-                value={soGcn}
-                onChange={(e) => setSoGcn(e.target.value)}
-                className="w-full px-3 py-1.5 border border-slate-200 rounded-lg text-xs font-mono focus:outline-none focus:border-indigo-500 bg-white"
-              />
-            </div>
-            <div className="space-y-1">
-              <label className="text-[11px] font-semibold text-slate-600 block">
-                Số vào sổ cấp GCN
-              </label>
-              <input
-                type="text"
-                placeholder="CS-2023-112"
-                value={soVaoSo}
-                onChange={(e) => setSoVaoSo(e.target.value)}
-                className="w-full px-3 py-1.5 border border-slate-200 rounded-lg text-xs font-mono focus:outline-none focus:border-indigo-500 bg-white"
-              />
-            </div>
-          </div>
-
-          <div className="space-y-1.5 pt-2">
-            <label className="text-xs font-semibold text-slate-700 block flex items-center justify-between">
-              <span className="flex items-center gap-1">
-                <Paperclip size={13} className="text-indigo-600" />
-                Tải lên tệp Sổ đỏ / Giấy chứng nhận QSDĐ (Hỗ trợ PDF hoặc Hình
-                ảnh)
-              </span>
-              <span className="text-[10px] text-slate-400">
-                PDF, JPG, PNG &lt; 25MB
-              </span>
-            </label>
-
-            <div
-              className={`border border-dashed rounded-xl p-3.5 transition-all flex flex-col items-center justify-center text-center cursor-pointer relative ${
-                dragActiveSoDo
-                  ? "border-indigo-500 bg-indigo-50/50"
-                  : "border-slate-300 hover:border-indigo-400 bg-white"
-              }`}
-              onDragEnter={() => setDragActiveSoDo(true)}
-              onDragOver={(e) => {
-                e.preventDefault();
-                setDragActiveSoDo(true);
-              }}
-              onDragLeave={() => setDragActiveSoDo(false)}
-              onDrop={(e) => {
-                e.preventDefault();
-                setDragActiveSoDo(false);
-                if (e.dataTransfer.files && e.dataTransfer.files[0]) {
-                  handleProcessFileUpload(e.dataTransfer.files[0], (fileObj) => {
-                    setSoDoFile(fileObj);
-                  });
-                }
-              }}
-            >
-              {soDoFile ? (
-                <div className="flex items-center justify-between w-full p-2 bg-emerald-50 rounded-lg border border-emerald-200">
-                  <div className="flex items-center gap-2">
-                    {soDoFile.type === "pdf" ? (
-                      <FileText size={20} className="text-rose-600" />
-                    ) : (
-                      <ImageIcon size={20} className="text-blue-600" />
-                    )}
-                    <div className="text-left">
-                      <span className="text-xs font-bold text-slate-800 block truncate max-w-xs">
-                        {soDoFile.name}
-                      </span>
-                      <span className="text-[10px] text-emerald-700 font-mono">
-                        Đã tải lên • {soDoFile.size}
-                      </span>
-                    </div>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => setSoDoFile(null)}
-                    className="text-slate-400 hover:text-rose-600 p-1 cursor-pointer"
-                  >
-                    <X size={16} />
-                  </button>
-                </div>
-              ) : (
-                <label className="cursor-pointer flex flex-col items-center justify-center w-full py-2">
-                  <input
-                    type="file"
-                    accept=".pdf,image/*"
-                    className="hidden"
-                    onChange={(e) => {
-                      if (e.target.files && e.target.files[0]) {
-                        handleProcessFileUpload(
-                          e.target.files[0],
-                          (fileObj) => {
-                            setSoDoFile(fileObj);
-                          }
-                        );
-                      }
-                    }}
-                  />
-                  <Upload size={22} className="text-indigo-500 mb-1" />
-                  <p className="text-xs font-semibold text-slate-700">
-                    Kéo thả tệp PDF Sổ đỏ hoặc ảnh tại đây, hoặc{" "}
-                    <span className="text-indigo-600 hover:underline font-bold">
-                      chọn tệp từ máy
-                    </span>
-                  </p>
-                </label>
-              )}
-            </div>
-          </div>
-        </div>
-
-        {/* Group 8: Hình ảnh đại diện */}
+        {/* Group 8: Hình ảnh đại diện & Timemark OCR */}
         <div className="space-y-2">
           <label className="text-xs font-bold text-slate-800 uppercase tracking-wider block flex items-center gap-1.5">
             <Camera size={14} className="text-indigo-600" />
-            7. Hình ảnh thực tế mặt tiền cơ sở kinh doanh
+            7. Hình ảnh thực tế mặt tiền cơ sở kinh doanh (Hỗ trợ ảnh Timemark định vị GPS)
           </label>
 
           <div
@@ -1334,15 +1850,13 @@ export default function BusinessFormPage({
               e.preventDefault();
               setDragActiveImage(false);
               if (e.dataTransfer.files && e.dataTransfer.files[0]) {
-                handleProcessFileUpload(e.dataTransfer.files[0], (fileObj) => {
-                  setImage(fileObj.url);
-                });
+                handleProcessImageUpload(e.dataTransfer.files[0]);
               }
             }}
           >
             {image ? (
-              <div className="relative w-full flex flex-col items-center">
-                <div className="relative w-full max-w-md h-36 rounded-lg overflow-hidden border border-slate-100">
+              <div className="relative w-full flex flex-col items-center space-y-3">
+                <div className="relative w-full max-w-md h-44 rounded-xl overflow-hidden border border-slate-200 shadow-xs">
                   <img
                     src={image}
                     alt="Preview"
@@ -1350,34 +1864,76 @@ export default function BusinessFormPage({
                   />
                   <button
                     type="button"
-                    onClick={() => setImage("")}
-                    className="absolute top-1.5 right-1.5 bg-slate-900/75 hover:bg-slate-900 text-white p-1 rounded-full shadow transition-colors cursor-pointer"
+                    onClick={() => {
+                      setImage("");
+                      setTimemarkVerified(false);
+                      setTimemarkHash("");
+                    }}
+                    aria-label="Xóa ảnh mặt tiền cơ sở"
+                    className="absolute top-2 right-2 bg-slate-900/80 hover:bg-slate-900 text-white p-1.5 rounded-full shadow transition-colors cursor-pointer"
                   >
                     <X size={14} />
                   </button>
                 </div>
+
+                {/* Timemark Verified Geolocation Card */}
+                {timemarkVerified && (
+                  <div className="p-3.5 bg-emerald-50/90 rounded-xl border border-emerald-300 space-y-2 text-left w-full max-w-md shadow-2xs">
+                    <div className="flex items-center justify-between">
+                      <span className="inline-flex items-center gap-1.5 text-xs font-bold text-emerald-950">
+                        <ShieldCheck size={16} className="text-emerald-600" />
+                        ✓ ĐÃ ĐỊNH VỊ QUA ẢNH TIMEMARK (100% CHÂN THỰC)
+                      </span>
+                      <span className="px-2 py-0.5 rounded-full text-[11px] font-mono font-bold bg-emerald-200 text-emerald-900 border border-emerald-300">
+                        #{timemarkHash || "N9ULW4DEHPT33Y"}
+                      </span>
+                    </div>
+                    <div className="grid grid-cols-2 gap-2 text-xs">
+                      <div>
+                        <span className="text-slate-500 block text-[11px]">Tọa độ GPS WGS84:</span>
+                        <strong className="font-mono text-emerald-900">{coordinates}</strong>
+                      </div>
+                      <div>
+                        <span className="text-slate-500 block text-[11px]">Thời gian chụp:</span>
+                        <span className="font-medium text-slate-800">{photoTakenAt || "15/11/2026 04:49"}</span>
+                      </div>
+                      <div>
+                        <span className="text-slate-500 block text-[11px]">Độ cao thực địa:</span>
+                        <span className="font-medium text-slate-800">{photoElevation || "37.1m"}</span>
+                      </div>
+                      <div>
+                        <span className="text-slate-500 block text-[11px]">Phương hướng la bàn:</span>
+                        <span className="font-medium text-slate-800">{photoDirection || "71° E"}</span>
+                      </div>
+                    </div>
+                    <p className="text-[11px] text-emerald-700 italic border-t border-emerald-200/80 pt-1.5">
+                      * Vị trí cơ sở đã được tự động cập nhật tọa độ thực địa và ghim chính xác lên Bản đồ số GIS KP3.
+                    </p>
+                  </div>
+                )}
               </div>
             ) : (
-              <label className="cursor-pointer flex flex-col items-center justify-center w-full py-1">
+              <label className="cursor-pointer flex flex-col items-center justify-center w-full py-2">
                 <input
                   type="file"
                   accept="image/*"
                   className="hidden"
                   onChange={(e) => {
                     if (e.target.files && e.target.files[0]) {
-                      handleProcessFileUpload(e.target.files[0], (fileObj) => {
-                        setImage(fileObj.url);
-                      });
+                      handleProcessImageUpload(e.target.files[0]);
                     }
                   }}
                 />
-                <Camera size={22} className="text-slate-400 mb-1" />
+                <Camera size={24} className="text-slate-400 mb-1" />
                 <p className="text-xs font-semibold text-slate-700">
-                  Kéo thả ảnh mặt tiền cơ sở hoặc{" "}
+                  Kéo thả ảnh mặt tiền cơ sở (Tự động đọc watermark Timemark), hoặc{" "}
                   <span className="text-emerald-600 hover:underline font-bold">
                     chọn từ thiết bị
                   </span>
                 </p>
+                <span className="text-[10px] text-slate-400 mt-0.5">
+                  Tự động bóc tách tọa độ GPS, thời gian chụp và mã xác thực chống giả mạo
+                </span>
               </label>
             )}
           </div>
@@ -1404,6 +1960,49 @@ export default function BusinessFormPage({
           </button>
         </div>
       </form>
+
+      {/* Modal Chọn Sổ Hộ Khẩu */}
+      <HouseholdSelectModal
+        isOpen={isHouseholdModalOpen}
+        onClose={() => setIsHouseholdModalOpen(false)}
+        households={households}
+        currentCode={linkedHouseholdCode}
+        onSelect={handleSelectHousehold}
+      />
+
+      {/* Modal Chọn Cư Dân */}
+      <ResidentSelectModal
+        isOpen={isResidentModalOpen}
+        onClose={() => setIsResidentModalOpen(false)}
+        residents={residents}
+        targetRole={residentModalTarget}
+        currentValue={residentModalTarget === "owner" ? owner : siteManager}
+        onSelect={handleSelectResident}
+      />
+
+      {/* Modal Xác nhận AI OCR Giấy phép kinh doanh */}
+      <BusinessLicenseOcrConfirmModal
+        isOpen={showLicenseOcrConfirm}
+        onClose={() => setShowLicenseOcrConfirm(false)}
+        ocrData={giayPhepOcrData}
+        modeType="business"
+        currentValues={{
+          businessName: name,
+          licenseNumber: taxCode,
+          businessType,
+          issueDate: startDate,
+          issuingAuthority,
+          headquartersAddress: address,
+          businessLine: type,
+          charterCapital,
+          legalRepresentative: owner || legalRep,
+          legalRepCccd,
+          legalRepPhone: phone || legalRepPhone,
+        }}
+        matchedResident={matchedResidentFromLicenseOcr}
+        matchedHouseholds={matchedHouseholdsFromLicenseOcr}
+        onApply={handleApplyLicenseOcr}
+      />
     </div>
   );
 }

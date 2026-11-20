@@ -94,14 +94,8 @@ export function StatCard({
           <span className="text-xs font-semibold text-slate-600 uppercase tracking-wide block leading-snug">
             {label}
           </span>
-          <div className="flex items-baseline flex-wrap gap-x-1.5 gap-y-0.5">
-            <span
-              className={`font-bold text-slate-900 tracking-tight leading-tight tabular-nums break-words ${
-                String(formattedValue ?? "").length >= 9
-                  ? "text-lg sm:text-xl"
-                  : "text-2xl sm:text-3xl"
-              }`}
-            >
+          <div className="flex items-baseline flex-wrap gap-x-1.5 gap-y-0.5 min-w-0">
+            <span className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight leading-tight tabular-nums whitespace-nowrap">
               {formattedValue}
             </span>
             {badge && (

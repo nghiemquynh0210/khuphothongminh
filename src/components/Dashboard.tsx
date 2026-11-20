@@ -1,15 +1,18 @@
 import React, { useMemo, useState } from "react";
 import {
   Activity,
+  AlertCircle,
+  AlertTriangle,
   ArrowUpRight,
   Bell,
   Bot,
   Briefcase,
   Building2,
-  Camera,
+  Calendar,
   Check,
   CheckCircle2,
   CheckSquare,
+  ChevronRight,
   Clock,
   Coins,
   Copy,
@@ -17,33 +20,22 @@ import {
   Eye,
   EyeOff,
   FileText,
+  Flame,
   Globe,
   Heart,
   HelpCircle,
   Home,
   Map,
+  MapPin,
+  MapPinOff,
   MessageSquare,
-  PlusCircle,
   Search,
   ShieldAlert,
   Sparkles,
-  Store,
-  TrendingUp,
   Users,
   X,
 } from "lucide-react";
-import {
-  Bar,
-  BarChart,
-  CartesianGrid,
-  Cell,
-  Pie,
-  PieChart,
-  ResponsiveContainer,
-  Tooltip,
-  XAxis,
-  YAxis,
-} from "recharts";
+import * as XLSX from "xlsx";
 import {
   AdministrativeForm,
   Business,
@@ -52,11 +44,13 @@ import {
   FundExpenditure,
   Household,
   Resident,
+  ScheduleEvent,
   TaskItem,
 } from "../types";
 import { initialAdministrativeForms } from "../mockForms";
 import {
-  extractBirthYear,
+  calculateResidentAge,
+  formatCompactKp3Address,
   getTemporaryResidenceExpiryStatus,
 } from "../utils/householdRecognitionUtils";
 import {
@@ -66,7 +60,17 @@ import {
   isEnterpriseRecord,
   maskCccd,
 } from "../utils/kp3Utils";
+import { getEffectiveResidencyStatus } from "../utils/residencyClassifier";
+import { recordAuditLog } from "../utils/auditLogger";
 import { formatVNNumber } from "../utils/numberFormat";
+import {
+  getDashboardExtensionPath,
+  getHouseholdDetailPath,
+  getReportDetailPath,
+  getResidentDetailPath,
+  getTaskDetailPath,
+  navigate,
+} from "../routes";
 import { PageHeader } from "./common/PageHeader";
 import { StatCard } from "./common/StatCard";
 import { Button, InlineNotice, Modal } from "./ui";
@@ -78,6 +82,7 @@ interface DashboardProps {
   reports: FieldReport[];
   forms?: AdministrativeForm[];
   tasks?: TaskItem[];
+  schedules?: ScheduleEvent[];
   fundContributions?: FundContribution[];
   fundExpenditures?: FundExpenditure[];
   welfareCount?: number;
@@ -92,8 +97,6 @@ interface DashboardProps {
   } | null;
 }
 
-const CHART_COLORS = ["#047857", "#1d4ed8", "#d97706", "#b91c1c", "#6d28d9"];
-
 export default function Dashboard({
   residents,
   households,
@@ -101,6 +104,7 @@ export default function Dashboard({
   reports,
   forms = initialAdministrativeForms,
   tasks = [],
+  schedules = [],
   fundContributions = [],
   fundExpenditures = [],
   welfareCount = 0,
@@ -122,7 +126,8 @@ export default function Dashboard({
     let elderlyCount = 0;
     let expiringTamTruCount = 0;
     let expiredTamTruCount = 0;
-    const currentYear = 2026;
+    let tempHeadsCount = 0;
+    let tempFamilyMembersCount = 0;
 
     for (let i = 0; i < totalRes; i++) {
       const r = residents[i];
@@ -136,13 +141,22 @@ export default function Dashboard({
         Boolean(r.id && r.id.startsWith("R_FOR_"));
 
       if (isForeign) foreignCount++;
-      else if (r.status === "Thường trú") thuongTruCount++;
-      else if (r.status === "Tạm trú") tamTruCount++;
-      else if (r.status === "Tạm vắng") tamVangCount++;
+      else if (r.status === "Thường trú") {
+        const effective = getEffectiveResidencyStatus(r);
+        if (effective === "Tạm vắng") {
+          tamVangCount++;
+        } else {
+          thuongTruCount++;
+        }
+      } else if (r.status === "Tạm trú") {
+        tamTruCount++;
+        const rel = (r.relationToOwner || "").toLowerCase();
+        if (rel.includes("đứng tên") || rel === "chủ hộ") tempHeadsCount++;
+        else tempFamilyMembersCount++;
+      } else if (r.status === "Tạm vắng") tamVangCount++;
 
-      const by = extractBirthYear(r.birthDate);
-      if (by > 1900 && by <= currentYear) {
-        const age = currentYear - by;
+      const age = calculateResidentAge(r.birthDate);
+      if (age !== null) {
         if (age < 14) childrenCount++;
         else if (age >= 60) elderlyCount++;
         else workingAgeCount++;
@@ -157,12 +171,26 @@ export default function Dashboard({
       }
     }
 
-    const popMetrics = computeKp3PopulationMetrics(residents, households);
+    const activeHouseholds = (households || []).filter((h) => !(h as any).deletedAt);
+    const permanentHouseholds = activeHouseholds.filter((h) => (h.type || "Thường trú") === "Thường trú");
+    const temporaryHouseholds = activeHouseholds.filter((h) => h.type === "Tạm trú");
+    const independentTempHouseholds = temporaryHouseholds.filter((h) => h.tempSubType !== "hostel");
+    const hostelTempHouseholds = temporaryHouseholds.filter((h) => h.tempSubType === "hostel");
+    const alertTempHouseholds = temporaryHouseholds.filter(
+      (h) => (h.expiringMemberCount || 0) > 0 || (h.expiredMemberCount || 0) > 0
+    );
+
+    const popMetrics = computeKp3PopulationMetrics(residents, permanentHouseholds);
+    const permanentHouseholdsCount =
+      permanentHouseholds.length > 0 ? permanentHouseholds.length : KP3_OFFICIAL_BASELINE.households;
+    const temporaryHouseholdsCount = temporaryHouseholds.length;
+    const totalManagedHouseholdsCount = permanentHouseholdsCount + temporaryHouseholdsCount;
 
     let enterprisesCount = 0;
     let establishmentsCount = 0;
     let hostelsCount = 0;
     let roomsCount = 0;
+    let pcccNeedAttentionCount = 0;
 
     (businesses || []).forEach((b) => {
       if (isEnterpriseRecord(b)) enterprisesCount++;
@@ -171,11 +199,49 @@ export default function Dashboard({
         hostelsCount++;
         roomsCount += b.soPhong || 0;
       }
+      const latestInsp = b.inspections?.[0];
+      if (
+        b.safetyCertified === false ||
+        (latestInsp && latestInsp.result !== "Đạt chuẩn")
+      ) {
+        pcccNeedAttentionCount++;
+      }
     });
 
     const pendingReports = (reports || []).filter((r) => r.status !== "Đã giải quyết");
-    const openTasks = (tasks || []).filter((t) => t.status !== "Hoàn thành");
-    const urgentTasks = openTasks.filter((t) => t.priority === "Khẩn cấp");
+    const newReportsCount = (reports || []).filter((r) => r.status === "Đã tiếp nhận").length;
+    const inProgressReportsCount = (reports || []).filter((r) => r.status === "Đang xử lý").length;
+    const urgentReportsCount = pendingReports.filter(
+      (r) => r.priority === "Khẩn cấp" || r.priority === "Cao"
+    ).length;
+
+    const priorityWeight: Record<string, number> = {
+      "Khẩn cấp": 4,
+      Cao: 3,
+      "Trung bình": 2,
+      "Bình thường": 1,
+      Thấp: 1,
+    };
+    const openTasks = [...(tasks || [])]
+      .filter((t) => t.status !== "Hoàn thành")
+      .sort((a, b) => {
+        const diffPrio = (priorityWeight[b.priority] || 0) - (priorityWeight[a.priority] || 0);
+        if (diffPrio !== 0) return diffPrio;
+        return String(a.deadline || "9999-12-31").localeCompare(String(b.deadline || "9999-12-31"));
+      });
+    const urgentTasks = openTasks.filter((t) => t.priority === "Khẩn cấp" || t.priority === "Cao");
+
+    const todayIso = new Date().toISOString().slice(0, 10);
+    const upcomingSchedules = [...(schedules || [])]
+      .filter(
+        (s) =>
+          s.relevanceTier !== "ward_reference" &&
+          s.status !== "Đã kết thúc" &&
+          s.status !== "Đã hoãn" &&
+          (!s.date || s.date >= todayIso)
+      )
+      .sort((a, b) => `${a.date} ${a.time || ""}`.localeCompare(`${b.date} ${b.time || ""}`))
+      .slice(0, 4);
 
     const totalFundCollected = (fundContributions || [])
       .filter((c) => c.status === "Đã nộp" || !c.status)
@@ -183,68 +249,63 @@ export default function Dashboard({
     const totalFundSpent = (fundExpenditures || []).reduce((sum, e) => sum + (Number(e.amount) || 0), 0);
     const netFundBalance = totalFundCollected - totalFundSpent;
 
-    const myReports =
-      currentUser?.role === "nguoidan"
-        ? (reports || []).filter(
-            (r) => r.reporterName === currentUser.fullName || r.reporterPhone === currentUser.phone
-          )
-        : [];
-
-    const residencyChartData = [
-      { name: "Thường trú", "Số lượng": thuongTruCount, color: "#047857" },
-      { name: "Tạm trú", "Số lượng": tamTruCount, color: "#d97706" },
-      { name: "Tạm vắng", "Số lượng": tamVangCount, color: "#475569" },
-      { name: "Người nước ngoài", "Số lượng": foreignCount, color: "#6d28d9" },
-    ];
-
-    const categoryMap = (reports || []).reduce((acc, r) => {
-      acc[r.category] = (acc[r.category] || 0) + 1;
-      return acc;
-    }, {} as Record<string, number>);
-
-    const reportPieData = Object.entries(categoryMap).map(([name, value]) => ({
-      name,
-      value,
-    }));
+    const thuongTruPct = totalRes > 0 ? Math.round((thuongTruCount / totalRes) * 1000) / 10 : 17.8;
+    const tamTruPct = totalRes > 0 ? Math.round((tamTruCount / totalRes) * 1000) / 10 : 82.2;
 
     return {
       totalRes,
       maleCount,
       femaleCount,
-      malePctLabel: totalRes > 0 ? formatDecimalVN((maleCount / totalRes) * 100, 1) : "0,0",
-      femalePctLabel: totalRes > 0 ? formatDecimalVN((femaleCount / totalRes) * 100, 1) : "0,0",
+      malePctLabel: totalRes > 0 ? formatDecimalVN((maleCount / totalRes) * 100, 1) : "51,6",
+      femalePctLabel: totalRes > 0 ? formatDecimalVN((femaleCount / totalRes) * 100, 1) : "48,4",
       thuongTruCount,
       tamTruCount,
       tamVangCount,
       foreignCount,
+      thuongTruPct,
+      tamTruPct,
       childrenCount,
       workingAgeCount,
       elderlyCount,
       expiringTamTruCount,
       expiredTamTruCount,
+      tempHeadsCount,
+      tempFamilyMembersCount,
+      permanentHouseholdsCount,
+      temporaryHouseholdsCount,
+      totalManagedHouseholdsCount,
+      independentTempHouseholdsCount: independentTempHouseholds.length,
+      hostelTempHouseholdsCount: hostelTempHouseholds.length,
+      alertTempHouseholdsCount: alertTempHouseholds.length,
       popMetrics,
       enterprisesCount,
       establishmentsCount,
       hostelsCount,
       roomsCount,
+      pcccNeedAttentionCount,
       pendingReportsCount: pendingReports.length,
+      newReportsCount,
+      inProgressReportsCount,
+      urgentReportsCount,
       pendingReports,
       openTasksCount: openTasks.length,
+      openTasks,
+      urgentTasks,
       urgentTasksCount: urgentTasks.length,
+      upcomingSchedules,
+      totalFundCollected,
+      totalFundSpent,
       netFundBalance,
-      myReports,
-      residencyChartData,
-      reportPieData,
     };
-  }, [residents, households, businesses, reports, tasks, fundContributions, fundExpenditures, currentUser]);
+  }, [residents, households, businesses, reports, tasks, schedules, fundContributions, fundExpenditures]);
 
-  // Household Lookup State
+  // Household Lookup State (Supports both Thường trú & Hộ tạm trú)
   const [householdSearchQuery, setHouseholdSearchQuery] = useState("");
   const [searchedHousehold, setSearchedHousehold] = useState<Household | null>(null);
   const [searchFeedback, setSearchFeedback] = useState("");
   const [showSensitivePii, setShowSensitivePii] = useState(false);
 
-  // Dashboard Forms Quick Browser
+  // Dashboard Forms Quick Browser (Citizen Portal View)
   const [dashboardFormSearch, setDashboardFormSearch] = useState("");
   const [dashboardFormCategory, setDashboardFormCategory] = useState("Tất cả");
   const [showAllDashboardForms, setShowAllDashboardForms] = useState(false);
@@ -252,17 +313,32 @@ export default function Dashboard({
   const [dashboardToast, setDashboardToast] = useState<string | null>(null);
   const [copiedTemplate, setCopiedTemplate] = useState(false);
 
+  const samplePermHousehold = useMemo(
+    () => households.find((h) => (h.type || "Thường trú") === "Thường trú" && !(h as any).deletedAt),
+    [households]
+  );
+  const sampleTempHousehold = useMemo(
+    () => households.find((h) => h.type === "Tạm trú" && !(h as any).deletedAt),
+    [households]
+  );
+
   const handleSearchHousehold = (query: string) => {
     const q = query.trim().toLowerCase();
     if (!q) {
-      setSearchFeedback("Vui lòng nhập Mã sổ hộ khẩu (VD: HK-301), tên chủ hộ hoặc số CCCD.");
+      setSearchFeedback("Vui lòng nhập Mã sổ hộ khẩu, Mã hộ tạm trú (TT-0001), tên chủ hộ hoặc số CCCD.");
       setSearchedHousehold(null);
       return;
     }
 
-    let foundH = households.find(
-      (h) => h.code.toLowerCase() === q || h.ownerName.toLowerCase().includes(q)
-    );
+    let foundH =
+      households.find((h) => h.code.toLowerCase() === q) ||
+      households.find(
+        (h) =>
+          h.code.toLowerCase().includes(q) ||
+          h.ownerName.toLowerCase().includes(q) ||
+          h.members?.some((m) => (m.cccd || "").toLowerCase().includes(q) || m.name.toLowerCase().includes(q))
+      );
+
     if (!foundH) {
       const foundRes = residents.find(
         (r) => r.cccd.toLowerCase().includes(q) || r.fullName.toLowerCase().includes(q)
@@ -278,7 +354,7 @@ export default function Dashboard({
     } else {
       setSearchedHousehold(null);
       setSearchFeedback(
-        `Không tìm thấy hồ sơ hộ khẩu khớp "${query}". Vui lòng thử mã mẫu như ${households[0]?.code || "HK-301"}.`
+        `Không tìm thấy hồ sơ khớp "${query}". Hãy thử mã hộ thường trú (${samplePermHousehold?.code || "25975-006539"}) hoặc hộ tạm trú (${sampleTempHousehold?.code || "TT-0001"}).`
       );
     }
   };
@@ -292,17 +368,162 @@ export default function Dashboard({
       fullName: m.name,
       gender: "Nam" as const,
       birthDate: `01/01/${m.birthYear}`,
-      cccd: m.cccd || "Đang cập nhật",
-      phone: m.phone || "---",
+      cccd: m.cccd || "Chưa cập nhật",
+      phone: m.phone || "",
       status: (searchedHousehold.type === "Tạm trú" ? "Tạm trú" : "Thường trú") as Resident["status"],
-      occupation: "Cư dân",
+      occupation: "Chưa cập nhật",
       address: searchedHousehold.address,
       householdId: searchedHousehold.code,
       relationToOwner: m.relation,
       avatar: "",
-      joinDate: "01/01/2020",
     }));
   }, [searchedHousehold, residents]);
+
+  const navigateToTab = (tab: any) => {
+    setActiveTab(tab);
+    if (isStaff) {
+      navigate(getDashboardExtensionPath(tab));
+    }
+  };
+
+  const navigateResidentsWithFilter = (query: string) => {
+    const targetUrl = query ? `/dashboard/residents?${query}` : "/dashboard/residents";
+    window.history.pushState({}, "", targetUrl);
+    window.dispatchEvent(new PopStateEvent("popstate"));
+    window.dispatchEvent(new CustomEvent("app:navigate", { detail: { path: targetUrl } }));
+    setActiveTab("residents");
+  };
+
+  const navigateHouseholdsWithFilter = (query: string) => {
+    const targetUrl = query ? `/dashboard/households?${query}` : "/dashboard/households";
+    window.history.pushState({}, "", targetUrl);
+    window.dispatchEvent(new PopStateEvent("popstate"));
+    window.dispatchEvent(new CustomEvent("app:navigate", { detail: { path: targetUrl } }));
+    setActiveTab("households");
+  };
+
+  const handleExportBriefingReport = () => {
+    const now = new Date();
+    const dateStamp = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, "0")}${String(
+      now.getDate()
+    ).padStart(2, "0")}`;
+    const safeRemainTemp = Math.max(
+      0,
+      metrics.tamTruCount - metrics.expiringTamTruCount - metrics.expiredTamTruCount
+    );
+
+    const summaryRows = [
+      ["Nhóm chỉ tiêu", "Chỉ tiêu thống kê", "Giá trị", "Đơn vị", "Ghi chú điều hành"],
+      [
+        "1. Dân cư Khu phố 3",
+        "Tổng nhân khẩu thực tế",
+        metrics.popMetrics.officialPopulation,
+        "người",
+        `Đã số hóa: ${metrics.totalRes} hồ sơ (${metrics.malePctLabel}% Nam • ${metrics.femalePctLabel}% Nữ)`,
+      ],
+      ["1. Dân cư Khu phố 3", "Nhân khẩu Thường trú", metrics.thuongTruCount, "người", `${formatDecimalVN(metrics.thuongTruPct, 1)}% tổng dân số`],
+      ["1. Dân cư Khu phố 3", "Nhân khẩu Tạm trú", metrics.tamTruCount, "người", `${formatDecimalVN(metrics.tamTruPct, 1)}% tổng dân số`],
+      ["1. Dân cư Khu phố 3", "Người nước ngoài (Luật 47)", metrics.foreignCount, "người", "Quản lý lưu trú NNN"],
+      ["1. Dân cư Khu phố 3", "Trẻ em (< 14 tuổi)", metrics.childrenCount, "người", "Tiêm chủng & phổ cập GD"],
+      ["1. Dân cư Khu phố 3", "Độ tuổi lao động (14 – 59 tuổi)", metrics.workingAgeCount, "người", "Lực lượng lao động địa bàn"],
+      ["1. Dân cư Khu phố 3", "Người cao tuổi (≥ 60 tuổi)", metrics.elderlyCount, "người", "Mừng thọ & chăm sóc NCT"],
+      [
+        "2. Hộ tịch (Thường trú & Tạm trú)",
+        "Tổng số Hộ quản lý trên địa bàn",
+        metrics.totalManagedHouseholdsCount,
+        "hộ",
+        "Gồm Sổ Hộ thường trú + Hồ sơ Hộ tạm trú",
+      ],
+      [
+        "2. Hộ tịch (Thường trú & Tạm trú)",
+        "Sổ Hộ khẩu Thường trú (CT01)",
+        metrics.permanentHouseholdsCount,
+        "hộ",
+        `Bình quân ${metrics.popMetrics.avgPerDigitizedHouseholdLabel} người/hộ`,
+      ],
+      [
+        "2. Hộ tịch (Thường trú & Tạm trú)",
+        "Hộ Tạm trú (CT08 / Khai báo lưu trú)",
+        metrics.temporaryHouseholdsCount,
+        "hộ",
+        `${metrics.independentTempHouseholdsCount} hộ thuê nhà độc lập • ${metrics.hostelTempHouseholdsCount} điểm nhà trọ`,
+      ],
+      [
+        "3. Cảnh báo Hạn Tạm trú",
+        "Tạm trú đã quá hạn",
+        metrics.expiredTamTruCount,
+        "người",
+        "Phối hợp CSKV rà soát lưu trú ngay",
+      ],
+      [
+        "3. Cảnh báo Hạn Tạm trú",
+        "Tạm trú sắp hết hạn (≤ 30 ngày)",
+        metrics.expiringTamTruCount,
+        "người",
+        `Thuộc ${metrics.alertTempHouseholdsCount} hộ tạm trú cần nhắc gia hạn`,
+      ],
+      ["3. Cảnh báo Hạn Tạm trú", "Tạm trú còn hạn an toàn", safeRemainTemp, "người", "Đang quản lý hợp lệ"],
+      ["4. Kinh tế & Nhà trọ", "Doanh nghiệp TNHH / Cổ phần", metrics.enterprisesCount, "doanh nghiệp", "Có mã số thuế pháp nhân"],
+      ["4. Kinh tế & Nhà trọ", "Hộ kinh doanh cá thể tại chỗ", metrics.establishmentsCount, "cơ sở", "Thương mại & dịch vụ"],
+      ["4. Kinh tế & Nhà trọ", "Cơ sở nhà trọ lưu trú", metrics.hostelsCount, "cơ sở", `${metrics.roomsCount} phòng cho thuê`],
+      ["5. Phản ánh 1022 & Nhiệm vụ", "Phản ánh đang chờ / đang xử lý", metrics.pendingReportsCount, "hồ sơ", `${metrics.newReportsCount} mới • ${metrics.inProgressReportsCount} đang xử lý`],
+      ["5. Phản ánh 1022 & Nhiệm vụ", "Nhiệm vụ đang triển khai", metrics.openTasksCount, "đầu việc", `${metrics.urgentTasksCount} việc khẩn cấp / cao`],
+      ["6. An sinh & Tài chính", "Hồ sơ đối tượng An sinh xã hội", welfareCount, "hồ sơ", "Người có công & Bảo trợ XH"],
+      ["6. An sinh & Tài chính", "Tồn Quỹ Khu phố hiện hành", metrics.netFundBalance, "VNĐ", `Thu: ${formatVNNumber(metrics.totalFundCollected)}đ • Chi: ${formatVNNumber(metrics.totalFundSpent)}đ`],
+    ];
+
+    const wb = XLSX.utils.book_new();
+    const wsSummary = XLSX.utils.aoa_to_sheet(summaryRows);
+    wsSummary["!cols"] = [{ wch: 28 }, { wch: 34 }, { wch: 16 }, { wch: 14 }, { wch: 44 }];
+    XLSX.utils.book_append_sheet(wb, wsSummary, "Giao_Ban_Tong_Hop");
+
+    const openReportRows = [
+      ["Mã hồ sơ", "Tiêu đề phản ánh", "Nhóm lĩnh vực", "Địa điểm", "Mức ưu tiên", "Trạng thái", "Thời điểm gửi"],
+      ...metrics.pendingReports.map((r) => [
+        r.id,
+        r.title,
+        r.category,
+        r.location,
+        r.priority || "Bình thường",
+        r.status,
+        r.reportedAt,
+      ]),
+    ];
+    const wsReports = XLSX.utils.aoa_to_sheet(openReportRows);
+    wsReports["!cols"] = [{ wch: 16 }, { wch: 36 }, { wch: 20 }, { wch: 28 }, { wch: 14 }, { wch: 16 }, { wch: 20 }];
+    XLSX.utils.book_append_sheet(wb, wsReports, "Phan_Anh_1022_Mo");
+
+    const openTaskRows = [
+      ["Tiêu đề nhiệm vụ", "Đơn vị chủ trì", "Cán bộ thực hiện", "Mức ưu tiên", "Tiến độ (%)", "Hạn hoàn thành", "Trạng thái"],
+      ...metrics.openTasks.map((t) => [
+        t.title,
+        t.unit,
+        t.assignee?.name || "Ban Điều hành KP3",
+        t.priority,
+        t.progressPercent ?? 0,
+        t.deadline,
+        t.status,
+      ]),
+    ];
+    const wsTasks = XLSX.utils.aoa_to_sheet(openTaskRows);
+    wsTasks["!cols"] = [{ wch: 36 }, { wch: 24 }, { wch: 22 }, { wch: 14 }, { wch: 12 }, { wch: 16 }, { wch: 16 }];
+    XLSX.utils.book_append_sheet(wb, wsTasks, "Nhiem_Vu_Dang_Mo");
+
+    const fileName = `Bao_Cao_Giao_Ban_KP3_AnPhu_${dateStamp}.xlsx`;
+    XLSX.writeFile(wb, fileName);
+
+    void recordAuditLog({
+      actorName: currentUser?.fullName || "Cán bộ Ban Điều hành KP3",
+      actorRole: currentUser?.role === "canbo" ? "Cán bộ KP3" : "Người dùng",
+      category: "DATA_EXPORT",
+      actionTitle: "Xuất Báo cáo Giao ban tổng hợp (.xlsx)",
+      targetSummary: `File ${fileName}: ${formatVNNumber(metrics.popMetrics.officialPopulation)} dân, ${formatVNNumber(
+        metrics.permanentHouseholdsCount
+      )} hộ TT + ${formatVNNumber(metrics.temporaryHouseholdsCount)} hộ tạm trú`,
+    });
+
+    setDashboardToast(`Đã xuất tệp "${fileName}" và ghi nhật ký kiểm toán thành công.`);
+  };
 
   const handleQuickDownloadForm = (formId: string) => {
     const form = forms.find((f) => f.id === formId);
@@ -349,17 +570,17 @@ export default function Dashboard({
       ? filteredDashboardForms
       : filteredDashboardForms.slice(0, 4);
 
-  // ===================== CITIZEN PORTAL HOME =====================
+  // ===================== CITIZEN PORTAL HOME (Fallback inside Dashboard Shell) =====================
   if (!isStaff) {
     const citizenServices = [
-      { id: "forms", title: "Biểu mẫu Hành chính", icon: FileText, tone: "emerald" },
-      { id: "reports", title: "Phản ánh Hiện trường 1022", icon: MessageSquare, tone: "indigo" },
-      { id: "gis", title: "Bản đồ Số KP3 (GIS)", icon: Map, tone: "sky" },
-      { id: "finance", title: "Quỹ Khu phố & VietQR", icon: Coins, tone: "amber" },
-      { id: "ai", title: "Hỏi đáp Trợ lý KP3", icon: Bot, tone: "indigo" },
-      { id: "welfare", title: "An sinh Xã hội", icon: Heart, tone: "rose" },
-      { id: "cultural", title: "Tin tức & Sinh hoạt KP3", icon: Bell, tone: "emerald" },
-      { id: "party", title: "Ban Điều hành & Chi bộ KP3", icon: Users, tone: "slate" },
+      { id: "forms", title: "Biểu mẫu Hành chính", icon: FileText },
+      { id: "reports", title: "Phản ánh Hiện trường 1022", icon: MessageSquare },
+      { id: "gis", title: "Bản đồ Số KP3 (GIS)", icon: Map },
+      { id: "finance", title: "Quỹ Khu phố & VietQR", icon: Coins },
+      { id: "ai", title: "Hỏi đáp Trợ lý KP3", icon: Bot },
+      { id: "welfare", title: "An sinh Xã hội", icon: Heart },
+      { id: "cultural", title: "Tin tức & Sinh hoạt KP3", icon: Bell },
+      { id: "party", title: "Ban Điều hành & Chi bộ KP3", icon: Users },
     ];
 
     return (
@@ -381,17 +602,17 @@ export default function Dashboard({
           <InlineNotice type="success" message={dashboardToast} onDismiss={() => setDashboardToast(null)} />
         )}
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
           <StatCard
             label="Dân số Toàn Khu phố 3"
             value={formatVNNumber(KP3_OFFICIAL_BASELINE.population)}
             icon={Users}
             color="emerald"
             subtext="Quy mô toàn khu phố"
-            subtextRight={`${metrics.popMetrics.digitizedResidentsCount} hồ sơ số hóa`}
+            subtextRight="Khu phố 3"
           />
           <StatCard
-            label="Số Hộ gia đình"
+            label="Hộ Thường trú"
             value={formatVNNumber(KP3_OFFICIAL_BASELINE.households)}
             icon={Home}
             color="indigo"
@@ -413,29 +634,28 @@ export default function Dashboard({
             color="blue"
             subtext="Word (.DOC) & In trực tiếp"
             subtextRight="Mở biểu mẫu →"
-            onClick={() => setActiveTab("forms")}
+            onClick={() => navigateToTab("forms")}
           />
         </div>
 
-        {/* Even 8-card Quick Services Grid */}
         <section aria-labelledby="citizen-services-heading" className="bg-white rounded-xl border border-slate-200 p-5 space-y-4">
           <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-200 pb-3">
             <h2 id="citizen-services-heading" className="text-base font-bold text-slate-900">
-              Tiện ích Cư dân Trực tuyến (8 phân hệ)
+              Tiện ích Cư dân Trực tuyến
             </h2>
             <span className="px-2.5 py-1 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-900 text-xs font-semibold">
               Truy cập nhanh
             </span>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3">
             {citizenServices.map((svc) => {
               const IconComp = svc.icon;
               return (
                 <button
                   key={svc.id}
                   type="button"
-                  onClick={() => setActiveTab(svc.id)}
+                  onClick={() => navigateToTab(svc.id)}
                   className="p-3.5 rounded-xl border border-slate-200 bg-white hover:border-emerald-600 hover:bg-slate-50 transition-colors text-left flex items-center justify-between gap-3 cursor-pointer"
                 >
                   <div className="flex items-center gap-3 min-w-0">
@@ -451,7 +671,6 @@ export default function Dashboard({
           </div>
         </section>
 
-        {/* Quick Administrative Forms Browser */}
         <section aria-labelledby="citizen-forms-heading" className="bg-white rounded-xl border border-slate-200 p-5 space-y-4">
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 border-b border-slate-200 pb-3">
             <div>
@@ -463,24 +682,20 @@ export default function Dashboard({
                 Tìm kiếm mẫu đơn CT01, xác nhận cư trú, đăng ký HKD và tải về định dạng Word.
               </p>
             </div>
-            <Button variant="secondary" size="sm" onClick={() => setActiveTab("forms")}>
+            <Button variant="secondary" size="sm" onClick={() => navigateToTab("forms")}>
               Mở toàn bộ kho biểu mẫu
             </Button>
           </div>
 
           <div className="flex flex-col md:flex-row gap-3 items-stretch md:items-center justify-between">
             <div className="relative flex-1 max-w-md">
-              <label htmlFor="dashboard-form-search-input" className="sr-only">
-                Tìm kiếm biểu mẫu
-              </label>
               <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 pointer-events-none" />
               <input
-                id="dashboard-form-search-input"
                 type="search"
                 value={dashboardFormSearch}
                 onChange={(e) => setDashboardFormSearch(e.target.value)}
                 placeholder="Tìm mã hoặc tên biểu mẫu..."
-                className="w-full h-11 md:h-10 pl-9 pr-3 bg-white border border-slate-300 rounded-lg text-sm text-slate-900 placeholder:text-slate-500 focus:outline-none focus:border-emerald-600"
+                className="w-full h-10 pl-9 pr-3 bg-white border border-slate-300 rounded-lg text-sm text-slate-900 placeholder:text-slate-500 focus:outline-none focus:border-emerald-600"
               />
             </div>
 
@@ -506,7 +721,17 @@ export default function Dashboard({
             {displayedDashboardForms.map((form) => (
               <div
                 key={form.id}
-                className="p-4 rounded-xl border border-slate-200 bg-white flex flex-col justify-between gap-3"
+                role="button"
+                tabIndex={0}
+                onClick={() => setDashboardPreviewForm(form)}
+                onKeyDown={(e) => {
+                  if (e.target !== e.currentTarget) return;
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    setDashboardPreviewForm(form);
+                  }
+                }}
+                className="p-4 rounded-xl border border-slate-200 hover:border-emerald-500 hover:shadow-sm bg-white flex flex-col justify-between gap-3 cursor-pointer transition-all group"
               >
                 <div className="space-y-1">
                   <div className="flex items-center justify-between gap-2">
@@ -515,25 +740,15 @@ export default function Dashboard({
                     </span>
                     <span className="text-xs text-slate-600">{form.category}</span>
                   </div>
-                  <h3 className="text-sm font-bold text-slate-900">{form.title}</h3>
+                  <h3 className="text-sm font-bold text-slate-900 group-hover:text-emerald-700 transition-colors">{form.title}</h3>
                   <p className="text-xs text-slate-600 line-clamp-2">{form.description}</p>
                 </div>
 
-                <div className="flex items-center gap-2 pt-2 border-t border-slate-100">
-                  <Button
-                    variant="secondary"
-                    size="sm"
-                    leftIcon={<Eye size={14} />}
-                    onClick={() => setDashboardPreviewForm(form)}
-                  >
+                <div onClick={(e) => e.stopPropagation()} className="flex items-center gap-2 pt-2 border-t border-slate-100">
+                  <Button variant="secondary" size="sm" leftIcon={<Eye size={14} />} onClick={() => setDashboardPreviewForm(form)}>
                     Xem mẫu
                   </Button>
-                  <Button
-                    variant="emerald"
-                    size="sm"
-                    leftIcon={<Download size={14} />}
-                    onClick={() => handleQuickDownloadForm(form.id)}
-                  >
+                  <Button variant="emerald" size="sm" leftIcon={<Download size={14} />} onClick={() => handleQuickDownloadForm(form.id)}>
                     Tải .DOC
                   </Button>
                 </div>
@@ -544,47 +759,10 @@ export default function Dashboard({
           {filteredDashboardForms.length > 4 && !dashboardFormSearch && (
             <div className="text-center">
               <Button variant="ghost" size="sm" onClick={() => setShowAllDashboardForms((s) => !s)}>
-                {showAllDashboardForms
-                  ? "Thu gọn danh sách"
-                  : `Xem thêm ${filteredDashboardForms.length - 4} biểu mẫu khác`}
+                {showAllDashboardForms ? "Thu gọn danh sách" : `Xem thêm ${filteredDashboardForms.length - 4} biểu mẫu khác`}
               </Button>
             </div>
           )}
-        </section>
-
-        {/* Community Notices (Flat Hairline Light Theme) */}
-        <section aria-labelledby="citizen-notices-heading" className="bg-white rounded-xl border border-slate-200 p-5 space-y-4">
-          <div className="flex items-center justify-between border-b border-slate-200 pb-3">
-            <h2 id="citizen-notices-heading" className="text-base font-bold text-slate-900 inline-flex items-center gap-2">
-              <Bell size={18} className="text-amber-600" aria-hidden="true" />
-              Bản tin & Lưu ý Sinh hoạt Cộng đồng KP3
-            </h2>
-            <span className="text-xs font-mono text-slate-600">Ban Điều hành KP3</span>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-            <div className="p-4 rounded-xl bg-emerald-50/60 border border-emerald-200 space-y-1">
-              <span className="text-xs font-bold text-emerald-900 uppercase">Lịch vệ sinh</span>
-              <h3 className="text-sm font-bold text-slate-900">Thu gom rác sinh hoạt hằng ngày</h3>
-              <p className="text-xs text-slate-700 leading-relaxed">
-                Đề nghị các hộ dân buộc kín túi rác trước cửa từ 19h00 – 21h00 để đảm bảo mỹ quan toàn Khu phố 3.
-              </p>
-            </div>
-            <div className="p-4 rounded-xl bg-amber-50/60 border border-amber-200 space-y-1">
-              <span className="text-xs font-bold text-amber-900 uppercase">Y tế & tiêm chủng</span>
-              <h3 className="text-sm font-bold text-slate-900">Tiêm chủng mở rộng Trạm Y tế An Phú</h3>
-              <p className="text-xs text-slate-700 leading-relaxed">
-                Sáng thứ Bảy hằng tuần tiếp nhận khám sàng lọc định kỳ cho trẻ em dưới 5 tuổi và người cao tuổi.
-              </p>
-            </div>
-            <div className="p-4 rounded-xl bg-indigo-50/60 border border-indigo-200 space-y-1">
-              <span className="text-xs font-bold text-indigo-900 uppercase">Chuyển đổi số</span>
-              <h3 className="text-sm font-bold text-slate-900">Hỗ trợ VNeID mức 2 tại Văn phòng KP3</h3>
-              <p className="text-xs text-slate-700 leading-relaxed">
-                Tổ Công nghệ số cộng đồng trực hướng dẫn vào tối thứ Ba và thứ Năm hằng tuần.
-              </p>
-            </div>
-          </div>
         </section>
 
         <Modal
@@ -627,39 +805,38 @@ export default function Dashboard({
           }
         >
           {dashboardPreviewForm && (
-            <div className="space-y-4">
-              {dashboardPreviewForm.requiredDocuments.length > 0 && (
-                <div className="p-3 rounded-lg bg-slate-50 border border-slate-200 text-xs text-slate-800 space-y-1">
-                  <div className="font-bold">Giấy tờ cần chuẩn bị:</div>
-                  <ul className="list-disc pl-5 space-y-0.5">
-                    {dashboardPreviewForm.requiredDocuments.map((doc) => (
-                      <li key={doc}>{doc}</li>
-                    ))}
-                  </ul>
-                </div>
-              )}
-              <pre className="p-4 rounded-xl bg-slate-50 border border-slate-200 text-xs font-mono text-slate-900 whitespace-pre-wrap leading-relaxed max-h-[50vh] overflow-y-auto">
-                {dashboardPreviewForm.templateContent}
-              </pre>
-            </div>
+            <pre className="p-4 rounded-xl bg-slate-50 border border-slate-200 text-xs font-mono text-slate-900 whitespace-pre-wrap leading-relaxed max-h-[50vh] overflow-y-auto">
+              {dashboardPreviewForm.templateContent}
+            </pre>
           )}
         </Modal>
       </div>
     );
   }
 
-  // ===================== STAFF COMMAND DASHBOARD =====================
+  // ===================== STAFF EXECUTIVE COMMAND DASHBOARD =====================
   return (
     <div id="dashboard-view" className="space-y-5">
       <PageHeader
         badgeIcon={<Activity size={14} className="text-emerald-700" />}
-        badgeText="TRUNG TÂM ĐIỀU HÀNH SỐ • KP3 PHƯỜNG AN PHÚ"
-        badgeSubtext="CSDL THỐNG NHẤT"
-        title="Bảng Điều Hành Khu Phố 3"
+        badgeText="TRUNG TÂM ĐIỀU HÀNH SỐ • KHU PHỐ 3, PHƯỜNG AN PHÚ"
+        badgeSubtext="ĐỀ ÁN 06/CP"
+        title="Tổng quan Điều hành Khu phố 3"
+        description="Nắm bắt nhanh quy mô Hộ thường trú – Hộ tạm trú, các cảnh báo cư trú cần xử lý trong ngày, lịch công tác và phản ánh của dân"
         actions={
-          <div className="inline-flex items-center gap-2 bg-slate-50 px-3 py-2 rounded-lg border border-slate-200 text-xs font-mono text-slate-700 shrink-0">
-            <Clock size={14} className="text-emerald-700" aria-hidden="true" />
-            <span>Hôm nay: {new Date().toLocaleDateString("vi-VN")}</span>
+          <div className="flex flex-wrap items-center gap-2">
+            <Button
+              variant="emerald"
+              size="sm"
+              leftIcon={<Download size={15} />}
+              onClick={handleExportBriefingReport}
+            >
+              Xuất Báo cáo Giao ban (.xlsx)
+            </Button>
+            <div className="inline-flex items-center gap-2 bg-slate-50 px-3 py-2 rounded-xl border border-slate-200 text-xs font-mono font-semibold text-slate-700 shrink-0">
+              <Clock size={14} className="text-emerald-700" aria-hidden="true" />
+              <span>{new Date().toLocaleDateString("vi-VN")}</span>
+            </div>
           </div>
         }
       />
@@ -668,344 +845,548 @@ export default function Dashboard({
         <InlineNotice type="success" message={dashboardToast} onDismiss={() => setDashboardToast(null)} />
       )}
 
-      {/* 5 Clickable Flat Hairline KPI Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+      {/* TẦNG 1: 4 CHỈ SỐ TỔNG QUÁT CỐT LÕI (KHÔNG TRÀN Ở 1280PX, RÕ CẢ HỘ THƯỜNG TRÚ & HỘ TẠM TRÚ) */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
         <StatCard
-          label="Nhân khẩu Khu phố 3"
+          label="Tổng Nhân khẩu KP3"
           value={formatVNNumber(metrics.popMetrics.officialPopulation)}
+          badge={`${metrics.malePctLabel}% Nam`}
           icon={Users}
           color="emerald"
-          subtext={`Số hóa: ${formatVNNumber(metrics.popMetrics.digitizedResidentsCount)} (${metrics.malePctLabel}% Nam)`}
-          subtextRight={`${metrics.femalePctLabel}% Nữ`}
-          onClick={() => setActiveTab("residents")}
+          subtext={`Thường trú: ${formatVNNumber(metrics.thuongTruCount)}`}
+          subtextRight={`Tạm trú: ${formatVNNumber(metrics.tamTruCount)}`}
+          onClick={() => navigateToTab("residents")}
         />
         <StatCard
-          label="Sổ Hộ khẩu Điện tử"
-          value={formatVNNumber(metrics.popMetrics.officialHouseholds)}
+          label="Tổng Hộ Quản lý"
+          value={formatVNNumber(metrics.totalManagedHouseholdsCount)}
+          badge="hộ cư trú"
           icon={Home}
           color="indigo"
-          subtext={`TB: ${metrics.popMetrics.avgPerDigitizedHouseholdLabel} người/hộ`}
-          subtextRight="Toàn địa bàn KP3"
-          onClick={() => setActiveTab("households")}
+          subtext={`Hộ thường trú: ${formatVNNumber(metrics.permanentHouseholdsCount)}`}
+          subtextRight={`Hộ tạm trú: ${formatVNNumber(metrics.temporaryHouseholdsCount)}`}
+          onClick={() => navigateToTab("households")}
         />
         <StatCard
-          label="Doanh nghiệp & Hộ KD"
-          value={`${formatVNNumber(metrics.enterprisesCount)} / ${formatVNNumber(metrics.establishmentsCount)}`}
+          label="Kinh tế & Nhà trọ"
+          value={formatVNNumber(metrics.enterprisesCount + metrics.establishmentsCount)}
+          badge="cơ sở"
           icon={Building2}
           color="blue"
-          subtext={`${formatVNNumber(metrics.hostelsCount)} nhà trọ`}
-          subtextRight={`${formatVNNumber(metrics.roomsCount)} phòng`}
-          onClick={() => setActiveTab("businesses")}
+          subtext={`${formatVNNumber(metrics.enterprisesCount)} DN • ${formatVNNumber(metrics.establishmentsCount)} Hộ KD`}
+          subtextRight={`${formatVNNumber(metrics.hostelsCount)} nhà trọ (${formatVNNumber(metrics.roomsCount)}p)`}
+          onClick={() => navigateToTab("businesses")}
         />
         <StatCard
-          label="Phản ánh 1022"
-          value={metrics.pendingReportsCount}
-          icon={MessageSquare}
-          color="rose"
-          subtext={`Mới: ${reports.filter((r) => r.status === "Đã tiếp nhận").length}`}
-          subtextRight={`Đang xử lý: ${reports.filter((r) => r.status === "Đang xử lý").length}`}
-          onClick={() => setActiveTab("reports")}
-        />
-        <StatCard
-          label="Nhiệm vụ & Tài chính"
-          value={`${metrics.openTasksCount} việc`}
-          icon={CheckSquare}
-          color="amber"
-          subtext={`Tồn quỹ: ${formatVNNumber(metrics.netFundBalance)}đ`}
-          subtextRight={`${welfareCount} hồ sơ an sinh`}
-          onClick={() => setActiveTab("tasks")}
+          label="Tác nghiệp Cần xử lý"
+          value={metrics.pendingReportsCount + metrics.openTasksCount}
+          badge={metrics.urgentTasksCount + metrics.urgentReportsCount > 0 ? `${metrics.urgentTasksCount + metrics.urgentReportsCount} khẩn` : "đang mở"}
+          icon={ShieldAlert}
+          color={metrics.pendingReportsCount > 0 || metrics.urgentTasksCount > 0 ? "rose" : "amber"}
+          subtext={`Phản ánh 1022: ${metrics.pendingReportsCount}`}
+          subtextRight={`Nhiệm vụ mở: ${metrics.openTasksCount}`}
+          onClick={() => navigateToTab(metrics.pendingReportsCount > 0 ? "reports" : "tasks")}
         />
       </div>
 
-      {/* Charts Row (Fixed Explicit Container Heights!) */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
+      {/* TẦNG 2: BỨC TRANH HỘ TỊCH (THƯỜNG TRÚ vs HỘ TẠM TRÚ) & CẢNH BÁO ĐỎ TRONG NGÀY */}
+      <div className="grid grid-cols-1 xl:grid-cols-12 gap-4 items-stretch">
+        {/* Cột Trái (7 cols): Bức tranh Cư trú & Hộ tịch 2 Trụ cột */}
         <section
-          aria-label="Phân bố cư trú Khu phố"
-          className="bg-white p-5 rounded-xl border border-slate-200 lg:col-span-2 space-y-4"
+          aria-labelledby="residency-command-heading"
+          className="xl:col-span-7 bg-white rounded-2xl border border-slate-200 p-5 flex flex-col justify-between gap-4"
         >
-          <div className="flex items-center justify-between gap-2">
-            <div>
-              <h2 className="text-base font-bold text-slate-900">Phân bố Cư trú (Mẫu số hóa KP3)</h2>
-              <p className="text-xs text-slate-600 mt-0.5">
-                Phân loại {formatVNNumber(metrics.totalRes)} nhân khẩu số hóa theo tình trạng cư trú
-              </p>
-            </div>
-            <Button variant="ghost" size="sm" onClick={() => setActiveTab("residents")}>
-              Xem chi tiết →
-            </Button>
+          <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 pb-3">
+            <h2 id="residency-command-heading" className="text-base font-bold text-slate-900">
+              Cơ cấu Hộ tịch &amp; Nhân khẩu Khu phố 3
+            </h2>
+            <button
+              type="button"
+              onClick={() => navigateToTab("households")}
+              className="text-xs font-bold text-emerald-700 hover:text-emerald-800 hover:underline inline-flex items-center gap-1 cursor-pointer"
+            >
+              <span>Quản lý Sổ Hộ tịch</span>
+              <ChevronRight size={14} />
+            </button>
           </div>
 
-          <div className="w-full h-[240px]">
-            <ResponsiveContainer width="100%" height={240}>
-              <BarChart data={metrics.residencyChartData} margin={{ top: 10, right: 16, left: -12, bottom: 5 }}>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
-                <XAxis dataKey="name" stroke="#475569" fontSize={12} tickLine={false} />
-                <YAxis stroke="#475569" fontSize={12} tickLine={false} />
-                <Tooltip
-                  cursor={{ fill: "#f8fafc" }}
-                  contentStyle={{
-                    backgroundColor: "#ffffff",
-                    borderColor: "#cbd5e1",
-                    borderRadius: "8px",
-                    color: "#0f172a",
-                    fontSize: "12px",
-                  }}
-                />
-                <Bar dataKey="Số lượng" radius={[4, 4, 0, 0]} maxBarSize={52}>
-                  {metrics.residencyChartData.map((entry) => (
-                    <Cell key={entry.name} fill={entry.color} />
-                  ))}
-                </Bar>
-              </BarChart>
-            </ResponsiveContainer>
+          {/* Thanh tỷ trọng trực quan Thường trú vs Tạm trú */}
+          <div className="space-y-1.5">
+            <div className="flex items-center justify-between text-xs font-semibold">
+              <span className="text-emerald-800">
+                Thường trú: <strong>{formatVNNumber(metrics.thuongTruCount)} người</strong> ({formatDecimalVN(metrics.thuongTruPct, 1)}%)
+              </span>
+              <span className="text-amber-800">
+                Tạm trú: <strong>{formatVNNumber(metrics.tamTruCount)} người</strong> ({formatDecimalVN(metrics.tamTruPct, 1)}%)
+              </span>
+            </div>
+            <div className="h-3 w-full rounded-full bg-slate-100 overflow-hidden flex border border-slate-200/80">
+              <div
+                className="bg-emerald-600 h-full transition-all"
+                style={{ width: `${Math.max(8, Math.min(92, metrics.thuongTruPct))}%` }}
+                title={`Thường trú: ${formatVNNumber(metrics.thuongTruCount)} người`}
+              />
+              <div
+                className="bg-amber-500 h-full flex-1 transition-all"
+                title={`Tạm trú: ${formatVNNumber(metrics.tamTruCount)} người`}
+              />
+            </div>
           </div>
 
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-3 border-t border-slate-200 text-xs text-slate-700">
-            <div>
-              Thường trú: <strong className="text-emerald-800">{formatVNNumber(metrics.thuongTruCount)}</strong>
+          {/* 2 Thẻ đối xứng: Hộ Thường Trú vs Hộ Tạm Trú */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+            {/* Hộ Thường trú */}
+            <div
+              role="button"
+              tabIndex={0}
+              onClick={() => navigateHouseholdsWithFilter("type=thuong_tru")}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" || e.key === " ") {
+                  e.preventDefault();
+                  navigateHouseholdsWithFilter("type=thuong_tru");
+                }
+              }}
+              className="p-4 rounded-xl border border-emerald-200/90 bg-emerald-50/40 hover:bg-emerald-50/80 hover:border-emerald-400 transition-all cursor-pointer flex flex-col justify-between gap-3 group"
+            >
+              <div className="space-y-2">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="px-2 py-0.5 rounded-md bg-emerald-100 text-emerald-900 border border-emerald-200 text-[11px] font-bold uppercase tracking-wide">
+                    Sổ Hộ Thường Trú
+                  </span>
+                  <span className="text-xs font-mono font-bold text-emerald-800">Mẫu CT01</span>
+                </div>
+                <div className="flex items-baseline gap-2">
+                  <span className="text-2xl font-black text-slate-900 tabular-nums">
+                    {formatVNNumber(metrics.permanentHouseholdsCount)}
+                  </span>
+                  <span className="text-xs font-semibold text-slate-600">hộ gia đình</span>
+                </div>
+                <div className="space-y-1 text-xs text-slate-700 pt-1 border-t border-emerald-200/60">
+                  <div className="flex justify-between">
+                    <span>Nhân khẩu thường trú:</span>
+                    <strong className="font-mono text-slate-900">{formatVNNumber(metrics.thuongTruCount)} người</strong>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>Bình quân quy mô hộ:</span>
+                    <strong className="font-mono text-slate-900">{metrics.popMetrics.avgPerDigitizedHouseholdLabel} người/hộ</strong>
+                  </div>
+                </div>
+              </div>
+              <span className="text-xs font-bold text-emerald-800 group-hover:underline inline-flex items-center gap-1">
+                <span>Xem {formatVNNumber(metrics.permanentHouseholdsCount)} hộ thường trú</span>
+                <ArrowUpRight size={13} />
+              </span>
             </div>
-            <div>
-              Tạm trú: <strong className="text-amber-800">{formatVNNumber(metrics.tamTruCount)}</strong>
+
+            {/* Hộ Tạm trú */}
+            <div
+              role="button"
+              tabIndex={0}
+              onClick={() => navigateHouseholdsWithFilter("type=tam_tru")}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" || e.key === " ") {
+                  e.preventDefault();
+                  navigateHouseholdsWithFilter("type=tam_tru");
+                }
+              }}
+              className="p-4 rounded-xl border border-amber-200/90 bg-amber-50/45 hover:bg-amber-50/90 hover:border-amber-400 transition-all cursor-pointer flex flex-col justify-between gap-3 group"
+            >
+              <div className="space-y-2">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="px-2 py-0.5 rounded-md bg-amber-100 text-amber-950 border border-amber-300 text-[11px] font-bold uppercase tracking-wide">
+                    Hộ Tạm Trú &amp; Lưu Trú
+                  </span>
+                  <span className="text-xs font-mono font-bold text-amber-900">Mẫu CT08</span>
+                </div>
+                <div className="flex items-baseline gap-2">
+                  <span className="text-2xl font-black text-slate-900 tabular-nums">
+                    {formatVNNumber(metrics.temporaryHouseholdsCount)}
+                  </span>
+                  <span className="text-xs font-semibold text-slate-600">hộ / điểm tạm trú</span>
+                </div>
+                <div className="space-y-1 text-xs text-slate-700 pt-1 border-t border-amber-200/70">
+                  <div className="flex justify-between">
+                    <span>Hộ thuê nhà / căn hộ:</span>
+                    <strong className="font-mono text-slate-900">{formatVNNumber(metrics.independentTempHouseholdsCount)} hộ</strong>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>Cụm lưu trú nhà trọ:</span>
+                    <strong className="font-mono text-amber-950">{formatVNNumber(metrics.hostelTempHouseholdsCount)} điểm</strong>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>Đứng tên / Thành viên:</span>
+                    <strong className="font-mono text-slate-900">
+                      {formatVNNumber(metrics.tempHeadsCount)} / {formatVNNumber(metrics.tempFamilyMembersCount)}
+                    </strong>
+                  </div>
+                </div>
+              </div>
+              <span className="text-xs font-bold text-amber-900 group-hover:underline inline-flex items-center gap-1">
+                <span>Mở danh sách Hộ tạm trú</span>
+                <ArrowUpRight size={13} />
+              </span>
             </div>
-            <div>
-              Tạm vắng: <strong className="text-slate-900">{formatVNNumber(metrics.tamVangCount)}</strong>
-            </div>
-            <div>
-              <button
-                type="button"
-                onClick={() => setActiveTab("residents")}
-                className="min-h-[36px] font-semibold text-indigo-800 hover:underline cursor-pointer inline-flex items-center gap-1 py-1"
-              >
-                <Globe size={13} aria-hidden="true" />
-                NNN: {formatVNNumber(metrics.foreignCount)} (Luật 47) →
-              </button>
-            </div>
+          </div>
+
+          {/* Dải Cơ cấu Độ tuổi & Nhóm đặc thù (5 ô ngang súc tích) */}
+          <div className="grid grid-cols-2 sm:grid-cols-5 gap-2.5 pt-1">
+            <button
+              type="button"
+              onClick={() => navigateToTab("residents")}
+              className="p-2.5 rounded-xl bg-slate-50 hover:bg-slate-100 border border-slate-200/90 text-left transition-colors cursor-pointer"
+            >
+              <span className="text-[11px] text-slate-500 font-semibold block">Trẻ em (&lt; 14 tuổi)</span>
+              <span className="text-sm font-black text-slate-900 font-mono tabular-nums">
+                {formatVNNumber(metrics.childrenCount)}
+              </span>
+            </button>
+            <button
+              type="button"
+              onClick={() => navigateToTab("residents")}
+              className="p-2.5 rounded-xl bg-slate-50 hover:bg-slate-100 border border-slate-200/90 text-left transition-colors cursor-pointer"
+            >
+              <span className="text-[11px] text-slate-500 font-semibold block">Lao động (14–59t)</span>
+              <span className="text-sm font-black text-slate-900 font-mono tabular-nums">
+                {formatVNNumber(metrics.workingAgeCount)}
+              </span>
+            </button>
+            <button
+              type="button"
+              onClick={() => navigateResidentsWithFilter("age=elderly")}
+              className="p-2.5 rounded-xl bg-amber-50/60 hover:bg-amber-100/70 border border-amber-200 text-left transition-colors cursor-pointer"
+              title="Bấm để lọc danh sách Người cao tuổi từ 60 tuổi trở lên"
+            >
+              <span className="text-[11px] text-amber-900 font-bold block">Cao tuổi (≥ 60t) ↗</span>
+              <span className="text-sm font-black text-amber-950 font-mono tabular-nums">
+                {formatVNNumber(metrics.elderlyCount)}
+              </span>
+            </button>
+            <button
+              type="button"
+              onClick={() => navigateToTab("residents")}
+              className="p-2.5 rounded-xl bg-amber-50/50 hover:bg-amber-100/60 border border-amber-200 text-left transition-colors cursor-pointer"
+              title="Nhân khẩu thường trú có nơi ở hiện tại ngoài địa bàn KP3 An Phú (suy luận UI)"
+            >
+              <div className="flex items-center gap-1">
+                <MapPinOff size={12} className="text-amber-700 shrink-0" />
+                <span className="text-[11px] text-amber-800 font-bold block">Tạm vắng</span>
+              </div>
+              <span className="text-sm font-black text-amber-900 font-mono tabular-nums">
+                {formatVNNumber(metrics.tamVangCount)}
+              </span>
+            </button>
+            <button
+              type="button"
+              onClick={() => navigateToTab("welfare")}
+              className="p-2.5 rounded-xl bg-rose-50/50 hover:bg-rose-100/60 border border-rose-200 text-left transition-colors cursor-pointer"
+              title="Mở hồ sơ An sinh xã hội & Chính sách"
+            >
+              <span className="text-[11px] text-rose-800 font-bold block">Hồ sơ An sinh ↗</span>
+              <span className="text-sm font-black text-rose-900 font-mono tabular-nums">
+                {formatVNNumber(welfareCount)}
+              </span>
+            </button>
           </div>
         </section>
 
+        {/* Cột Phải (5 cols): Cảnh báo Điều hành Cần Cán bộ Xử lý Ngay */}
         <section
-          aria-label="Phân loại Phản ánh Hiện trường"
-          className="bg-white p-5 rounded-xl border border-slate-200 space-y-4"
+          aria-labelledby="priority-alerts-heading"
+          className="xl:col-span-5 bg-white rounded-2xl border border-slate-200 p-5 flex flex-col justify-between gap-3.5"
         >
-          <div>
-            <h2 className="text-base font-bold text-slate-900">Nhóm Phản ánh 1022</h2>
-            <p className="text-xs text-slate-600 mt-0.5">Tổng số {formatVNNumber(reports.length)} hồ sơ đã tiếp nhận</p>
+          <div className="flex items-center justify-between gap-2 border-b border-slate-100 pb-3">
+            <div className="flex items-center gap-2">
+              <ShieldAlert size={18} className="text-rose-600 shrink-0" />
+              <h2 id="priority-alerts-heading" className="text-base font-bold text-slate-900">
+                Cảnh báo &amp; Trọng tâm Hôm nay
+              </h2>
+            </div>
           </div>
 
-          <div className="w-full h-[200px]">
-            {metrics.reportPieData.length > 0 ? (
-              <ResponsiveContainer width="100%" height={200}>
-                <PieChart>
-                  <Pie
-                    data={metrics.reportPieData}
-                    cx="50%"
-                    cy="50%"
-                    innerRadius={52}
-                    outerRadius={76}
-                    paddingAngle={4}
-                    dataKey="value"
+          <div className="space-y-2.5 flex-1 flex flex-col justify-between">
+            {/* Cảnh báo 1: Đã quá hạn tạm trú */}
+            <button
+              type="button"
+              onClick={() => navigateResidentsWithFilter("expiry=expired")}
+              className="w-full p-3.5 rounded-xl border border-rose-200 bg-rose-50/55 hover:bg-rose-100/70 transition-colors text-left flex items-center justify-between gap-3 cursor-pointer group"
+            >
+              <div className="flex items-center gap-3 min-w-0">
+                <span className="w-9 h-9 rounded-lg bg-rose-600 text-white flex items-center justify-center shrink-0">
+                  <AlertCircle size={17} />
+                </span>
+                <div className="min-w-0">
+                  <div className="text-xs font-extrabold text-rose-950">
+                    Quá hạn tạm trú: {formatVNNumber(metrics.expiredTamTruCount)} nhân khẩu
+                  </div>
+                </div>
+              </div>
+              <ChevronRight size={16} className="text-rose-700 shrink-0 group-hover:translate-x-0.5 transition-transform" />
+            </button>
+
+            {/* Cảnh báo 2: Sắp hết hạn tạm trú <= 30 ngày */}
+            <button
+              type="button"
+              onClick={() => navigateResidentsWithFilter("expiry=expiring")}
+              className="w-full p-3.5 rounded-xl border border-amber-200 bg-amber-50/55 hover:bg-amber-100/70 transition-colors text-left flex items-center justify-between gap-3 cursor-pointer group"
+            >
+              <div className="flex items-center gap-3 min-w-0">
+                <span className="w-9 h-9 rounded-lg bg-amber-500 text-white flex items-center justify-center shrink-0">
+                  <AlertTriangle size={17} />
+                </span>
+                <div className="min-w-0">
+                  <div className="text-xs font-extrabold text-amber-950">
+                    Sắp hết hạn tạm trú (≤ 30 ngày): {formatVNNumber(metrics.expiringTamTruCount)} người
+                  </div>
+                  <p className="text-[11.5px] text-amber-900/90 mt-0.5">
+                    Thuộc {formatVNNumber(metrics.alertTempHouseholdsCount)} hộ tạm trú
+                  </p>
+                </div>
+              </div>
+              <ChevronRight size={16} className="text-amber-800 shrink-0 group-hover:translate-x-0.5 transition-transform" />
+            </button>
+
+            {/* Cảnh báo 3: PCCC & Nhà trọ */}
+            <button
+              type="button"
+              onClick={() => navigateToTab("businesses")}
+              className="w-full p-3.5 rounded-xl border border-blue-200/90 bg-blue-50/40 hover:bg-blue-50/90 transition-colors text-left flex items-center justify-between gap-3 cursor-pointer group"
+            >
+              <div className="flex items-start gap-3 min-w-0">
+                <span className="w-9 h-9 rounded-lg bg-blue-700 text-white flex items-center justify-center shrink-0 mt-0.5">
+                  <Flame size={17} />
+                </span>
+                <div className="min-w-0">
+                  <div className="text-xs font-extrabold text-slate-900">
+                    An toàn PCCC &amp; Lưu trú: {formatVNNumber(metrics.hostelsCount)} nhà trọ ({formatVNNumber(metrics.roomsCount)} phòng)
+                  </div>
+                  <p className="text-[11.5px] text-slate-600 mt-0.5 leading-snug">
+                    {metrics.pcccNeedAttentionCount > 0
+                      ? `Có ${metrics.pcccNeedAttentionCount} cơ sở cần rà soát / bổ sung biên bản PCCC`
+                      : `Đang theo dõi ${metrics.enterprisesCount + metrics.establishmentsCount} cơ sở kinh doanh & doanh nghiệp`}
+                  </p>
+                </div>
+              </div>
+              <ChevronRight size={16} className="text-blue-700 shrink-0 group-hover:translate-x-0.5 transition-transform" />
+            </button>
+
+            {/* Cảnh báo 4: Tồn Quỹ Khu phố minh bạch */}
+            <button
+              type="button"
+              onClick={() => navigateToTab("finance")}
+              className="w-full p-3.5 rounded-xl border border-emerald-200/90 bg-emerald-50/40 hover:bg-emerald-50/90 transition-colors text-left flex items-center justify-between gap-3 cursor-pointer group"
+            >
+              <div className="flex items-start gap-3 min-w-0">
+                <span className="w-9 h-9 rounded-lg bg-emerald-700 text-white flex items-center justify-center shrink-0 mt-0.5">
+                  <Coins size={17} />
+                </span>
+                <div className="min-w-0">
+                  <div className="text-xs font-extrabold text-slate-900">
+                    Tồn Quỹ Khu phố hiện tại: {formatVNNumber(metrics.netFundBalance)}đ
+                  </div>
+                  <p className="text-[11.5px] text-slate-600 mt-0.5 leading-snug">
+                    Tổng thu: {formatVNNumber(metrics.totalFundCollected)}đ • Đã chi: {formatVNNumber(metrics.totalFundSpent)}đ
+                  </p>
+                </div>
+              </div>
+              <ChevronRight size={16} className="text-emerald-700 shrink-0 group-hover:translate-x-0.5 transition-transform" />
+            </button>
+          </div>
+        </section>
+      </div>
+
+      {/* TẦNG 3: NHIỆM VỤ TRỌNG TÂM KHU PHỐ 3 & PHẢN ÁNH 1022 CHỜ XỬ LÝ */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        {/* Cột 1: Lịch Công tác & Nhiệm vụ Trọng tâm — Chỉ hiển thị nhiệm vụ của Khu phố 3 */}
+        <section
+          aria-labelledby="today-schedule-heading"
+          className="bg-white p-5 rounded-2xl border border-slate-200 flex flex-col justify-between gap-3.5"
+        >
+          <div className="flex items-center justify-between gap-2 border-b border-slate-100 pb-3">
+            <div className="flex items-center gap-2">
+              <CheckSquare size={18} className="text-indigo-700 shrink-0" />
+              <div>
+                <h2 id="today-schedule-heading" className="text-base font-bold text-slate-900">
+                  Lịch Công tác &amp; Nhiệm vụ Trọng tâm
+                </h2>
+                <p className="text-xs text-slate-500">
+                  Đang triển khai {metrics.openTasksCount} nhiệm vụ của Khu phố 3 ({metrics.urgentTasksCount} việc ưu tiên cao / khẩn)
+                </p>
+              </div>
+            </div>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => {
+                setActiveTab("tasks");
+                navigate("/dashboard/tasks");
+              }}
+            >
+              Mở Nhiệm vụ KP3 →
+            </Button>
+          </div>
+
+          <div className="space-y-2.5 flex-1">
+            {metrics.openTasks.length > 0 ? (
+              metrics.openTasks.slice(0, 4).map((t) => {
+                const formattedDeadline =
+                  t.deadline && /^\d{4}-\d{2}-\d{2}$/.test(t.deadline)
+                    ? t.deadline.split("-").reverse().join("/")
+                    : t.deadline || "Chưa đặt hạn";
+                return (
+                  <button
+                    key={t.id}
+                    type="button"
+                    onClick={() => navigate(getTaskDetailPath(t.id))}
+                    className="w-full text-left p-3 rounded-xl border border-slate-200 hover:border-indigo-400 hover:bg-indigo-50/25 transition-colors flex items-center justify-between gap-3 cursor-pointer"
                   >
-                    {metrics.reportPieData.map((entry, idx) => (
-                      <Cell key={entry.name} fill={CHART_COLORS[idx % CHART_COLORS.length]} />
-                    ))}
-                  </Pie>
-                  <Tooltip
-                    contentStyle={{
-                      backgroundColor: "#ffffff",
-                      borderColor: "#cbd5e1",
-                      borderRadius: "8px",
-                      color: "#0f172a",
-                      fontSize: "12px",
-                    }}
-                  />
-                </PieChart>
-              </ResponsiveContainer>
+                    <div className="min-w-0 space-y-1 flex-1">
+                      <div className="flex flex-wrap items-center gap-1.5 text-[11px]">
+                        <span
+                          className={`px-2 py-0.5 rounded border font-bold ${
+                            t.priority === "Khẩn cấp"
+                              ? "bg-rose-50 text-rose-800 border-rose-200"
+                              : t.priority === "Cao"
+                              ? "bg-amber-50 text-amber-900 border-amber-200"
+                              : "bg-slate-100 text-slate-700 border-slate-200"
+                          }`}
+                        >
+                          {t.priority}
+                        </span>
+                        {t.unit && (
+                          <span className="px-2 py-0.5 rounded bg-emerald-50 text-emerald-900 border border-emerald-200 font-semibold">
+                            {t.unit}
+                          </span>
+                        )}
+                        <span className="text-slate-500 font-medium tabular-nums">
+                          Hạn: {formattedDeadline}
+                        </span>
+                      </div>
+                      <div className="text-xs sm:text-sm font-bold text-slate-900 line-clamp-1">{t.title}</div>
+                      <div className="text-xs text-slate-600 truncate">
+                        Phụ trách KP3: <strong className="font-semibold text-slate-800">{t.assignee?.name || t.unit}</strong>
+                        {t.assignee?.role && t.assignee.role !== t.unit ? ` • ${t.assignee.role}` : ""}
+                      </div>
+                    </div>
+                    <span
+                      className={`px-2.5 py-1 rounded-full border text-xs font-semibold shrink-0 whitespace-nowrap tabular-nums ${
+                        t.status === "Chờ nghiệm thu"
+                          ? "bg-emerald-50 text-emerald-900 border-emerald-200"
+                          : t.status === "Đang thực hiện"
+                          ? "bg-indigo-50 text-indigo-800 border-indigo-200"
+                          : "bg-slate-100 text-slate-700 border-slate-200"
+                      }`}
+                    >
+                      {t.status}
+                      {t.progressPercent > 0 ? ` (${t.progressPercent}%)` : ""}
+                    </span>
+                  </button>
+                );
+              })
             ) : (
-              <div className="h-full flex items-center justify-center text-xs text-slate-600">
-                Chưa có dữ liệu phản ánh.
+              <div className="py-8 text-center text-xs text-slate-500 bg-slate-50 rounded-xl border border-dashed border-slate-200">
+                Hiện tất cả đầu việc của Khu phố 3 đã hoàn thành. Bấm <strong>Mở Nhiệm vụ KP3</strong> để phân công nhiệm vụ mới cho các Chi hội &amp; Tổ tự quản.
               </div>
             )}
           </div>
+        </section>
 
-          <div className="grid grid-cols-1 gap-1.5 text-xs pt-2 border-t border-slate-200">
-            {metrics.reportPieData.map((item, idx) => (
-              <div key={item.name} className="flex items-center justify-between gap-2 text-slate-800">
-                <div className="flex items-center gap-2 min-w-0">
-                  <span
-                    className="w-2.5 h-2.5 rounded-full shrink-0"
-                    style={{ backgroundColor: CHART_COLORS[idx % CHART_COLORS.length] }}
-                  />
-                  <span className="truncate">{item.name}</span>
-                </div>
-                <strong className="font-mono">{item.value}</strong>
+        {/* Cột 2: Phản ánh Hiện trường 1022 Cần giải quyết */}
+        <section
+          aria-labelledby="recent-reports-heading"
+          className="bg-white p-5 rounded-2xl border border-slate-200 flex flex-col justify-between gap-3.5"
+        >
+          <div className="flex items-center justify-between gap-2 border-b border-slate-100 pb-3">
+            <div className="flex items-center gap-2">
+              <MessageSquare size={18} className="text-emerald-700 shrink-0" />
+              <div>
+                <h2 id="recent-reports-heading" className="text-base font-bold text-slate-900">
+                  Phản ánh Hiện trường 1022 Cần theo dõi
+                </h2>
+                <p className="text-xs text-slate-500">
+                  Đang mở {metrics.pendingReportsCount} hồ sơ ({metrics.newReportsCount} mới tiếp nhận • {metrics.inProgressReportsCount} đang xử lý)
+                </p>
               </div>
+            </div>
+            <Button variant="ghost" size="sm" onClick={() => navigateToTab("reports")}>
+              Xem tất cả →
+            </Button>
+          </div>
+
+          <div className="space-y-2.5 flex-1">
+            {(metrics.pendingReports.length > 0 ? metrics.pendingReports : reports).slice(0, 4).map((report) => (
+              <button
+                key={report.id}
+                type="button"
+                onClick={() => navigate(getReportDetailPath(report.id))}
+                className="w-full text-left p-3 rounded-xl border border-slate-200 hover:border-emerald-500 hover:bg-slate-50/70 transition-colors flex items-center justify-between gap-3 cursor-pointer"
+              >
+                <div className="space-y-1 min-w-0 flex-1">
+                  <div className="flex flex-wrap items-center gap-1.5 text-[11px]">
+                    <span className="px-2 py-0.5 rounded bg-slate-100 text-slate-800 border border-slate-200 font-semibold">
+                      {report.category}
+                    </span>
+                    <span className="text-slate-500 font-mono">{report.reportedAt}</span>
+                  </div>
+                  <div className="text-xs sm:text-sm font-bold text-slate-900 truncate">{report.title}</div>
+                  <div className="text-xs text-slate-600 truncate">{formatCompactKp3Address(report.location)}</div>
+                </div>
+                <span
+                  className={`px-2.5 py-1 rounded-full border text-xs font-semibold shrink-0 whitespace-nowrap ${
+                    report.status === "Đã giải quyết"
+                      ? "bg-emerald-50 text-emerald-900 border-emerald-200"
+                      : report.status === "Đang xử lý"
+                      ? "bg-amber-50 text-amber-900 border-amber-200"
+                      : "bg-blue-50 text-blue-900 border-blue-200"
+                  }`}
+                >
+                  {report.status}
+                </span>
+              </button>
             ))}
           </div>
         </section>
       </div>
 
-      {/* Real-time Actionable Alerts Strip (Flat Hairline Light Cards) */}
-      <section aria-labelledby="ops-alerts-heading" className="bg-white rounded-xl border border-slate-200 p-5 space-y-4">
-        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-200 pb-3">
-          <div className="flex items-center gap-2">
-            <ShieldAlert size={18} className="text-emerald-700" aria-hidden="true" />
-            <h2 id="ops-alerts-heading" className="text-base font-bold text-slate-900">
-              Việc cần xử lý & Cảnh báo Điều hành hôm nay
-            </h2>
-          </div>
-          <span className="px-2.5 py-0.5 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-900 text-xs font-semibold">
-            Đồng bộ liên phân hệ
-          </span>
-        </div>
+      {/* TẦNG 4: TRA CỨU NHANH HỘ THƯỜNG TRÚ & HỘ TẠM TRÚ (GỌN 1 THANH, CHỈ BUNG KHI TRA CỨU) */}
+      <section aria-labelledby="officer-hk-lookup" className="bg-white rounded-2xl border border-slate-200 p-4 sm:p-5 space-y-3.5">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <h2 id="officer-hk-lookup" className="text-sm sm:text-base font-bold text-slate-900">
+            Tra cứu Hộ Thường trú, Hộ Tạm trú &amp; Nhân khẩu
+          </h2>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
-          <div className="rounded-xl border border-slate-200 bg-slate-50/70 p-4 flex flex-col justify-between gap-3">
-            <div className="space-y-1.5">
-              <div className="text-xs font-bold text-emerald-900">Cơ cấu Độ tuổi (Căn cước)</div>
-              <div className="text-xs text-slate-700 space-y-1">
-                <div className="flex justify-between">
-                  <span>Dưới 14 tuổi:</span>
-                  <strong className="font-mono text-slate-900">{formatVNNumber(metrics.childrenCount)}</strong>
-                </div>
-                <div className="flex justify-between">
-                  <span>Lao động (14–59):</span>
-                  <strong className="font-mono text-slate-900">{formatVNNumber(metrics.workingAgeCount)}</strong>
-                </div>
-                <div className="flex justify-between">
-                  <span>Cao tuổi (≥ 60):</span>
-                  <strong className="font-mono text-amber-900">{formatVNNumber(metrics.elderlyCount)}</strong>
-                </div>
-              </div>
-            </div>
-            <button
-              type="button"
-              onClick={() => setActiveTab("residents")}
-              className="min-h-[36px] inline-flex items-center text-left text-xs font-bold text-emerald-800 hover:underline cursor-pointer py-1"
-            >
-              Xem nhân khẩu →
-            </button>
-          </div>
-
-          <div className="rounded-xl border border-amber-200 bg-amber-50/50 p-4 flex flex-col justify-between gap-3">
-            <div className="space-y-1.5">
-              <div className="text-xs font-bold text-amber-950">Cảnh báo Hạn Tạm trú</div>
-              <div className="text-xs text-slate-800 space-y-1">
-                <div className="flex justify-between">
-                  <span>Sắp hết hạn (≤ 30 ngày):</span>
-                  <strong className="font-mono text-amber-900">{formatVNNumber(metrics.expiringTamTruCount)}</strong>
-                </div>
-                <div className="flex justify-between">
-                  <span>Đã quá hạn tạm trú:</span>
-                  <strong className="font-mono text-rose-800">{formatVNNumber(metrics.expiredTamTruCount)}</strong>
-                </div>
-                <div className="flex justify-between">
-                  <span>Tạm trú còn hạn:</span>
-                  <strong className="font-mono text-emerald-800">
-                    {formatVNNumber(Math.max(0, metrics.tamTruCount - metrics.expiringTamTruCount - metrics.expiredTamTruCount))}
-                  </strong>
-                </div>
-              </div>
-            </div>
-            <button
-              type="button"
-              onClick={() => setActiveTab("residents")}
-              className="min-h-[36px] inline-flex items-center text-left text-xs font-bold text-amber-950 hover:underline cursor-pointer py-1"
-            >
-              Lọc danh sách hết hạn →
-            </button>
-          </div>
-
-          <div className="rounded-xl border border-indigo-200 bg-indigo-50/40 p-4 flex flex-col justify-between gap-3">
-            <div className="space-y-1.5">
-              <div className="text-xs font-bold text-indigo-950">Nhiệm vụ & Lịch công tác</div>
-              <div className="text-xs text-slate-800 space-y-1">
-                <div className="flex justify-between">
-                  <span>Việc đang triển khai:</span>
-                  <strong className="font-mono text-indigo-900">{formatVNNumber(metrics.openTasksCount)}</strong>
-                </div>
-                <div className="flex justify-between">
-                  <span>Việc ưu tiên khẩn cấp:</span>
-                  <strong className="font-mono text-rose-800">{formatVNNumber(metrics.urgentTasksCount)}</strong>
-                </div>
-                <div className="flex justify-between">
-                  <span>Phản ánh 1022 mở:</span>
-                  <strong className="font-mono text-slate-900">{formatVNNumber(metrics.pendingReportsCount)}</strong>
-                </div>
-              </div>
-            </div>
-            <button
-              type="button"
-              onClick={() => setActiveTab("tasks")}
-              className="min-h-[36px] inline-flex items-center text-left text-xs font-bold text-indigo-900 hover:underline cursor-pointer py-1"
-            >
-              Mở bảng phân công →
-            </button>
-          </div>
-
-          <div className="rounded-xl border border-slate-200 bg-slate-50/70 p-4 flex flex-col justify-between gap-3">
-            <div className="space-y-1.5">
-              <div className="text-xs font-bold text-slate-900">Nhà trọ & Quỹ Khu phố</div>
-              <div className="text-xs text-slate-700 space-y-1">
-                <div className="flex justify-between">
-                  <span>Nhà trọ số hóa:</span>
-                  <strong className="font-mono text-slate-900">{formatVNNumber(metrics.hostelsCount)} cơ sở</strong>
-                </div>
-                <div className="flex justify-between">
-                  <span>Tổng phòng trọ:</span>
-                  <strong className="font-mono text-slate-900">{formatVNNumber(metrics.roomsCount)} phòng</strong>
-                </div>
-                <div className="flex justify-between">
-                  <span>Tồn Quỹ Khu phố:</span>
-                  <strong className="font-mono text-emerald-800">{formatVNNumber(metrics.netFundBalance)}đ</strong>
-                </div>
-              </div>
-            </div>
-            <button
-              type="button"
-              onClick={() => setActiveTab("finance")}
-              className="min-h-[36px] inline-flex items-center text-left text-xs font-bold text-emerald-800 hover:underline cursor-pointer py-1"
-            >
-              Quản lý Quỹ VietQR →
-            </button>
-          </div>
-        </div>
-      </section>
-
-      {/* Officer Household Lookup with PII Toggle */}
-      <section aria-labelledby="officer-hk-lookup" className="bg-white rounded-xl border border-slate-200 p-5 space-y-4">
-        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-200 pb-3">
-          <div>
-            <h2 id="officer-hk-lookup" className="text-base font-bold text-slate-900">
-              Tra cứu Nhanh Sổ Hộ Khẩu & Nhân Khẩu
-            </h2>
-            <p className="text-xs text-slate-600 mt-0.5">
-              Tra theo Mã hộ khẩu (HK-301), tên chủ hộ hoặc số CCCD. Mặc định ẩn bớt 4 số giữa CCCD.
-            </p>
-          </div>
-
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
+            {samplePermHousehold && (
+              <button
+                type="button"
+                onClick={() => {
+                  setHouseholdSearchQuery(samplePermHousehold.code);
+                  handleSearchHousehold(samplePermHousehold.code);
+                }}
+                className="px-2.5 py-1 rounded-lg bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 text-emerald-900 text-xs font-mono font-semibold cursor-pointer transition-colors"
+              >
+                Mẫu TT: {samplePermHousehold.code}
+              </button>
+            )}
+            {sampleTempHousehold && (
+              <button
+                type="button"
+                onClick={() => {
+                  setHouseholdSearchQuery(sampleTempHousehold.code);
+                  handleSearchHousehold(sampleTempHousehold.code);
+                }}
+                className="px-2.5 py-1 rounded-lg bg-amber-50 hover:bg-amber-100 border border-amber-200 text-amber-950 text-xs font-mono font-semibold cursor-pointer transition-colors"
+              >
+                Mẫu Tạm trú: {sampleTempHousehold.code}
+              </button>
+            )}
             <Button
               variant="secondary"
               size="sm"
               leftIcon={showSensitivePii ? <EyeOff size={14} /> : <Eye size={14} />}
               onClick={() => setShowSensitivePii((s) => !s)}
             >
-              {showSensitivePii ? "Che CCCD" : "Hiện đầy đủ CCCD"}
+              {showSensitivePii ? "Che CCCD" : "Hiện CCCD"}
             </Button>
-            {searchedHousehold && (
-              <Button
-                variant="ghost"
-                size="sm"
-                leftIcon={<X size={14} />}
-                onClick={() => {
-                  setSearchedHousehold(null);
-                  setHouseholdSearchQuery("");
-                  setSearchFeedback("");
-                }}
-              >
-                Đóng kết quả
-              </Button>
-            )}
           </div>
         </div>
 
@@ -1018,73 +1399,74 @@ export default function Dashboard({
         >
           <div className="relative flex-1">
             <label htmlFor="dashboard-household-search-input" className="sr-only">
-              Nhập mã hộ khẩu, tên chủ hộ hoặc CCCD
+              Nhập mã hộ thường trú, mã hộ tạm trú, tên chủ hộ hoặc CCCD
             </label>
             <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500 pointer-events-none" />
             <input
               id="dashboard-household-search-input"
               name="householdSearchQuery"
               type="search"
-              placeholder="Nhập Mã hộ khẩu (VD: HK-301), Tên chủ hộ hoặc CCCD..."
+              placeholder="Gõ Mã hộ (25975-... / TT-0001), Họ tên chủ hộ hoặc số CCCD..."
               value={householdSearchQuery}
               onChange={(e) => setHouseholdSearchQuery(e.target.value)}
-              className="w-full h-11 md:h-10 pl-10 pr-4 bg-white border border-slate-300 rounded-lg text-sm text-slate-900 placeholder:text-slate-500 focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-500/20"
+              className="w-full h-10 pl-10 pr-4 bg-slate-50/70 focus:bg-white border border-slate-300 rounded-xl text-sm text-slate-900 placeholder:text-slate-500 focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-500/20"
             />
           </div>
           <Button type="submit" variant="emerald" size="form" leftIcon={<Search size={15} />}>
-            Tra cứu hồ sơ
+            Tra cứu hộ
           </Button>
+          {searchedHousehold && (
+            <Button
+              type="button"
+              variant="secondary"
+              size="form"
+              leftIcon={<X size={15} />}
+              onClick={() => {
+                setSearchedHousehold(null);
+                setHouseholdSearchQuery("");
+                setSearchFeedback("");
+              }}
+            >
+              Đóng
+            </Button>
+          )}
         </form>
 
-        <div className="space-y-1.5 text-xs">
-          <span className="text-slate-600 font-medium block">Mẫu tra nhanh:</span>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2">
-            {households.slice(0, 4).map((h) => (
-              <button
-                key={h.code}
-                type="button"
-                onClick={() => {
-                  setHouseholdSearchQuery(h.code);
-                  handleSearchHousehold(h.code);
-                }}
-                className={`min-h-[36px] px-2.5 py-1.5 rounded-lg border font-mono font-semibold text-left truncate cursor-pointer transition-colors ${
-                  searchedHousehold?.code === h.code
-                    ? "bg-emerald-700 text-white border-emerald-700"
-                    : "bg-slate-50 text-slate-800 border-slate-200 hover:border-emerald-600"
-                }`}
-              >
-                {h.code} ({h.ownerName})
-              </button>
-            ))}
-          </div>
-        </div>
-
         {searchFeedback && (
-          <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg text-xs text-amber-950 flex items-center gap-2">
+          <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl text-xs text-amber-950 flex items-center gap-2">
             <HelpCircle size={15} className="shrink-0 text-amber-700" />
             <span>{searchFeedback}</span>
           </div>
         )}
 
         {searchedHousehold && (
-          <div className="space-y-4 pt-2">
+          <div className="space-y-3 pt-1">
             <div className="p-4 rounded-xl border border-slate-200 bg-slate-50 flex flex-col sm:flex-row justify-between gap-3">
               <div className="space-y-1">
-                <div className="text-xs font-mono font-bold text-emerald-800 uppercase">
-                  Sổ Hộ khẩu Điện tử • {searchedHousehold.code}
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span
+                    className={`px-2 py-0.5 rounded text-xs font-bold border ${
+                      searchedHousehold.type === "Tạm trú"
+                        ? "bg-amber-100 text-amber-950 border-amber-300"
+                        : "bg-emerald-100 text-emerald-900 border-emerald-200"
+                    }`}
+                  >
+                    {searchedHousehold.type === "Tạm trú" ? "Hồ sơ Hộ Tạm trú" : "Sổ Hộ khẩu Thường trú"}
+                  </span>
+                  <span className="text-xs font-mono font-bold text-slate-700">{searchedHousehold.code}</span>
                 </div>
                 <h3 className="text-base font-bold text-slate-900">
-                  Chủ hộ: {searchedHousehold.ownerName}
+                  {searchedHousehold.type === "Tạm trú" ? "Đứng tên tạm trú" : "Chủ hộ"}: {searchedHousehold.ownerName}
                 </h3>
                 <p className="text-xs text-slate-700">{searchedHousehold.address}</p>
               </div>
-              <div className="flex flex-col items-start sm:items-end justify-between gap-2 text-xs">
+              <div className="flex flex-col items-start sm:items-end justify-between gap-2 text-xs shrink-0">
                 <span className="px-2.5 py-1 rounded-full bg-white border border-slate-200 text-slate-800 font-semibold">
-                  {searchedHousehold.type} • {searchedMembers.length} nhân khẩu
+                  {searchedMembers.length} nhân khẩu
                 </span>
                 <button
                   type="button"
-                  onClick={() => setActiveTab("households")}
+                  onClick={() => navigate(getHouseholdDetailPath(searchedHousehold.id))}
                   className="font-bold text-emerald-800 hover:underline cursor-pointer"
                 >
                   Mở chi tiết trong Quản lý Hộ khẩu →
@@ -1101,21 +1483,38 @@ export default function Dashboard({
                       <th className="py-2.5 px-4">Quan hệ</th>
                       <th className="py-2.5 px-4">Ngày sinh</th>
                       <th className="py-2.5 px-4">Số CCCD</th>
-                      <th className="py-2.5 px-4">Nghề nghiệp</th>
+                      <th className="py-2.5 px-4">Tình trạng / Hạn TT</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100 bg-white">
-                    {searchedMembers.map((member, idx) => (
-                      <tr key={member.id || idx} className="hover:bg-slate-50">
-                        <td className="py-2.5 px-4 font-bold text-slate-900">{member.fullName}</td>
-                        <td className="py-2.5 px-4 font-semibold text-emerald-900">{member.relationToOwner}</td>
-                        <td className="py-2.5 px-4 text-slate-700 font-mono">{member.birthDate}</td>
-                        <td className="py-2.5 px-4 text-slate-800 font-mono">
-                          {maskCccd(member.cccd, showSensitivePii)}
-                        </td>
-                        <td className="py-2.5 px-4 text-slate-700">{member.occupation}</td>
-                      </tr>
-                    ))}
+                    {searchedMembers.map((member, idx) => {
+                      const matchedRes = residents.find(
+                        (r) =>
+                          (member.cccd && r.cccd === member.cccd) ||
+                          (r.fullName === member.fullName && r.householdId === searchedHousehold.code)
+                      );
+                      return (
+                        <tr
+                          key={member.id || idx}
+                          onClick={matchedRes ? () => navigate(getResidentDetailPath(matchedRes.id)) : undefined}
+                          className={`hover:bg-emerald-50/40 transition-colors ${matchedRes ? "cursor-pointer group" : ""}`}
+                        >
+                          <td className="py-2.5 px-4 font-bold text-slate-900 group-hover:text-emerald-800">
+                            {member.fullName}
+                          </td>
+                          <td className="py-2.5 px-4 font-semibold text-emerald-900">{member.relationToOwner}</td>
+                          <td className="py-2.5 px-4 text-slate-700 font-mono">{member.birthDate}</td>
+                          <td className="py-2.5 px-4 text-slate-800 font-mono">
+                            {maskCccd(member.cccd, showSensitivePii)}
+                          </td>
+                          <td className="py-2.5 px-4 text-slate-700 font-mono">
+                            {matchedRes?.temporaryExpDate
+                              ? `Hạn: ${matchedRes.temporaryExpDate}`
+                              : member.status}
+                          </td>
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>
@@ -1123,127 +1522,6 @@ export default function Dashboard({
           </div>
         )}
       </section>
-
-      {/* Bottom Row: Recent Field Reflections + Flat Hairline Quick Links */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
-        <section
-          aria-labelledby="recent-reports-heading"
-          className="bg-white p-5 rounded-xl border border-slate-200 lg:col-span-2 space-y-3.5"
-        >
-          <div className="flex items-center justify-between border-b border-slate-200 pb-3">
-            <div>
-              <h2 id="recent-reports-heading" className="text-base font-bold text-slate-900">
-                Phản ánh Hiện trường 1022 Mới nhất
-              </h2>
-              <p className="text-xs text-slate-600 mt-0.5">Nhấn vào từng hồ sơ để xử lý hoặc trao đổi với cư dân</p>
-            </div>
-            <Button variant="ghost" size="sm" onClick={() => setActiveTab("reports")}>
-              Xem tất cả →
-            </Button>
-          </div>
-
-          <div className="space-y-2.5">
-            {reports.slice(0, 3).map((report) => (
-              <button
-                key={report.id}
-                type="button"
-                onClick={() => setActiveTab("reports")}
-                className="w-full text-left p-3.5 rounded-xl border border-slate-200 hover:border-emerald-600 hover:bg-slate-50/70 transition-colors flex flex-col sm:flex-row sm:items-center justify-between gap-2 cursor-pointer"
-              >
-                <div className="space-y-1 min-w-0">
-                  <div className="flex flex-wrap items-center gap-2 text-xs">
-                    <span className="px-2 py-0.5 rounded bg-slate-100 text-slate-800 border border-slate-200 font-semibold">
-                      {report.category}
-                    </span>
-                    <span className="text-slate-600 font-mono">{report.reportedAt}</span>
-                  </div>
-                  <div className="text-sm font-bold text-slate-900 truncate">{report.title}</div>
-                  <div className="text-xs text-slate-600 truncate">{report.location}</div>
-                </div>
-                <span
-                  className={`px-2.5 py-1 rounded-full border text-xs font-semibold shrink-0 ${
-                    report.status === "Đã giải quyết"
-                      ? "bg-emerald-50 text-emerald-900 border-emerald-200"
-                      : report.status === "Đang xử lý"
-                      ? "bg-amber-50 text-amber-900 border-amber-200"
-                      : "bg-blue-50 text-blue-900 border-blue-200"
-                  }`}
-                >
-                  {report.status}
-                </span>
-              </button>
-            ))}
-          </div>
-        </section>
-
-        <section
-          aria-labelledby="quick-links-heading"
-          className="bg-white p-5 rounded-xl border border-slate-200 space-y-3"
-        >
-          <div className="border-b border-slate-200 pb-3">
-            <h2 id="quick-links-heading" className="text-base font-bold text-slate-900">
-              Liên kết Điều hành Nhanh
-            </h2>
-            <p className="text-xs text-slate-600 mt-0.5">Chuyển nhanh tới các phân hệ nghiệp vụ</p>
-          </div>
-
-          <div className="grid grid-cols-1 gap-2">
-            {[
-              {
-                tab: "residents",
-                title: "Đăng ký & Tra cứu Cư dân",
-                desc: "Thường trú, Tạm trú & Cảnh báo hết hạn",
-                icon: PlusCircle,
-              },
-              {
-                tab: "gis",
-                title: "Bản đồ GIS & Camera An ninh KP3",
-                desc: "Xem vị trí hộ dân, tuyến đường & điểm nóng",
-                icon: Camera,
-              },
-              {
-                tab: "tasks",
-                title: "Giao việc & Lịch Công tác",
-                desc: "Kanban, Lịch họp & Báo cáo định kỳ",
-                icon: CheckSquare,
-              },
-              {
-                tab: "forms",
-                title: "Kho Biểu mẫu Hành chính",
-                desc: "Tải đơn CT01, xác nhận cư trú & HKD",
-                icon: FileText,
-              },
-              {
-                tab: "party",
-                title: "Chi bộ, Chi hội & Tổ trưởng",
-                desc: "Sinh hoạt Chi bộ, Đảng viên 213 & Đa vai trò",
-                icon: TrendingUp,
-              },
-            ].map((item) => {
-              const IconComp = item.icon;
-              return (
-                <button
-                  key={item.tab}
-                  type="button"
-                  onClick={() => setActiveTab(item.tab)}
-                  className="w-full p-3 rounded-xl border border-slate-200 bg-white hover:border-emerald-600 hover:bg-slate-50 transition-colors flex items-center justify-between gap-3 text-left cursor-pointer"
-                >
-                  <div className="flex items-center gap-3 min-w-0">
-                    <div className="w-9 h-9 rounded-lg bg-emerald-50 border border-emerald-100 text-emerald-800 flex items-center justify-center shrink-0">
-                      <IconComp size={16} aria-hidden="true" />
-                    </div>
-                    <div className="min-w-0">
-                      <div className="text-sm font-bold text-slate-900 truncate">{item.title}</div>
-                      <div className="text-xs text-slate-600 truncate">{item.desc}</div>
-                    </div>
-                  </div>
-                  <ArrowUpRight size={15} className="text-slate-500 shrink-0" aria-hidden="true" />
-                </button>
-              );
-            })}
-          </div>
-        </section>
-      </div>
     </div>
   );
 }

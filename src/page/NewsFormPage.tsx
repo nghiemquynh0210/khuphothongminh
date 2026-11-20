@@ -13,6 +13,7 @@ import { LocalNews, NewsLinkAttachment } from "../types";
 import {
   COVER_PRESETS,
   getNewsImage,
+  normalizeNewsAuthor,
 } from "../components/news/newsHelpers";
 import { NewsMediaAndLinksFields } from "../components/news/NewsMediaAndLinksFields";
 import { PageHeader } from "../components/common/PageHeader";
@@ -76,7 +77,7 @@ export default function NewsFormPage({
     if (mode === "edit" && existingNews) {
       setTitle(existingNews.title || "");
       setCategory(existingNews.category || "Hành chính");
-      setAuthor(existingNews.author || "Ban Điều hành Khu phố 3");
+      setAuthor(normalizeNewsAuthor(existingNews.author));
       setSummary(existingNews.summary || "");
       setContent(existingNews.content || "");
       setImageUrl(getNewsImage(existingNews));
@@ -166,11 +167,10 @@ export default function NewsFormPage({
         const dd = String(today.getDate()).padStart(2, "0");
         const todayStr = `${yyyy}-${mm}-${dd}`;
 
-        const baseNum = newsList.length + 1;
-        let generatedId = "NEWS" + baseNum.toString().padStart(3, "0");
-        if (newsList.some((n) => n.id === generatedId)) {
-          generatedId = "NEWS" + Date.now().toString().slice(-4);
-        }
+        const generatedId =
+          typeof crypto !== "undefined" && typeof crypto.randomUUID === "function"
+            ? crypto.randomUUID()
+            : `00000000-0000-4000-8000-${Date.now().toString(16).padStart(12, "0").slice(-12)}`;
 
         const newNews: LocalNews = {
           id: generatedId,

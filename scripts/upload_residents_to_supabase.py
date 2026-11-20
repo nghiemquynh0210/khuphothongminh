@@ -21,13 +21,9 @@ import pandas as pd
 # Thiết lập encoding UTF-8 chuẩn trên Windows
 sys.stdout.reconfigure(encoding='utf-8')
 
-# Cấu hình Supabase mặc định
+# Cấu hình Supabase mặc định (khóa quản trị đọc từ SUPABASE_SERVICE_ROLE_KEY trong .env)
 DEFAULT_SUPABASE_URL = "https://wjdgaobhipkgzveidtra.supabase.co"
-DEFAULT_SERVICE_ROLE_KEY = (
-    "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9."
-    "eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndqZGdhb2JoaXBrZ3p2ZWlkdHJhIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc5MTg1OTQzNCwiZXhwIjoyMTA3NDM1NDM0fQ."
-    "qlheohPPyspOM0ezFa-wr_D6vIQNrAFrmaPpSD_v_zo"
-)
+DEFAULT_SERVICE_ROLE_KEY = os.environ.get("SUPABASE_SERVICE_ROLE_KEY", "")
 
 def load_env_credentials():
     """Đọc credentials từ file .env nếu có"""
@@ -41,9 +37,11 @@ def load_env_credentials():
                 if line.startswith("VITE_SUPABASE_URL="):
                     val = line.split("=", 1)[1].strip()
                     if val: url = val
-                elif line.startswith("VITE_SUPABASE_ANON_KEY=") or line.startswith("SUPABASE_SERVICE_ROLE_KEY="):
+                elif line.startswith("SUPABASE_SERVICE_ROLE_KEY="):
                     val = line.split("=", 1)[1].strip()
                     if val: key = val
+    if not key:
+        raise RuntimeError("Thiếu SUPABASE_SERVICE_ROLE_KEY trong .env hoặc biến môi trường.")
     return url, key
 
 def clean_cccd(val):

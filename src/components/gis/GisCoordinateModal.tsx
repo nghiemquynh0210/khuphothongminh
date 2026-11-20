@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { createPortal } from "react-dom";
 import { 
   MapPin, 
   Navigation, 
@@ -55,8 +56,6 @@ export default function GisCoordinateModal({
   onSaveCoordinates,
   onNavigateToGis
 }: GisCoordinateModalProps) {
-  if (!isOpen) return null;
-
   const [activeTab, setActiveTab] = useState<"navigate" | "coordinates">("navigate");
   const [inputCoords, setInputCoords] = useState(currentCoordinates || "");
   const [parsed, setParsed] = useState<{ lat: number; lng: number } | null>(null);
@@ -82,6 +81,17 @@ export default function GisCoordinateModal({
       setActiveTab("navigate");
     }
   }, [currentCoordinates]);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", handleKey);
+    return () => window.removeEventListener("keydown", handleKey);
+  }, [isOpen, onClose]);
+
+  if (!isOpen) return null;
 
   // Auto assign from address
   const handleAutoAssign = () => {
@@ -134,8 +144,11 @@ export default function GisCoordinateModal({
   const estimatedMinsWalk = Math.max(2, Math.ceil(distance / 70));
   const routeSteps = parsed ? generateRouteSteps(title, address, distance) : [];
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/70 backdrop-blur-xs animate-in fade-in duration-150">
+  const modalNode = (
+    <div
+      onClick={onClose}
+      className="fixed inset-0 z-[100] flex items-center justify-center p-3 sm:p-4 bg-slate-950/70 backdrop-blur-xs animate-in fade-in duration-150"
+    >
       <div 
         className="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden flex flex-col max-h-[92vh] border border-slate-200"
         onClick={(e) => e.stopPropagation()}
@@ -151,7 +164,7 @@ export default function GisCoordinateModal({
                 {title}
               </h3>
               <p className="text-[11px] text-slate-300 flex items-center gap-1.5">
-                {code && <span className="font-mono bg-slate-800 px-1.5 py-0.2 rounded text-emerald-300">{code}</span>}
+                {code && <span className="font-mono bg-slate-800 px-1.5 py-0.5 rounded text-emerald-300">{code}</span>}
                 <span className="truncate max-w-[280px]">{address}</span>
               </p>
             </div>
@@ -197,9 +210,9 @@ export default function GisCoordinateModal({
               {/* Coordinates status box */}
               {parsed ? (
                 <div className="p-3 bg-emerald-50/70 border border-emerald-200 rounded-xl space-y-2">
-                  <div className="flex justify-between items-center">
+                  <div className="flex flex-wrap justify-between items-center gap-1.5">
                     <span className="font-bold text-emerald-900 flex items-center gap-1.5">
-                      <CheckCircle2 size={14} className="text-emerald-600" /> Vị trí đã được ghim trên Bản đồ GIS
+                      <CheckCircle2 size={14} className="text-emerald-600 shrink-0" /> Vị trí đã được ghim trên Bản đồ GIS
                     </span>
                     <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-emerald-100 text-emerald-800 font-bold">
                       Đã đồng bộ
@@ -400,7 +413,7 @@ export default function GisCoordinateModal({
               </div>
 
               {/* Save & View */}
-              <div className="flex items-center justify-between pt-3 border-t border-slate-100 gap-2">
+              <div className="flex flex-wrap items-center justify-between pt-3 border-t border-slate-100 gap-2">
                 <button
                   type="button"
                   onClick={onClose}
@@ -409,7 +422,7 @@ export default function GisCoordinateModal({
                   Đóng
                 </button>
 
-                <div className="flex items-center gap-2">
+                <div className="flex flex-wrap items-center gap-2">
                   <button
                     type="button"
                     onClick={handleSave}
@@ -449,4 +462,6 @@ export default function GisCoordinateModal({
       </div>
     </div>
   );
+
+  return typeof document !== "undefined" ? createPortal(modalNode, document.body) : modalNode;
 }

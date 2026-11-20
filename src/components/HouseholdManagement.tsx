@@ -10,6 +10,7 @@ import {
   X,
   Trash2,
   AlertCircle,
+  AlertTriangle,
   LayoutGrid,
   List,
   Sparkles,
@@ -17,8 +18,10 @@ import {
   Layers,
   Navigation,
   Compass,
-  Check
+  Check,
+  Download
 } from "lucide-react";
+import * as XLSX from "xlsx";
 import { Household, Resident, TargetGisItem } from "../types";
 import { 
   decimalToDMS, 
@@ -31,7 +34,9 @@ import { StatCard } from "./common/StatCard";
 import { ReportSelect } from "./reports/ReportSelect";
 import { InlineNotice } from "./ui/ConfirmModal";
 import { formatVNNumber } from "../utils/numberFormat";
-import { KP3_AREA_LIST, extractKp3Area } from "../utils/kp3Utils";
+import { KP3_AREA_LIST, computeKp3PopulationMetrics, extractKp3Area } from "../utils/kp3Utils";
+import { formatCompactKp3Address } from "../utils/householdRecognitionUtils";
+import { recordAuditLog } from "../utils/auditLogger";
 import {
   getHouseholdCreatePath,
   getHouseholdDetailPath,
@@ -44,6 +49,8 @@ import HouseholdDashboard from "./household/HouseholdDashboard";
 import HouseholdDuplicates from "./household/HouseholdDuplicates";
 import HouseholdAutoRecognition from "./household/HouseholdAutoRecognition";
 
+export type HouseholdModuleTab = "list" | "recognition" | "dashboard" | "audit";
+
 interface HouseholdManagementProps {
   households: Household[];
   onAddHousehold: (newH: Household) => void;
@@ -51,6 +58,10 @@ interface HouseholdManagementProps {
   onUpdateHouseholds: (households: Household[]) => void;
   onUpdateResidents: (residents: Resident[]) => void;
   onNavigateToGis?: (item: TargetGisItem) => void;
+  activeTab?: HouseholdModuleTab;
+  onActiveTabChange?: (tab: HouseholdModuleTab) => void;
+  viewMode?: "list" | "card";
+  onViewModeChange?: (mode: "list" | "card") => void;
 }
 
 const HouseholdSearchInput = React.memo(function HouseholdSearchInput({
@@ -74,7 +85,7 @@ const HouseholdSearchInput = React.memo(function HouseholdSearchInput({
   }, [val, onSearch]);
 
   return (
-    <div className="relative flex-1">
+    <div className="relative flex-1 min-w-0 w-full">
       <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
       <input 
         id="household-search-input"
@@ -107,25 +118,35 @@ export default function HouseholdManagement({
   residents = [],
   onUpdateHouseholds,
   onUpdateResidents,
-  onNavigateToGis
+  onNavigateToGis,
+  activeTab: controlledActiveTab,
+  onActiveTabChange,
+  viewMode: controlledViewMode,
+  onViewModeChange
 }: HouseholdManagementProps) {
   const { search } = useCurrentLocation();
 
   // Navigation & Sub-views tabs
-  const [activeTab, setActiveTab] = useState<"list" | "recognition" | "dashboard" | "audit">(() => {
+  const [internalActiveTab, setInternalActiveTab] = useState<HouseholdModuleTab>(() => {
     const tabParam = new URLSearchParams(search || "").get("tab");
     if (tabParam === "recognition" || tabParam === "dashboard" || tabParam === "audit") {
       return tabParam;
     }
     return "list";
   });
+  const activeTab = controlledActiveTab ?? internalActiveTab;
+  const setActiveTab = useCallback((next: HouseholdModuleTab) => {
+    setInternalActiveTab(next);
+    onActiveTabChange?.(next);
+  }, [onActiveTabChange]);
 
   useEffect(() => {
     const tabParam = new URLSearchParams(search || "").get("tab");
     if (tabParam === "recognition" || tabParam === "dashboard" || tabParam === "audit" || tabParam === "list") {
-      setActiveTab(tabParam);
+      setInternalActiveTab(tabParam);
+      onActiveTabChange?.(tabParam);
     }
-  }, [search]);
+  }, [search, onActiveTabChange]);
   
   // Basic states
   const [searchTerm, setSearchTerm] = useState("");
@@ -133,13 +154,44 @@ export default function HouseholdManagement({
     setSearchTerm(val);
     setCurrentPage(1);
   }, []);
-  const [typeFilter, setTypeFilter] = useState<"Tất cả" | "Thường trú" | "Tạm trú">("Tất cả");
+  const [typeFilter, setTypeFilter] = useState<"Tất cả" | "Thường trú" | "Tạm trú">(() => {
+    const t = new URLSearchParams(search || "").get("type");
+    if (t === "tam_tru" || t === "Tạm trú") return "Tạm trú";
+    if (t === "thuong_tru" || t === "Thường trú") return "Thường trú";
+    return "Tất cả";
+  });
+  const [tempSubFilter, setTempSubFilter] = useState<"all" | "independent" | "hostel" | "alert">(() => {
+    const s = new URLSearchParams(search || "").get("sub");
+    if (s === "independent" || s === "hostel" || s === "alert") return s;
+    return "all";
+  });
   const [toFilter, setToFilter] = useState<string>("all");
   const [showSoftDeleted, setShowSoftDeleted] = useState(false); // Recycle bin toggle
+
+  useEffect(() => {
+    const params = new URLSearchParams(search || "");
+    const t = params.get("type");
+    if (t === "tam_tru" || t === "Tạm trú") {
+      setTypeFilter("Tạm trú");
+      setCurrentPage(1);
+    } else if (t === "thuong_tru" || t === "Thường trú") {
+      setTypeFilter("Thường trú");
+      setCurrentPage(1);
+    }
+    const s = params.get("sub");
+    if (s === "independent" || s === "hostel" || s === "alert") {
+      setTempSubFilter(s);
+    }
+  }, [search]);
   
   // Pagination
   const [currentPage, setCurrentPage] = useState(1);
-  const [viewMode, setViewMode] = useState<"list" | "card">("card");
+  const [internalViewMode, setInternalViewMode] = useState<"list" | "card">("card");
+  const viewMode = controlledViewMode ?? internalViewMode;
+  const setViewMode = useCallback((mode: "list" | "card") => {
+    setInternalViewMode(mode);
+    onViewModeChange?.(mode);
+  }, [onViewModeChange]);
   const itemsPerPage = 8;
 
   // Notice state
@@ -250,6 +302,18 @@ export default function HouseholdManagement({
       const matchesType = typeFilter === "Tất cả" || (h.type || "Thường trú") === typeFilter;
       if (!matchesType) return false;
 
+      if (typeFilter === "Tạm trú" && tempSubFilter !== "all") {
+        if (tempSubFilter === "independent" && h.tempSubType === "hostel") return false;
+        if (tempSubFilter === "hostel" && h.tempSubType !== "hostel") return false;
+        if (
+          tempSubFilter === "alert" &&
+          (h.expiringMemberCount || 0) === 0 &&
+          (h.expiredMemberCount || 0) === 0
+        ) {
+          return false;
+        }
+      }
+
       if (toFilter !== "all" && extractKp3Area(h.address) !== toFilter) return false;
 
       if (!hasQuery) return true;
@@ -258,10 +322,11 @@ export default function HouseholdManagement({
         h.ownerName.toLowerCase().includes(q) ||
         h.code.toLowerCase().includes(q) ||
         h.address.toLowerCase().includes(q) ||
+        (h.hostelName && h.hostelName.toLowerCase().includes(q)) ||
         (h.members && h.members.some(m => (m.name && m.name.toLowerCase().includes(q)) || (m.cccd && m.cccd.includes(q))))
       );
     });
-  }, [households, searchTerm, showSoftDeleted, typeFilter, toFilter]);
+  }, [households, searchTerm, showSoftDeleted, typeFilter, tempSubFilter, toFilter]);
 
   // Paginated selection
   const paginatedHouseholds = filteredHouseholds.slice(
@@ -270,6 +335,80 @@ export default function HouseholdManagement({
   );
 
   const totalItems = filteredHouseholds.length;
+
+  const handleExportHouseholdsExcel = () => {
+    const rows = filteredHouseholds.map((h, idx) => {
+      const ownerMember = h.members?.find(
+        (m) => m.relation === "Chủ hộ" || m.relation?.toLowerCase().includes("chủ hộ")
+      );
+      const ownerRes = residents.find(
+        (r) =>
+          (ownerMember?.cccd && r.cccd === ownerMember.cccd) ||
+          (r.householdId === h.code && r.relationToOwner === "Chủ hộ")
+      );
+      const parcels = h.landParcels && h.landParcels.length > 0 ? h.landParcels : [];
+      const parcelSheetPlot =
+        parcels.length > 0
+          ? parcels.map((p) => `Tờ ${p.mapSheet || "-"} / Thửa ${p.plotNumber || "-"}`).join("; ")
+          : h.mapSheet || h.plotNumber
+          ? `Tờ ${h.mapSheet || "-"} / Thửa ${h.plotNumber || "-"}`
+          : "Chưa cập nhật";
+      const parcelAreaPurpose =
+        parcels.length > 0
+          ? parcels
+              .map((p) => `${p.landArea ? `${p.landArea}m²` : "-"} (${p.landUsePurpose || "-"})`)
+              .join("; ")
+          : h.landArea
+          ? `${h.landArea}m² (${h.landUsePurpose || "-"})`
+          : "Chưa cập nhật";
+      const certNumbers =
+        parcels.length > 0
+          ? parcels
+              .map((p) => p.certificateNumber)
+              .filter(Boolean)
+              .join("; ") || "Chưa cập nhật"
+          : h.certificateNumber || "Chưa cập nhật";
+
+      return {
+        "STT": idx + 1,
+        "Mã Sổ Hộ Khẩu": h.code,
+        "Loại Hộ": h.type || "Thường trú",
+        "Họ Tên Chủ Hộ": h.ownerName,
+        "CCCD Chủ Hộ": ownerMember?.cccd || ownerRes?.cccd || "Chưa cập nhật",
+        "SĐT Chủ Hộ":
+          (ownerMember?.phone && ownerMember.phone !== "N/A" ? ownerMember.phone : "") ||
+          (ownerRes?.phone && ownerRes.phone !== "N/A" ? ownerRes.phone : "") ||
+          "Chưa cập nhật",
+        "Địa Chỉ Cư Trú": h.address,
+        "Khu Vực KP3": extractKp3Area(h.address),
+        "Số Nhân Khẩu": h.memberCount ?? (h.members?.length || 0),
+        "Danh Sách Thành Viên":
+          h.members && h.members.length > 0
+            ? h.members.map((m) => `${m.name} (${m.relation})`).join(", ")
+            : "Chưa cập nhật",
+        "Tờ / Thửa Sổ Đỏ": parcelSheetPlot,
+        "Diện Tích & Mục Đích SDĐ": parcelAreaPurpose,
+        "Số GCN QSDĐ": certNumbers,
+        "Tọa Độ GIS": h.coordinates || "Chưa ghim",
+      };
+    });
+
+    const ws = XLSX.utils.json_to_sheet(rows);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "So_Ho_Khau_KP3");
+    const fileName = `Danh_Sach_Ho_Khau_KP3_${new Date().toISOString().slice(0, 10)}.xlsx`;
+    XLSX.writeFile(wb, fileName);
+
+    void recordAuditLog({
+      actorName: "Cán bộ Quản lý Hộ tịch",
+      actorRole: "Ban điều hành Khu phố 3",
+      category: "DATA_EXPORT",
+      actionTitle: "Xuất danh sách Sổ hộ khẩu ra Excel",
+      targetSummary: `Đã xuất ${filteredHouseholds.length} hộ gia đình (Bộ lọc: ${typeFilter}${toFilter !== "all" ? ` - ${toFilter}` : ""}) ra tệp ${fileName}`,
+    });
+
+    showNotice(`Đã xuất thành công ${filteredHouseholds.length} sổ hộ khẩu ra tệp Excel!`, "success");
+  };
 
   return (
     <div id="household-management-view" className="space-y-6">
@@ -281,58 +420,68 @@ export default function HouseholdManagement({
         badgeSubtext="ĐỀ ÁN 06/CP"
         title="Hệ thống Quản lý Hộ tịch thông minh"
         actions={
-          <div className="flex flex-wrap items-center gap-2.5">
-            {/* Main Module Selection */}
-            <div className="flex flex-wrap items-center border border-slate-200 rounded-xl p-1 bg-slate-100/80 text-xs text-slate-600">
-              <button
-                type="button"
-                onClick={() => setActiveTab("list")}
-                className={`px-3 py-1.5 rounded-lg font-bold transition-colors cursor-pointer flex items-center gap-1.5 ${activeTab === "list" ? "bg-white text-emerald-800 border border-slate-200" : "text-slate-600 hover:text-slate-900"}`}
-              >
-                <Home size={13} className={activeTab === "list" ? "text-emerald-600" : "text-slate-500"} />
-                <span>Hộ Gia Đình</span>
-              </button>
-              <button
-                type="button"
-                id="btn-tab-auto-recognition"
-                onClick={() => setActiveTab("recognition")}
-                className={`px-3 py-1.5 rounded-lg font-bold transition-colors cursor-pointer flex items-center gap-1.5 ${activeTab === "recognition" ? "bg-white text-emerald-800 border border-slate-200" : "text-slate-600 hover:text-slate-900"}`}
-                title="Quét dữ liệu dân cư thường trú để tự động nhận diện chủ hộ và thành viên"
-              >
-                <Sparkles size={13} className={activeTab === "recognition" ? "text-emerald-600" : "text-slate-500"} />
-                <span>Nhận Diện Tự Động</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => setActiveTab("dashboard")}
-                className={`px-3 py-1.5 rounded-lg font-bold transition-colors cursor-pointer flex items-center gap-1.5 ${activeTab === "dashboard" ? "bg-white text-emerald-800 border border-slate-200" : "text-slate-600 hover:text-slate-900"}`}
-                title="Báo cáo chuyên sâu và thống kê cơ cấu hộ"
-              >
-                <Layers size={13} className={activeTab === "dashboard" ? "text-emerald-600" : "text-slate-500"} />
-                <span>Báo Cáo Thống Kê</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => setActiveTab("audit")}
-                className={`px-3 py-1.5 rounded-lg font-bold transition-colors cursor-pointer flex items-center gap-1.5 ${activeTab === "audit" ? "bg-white text-emerald-800 border border-slate-200" : "text-slate-600 hover:text-slate-900"}`}
-                title="Rà soát hồ sơ trùng lặp và công cụ gộp sổ"
-              >
-                <GitBranch size={13} className={activeTab === "audit" ? "text-emerald-600" : "text-slate-500"} />
-                <span>Trùng Lặp & Gộp Sổ</span>
-              </button>
-            </div>
-
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              id="btn-export-households-excel"
+              onClick={handleExportHouseholdsExcel}
+              className="flex items-center justify-center gap-1.5 bg-slate-50 hover:bg-slate-100 border border-slate-200/90 text-slate-700 px-3.5 h-10 rounded-xl text-xs font-bold transition-colors cursor-pointer shrink-0 whitespace-nowrap"
+              title="Xuất danh sách Sổ hộ khẩu theo bộ lọc hiện tại ra tệp Excel (.xlsx)"
+            >
+              <Download size={15} className="text-slate-600 shrink-0" />
+              <span>Xuất Excel Hộ khẩu (.xlsx)</span>
+            </button>
             <button
               type="button"
               onClick={() => navigate(getHouseholdCreatePath())}
-              className="flex items-center justify-center gap-1.5 bg-emerald-700 hover:bg-emerald-800 text-white px-4 h-10 rounded-xl text-xs font-bold transition-colors cursor-pointer shrink-0 ml-auto md:ml-0 whitespace-nowrap"
+              className="flex items-center justify-center gap-1.5 bg-emerald-700 hover:bg-emerald-800 text-white px-4 h-10 rounded-xl text-xs font-bold transition-colors cursor-pointer shrink-0 whitespace-nowrap"
             >
-              <Plus size={15} />
+              <Plus size={15} className="shrink-0" />
               <span>Lập Sổ Hộ Mới</span>
             </button>
           </div>
         }
       />
+
+      {/* Main Module Tab Bar (đồng bộ layout toàn hệ thống) */}
+      <div className="flex flex-wrap items-center gap-1.5 border border-slate-200/90 rounded-2xl p-1.5 bg-slate-100/80 text-xs text-slate-600 w-fit">
+        <button
+          type="button"
+          onClick={() => setActiveTab("list")}
+          className={`px-3.5 py-2 rounded-xl font-bold transition-colors cursor-pointer flex items-center gap-1.5 ${activeTab === "list" ? "bg-white text-emerald-800 border border-slate-200 shadow-2xs" : "text-slate-600 hover:text-slate-900"}`}
+        >
+          <Home size={14} className={activeTab === "list" ? "text-emerald-600" : "text-slate-500"} />
+          <span>Hộ Gia Đình</span>
+        </button>
+        <button
+          type="button"
+          id="btn-tab-auto-recognition"
+          onClick={() => setActiveTab("recognition")}
+          className={`px-3.5 py-2 rounded-xl font-bold transition-colors cursor-pointer flex items-center gap-1.5 ${activeTab === "recognition" ? "bg-white text-emerald-800 border border-slate-200 shadow-2xs" : "text-slate-600 hover:text-slate-900"}`}
+          title="Quét dữ liệu dân cư thường trú để tự động nhận diện chủ hộ và thành viên"
+        >
+          <Sparkles size={14} className={activeTab === "recognition" ? "text-emerald-600" : "text-slate-500"} />
+          <span>Nhận Diện Tự Động</span>
+        </button>
+        <button
+          type="button"
+          onClick={() => setActiveTab("dashboard")}
+          className={`px-3.5 py-2 rounded-xl font-bold transition-colors cursor-pointer flex items-center gap-1.5 ${activeTab === "dashboard" ? "bg-white text-emerald-800 border border-slate-200 shadow-2xs" : "text-slate-600 hover:text-slate-900"}`}
+          title="Báo cáo chuyên sâu và thống kê cơ cấu hộ"
+        >
+          <Layers size={14} className={activeTab === "dashboard" ? "text-emerald-600" : "text-slate-500"} />
+          <span>Báo Cáo Thống Kê</span>
+        </button>
+        <button
+          type="button"
+          onClick={() => setActiveTab("audit")}
+          className={`px-3.5 py-2 rounded-xl font-bold transition-colors cursor-pointer flex items-center gap-1.5 ${activeTab === "audit" ? "bg-white text-emerald-800 border border-slate-200 shadow-2xs" : "text-slate-600 hover:text-slate-900"}`}
+          title="Rà soát hồ sơ trùng lặp và công cụ gộp sổ"
+        >
+          <GitBranch size={14} className={activeTab === "audit" ? "text-emerald-600" : "text-slate-500"} />
+          <span>Trùng Lặp & Gộp Sổ</span>
+        </button>
+      </div>
 
       {notice && !gisPinModalHousehold && (
         <InlineNotice
@@ -374,56 +523,120 @@ export default function HouseholdManagement({
             {(() => {
               const activeH = households.filter(h => !(h as any).deletedAt);
               const totalH = activeH.length;
-              const ttCount = activeH.filter(h => (h.type || "Thường trú") === "Thường trú").length;
-              const tamCount = activeH.filter(h => h.type === "Tạm trú").length;
-              const gisCount = activeH.filter(h => h.coordinates).length;
-              const totalResidentsInHh = activeH.reduce((acc, h) => acc + (h.members?.length || h.memberCount || 0), 0);
+              const permList = activeH.filter(h => (h.type || "Thường trú") === "Thường trú");
+              const tempList = activeH.filter(h => h.type === "Tạm trú");
+              const ttCount = permList.length;
+              const tamCount = tempList.length;
+              const tempIndepCount = tempList.filter(h => h.tempSubType !== "hostel").length;
+              const tempHostelCount = tempList.filter(h => h.tempSubType === "hostel").length;
+              const tempAlertCount = tempList.filter(h => (h.expiringMemberCount || 0) > 0 || (h.expiredMemberCount || 0) > 0).length;
+              const popMetrics = computeKp3PopulationMetrics(residents, permList);
+              const permResCount = residents.filter(r => r.status === "Thường trú").length;
 
               return (
-                <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 animate-in fade-in duration-200">
-                  <StatCard
-                    label="Tổng số hộ quản lý"
-                    value={totalH}
-                    badge="hộ điện tử"
-                    highlighted={true}
-                    subtext={`Quy mô ${formatVNNumber(totalResidentsInHh)} nhân khẩu`}
-                    subtextRight={`TB ${(totalResidentsInHh / (totalH || 1)).toFixed(1)} người/hộ`}
-                    icon={Home}
-                    color="emerald"
-                  />
-                  <StatCard
-                    label="Sổ hộ thường trú"
-                    value={ttCount}
-                    badge={`${((ttCount / (totalH || 1)) * 100).toFixed(0)}%`}
-                    subtext="CSDL Đề án 06/CP"
-                    subtextRight="Hộ khẩu gốc"
-                    icon={Check}
-                    color="blue"
-                  />
-                  <StatCard
-                    label="Sổ hộ tạm trú"
-                    value={tamCount}
-                    badge={`${((tamCount / (totalH || 1)) * 100).toFixed(0)}%`}
-                    subtext="Lưu trú, thuê trọ địa bàn"
-                    subtextRight="Biến động cư trú"
-                    icon={Calendar}
-                    color="amber"
-                  />
-                  <StatCard
-                    label="Số hóa mốc GIS"
-                    value={gisCount}
-                    badge={`${((gisCount / (totalH || 1)) * 100).toFixed(0)}%`}
-                    subtext="Tọa độ không gian GIS"
-                    subtextRight="100% đã ghim mốc"
-                    icon={Compass}
-                    color="purple"
-                  />
+                <div className="space-y-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3 sm:gap-4 animate-in fade-in duration-200">
+                    <StatCard
+                      label="Tổng số hộ quản lý"
+                      value={formatVNNumber(totalH)}
+                      badge="hộ cư trú"
+                      highlighted={typeFilter === "Tất cả"}
+                      subtext={`${formatVNNumber(ttCount)} thường trú • ${formatVNNumber(tamCount)} tạm trú`}
+                      subtextRight={`${formatVNNumber(popMetrics.officialPopulation)} dân`}
+                      icon={Home}
+                      color="emerald"
+                      onClick={() => {
+                        setTypeFilter("Tất cả");
+                        setTempSubFilter("all");
+                        setCurrentPage(1);
+                      }}
+                    />
+                    <StatCard
+                      label="Sổ hộ thường trú (CT01)"
+                      value={formatVNNumber(ttCount)}
+                      badge={`${((ttCount / (totalH || 1)) * 100).toFixed(0)}%`}
+                      highlighted={typeFilter === "Thường trú"}
+                      subtext={`${formatVNNumber(permResCount)} nhân khẩu`}
+                      subtextRight={`TB: ${popMetrics.avgPerDigitizedHouseholdLabel} người/hộ`}
+                      icon={Check}
+                      color="blue"
+                      onClick={() => {
+                        setTypeFilter(typeFilter === "Thường trú" ? "Tất cả" : "Thường trú");
+                        setCurrentPage(1);
+                      }}
+                    />
+                    <StatCard
+                      label="Hộ tạm trú (CT08)"
+                      value={formatVNNumber(tamCount)}
+                      badge={`${((tamCount / (totalH || 1)) * 100).toFixed(0)}%`}
+                      highlighted={typeFilter === "Tạm trú" && tempSubFilter === "all"}
+                      subtext={`${formatVNNumber(tempIndepCount)} hộ thuê nhà`}
+                      subtextRight={`${formatVNNumber(tempHostelCount)} điểm nhà trọ`}
+                      icon={Calendar}
+                      color="amber"
+                      onClick={() => {
+                        if (typeFilter === "Tạm trú" && tempSubFilter === "all") {
+                          setTypeFilter("Tất cả");
+                        } else {
+                          setTypeFilter("Tạm trú");
+                          setTempSubFilter("all");
+                        }
+                        setCurrentPage(1);
+                      }}
+                    />
+                    <StatCard
+                      label="Hộ tạm trú cần gia hạn"
+                      value={formatVNNumber(tempAlertCount)}
+                      badge="hộ"
+                      highlighted={typeFilter === "Tạm trú" && tempSubFilter === "alert"}
+                      icon={AlertTriangle}
+                      color="rose"
+                      onClick={() => {
+                        setTypeFilter("Tạm trú");
+                        setTempSubFilter("alert");
+                        setCurrentPage(1);
+                      }}
+                    />
+                  </div>
+
+                  {typeFilter === "Tạm trú" && (
+                    <div className="flex flex-wrap items-center justify-between gap-2 p-3 rounded-xl bg-amber-50/70 border border-amber-200/90 text-xs">
+                      <span className="font-bold text-amber-950 flex items-center gap-1.5">
+                        <Calendar size={14} className="text-amber-700 shrink-0" />
+                        <span>Phân loại Hồ sơ Hộ Tạm trú (CT08 &amp; Lưu trú):</span>
+                      </span>
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        {[
+                          { id: "all" as const, label: `Tất cả (${formatVNNumber(tamCount)})` },
+                          { id: "independent" as const, label: `Hộ gia đình / Thuê nhà (${formatVNNumber(tempIndepCount)})` },
+                          { id: "hostel" as const, label: `Cụm lưu trú Nhà trọ (${formatVNNumber(tempHostelCount)})` },
+                          { id: "alert" as const, label: `⚠ Sắp / Quá hạn (${formatVNNumber(tempAlertCount)})` },
+                        ].map((opt) => (
+                          <button
+                            key={opt.id}
+                            type="button"
+                            onClick={() => {
+                              setTempSubFilter(opt.id);
+                              setCurrentPage(1);
+                            }}
+                            className={`px-3 py-1.5 rounded-lg font-bold transition-colors cursor-pointer border ${
+                              tempSubFilter === opt.id
+                                ? "bg-amber-700 text-white border-amber-700"
+                                : "bg-white text-amber-950 border-amber-200 hover:bg-amber-100/70"
+                            }`}
+                          >
+                            {opt.label}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </div>
               );
             })()}
 
             {/* Filters Bar */}
-          <div className="flex flex-col lg:flex-row gap-3 justify-between items-stretch lg:items-center bg-white p-4 rounded-xl border border-slate-200">
+          <div className="flex flex-col 2xl:flex-row gap-3 justify-between items-stretch 2xl:items-center bg-white p-4 rounded-xl border border-slate-200">
             {/* Search Box */}
             <HouseholdSearchInput defaultValue={searchTerm} onSearch={handleSearchChange} />
 
@@ -453,7 +666,7 @@ export default function HouseholdManagement({
                 </button>
               </div>
 
-              <div className="w-48">
+              <div className="w-full sm:w-48">
                 <ReportSelect
                   aria-label="Lọc theo tuyến / khu vực KP3"
                   value={toFilter}
@@ -519,117 +732,184 @@ export default function HouseholdManagement({
             </div>
 
             {viewMode === "list" ? (
-              <div className="divide-y divide-slate-100 overflow-y-auto">
-                {filteredHouseholds.length === 0 ? (
-                  <div className="p-12 text-center text-slate-400">
-                    <AlertCircle className="mx-auto text-slate-300 mb-2" size={32} />
-                    Không tìm thấy sổ hộ khẩu phù hợp bộ lọc
-                  </div>
-                ) : (
-                  paginatedHouseholds.map((h) => {
-                    const hType = h.type || "Thường trú";
-                    return (
-                      <div 
-                        key={h.id}
-                        id={`household-row-${h.id}`}
-                        className="p-4 sm:p-5 flex flex-col md:flex-row md:items-center justify-between gap-3.5 transition-all group border-b border-slate-100 last:border-b-0 hover:bg-slate-50/90"
-                      >
-                        <div className="space-y-1.5 min-w-0 flex-1">
-                          {/* Line 1: Mã hộ, Tên chủ hộ, Tổ KP3, Loại hộ, Tag GIS gọn gàng */}
-                          <div className="flex flex-wrap items-center gap-2">
-                            <span className="font-mono text-xs font-bold px-2.5 py-0.5 rounded-md bg-slate-100 text-slate-800 border border-slate-200">
-                              {h.code}
-                            </span>
-                            <span className="text-xs font-semibold px-2 py-0.5 rounded-md bg-slate-50 text-slate-700 border border-slate-200">
-                              {extractKp3Area(h.address)}
-                            </span>
-                            <h3 
-                              onClick={() => navigate(getHouseholdDetailPath(h.id))}
-                              className="font-bold text-slate-900 text-sm sm:text-base group-hover:text-emerald-700 transition-colors cursor-pointer hover:underline"
-                            >
-                              Hộ gia đình: {h.ownerName}
-                            </h3>
-                            <span className={`px-2 py-0.5 rounded-md text-xs font-bold border ${
-                              hType === "Tạm trú"
-                                ? "bg-amber-50 text-amber-800 border-amber-200"
-                                : "bg-emerald-50 text-emerald-800 border-emerald-200"
-                            }`}>
-                              {hType}
-                            </span>
-                            {h.coordinates ? (
-                              <span 
-                                title={`Tọa độ GPS mốc ranh giới: ${h.coordinates}`}
-                                className="text-xs text-indigo-700 font-semibold bg-indigo-50 border border-indigo-200 px-2 py-0.5 rounded-md flex items-center gap-1 cursor-help"
-                              >
-                                <MapPin size={12} className="text-indigo-600" />
-                                <span>Đã định vị GIS</span>
-                              </span>
-                            ) : (
-                              <span className="text-xs text-amber-800 font-medium bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-md flex items-center gap-1">
-                                <AlertCircle size={12} />
-                                <span>Chưa có tọa độ</span>
-                              </span>
-                            )}
-                          </div>
-
-                          {/* Line 2: Địa chỉ vật lý & Preview danh sách nhân khẩu */}
-                          <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-slate-600">
-                            <div className="flex items-center gap-1 font-medium text-slate-700">
-                              <MapPin size={13} className="text-emerald-600 shrink-0" />
-                              <span className="truncate max-w-md">{h.address}</span>
-                            </div>
-
-                            <div className="flex items-center gap-1.5 text-slate-600">
-                              <Users size={12} className="text-slate-500" />
-                              <span className="font-semibold text-slate-700">{h.memberCount} nhân khẩu</span>
-                              {h.members && h.members.length > 0 && (
-                                <span className="text-slate-500 hidden lg:inline">
-                                  ({h.members.map(m => m.name).slice(0, 3).join(", ")}{h.members.length > 3 ? `, +${h.members.length - 3}` : ""})
-                                </span>
-                              )}
-                            </div>
-                          </div>
-                        </div>
-
-                        {/* Right: Cân bằng phân cấp hành động */}
-                        <div className="flex flex-wrap items-center gap-2 shrink-0 self-end md:self-auto pt-2 md:pt-0">
-                          <button
-                            type="button"
-                            onClick={() => handleDirections(h)}
-                            className="px-2.5 py-2 bg-white hover:bg-emerald-50 text-slate-700 hover:text-emerald-700 border border-slate-200 hover:border-emerald-300 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer"
-                            title="Chỉ đường tới hộ trên bản đồ số GIS"
-                          >
-                            <Navigation size={12} className="text-emerald-600" />
-                            <span>Chỉ đường</span>
-                          </button>
-
-                          <button
-                            type="button"
-                            onClick={() => openPinModal(h)}
-                            className="px-2.5 py-2 bg-white hover:bg-slate-50 text-slate-700 hover:text-slate-900 border border-slate-200 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer"
-                            title={h.coordinates ? `Đã ghim: ${h.coordinates}` : "Ghim tọa độ bản đồ"}
-                          >
-                            <MapPin size={12} className="text-indigo-600" />
-                            <span>Ghim GIS</span>
-                          </button>
-
-                          {/* PRIMARY CALL TO ACTION: XEM SỔ HỘ TỊCH */}
-                          <button
-                            type="button"
+              <div className="overflow-x-auto">
+                <table className="w-full text-left border-collapse text-xs">
+                  <thead>
+                    <tr className="bg-slate-50 border-b border-slate-200 text-xs font-bold text-slate-700 uppercase tracking-wider">
+                      <th className="py-3.5 px-4 min-w-[230px] whitespace-nowrap">Mã sổ & Chủ hộ</th>
+                      <th className="py-3.5 px-4 min-w-[260px] whitespace-nowrap">Địa chỉ & Khu vực KP3</th>
+                      <th className="py-3.5 px-4 min-w-[180px] whitespace-nowrap">Loại hộ & Nhân khẩu</th>
+                      <th className="py-3.5 px-4 min-w-[170px] whitespace-nowrap">Định vị & Sổ đỏ</th>
+                      <th className="py-3.5 px-4 text-right min-w-[190px] whitespace-nowrap sticky right-0 bg-slate-50 shadow-[-4px_0_8px_-4px_rgba(0,0,0,0.08)] z-10">
+                        Thao tác
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {filteredHouseholds.length === 0 ? (
+                      <tr>
+                        <td colSpan={5} className="p-12 text-center text-slate-400">
+                          <AlertCircle className="mx-auto text-slate-300 mb-2" size={32} />
+                          Không tìm thấy sổ hộ khẩu phù hợp bộ lọc
+                        </td>
+                      </tr>
+                    ) : (
+                      paginatedHouseholds.map((h) => {
+                        const hType = h.type || "Thường trú";
+                        const firstParcel = h.landParcels && h.landParcels.length > 0 ? h.landParcels[0] : null;
+                        const sheetNo = firstParcel?.mapSheet || h.mapSheet;
+                        const plotNo = firstParcel?.plotNumber || h.plotNumber;
+                        return (
+                          <tr
+                            key={h.id}
+                            id={`household-row-${h.id}`}
                             onClick={() => navigate(getHouseholdDetailPath(h.id))}
-                            className="px-3.5 py-2 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer whitespace-nowrap"
-                            title="Mở Sổ hộ khẩu điện tử chi tiết"
+                            className="hover:bg-slate-50 cursor-pointer transition-colors group"
                           >
-                            <span>Xem sổ</span>
-                            <ChevronRight size={14} />
-                          </button>
-                        </div>
-                      </div>
-                    );                  })
-                )}
+                            <td className="py-3.5 px-4">
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <span className="font-mono text-xs font-bold px-2 py-0.5 rounded-md bg-slate-100 text-slate-800 border border-slate-200">
+                                  {h.code}
+                                </span>
+                                <span className="font-bold text-slate-900 text-sm group-hover:text-emerald-700 transition-colors">
+                                  {h.ownerName}
+                                </span>
+                              </div>
+                              {h.members && h.members.length > 0 && (
+                                <div className="text-xs text-slate-500 truncate max-w-[260px] mt-1">
+                                  {h.members.map((m) => m.name).slice(0, 3).join(", ")}
+                                  {h.members.length > 3 ? ` (+${h.members.length - 3})` : ""}
+                                </div>
+                              )}
+                            </td>
+
+                            <td className="py-3.5 px-4">
+                              <div className="flex items-center gap-1.5 mb-1">
+                                <span className="text-xs font-semibold px-2 py-0.5 rounded-md bg-slate-50 text-slate-700 border border-slate-200">
+                                  {extractKp3Area(h.address)}
+                                </span>
+                              </div>
+                              <div className="flex items-center gap-1 text-slate-700 font-medium max-w-[320px]">
+                                <MapPin size={12} className="text-emerald-600 shrink-0" />
+                                <span className="truncate" title={h.address}>
+                                  {h.address}
+                                </span>
+                              </div>
+                            </td>
+
+                            <td className="py-3.5 px-4">
+                              <div className="space-y-1">
+                                <div className="flex items-center gap-1.5 flex-wrap">
+                                  <span
+                                    className={`px-2 py-0.5 rounded-md text-xs font-bold border ${
+                                      hType === "Tạm trú"
+                                        ? "bg-amber-50 text-amber-800 border-amber-200"
+                                        : "bg-emerald-50 text-emerald-800 border-emerald-200"
+                                    }`}
+                                  >
+                                    {hType === "Tạm trú"
+                                      ? h.tempSubType === "hostel"
+                                        ? "Lưu trú nhà trọ"
+                                        : "Hộ tạm trú"
+                                      : "Thường trú"}
+                                  </span>
+                                  <span className="inline-flex items-center gap-1 text-xs font-semibold text-slate-700">
+                                    <Users size={12} className="text-slate-500" />
+                                    {h.memberCount} người
+                                  </span>
+                                </div>
+                                {hType === "Tạm trú" && ((h.expiredMemberCount || 0) > 0 || (h.expiringMemberCount || 0) > 0) && (
+                                  <div className="flex flex-wrap gap-1">
+                                    {(h.expiredMemberCount || 0) > 0 && (
+                                      <span className="px-1.5 py-0.5 rounded bg-rose-100 text-rose-800 border border-rose-200 text-[11px] font-bold">
+                                        {h.expiredMemberCount} quá hạn
+                                      </span>
+                                    )}
+                                    {(h.expiringMemberCount || 0) > 0 && (
+                                      <span className="px-1.5 py-0.5 rounded bg-amber-100 text-amber-900 border border-amber-300 text-[11px] font-bold">
+                                        {h.expiringMemberCount} sắp hết hạn
+                                      </span>
+                                    )}
+                                  </div>
+                                )}
+                              </div>
+                            </td>
+
+                            <td className="py-3.5 px-4">
+                              <div className="space-y-1">
+                                {h.timemarkVerified ? (
+                                  <span
+                                    title={`Ảnh thực tế & Tọa độ Timemark: ${h.coordinates}`}
+                                    className="inline-flex items-center gap-1 text-xs text-amber-900 font-bold bg-amber-50 border border-amber-300 px-2 py-0.5 rounded-md"
+                                  >
+                                    <Sparkles size={11} className="text-amber-600 shrink-0" />
+                                    <span>Timemark GPS</span>
+                                  </span>
+                                ) : h.coordinates ? (
+                                  <span
+                                    title={`Tọa độ GPS mốc ranh giới: ${h.coordinates}`}
+                                    className="inline-flex items-center gap-1 text-xs text-indigo-700 font-semibold bg-indigo-50 border border-indigo-200 px-2 py-0.5 rounded-md"
+                                  >
+                                    <MapPin size={12} className="text-indigo-600 shrink-0" />
+                                    <span>Đã định vị GIS</span>
+                                  </span>
+                                ) : (
+                                  <span className="inline-flex items-center gap-1 text-xs text-amber-800 font-medium bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-md">
+                                    <AlertCircle size={12} className="shrink-0" />
+                                    <span>Chưa có tọa độ</span>
+                                  </span>
+                                )}
+                                {(sheetNo || plotNo) && (
+                                  <div className="font-mono text-[11px] text-slate-600">
+                                    Tờ {sheetNo || "-"}, Thửa {plotNo || "-"}
+                                  </div>
+                                )}
+                              </div>
+                            </td>
+
+                            <td
+                              className="py-3.5 px-4 text-right sticky right-0 bg-white group-hover:bg-slate-50 shadow-[-4px_0_8px_-4px_rgba(0,0,0,0.08)] z-10"
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              <div className="inline-flex items-center justify-end gap-1.5">
+                                <button
+                                  type="button"
+                                  onClick={() => handleDirections(h)}
+                                  className="min-h-[34px] px-2.5 py-1.5 bg-white hover:bg-emerald-50 text-slate-700 hover:text-emerald-700 border border-slate-200 hover:border-emerald-300 rounded-xl text-xs font-semibold inline-flex items-center gap-1 transition-colors cursor-pointer whitespace-nowrap"
+                                  title="Chỉ đường tới hộ trên bản đồ số GIS"
+                                >
+                                  <Navigation size={12} className="text-emerald-600 shrink-0" />
+                                  <span className="hidden sm:inline">Chỉ đường</span>
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => openPinModal(h)}
+                                  className="min-h-[34px] px-2.5 py-1.5 bg-white hover:bg-slate-50 text-slate-700 hover:text-slate-900 border border-slate-200 rounded-xl text-xs font-semibold inline-flex items-center gap-1 transition-colors cursor-pointer whitespace-nowrap"
+                                  title={h.coordinates ? `Đã ghim: ${h.coordinates}` : "Ghim tọa độ bản đồ"}
+                                >
+                                  <MapPin size={12} className="text-indigo-600 shrink-0" />
+                                  <span className="hidden sm:inline">Ghim GIS</span>
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => navigate(getHouseholdDetailPath(h.id))}
+                                  className="min-h-[34px] px-3 py-1.5 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl text-xs font-bold inline-flex items-center gap-1 transition-colors cursor-pointer whitespace-nowrap"
+                                  title="Mở Sổ hộ khẩu điện tử chi tiết"
+                                >
+                                  <span>Xem sổ</span>
+                                  <ChevronRight size={13} />
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })
+                    )}
+                  </tbody>
+                </table>
               </div>
             ) : (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 p-5 max-h-[640px] overflow-y-auto bg-slate-50/10">
+              <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-4 p-4 sm:p-5 bg-slate-50/20">
                 {filteredHouseholds.length === 0 ? (
                   <div className="p-12 text-center text-slate-400 col-span-full">
                     <AlertCircle className="mx-auto text-slate-300 mb-2" size={32} />
@@ -642,25 +922,62 @@ export default function HouseholdManagement({
                       <div 
                         key={h.id}
                         id={`household-card-${h.id}`}
+                        role="button"
+                        tabIndex={0}
                         onClick={() => navigate(getHouseholdDetailPath(h.id))}
-                        className="p-4 rounded-2xl border border-slate-200 hover:border-slate-300 cursor-pointer transition-colors flex flex-col justify-between gap-3 bg-white group"
+                        onKeyDown={(e) => {
+                          if (e.target !== e.currentTarget) return;
+                          if (e.key === "Enter" || e.key === " ") {
+                            e.preventDefault();
+                            navigate(getHouseholdDetailPath(h.id));
+                          }
+                        }}
+                        className="min-w-0 p-4 rounded-2xl border border-slate-200 hover:border-emerald-400 hover:shadow-xs cursor-pointer transition-all flex flex-col justify-between gap-3 bg-white group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500"
                       >
-                        <div className="space-y-2">
+                        <div className="space-y-2 min-w-0">
                           <div className="flex items-center justify-between gap-2 flex-wrap">
                             <div className="flex items-center gap-1.5 flex-wrap">
-                              <span className="font-mono text-xs font-bold px-2 py-0.5 rounded bg-slate-100 text-slate-700 border border-slate-200">{h.code}</span>
-                              <span className="text-xs font-semibold px-2 py-0.5 rounded bg-slate-50 text-slate-700 border border-slate-200">{extractKp3Area(h.address)}</span>
+                              <span className="font-mono text-xs font-bold px-2 py-0.5 rounded bg-slate-100 text-slate-800 border border-slate-200">{h.code}</span>
+                              <span className="inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded bg-slate-50 text-slate-700 border border-slate-200">
+                                <Users size={11} className="text-slate-500" />
+                                {h.memberCount} người
+                              </span>
                             </div>
                             <span className={`px-2 py-0.5 rounded text-xs font-bold shrink-0 border ${hType === "Tạm trú" ? "bg-amber-50 text-amber-800 border-amber-200" : "bg-emerald-50 text-emerald-800 border-emerald-200"}`}>
-                              {hType}
+                              {hType === "Tạm trú" ? (h.tempSubType === "hostel" ? "Lưu trú trọ" : "Hộ tạm trú") : "Thường trú"}
                             </span>
                           </div>
-                          <h3 className="font-bold text-slate-800 text-sm line-clamp-1 group-hover:text-emerald-700 transition-colors">Chủ hộ: {h.ownerName}</h3>
-                          <p className="text-xs text-slate-600 flex items-center gap-1">
-                            <MapPin size={12} className="shrink-0 text-slate-500" /> <span className="truncate">{h.address}</span>
+                          <h3 className="font-bold text-slate-900 text-sm line-clamp-1 group-hover:text-emerald-700 transition-colors">
+                            {hType === "Tạm trú" ? "Đứng tên: " : "Chủ hộ: "}{h.ownerName}
+                          </h3>
+                          <p className="text-xs text-slate-600 flex items-center gap-1.5 min-w-0" title={h.address}>
+                            <MapPin size={12} className="shrink-0 text-slate-500" />
+                            <span className="truncate min-w-0 flex-1">{formatCompactKp3Address(h.address)}</span>
                           </p>
+                          {h.hostelName && (
+                            <p className="text-xs font-semibold text-amber-900 flex items-center gap-1 min-w-0">
+                              <Home size={12} className="shrink-0 text-amber-600" />
+                              <span className="truncate">{h.hostelName}{h.hostelPhone ? ` • ${h.hostelPhone}` : ""}</span>
+                            </p>
+                          )}
+                          {hType === "Tạm trú" && (
+                            <div className="flex flex-wrap items-center justify-between gap-1.5 pt-1 text-[11px]">
+                              <span className="text-slate-500 font-mono">
+                                {h.nearestExpiryDate ? `Hạn gần nhất: ${h.nearestExpiryDate}` : "Đang lưu trú"}
+                              </span>
+                              {(h.expiredMemberCount || 0) > 0 ? (
+                                <span className="px-2 py-0.5 rounded bg-rose-100 text-rose-800 border border-rose-200 font-bold">
+                                  {h.expiredMemberCount} quá hạn
+                                </span>
+                              ) : (h.expiringMemberCount || 0) > 0 ? (
+                                <span className="px-2 py-0.5 rounded bg-amber-100 text-amber-900 border border-amber-300 font-bold">
+                                  {h.expiringMemberCount} sắp hết hạn
+                                </span>
+                              ) : null}
+                            </div>
+                          )}
                         </div>
-                        <div className="pt-2.5 border-t border-slate-100 flex items-center justify-between text-xs text-slate-600" onClick={(e) => e.stopPropagation()}>
+                        <div className="pt-2.5 border-t border-slate-100 flex flex-wrap items-center justify-between gap-2 text-xs text-slate-600" onClick={(e) => e.stopPropagation()}>
                           <div className="flex items-center gap-1.5">
                             <button
                               type="button"
@@ -718,10 +1035,10 @@ export default function HouseholdManagement({
         >
           <div 
             onClick={(e) => e.stopPropagation()}
-            className="bg-white rounded-2xl border border-slate-200 w-full max-w-lg overflow-hidden animate-in zoom-in-95 duration-200 text-slate-800"
+            className="bg-white rounded-2xl border border-slate-200 w-full max-w-lg max-h-[90vh] flex flex-col overflow-hidden animate-in zoom-in-95 duration-200 text-slate-800"
           >
             {/* Modal Header: Flat Hairline */}
-            <div className="bg-slate-50 p-4 text-slate-900 flex justify-between items-center border-b border-slate-200">
+            <div className="bg-slate-50 p-4 text-slate-900 flex justify-between items-center border-b border-slate-200 shrink-0">
               <div className="flex items-center gap-2.5">
                 <div className="p-2 bg-emerald-50 border border-emerald-200 rounded-xl text-emerald-700">
                   <MapPin size={18} />
@@ -744,7 +1061,7 @@ export default function HouseholdManagement({
             </div>
 
             {/* Modal Body */}
-            <div className="p-5 space-y-4 text-xs">
+            <div className="p-5 space-y-4 text-xs overflow-y-auto flex-1">
               <div className="bg-slate-50 p-3 rounded-xl border border-slate-200 space-y-1">
                 <span className="text-xs text-slate-600 font-bold uppercase tracking-wider block">Địa chỉ hộ cư trú:</span>
                 <p className="font-bold text-slate-900 text-xs sm:text-sm">{gisPinModalHousehold.address}</p>
@@ -847,7 +1164,7 @@ export default function HouseholdManagement({
             </div>
 
             {/* Modal Actions */}
-            <div className="p-4 bg-slate-50 border-t border-slate-200 flex flex-wrap items-center justify-between gap-2">
+            <div className="p-4 bg-slate-50 border-t border-slate-200 flex flex-wrap items-center justify-between gap-2 shrink-0">
               <button
                 type="button"
                 onClick={() => setGisPinModalHousehold(null)}

@@ -28,6 +28,8 @@ import {
 import { PendingRegistration } from "./SettingsAndPermissions";
 import { ReportSelect } from "./reports/ReportSelect";
 import { supabase, isSupabaseConfigured } from "../lib/supabase";
+import { getStoredAssociations } from "../data/associationsData";
+import { extractKeyLeadersSummary } from "../utils/leadershipSync";
 import { VerifiedStaffSession } from "../utils/supabaseSync";
 
 interface LoginAndRegisterProps {
@@ -42,6 +44,7 @@ interface LoginAndRegisterProps {
   }) => void;
   onRegisterSubmit: (registration: PendingRegistration) => void;
   householdCodes: string[];
+  partySecretaryName?: string;
   onBackToLanding?: () => void;
 }
 
@@ -49,8 +52,12 @@ export default function LoginAndRegister({
   onLoginSuccess,
   onRegisterSubmit,
   householdCodes,
+  partySecretaryName,
   onBackToLanding
 }: LoginAndRegisterProps) {
+  const resolvedPartySecretaryName =
+    partySecretaryName ||
+    extractKeyLeadersSummary(getStoredAssociations()).partySecretary.name;
   // Mode: "login" | "register_resident" | "register_cadre" | "forgot_password"
   const [authMode, setAuthMode] = useState<"login" | "register_resident" | "register_cadre" | "forgot_password">("login");
 
@@ -64,6 +71,7 @@ export default function LoginAndRegister({
     email: string;
     fullName: string;
     position?: string;
+    isNewRegistration?: boolean;
   } | null>(null);
 
   // Login form state
@@ -87,9 +95,77 @@ export default function LoginAndRegister({
   // Cadre Register form state
   const [cadreEmail, setCadreEmail] = useState("");
   const [cadrePassword, setCadrePassword] = useState("");
+  const [showCadrePassword, setShowCadrePassword] = useState(false);
   const [cadreFullName, setCadreFullName] = useState("");
   const [cadrePhone, setCadrePhone] = useState("");
+  const [cadreCccd, setCadreCccd] = useState("");
   const [cadrePosition, setCadrePosition] = useState("Cán bộ Ban Điều hành KP3");
+  const [verifyingCadreCccd, setVerifyingCadreCccd] = useState(false);
+  const [verifiedCadreIdentity, setVerifiedCadreIdentity] = useState<{
+    residentId: string;
+    cccdMasked: string;
+    fullName: string;
+    residencyStatus: string;
+    associationName: string | null;
+    suggestedPosition: string | null;
+  } | null>(null);
+  const [cadreVerifyNote, setCadreVerifyNote] = useState<string>("");
+
+  const handleVerifyCadreCccd = async () => {
+    const cleanCccd = cadreCccd.replace(/\D/g, "");
+    if (cleanCccd.length !== 12 && cadreFullName.trim().length < 4) {
+      setError("Vui lòng nhập đủ 12 chữ số CCCD (hoặc Họ tên + SĐT cán bộ) để đối khớp CSDL Khu phố 3!");
+      return;
+    }
+    setError("");
+    setCadreVerifyNote("");
+    setVerifyingCadreCccd(true);
+    try {
+      const res = await fetch("/api/staff-admin", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "verify_cadre_resident",
+          cccd: cleanCccd,
+          fullName: cadreFullName.trim(),
+          phone: cadrePhone.trim(),
+        }),
+      });
+      const json = await res.json();
+      if (!res.ok || !json?.ok) {
+        setError(json?.error || "Không thể đối khớp CSDL Khu phố 3.");
+        return;
+      }
+      if (json.matched && json.identity) {
+        setVerifiedCadreIdentity(json.identity);
+        if (json.identity.fullName) {
+          setCadreFullName(json.identity.fullName);
+        }
+        if (json.identity.suggestedPosition) {
+          const suggested = String(json.identity.suggestedPosition);
+          if (suggested.toLowerCase().includes("chi bộ") || suggested.toLowerCase().includes("bí thư")) {
+            setCadrePosition("Chi ủy viên / Đảng viên");
+          } else if (suggested.toLowerCase().includes("chi hội") || suggested.toLowerCase().includes("mặt trận") || suggested.toLowerCase().includes("đoàn")) {
+            setCadrePosition("Trưởng / Phó Chi hội đoàn thể");
+          } else if (suggested.toLowerCase().includes("công an") || suggested.toLowerCase().includes("cảnh sát")) {
+            setCadrePosition("Cảnh sát khu vực");
+          } else {
+            setCadrePosition("Cán bộ Ban Điều hành KP3");
+          }
+        }
+      } else {
+        setVerifiedCadreIdentity(null);
+        setCadreVerifyNote(
+          json.message ||
+            "Chưa tìm thấy hồ sơ trùng khớp trong CSDL Dân cư KP3. Anh/chị vẫn có thể nhập thông tin để gửi Ban Điều hành duyệt."
+        );
+      }
+    } catch {
+      setError("Không thể kết nối máy chủ đối khớp CSDL Khu phố 3.");
+    } finally {
+      setVerifyingCadreCccd(false);
+    }
+  };
 
   // Resident Register form state
   const [regFullName, setRegFullName] = useState("");
@@ -99,7 +175,7 @@ export default function LoginAndRegister({
   const [regPhone, setRegPhone] = useState("");
   const [regStatus, setRegStatus] = useState<"Thường trú" | "Tạm trú">("Thường trú");
   const [regOccupation, setRegOccupation] = useState("");
-  const [regAddress, setRegAddress] = useState("42 Lương Định Của, Phường An Phú, TP. Thủ Đức");
+  const [regAddress, setRegAddress] = useState("42 Lương Định Của, Khu phố 3, Phường An Phú, TP. Hồ Chí Minh");
   const [regHouseholdId, setRegHouseholdId] = useState(householdCodes[0] || "HK-301");
   const [regRelation, setRegRelation] = useState("Thành viên");
   const [regCoordinates, setRegCoordinates] = useState("10°56'07.5\"N 106°44'38.0\"E");
@@ -128,17 +204,25 @@ export default function LoginAndRegister({
               if (isAdminAlias || inputUser.includes("@")) {
                 const targetEmail = isAdminAlias ? "bdhkhupho3.ap@gmail.com" : inputUser;
                 if (isSupabaseConfigured && supabase) {
+                  // Dọn sạch refresh_token cũ đã hết hạn (nếu có) trước khi cấp phiên đăng nhập mới
+                  await supabase.auth.signOut({ scope: "local" }).catch(() => {});
                   const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
                     email: targetEmail,
                     password: inputPass,
                   });
 
                   if (authError) {
-                    throw new Error(
-                      authError.message === "Invalid login credentials"
-                        ? "Email hoặc mật khẩu không chính xác! Vui lòng kiểm tra lại."
-                        : authError.message
-                    );
+                    const lowerMsg = (authError.message || "").toLowerCase();
+                    if (lowerMsg.includes("invalid login credentials")) {
+                      throw new Error("Email hoặc mật khẩu không chính xác! Vui lòng kiểm tra lại.");
+                    }
+                    if (lowerMsg.includes("email not confirmed")) {
+                      throw new Error("Tài khoản chưa hoàn tất kích hoạt. Vui lòng chờ Ban Điều hành Khu phố 3 phê duyệt cấp quyền.");
+                    }
+                    if (lowerMsg.includes("rate limit") || lowerMsg.includes("too many requests")) {
+                      throw new Error("Bạn thao tác quá nhanh. Vui lòng đợi ít phút rồi thử đăng nhập lại.");
+                    }
+                    throw new Error(authError.message);
                   }
 
                   if (authData?.user) {
@@ -242,14 +326,30 @@ export default function LoginAndRegister({
   const handleCadreRegisterSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
+    setSuccessMsg("");
 
-    if (!cadreFullName.trim() || !cadreEmail.trim() || !cadrePassword.trim()) {
-      setError("Vui lòng điền đầy đủ Họ tên, Email công tác và Mật khẩu!");
+    const normalizedName = cadreFullName.trim();
+    const normalizedEmail = cadreEmail.trim().toLowerCase();
+    const normalizedPhone = cadrePhone.trim();
+
+    if (!normalizedName || !normalizedEmail || !cadrePassword.trim()) {
+      setError("Vui lòng điền đầy đủ Họ tên, Email công vụ và Mật khẩu!");
+      return;
+    }
+
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedEmail)) {
+      setError("Địa chỉ Email công vụ không hợp lệ! Vui lòng nhập đúng định dạng (ví dụ: canbo@gmail.com).");
+      return;
+    }
+
+    const phoneDigits = normalizedPhone.replace(/\D/g, "");
+    if (!phoneDigits || phoneDigits.length < 9 || phoneDigits.length > 12) {
+      setError("Vui lòng nhập Số điện thoại liên hệ hợp lệ (9–11 chữ số)!");
       return;
     }
 
     if (cadrePassword.length < 6) {
-      setError("Mật khẩu phải có tối thiểu 6 ký tự!");
+      setError("Mật khẩu khởi tạo phải có tối thiểu 6 ký tự!");
       return;
     }
 
@@ -257,29 +357,92 @@ export default function LoginAndRegister({
 
     try {
       if (isSupabaseConfigured && supabase) {
-        const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
-          email: cadreEmail.trim(),
-          password: cadrePassword,
-          options: {
-            data: {
-              full_name: cadreFullName.trim(),
-              phone: cadrePhone.trim(),
+        // Ưu tiên gọi endpoint quản trị server-side (/api/staff-admin) để tạo tài khoản & đồng bộ user_profiles an toàn, không tạo session rác trên trình duyệt
+        let handledByServer = false;
+        try {
+          const apiRes = await fetch("/api/staff-admin", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              action: "register",
+              fullName: normalizedName,
+              email: normalizedEmail,
+              phone: normalizedPhone,
               position: cadrePosition,
-              role: "cadre"
+              password: cadrePassword,
+              residentCccd: cadreCccd.replace(/\D/g, ""),
+            }),
+          });
+
+          const contentType = apiRes.headers.get("content-type") || "";
+          if (contentType.includes("application/json")) {
+            const apiJson = await apiRes.json();
+            if (apiRes.ok && apiJson?.ok) {
+              handledByServer = true;
+            } else if (apiRes.status !== 404 && apiRes.status !== 503) {
+              if (apiJson?.code === "ALREADY_APPROVED") {
+                setUsername(normalizedEmail);
+              }
+              throw new Error(
+                apiJson?.error || "Không thể đăng ký tài khoản cán bộ. Vui lòng thử lại."
+              );
             }
           }
-        });
-
-        if (signUpError) {
-          throw new Error(signUpError.message);
+        } catch (serverErr: any) {
+          if (
+            serverErr?.message &&
+            !String(serverErr.message).toLowerCase().includes("failed to fetch")
+          ) {
+            throw serverErr;
+          }
         }
 
+        if (!handledByServer) {
+          const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
+            email: normalizedEmail,
+            password: cadrePassword,
+            options: {
+              data: {
+                full_name: normalizedName,
+                phone: normalizedPhone,
+                position: cadrePosition,
+                role: "cadre",
+              },
+            },
+          });
+
+          // Luôn đăng xuất ngay phiên tạm thời nếu Supabase tự động tạo session cho tài khoản pending
+          if (signUpData?.session) {
+            await supabase.auth.signOut().catch(() => {});
+          }
+
+          if (signUpError) {
+            const lowerMsg = (signUpError.message || "").toLowerCase();
+            if (lowerMsg.includes("already registered") || lowerMsg.includes("already been registered")) {
+              throw new Error("Email công vụ này đã được đăng ký trước đó. Vui lòng chờ Ban Điều hành phê duyệt hoặc chuyển sang Đăng nhập.");
+            }
+            if (lowerMsg.includes("rate limit")) {
+              throw new Error("Hệ thống gửi xác thực đang bận tạm thời. Vui lòng thử lại sau ít phút.");
+            }
+            throw new Error(signUpError.message);
+          }
+
+          if (signUpData?.user && Array.isArray(signUpData.user.identities) && signUpData.user.identities.length === 0) {
+            throw new Error("Email công vụ này đã được đăng ký trước đó trên hệ thống.");
+          }
+        }
+
+        setUsername(normalizedEmail);
+        setCadreFullName("");
+        setCadreEmail("");
+        setCadrePhone("");
+        setCadrePassword("");
         setPendingUser({
-          email: cadreEmail.trim(),
-          fullName: cadreFullName.trim(),
-          position: cadrePosition
+          email: normalizedEmail,
+          fullName: normalizedName,
+          position: cadrePosition,
+          isNewRegistration: true,
         });
-        setSuccessMsg("Tạo hồ sơ Cán bộ công tác thành công! Vui lòng chờ Ban Điều Hành Khu phố 3 xem xét phê duyệt danh tính.");
       } else {
         setSuccessMsg("Hệ thống đã ghi nhận hồ sơ Cán bộ công tác. Vui lòng chờ phê duyệt!");
         setAuthMode("login");
@@ -394,9 +557,13 @@ export default function LoginAndRegister({
       </div>
 
       {/* MAIN CENTERPIECE CARD */}
-      <div className="w-full max-w-md mx-auto relative z-10 my-auto py-2">
+      <div
+        className={`w-full ${
+          authMode === "register_resident" && !pendingUser ? "max-w-xl" : "max-w-md"
+        } mx-auto relative z-10 my-auto py-2 transition-all duration-200`}
+      >
         {/* Success Alert */}
-        {successMsg && (
+        {successMsg && !pendingUser && (
           <div
             role="status"
             aria-live="polite"
@@ -410,6 +577,8 @@ export default function LoginAndRegister({
                 type="button"
                 onClick={() => {
                   setSuccessMsg("");
+                  setPendingUser(null);
+                  setError("");
                   setAuthMode("login");
                 }}
                 className="mt-2.5 min-h-[44px] inline-flex items-center gap-1.5 text-white bg-emerald-700 hover:bg-emerald-800 px-3.5 py-2 rounded-lg font-bold text-xs transition-colors cursor-pointer"
@@ -456,26 +625,40 @@ export default function LoginAndRegister({
           {/* 1. SCREEN: PENDING APPROVAL */}
           {pendingUser ? (
             <div className="text-center py-4 space-y-4">
-              <div className="w-16 h-16 rounded-2xl bg-amber-50 border border-amber-200 text-amber-700 flex items-center justify-center mx-auto">
-                <Clock size={30} aria-hidden="true" />
+              <div
+                className={`w-16 h-16 rounded-2xl border flex items-center justify-center mx-auto ${
+                  pendingUser.isNewRegistration
+                    ? "bg-emerald-50 border-emerald-200 text-emerald-700"
+                    : "bg-amber-50 border-amber-200 text-amber-700"
+                }`}
+              >
+                {pendingUser.isNewRegistration ? (
+                  <CheckCircle2 size={30} aria-hidden="true" />
+                ) : (
+                  <Clock size={30} aria-hidden="true" />
+                )}
               </div>
               <div className="space-y-1">
-                <h3 className="text-base font-extrabold text-slate-900">Tài khoản đang chờ phê duyệt</h3>
+                <h3 className="text-base font-extrabold text-slate-900">
+                  {pendingUser.isNewRegistration
+                    ? "Đã gửi hồ sơ Cán bộ — Chờ phê duyệt"
+                    : "Tài khoản đang chờ phê duyệt"}
+                </h3>
                 <p className="text-xs text-slate-600 max-w-sm mx-auto leading-relaxed">
-                  Xin chào <strong className="text-slate-900">{pendingUser.fullName}</strong>. Hồ sơ công tác ({pendingUser.position || "Cán bộ"}) với email <code className="text-amber-900 font-mono text-xs bg-amber-50 px-1.5 py-0.5 rounded border border-amber-200">{pendingUser.email}</code> đã được ghi nhận.
+                  Xin chào <strong className="text-slate-900">{pendingUser.fullName}</strong>. Hồ sơ công tác ({pendingUser.position || "Cán bộ"}) với email <code className="text-amber-900 font-mono text-xs bg-amber-50 px-1.5 py-0.5 rounded border border-amber-200">{pendingUser.email}</code> đã được chuyển tới Ban Điều hành Khu phố 3.
                 </p>
               </div>
 
               <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 text-left text-xs space-y-2">
                 <p className="font-bold text-slate-800 flex items-center gap-1.5">
                   <ShieldCheck size={15} className="text-emerald-700" aria-hidden="true" />
-                  Quy trình bảo mật Cán bộ:
+                  Quy trình phê duyệt Cán bộ:
                 </p>
                 <p className="text-slate-600 text-xs leading-relaxed">
-                  Để đảm bảo an toàn dữ liệu dân cư theo Luật An ninh mạng, tài khoản cán bộ mới cần được Thường trực Ban Điều Hành Khu phố 3 (Bí thư Chi bộ Nguyễn Văn Hùng) xác nhận danh tính trước khi cấp quyền điều hành.
+                  Để đảm bảo an toàn dữ liệu dân cư theo Đề án 06/CP, tài khoản cán bộ mới cần được Quản trị viên Ban Điều hành Khu phố 3 (Bí thư Chi bộ <strong>{resolvedPartySecretaryName}</strong>) nhấn <strong>Phê duyệt cấp quyền</strong> trong mục <em>Cài đặt &amp; Phân quyền</em> trước khi đăng nhập.
                 </p>
                 <p className="text-slate-600 text-xs italic">
-                  Hỗ trợ nhanh: Liên hệ <strong>bdhkhupho3.ap@gmail.com</strong>
+                  Hỗ trợ phê duyệt nhanh: Liên hệ <strong>bdhkhupho3.ap@gmail.com</strong>
                 </p>
               </div>
 
@@ -484,11 +667,13 @@ export default function LoginAndRegister({
                   type="button"
                   onClick={() => {
                     setPendingUser(null);
+                    setSuccessMsg("");
+                    setError("");
                     setAuthMode("login");
                   }}
-                  className="w-full min-h-[44px] bg-slate-100 hover:bg-slate-200 border border-slate-200 text-slate-800 py-2.5 rounded-xl text-xs font-bold transition-colors cursor-pointer"
+                  className="w-full min-h-[44px] bg-emerald-700 hover:bg-emerald-800 border border-emerald-800 text-white py-2.5 rounded-xl text-xs font-bold transition-colors cursor-pointer"
                 >
-                  Quay lại đăng nhập
+                  Quay lại màn hình Đăng nhập
                 </button>
               </div>
             </div>
@@ -585,8 +770,10 @@ export default function LoginAndRegister({
 
                 {/* Remember Me Checkbox */}
                 <div className="flex items-center justify-between">
-                  <label className="min-h-[44px] inline-flex items-center gap-2.5 cursor-pointer text-xs text-slate-700">
+                  <label htmlFor="auth-remember-me" className="min-h-[44px] inline-flex items-center gap-2.5 cursor-pointer text-xs text-slate-700">
                     <input
+                      id="auth-remember-me"
+                      name="rememberMe"
                       type="checkbox"
                       checked={rememberMe}
                       onChange={(e) => setRememberMe(e.target.checked)}
@@ -708,6 +895,55 @@ export default function LoginAndRegister({
                 </p>
               </div>
 
+              <div className="bg-emerald-50/70 border border-emerald-200 rounded-xl p-3 space-y-2">
+                <label htmlFor="cadre-cccd" className="text-xs font-bold text-emerald-950 flex items-center gap-1.5">
+                  <Fingerprint size={14} className="text-emerald-700" aria-hidden="true" />
+                  Số CCCD 12 số (Liên kết Hồ sơ Cư dân &amp; Chi hội KP3)
+                </label>
+                <div className="flex gap-2">
+                  <input
+                    id="cadre-cccd"
+                    name="cccd"
+                    type="text"
+                    inputMode="numeric"
+                    maxLength={12}
+                    placeholder="Nhập 12 số CCCD để tự điền họ tên & chức vụ..."
+                    value={cadreCccd}
+                    onChange={(e) => {
+                      setCadreCccd(e.target.value.replace(/\D/g, "").slice(0, 12));
+                      setVerifiedCadreIdentity(null);
+                      setCadreVerifyNote("");
+                    }}
+                    className="flex-1 min-h-[40px] px-3 py-1.5 bg-white border border-emerald-300 rounded-xl text-slate-900 font-mono text-xs focus:outline-none focus:border-emerald-700"
+                  />
+                  <button
+                    type="button"
+                    disabled={verifyingCadreCccd}
+                    onClick={handleVerifyCadreCccd}
+                    className="min-h-[40px] px-3 py-1.5 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-bold shrink-0 cursor-pointer disabled:opacity-50"
+                  >
+                    {verifyingCadreCccd ? "Đang tra..." : "Đối khớp KP3"}
+                  </button>
+                </div>
+                {verifiedCadreIdentity && (
+                  <div className="bg-white border border-emerald-300 rounded-lg px-2.5 py-2 text-[11px] text-emerald-900 flex items-start gap-2">
+                    <CheckCircle2 size={14} className="text-emerald-700 shrink-0 mt-0.5" />
+                    <div>
+                      <p className="font-bold">
+                        Đã khớp CSDL KP3: {verifiedCadreIdentity.fullName}{" "}
+                        {verifiedCadreIdentity.cccdMasked ? `(${verifiedCadreIdentity.cccdMasked})` : ""}
+                      </p>
+                      <p className="text-emerald-800 mt-0.5">
+                        {verifiedCadreIdentity.suggestedPosition || verifiedCadreIdentity.residencyStatus}
+                      </p>
+                    </div>
+                  </div>
+                )}
+                {cadreVerifyNote && !verifiedCadreIdentity && (
+                  <p className="text-[11px] text-amber-800">{cadreVerifyNote}</p>
+                )}
+              </div>
+
               <div className="space-y-1">
                 <label htmlFor="cadre-fullname" className="text-xs font-bold text-slate-700 block">Họ và tên Cán bộ *</label>
                 <input
@@ -774,18 +1010,29 @@ export default function LoginAndRegister({
 
               <div className="space-y-1">
                 <label htmlFor="cadre-password" className="text-xs font-bold text-slate-700 block">Mật khẩu khởi tạo *</label>
-                <input
-                  id="cadre-password"
-                  name="new-password"
-                  type="password"
-                  autoComplete="new-password"
-                  required
-                  minLength={6}
-                  placeholder="Tối thiểu 6 ký tự"
-                  value={cadrePassword}
-                  onChange={(e) => setCadrePassword(e.target.value)}
-                  className="w-full min-h-[44px] px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 text-xs focus:outline-none focus:border-emerald-600 focus:bg-white user-invalid:border-rose-500"
-                />
+                <div className="relative">
+                  <input
+                    id="cadre-password"
+                    name="new-password"
+                    type={showCadrePassword ? "text" : "password"}
+                    autoComplete="new-password"
+                    required
+                    minLength={6}
+                    placeholder="Tối thiểu 6 ký tự"
+                    value={cadrePassword}
+                    onChange={(e) => setCadrePassword(e.target.value)}
+                    className="w-full min-h-[44px] pl-3 pr-11 py-2 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 text-xs focus:outline-none focus:border-emerald-600 focus:bg-white user-invalid:border-rose-500"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowCadrePassword((prev) => !prev)}
+                    aria-pressed={showCadrePassword}
+                    aria-label={showCadrePassword ? "Ẩn mật khẩu khởi tạo" : "Hiện mật khẩu khởi tạo"}
+                    className="absolute inset-y-0 right-0 min-w-[44px] flex items-center justify-center text-slate-500 hover:text-slate-800 cursor-pointer rounded-r-xl"
+                  >
+                    {showCadrePassword ? <EyeOff size={15} /> : <Eye size={15} />}
+                  </button>
+                </div>
               </div>
 
               <div className="flex gap-2.5 pt-2">
@@ -1008,7 +1255,11 @@ export default function LoginAndRegister({
       </div>
 
       {/* FOOTER */}
-      <div className="w-full max-w-md mx-auto text-center relative z-10 py-3 space-y-1">
+      <div
+        className={`w-full ${
+          authMode === "register_resident" && !pendingUser ? "max-w-xl" : "max-w-md"
+        } mx-auto text-center relative z-10 py-3 space-y-1`}
+      >
         <p className="text-xs text-slate-600 font-medium">
           Bản quyền © 2026 Ban điều hành Khu phố 3, Phường An Phú, TP. Hồ Chí Minh
         </p>

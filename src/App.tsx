@@ -1,24 +1,23 @@
-import React, { useState, useEffect, useRef, Component, type ReactNode, type ErrorInfo } from "react";
-import { motion } from "motion/react";
-import { 
-  initialResidents, 
-  initialHouseholds, 
-  initialBusinesses, 
-  initialReports, 
+import React, { useState, useEffect, useMemo, useRef, Suspense, Component, type ReactNode, type ErrorInfo } from "react";
+import {
+  initialResidents,
+  initialHouseholds,
+  initialBusinesses,
+  initialReports,
   initialPartyMembers,
   initialWelfareRecipients,
   initialCommunityEvents,
   initialFundContributions,
   initialNewsList
 } from "./mockData";
-import { 
-  Resident, 
-  Household, 
-  Business, 
-  FieldReport, 
+import {
+  Resident,
+  Household,
+  Business,
+  FieldReport,
   ReportMessage,
   ReportPriority,
-  PartyMember, 
+  PartyMember,
   ActiveTab,
   WelfareRecipient,
   CommunityEvent,
@@ -28,13 +27,23 @@ import {
   TargetGisItem,
   LocalNews,
   TaskItem,
-  LandingConfig
+  ScheduleEvent,
+  LandingConfig,
+  Association
 } from "./types";
 import {
   DEFAULT_LANDING_CONFIG,
   LANDING_CONFIG_STORAGE_KEY,
   mergeLandingConfig,
 } from "./components/landing/landingConstants";
+import { getStoredAssociations, saveStoredAssociations } from "./data/associationsData";
+import {
+  extractKeyLeadersSummary,
+  reconcileLegacyAssociationsIfNeeded,
+  sortAssociationsAndMembers,
+  syncLandingConfigWithAssociations,
+  syncPortalLeaderChangeToAssociations,
+} from "./utils/leadershipSync";
 import {
   REPORT_STORAGE_KEY,
   REPORT_PRIORITY_CONFIG,
@@ -53,65 +62,96 @@ import {
 } from "./components/funds/fundCatalog";
 import { initialAdministrativeForms } from "./mockForms";
 import Sidebar from "./components/Sidebar";
-import Dashboard from "./components/Dashboard";
-import {
-  BusinessesPage,
-  CulturalPage,
-  EnterprisesPage,
-  HouseholdsPage,
-  PartyPage,
-  ReportsPage,
-  ResidentsPage,
-  TasksPage,
-} from "./page";
 import { LoadingFade } from "./components/common/LoadingFade";
-import GisMap from "./components/GisMap";
-import TaskAndSchedule from "./components/TaskAndSchedule";
+import { QuickCommandModal } from "./components/common/QuickCommandModal";
 import { loadStoredTasks, saveStoredTasks } from "./components/tasks/tasksData";
 import { KP3_OFFICIAL_BASELINE, createTaskFromReport } from "./utils/kp3Utils";
-import AiAssistant from "./components/AiAssistant";
-import PartyBranch from "./components/PartyBranch";
-import SocialWelfare from "./components/SocialWelfare";
-import CommunityEvents from "./components/CommunityEvents";
-import NeighborhoodFunds from "./components/NeighborhoodFunds";
-import PlanArchitecture from "./components/PlanArchitecture";
-import LoginAndRegister from "./components/LoginAndRegister";
-import SettingsAndPermissions, { PendingRegistration } from "./components/SettingsAndPermissions";
-import AdministrativeForms from "./components/AdministrativeForms";
-import { inferRelationToOwner, extractBirthYear, autoExtractHostelBusinesses } from "./utils/householdRecognitionUtils";
-import CitizenLandingPage from "./components/CitizenLandingPage";
-import { 
-  ROUTES, 
-  navigate, 
-  getDashboardExtensionPath, 
-  getTabFromDashboardPath, 
-  Link 
+import type { PendingRegistration } from "./components/SettingsAndPermissions";
+import {
+  inferRelationToOwner,
+  extractBirthYear,
+  autoExtractHostelBusinesses,
+  getTemporaryResidenceExpiryStatus,
+  buildTemporaryHouseholdsFromResidents,
+} from "./utils/householdRecognitionUtils";
+
+import {
+  isDynamicImportChunkError,
+  lazyWithChunkRetry,
+  tryAutoReloadForStaleChunk,
+} from "./utils/chunkReloadRecovery";
+
+const Dashboard = lazyWithChunkRetry(() => import("./components/Dashboard"));
+const ResidentsPage = lazyWithChunkRetry(() => import("./page/ResidentsPage"));
+const HouseholdsPage = lazyWithChunkRetry(() => import("./page/HouseholdsPage"));
+const EnterprisesPage = lazyWithChunkRetry(() => import("./page/EnterprisesPage"));
+const BusinessesPage = lazyWithChunkRetry(() => import("./page/BusinessesPage"));
+const TasksPage = lazyWithChunkRetry(() => import("./page/TasksPage"));
+const ReportsPage = lazyWithChunkRetry(() => import("./page/ReportsPage"));
+const PartyPage = lazyWithChunkRetry(() => import("./page/PartyPage"));
+const CulturalPage = lazyWithChunkRetry(() => import("./page/CulturalPage"));
+const GisMap = lazyWithChunkRetry(() => import("./components/GisMap"));
+const AiAssistant = lazyWithChunkRetry(() => import("./components/AiAssistant"));
+const SocialWelfare = lazyWithChunkRetry(() => import("./components/SocialWelfare"));
+const NeighborhoodFunds = lazyWithChunkRetry(() => import("./components/NeighborhoodFunds"));
+const PlanArchitecture = lazyWithChunkRetry(() => import("./components/PlanArchitecture"));
+const LoginAndRegister = lazyWithChunkRetry(() => import("./components/LoginAndRegister"));
+const SettingsAndPermissions = lazyWithChunkRetry(() => import("./components/SettingsAndPermissions"));
+const AdministrativeForms = lazyWithChunkRetry(() => import("./components/AdministrativeForms"));
+const CitizenLandingPage = lazyWithChunkRetry(() => import("./components/CitizenLandingPage"));
+import {
+  ROUTES,
+  navigate,
+  getDashboardExtensionPath,
+  getTabFromDashboardPath,
+  Link
 } from "./routes";
 import { supabase, isSupabaseConfigured } from "./lib/supabase";
 import {
+  BUSINESS_EXTENDED_META_KEY,
   DEFAULT_LANDING_CONFIG_KEY,
+  RESIDENT_EXTENDED_META_KEY,
   VerifiedStaffSession,
+  applyBusinessExtendedMeta,
+  applyResidentExtendedMeta,
   deleteAdministrativeFormFromDb,
   deleteCommunityEventFromDb,
+  deleteResidentFromDb,
   getVerifiedStaffSession,
+  hydrateHouseholdFromDbRow,
   loadAdministrativeFormsFromDb,
+  loadAssociationRecord,
   loadCommunityEventsFromDb,
   loadPortalSetting,
+  loadSchedulesFromDb,
   loadTasksFromDb,
   loadWelfareRecord,
   mapDbNewsToLocal,
+  saveAssociationRecord,
   saveLandingConfigToDb,
+  savePublicKp3StatsToDb,
   saveWelfareRecord,
   serializeLocalNewsToDb,
+  syncBusinessesDiffToDb,
+  syncHouseholdsDiffToDb,
+  syncResidentsDiffToDb,
+  syncSchedulesToDb,
   syncTasksDiffToDb,
   upsertAdministrativeFormToDb,
   upsertCommunityEventToDb,
+  upsertResidentToDb,
 } from "./utils/supabaseSync";
-import { 
-  Bell, 
+import {
+  reconcileSchedulesWithAssociations,
+  reconcileTasksWithAssociations,
+} from "./utils/taskScheduleRoleSync";
+import {
+  Bell,
+  Home,
   Users,
   ShieldAlert,
-  ChevronDown,
+  ChevronRight,
+  Search,
   Info,
   LockKeyhole
 } from "lucide-react";
@@ -152,6 +192,9 @@ class AppErrorBoundary extends (Component as any) {
 
   componentDidCatch(error: Error, errorInfo: ErrorInfo) {
     console.error("AppErrorBoundary caught an error:", error, errorInfo);
+    if (isDynamicImportChunkError(error)) {
+      tryAutoReloadForStaleChunk();
+    }
   }
 
   componentDidUpdate(prevProps: ErrorBoundaryProps) {
@@ -162,24 +205,33 @@ class AppErrorBoundary extends (Component as any) {
 
   render() {
     if (this.state.hasError) {
+      const isStaleChunk = isDynamicImportChunkError(this.state.errorMessage);
       return (
         <div className="bg-white rounded-3xl p-8 border border-rose-200 text-center space-y-4 max-w-lg mx-auto my-12 shadow-sm">
           <div className="w-16 h-16 rounded-2xl bg-rose-50 text-rose-600 flex items-center justify-center mx-auto">
             <ShieldAlert size={32} />
           </div>
-          <h3 className="text-lg font-bold text-slate-900">Không thể tải phân hệ</h3>
+          <h3 className="text-lg font-bold text-slate-900">
+            {isStaleChunk ? "Hệ thống vừa cập nhật phiên bản mới" : "Không thể tải phân hệ"}
+          </h3>
           <p className="text-xs text-slate-500 leading-relaxed">
-            Hệ thống phát hiện lỗi hiển thị tạm thời: {this.state.errorMessage}
+            {isStaleChunk
+              ? "Trình duyệt đang giữ bản cache cũ trước khi nâng cấp. Nhấn nút bên dưới để đồng bộ bản mới nhất."
+              : `Hệ thống phát hiện lỗi hiển thị tạm thời: ${this.state.errorMessage}`}
           </p>
           <div className="flex justify-center gap-3 pt-2">
             <button
               onClick={() => {
+                if (isStaleChunk && typeof window !== "undefined") {
+                  window.location.reload();
+                  return;
+                }
                 this.setState({ hasError: false, errorMessage: "" });
                 this.props.onReset();
               }}
               className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition-all shadow-xs cursor-pointer"
             >
-              Tải lại phân hệ
+              {isStaleChunk ? "Tải lại phiên bản mới" : "Tải lại phân hệ"}
             </button>
           </div>
         </div>
@@ -261,6 +313,23 @@ export default function App() {
     typeof window !== "undefined" ? window.location.pathname : "/"
   );
   const [citizenSubView, setCitizenSubView] = useState<ActiveTab | null>(null);
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState<boolean>(() => {
+    try {
+      return typeof window !== "undefined" && localStorage.getItem("kp3_sidebar_collapsed") === "true";
+    } catch {
+      return false;
+    }
+  });
+  const [showCommandModal, setShowCommandModal] = useState(false);
+  const toggleSidebarCollapsed = () => {
+    setIsSidebarCollapsed((prev) => {
+      const next = !prev;
+      try {
+        localStorage.setItem("kp3_sidebar_collapsed", String(next));
+      } catch {}
+      return next;
+    });
+  };
   const [verifiedStaff, setVerifiedStaff] = useState<VerifiedStaffSession | null>(null);
   const verifiedStaffRef = useRef<VerifiedStaffSession | null>(null);
   const updateVerifiedStaff = (session: VerifiedStaffSession | null) => {
@@ -289,6 +358,8 @@ export default function App() {
   });
   const [partyMembers] = useState<PartyMember[]>(initialPartyMembers);
   const [tasks, setTasks] = useState<TaskItem[]>(loadStoredTasks);
+  const [allSchedules, setAllSchedules] = useState<ScheduleEvent[]>([]);
+  const [publicSchedules, setPublicSchedules] = useState<ScheduleEvent[]>([]);
   const [isDataLoading, setIsDataLoading] = useState(false);
 
   const handleTasksChange = (nextTasks: TaskItem[]) => {
@@ -313,7 +384,55 @@ export default function App() {
     }
   }, [reports]);
 
-  // Kiểm tra phiên đăng nhập Supabase Auth thực tế
+  // Tự động kiểm tra & nhắc lịch họp cho Cán bộ qua Zalo OA trước 60 phút (mỗi 5 phút khi phiên Cán bộ đang hoạt động)
+  useEffect(() => {
+    if (!isSupabaseConfigured || !supabase || currentUser?.role !== "canbo") return;
+    let cancelled = false;
+
+    const trigger60mMeetingCheck = async () => {
+      try {
+        const { data } = await supabase!.auth.getSession();
+        const token = data?.session?.access_token;
+        if (!token || cancelled) return;
+        await fetch("/api/notifications", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            action: "scan_or_send_cadre_meeting_reminders",
+            dryRun: false,
+            onlyWithinLeadWindow: true,
+          }),
+        });
+      } catch {
+        // silent background check
+      }
+    };
+
+    const initialTimer = window.setTimeout(trigger60mMeetingCheck, 4000);
+    const intervalId = window.setInterval(trigger60mMeetingCheck, 5 * 60_000);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(initialTimer);
+      window.clearInterval(intervalId);
+    };
+  }, [currentUser?.role]);
+
+  // Phím tắt toàn cục Ctrl+K / Cmd+K mở Bảng điều hướng nhanh (Enterprise Command Palette)
+  useEffect(() => {
+    const onGlobalKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "k") {
+        e.preventDefault();
+        setShowCommandModal((s) => !s);
+      }
+    };
+    window.addEventListener("keydown", onGlobalKeyDown);
+    return () => window.removeEventListener("keydown", onGlobalKeyDown);
+  }, []);
+
+  // Kiểm tra phiên đăng nhập Supabase Auth thực tế (khử trùng lặp truy vấn user_profiles)
   useEffect(() => {
     if (!isSupabaseConfigured || !supabase) {
       setAuthChecked(true);
@@ -321,8 +440,15 @@ export default function App() {
     }
 
     let mounted = true;
+    let inFlightAuthPromise: Promise<VerifiedStaffSession | null> | null = null;
+
     const syncAuthSession = async () => {
-      const session = await getVerifiedStaffSession();
+      if (!inFlightAuthPromise) {
+        inFlightAuthPromise = getVerifiedStaffSession().finally(() => {
+          inFlightAuthPromise = null;
+        });
+      }
+      const session = await inFlightAuthPromise;
       if (!mounted) return;
       updateVerifiedStaff(session);
       setAuthChecked(true);
@@ -334,7 +460,8 @@ export default function App() {
     };
 
     syncAuthSession();
-    const { data: authListener } = supabase.auth.onAuthStateChange(() => {
+    const { data: authListener } = supabase.auth.onAuthStateChange((event) => {
+      if (event === "INITIAL_SESSION") return;
       syncAuthSession();
     });
 
@@ -437,6 +564,37 @@ export default function App() {
     };
   }, [authChecked, verifiedStaff?.userId]);
 
+  const clearSensitiveStaffLocalStorage = () => {
+    try {
+      const sensitiveKeys = [
+        "kp3_auth_user",
+        "kp3_associations_data",
+        "kp3_welfare_recipients",
+        "kp3_welfare_synced_extra_v1",
+        "kp3_audit_logs_v1",
+        "kp3_tasks_data_v2",
+        "kp3_community_schedules",
+        "kp3_recurring_reminders",
+        "kp3_field_reports_v2",
+      ];
+      for (const k of sensitiveKeys) {
+        localStorage.removeItem(k);
+      }
+    } catch {}
+  };
+
+  useEffect(() => {
+    const onSchedulesUpdated = (event: Event) => {
+      const custom = event as CustomEvent<ScheduleEvent[]>;
+      if (Array.isArray(custom.detail)) {
+        setAllSchedules(custom.detail);
+        setPublicSchedules(custom.detail.filter((s) => s.isPublicCitizenVisible === true));
+      }
+    };
+    window.addEventListener("kp3:schedules-updated", onSchedulesUpdated);
+    return () => window.removeEventListener("kp3:schedules-updated", onSchedulesUpdated);
+  }, []);
+
   // Nạp dữ liệu từ Supabase PostgreSQL (phân quyền Strict RLS cho Khách công khai vs Cán bộ đã xác thực)
   useEffect(() => {
     if (isSupabaseConfigured && !authChecked) return;
@@ -447,15 +605,38 @@ export default function App() {
       try {
         setIsDataLoading(true);
 
-        // 0. Nạp cấu hình Cổng thông tin, Sự kiện & Biểu mẫu công khai từ Supabase
-        const [savedLandingCfg, dbEvents, dbForms] = await Promise.all([
+        // 0. Nạp cấu hình Cổng thông tin, Sự kiện, Biểu mẫu & Lịch công tác công khai từ Supabase
+        const [savedLandingCfg, dbEvents, dbForms, dbSchedules] = await Promise.all([
           loadPortalSetting<Partial<LandingConfig>>(DEFAULT_LANDING_CONFIG_KEY),
           loadCommunityEventsFromDb(),
           loadAdministrativeFormsFromDb(),
+          loadSchedulesFromDb(),
         ]);
 
+        if (Array.isArray(dbSchedules)) {
+          setAllSchedules(dbSchedules);
+          setPublicSchedules(dbSchedules.filter((s) => s.isPublicCitizenVisible === true));
+        }
+
         if (savedLandingCfg && typeof savedLandingCfg === "object") {
-          setLandingConfig(mergeLandingConfig(savedLandingCfg));
+          const mergedGuestCfg = mergeLandingConfig(savedLandingCfg);
+          if (!isApprovedStaff) {
+            const guestReconciledAssocs = sortAssociationsAndMembers(
+              reconcileLegacyAssociationsIfNeeded(
+                getStoredAssociations(),
+                mergedGuestCfg.leadership,
+                false
+              )
+            );
+            setAssociationsState(guestReconciledAssocs);
+            const guestSyncedLanding =
+              mergedGuestCfg.associationLeaders && mergedGuestCfg.associationLeaders.length > 0
+                ? mergedGuestCfg
+                : syncLandingConfigWithAssociations(mergedGuestCfg, guestReconciledAssocs);
+            setLandingConfig(guestSyncedLanding);
+          } else {
+            setLandingConfig(mergedGuestCfg);
+          }
         }
         if (dbEvents && dbEvents.length > 0) {
           setCommunityEvents(dbEvents);
@@ -464,82 +645,109 @@ export default function App() {
           setAdministrativeForms(dbForms);
         }
 
-        // 1 & 2. Fetch Households & Residents CHỈ KHI cán bộ đã đăng nhập hợp lệ
+        // 1 & 2. Fetch Households & Residents song song CHỈ KHI cán bộ đã đăng nhập hợp lệ
         let loadedHouseholds: Household[] = [];
         let mappedResidents: Resident[] = [];
 
         if (isApprovedStaff) {
-          const { data: dbHouseholds, error: hErr } = await (supabase as any)
-            .from("households")
-            .select("*")
-            .order("code", { ascending: true });
+          const batchSize = 1000;
+          const [
+            { data: dbHouseholds, error: hErr },
+            firstResPage,
+            residentExtendedMeta,
+          ] = await Promise.all([
+            (supabase as any)
+              .from("households")
+              .select("*")
+              .order("code", { ascending: true }),
+            (supabase as any)
+              .from("residents")
+              .select("*", { count: "exact" })
+              .order("created_at", { ascending: false })
+              .order("id", { ascending: true })
+              .range(0, batchSize - 1),
+            loadPortalSetting<Record<string, Record<string, any>>>(RESIDENT_EXTENDED_META_KEY),
+          ]);
 
           if (!hErr && dbHouseholds && dbHouseholds.length > 0) {
-            loadedHouseholds = dbHouseholds.map((h: any) => ({
-              id: h.id,
-              code: h.code,
-              ownerName: h.owner_name,
-              address: h.address,
-              memberCount: h.member_count || 1,
-              coordinates: h.coordinates || "10.7935, 106.7445",
-              type: "Thường trú",
-              members: []
-            }));
+            loadedHouseholds = dbHouseholds.map((h: any) => hydrateHouseholdFromDbRow(h));
             setHouseholds(loadedHouseholds);
           }
 
           let allResidents: any[] = [];
-          let fromIdx = 0;
-          const batchSize = 1000;
-          let keepFetching = true;
+          if (
+            !firstResPage.error &&
+            Array.isArray(firstResPage.data) &&
+            firstResPage.data.length > 0
+          ) {
+            allResidents = [...firstResPage.data];
+            const totalCount =
+              typeof firstResPage.count === "number" && firstResPage.count > batchSize
+                ? Math.min(firstResPage.count, 25000)
+                : firstResPage.data.length === batchSize
+                ? 20000
+                : firstResPage.data.length;
 
-          while (keepFetching && fromIdx < 20000) {
-            const { data: chunk, error: rErr } = await (supabase as any)
-              .from("residents")
-              .select("*")
-              .order("created_at", { ascending: false })
-              .range(fromIdx, fromIdx + batchSize - 1);
-
-            if (rErr || !chunk || chunk.length === 0) {
-              keepFetching = false;
-            } else {
-              allResidents = allResidents.concat(chunk);
-              if (chunk.length < batchSize) {
-                keepFetching = false;
-              } else {
-                fromIdx += batchSize;
+            if (firstResPage.data.length === batchSize && totalCount > batchSize) {
+              const remainingRanges: Array<[number, number]> = [];
+              for (let start = batchSize; start < totalCount; start += batchSize) {
+                remainingRanges.push([start, start + batchSize - 1]);
+              }
+              const pageResults = await Promise.all(
+                remainingRanges.map(([from, to]) =>
+                  (supabase as any)
+                    .from("residents")
+                    .select("*")
+                    .order("created_at", { ascending: false })
+                    .order("id", { ascending: true })
+                    .range(from, to)
+                )
+              );
+              for (const pageRes of pageResults) {
+                if (
+                  !pageRes.error &&
+                  Array.isArray(pageRes.data) &&
+                  pageRes.data.length > 0
+                ) {
+                  allResidents = allResidents.concat(pageRes.data);
+                }
               }
             }
           }
 
           if (allResidents.length > 0) {
-            mappedResidents = allResidents.map((r: any) => ({
-              id: r.id,
-              fullName: r.full_name,
-              gender: (r.gender as "Nam" | "Nữ") || "Nam",
-              birthDate: r.birth_date ? r.birth_date.split("-").reverse().join("/") : "Chưa cập nhật",
-              cccd: r.cccd,
-              phone: r.phone || "",
-              status: (r.status as "Thường trú" | "Tạm trú" | "Tạm vắng") || "Thường trú",
-              occupation: r.occupation || "",
-              address: r.address || r.current_address || r.permanent_address || "Khu phố 3, Phường An Phú, TP. Hồ Chí Minh",
-              permanentAddress: r.permanent_address || undefined,
-              temporaryAddress: r.current_address || r.address || undefined,
-              currentAddress: r.current_address || r.address || undefined,
-              fatherName: r.father_name || undefined,
-              motherName: r.mother_name || undefined,
-              temporaryRegDate: r.temporary_reg_date || undefined,
-              temporaryExpDate: r.temporary_exp_date || undefined,
-              managementStatus: r.management_status || undefined,
-              householdId: r.household_code || (r.status === "Tạm trú" ? "Tạm trú" : "Chưa cập nhật"),
-              relationToOwner: r.relation_to_owner || "Thành viên",
-              workplace: r.workplace || undefined,
-              avatar: r.gender === "Nữ"
-                ? "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=150"
-                : "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150"
-            }));
-            setResidents(mappedResidents);
+            mappedResidents = allResidents.map((r: any) => {
+              const baseRes: Resident = {
+                id: r.id,
+                fullName: r.full_name,
+                gender: (r.gender as "Nam" | "Nữ") || "Nam",
+                birthDate: r.birth_date ? r.birth_date.split("-").reverse().join("/") : "Chưa cập nhật",
+                cccd: r.cccd,
+                phone: r.phone || "",
+                status: (r.status as "Thường trú" | "Tạm trú" | "Tạm vắng") || "Thường trú",
+                occupation: r.occupation || "",
+                address: r.address || r.current_address || r.permanent_address || "Khu phố 3, Phường An Phú, TP. Hồ Chí Minh",
+                permanentAddress: r.permanent_address || undefined,
+                temporaryAddress: r.current_address || r.address || undefined,
+                currentAddress: r.current_address || r.address || undefined,
+                fatherName: r.father_name || undefined,
+                motherName: r.mother_name || undefined,
+                temporaryRegDate: r.temporary_reg_date || undefined,
+                temporaryExpDate: r.temporary_exp_date || undefined,
+                managementStatus: r.management_status || undefined,
+                nationality: r.nationality || undefined,
+                householdId: r.household_code || (r.status === "Tạm trú" ? "Tạm trú" : "Chưa cập nhật"),
+                relationToOwner: r.relation_to_owner || "Thành viên",
+                ownerName: r.owner_name || undefined,
+                workplace: r.workplace || undefined,
+                avatar: r.gender === "Nữ"
+                  ? "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=150"
+                  : "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150"
+              };
+              return applyResidentExtendedMeta(baseRes, residentExtendedMeta);
+            });
 
+            let baseEnrichedHouseholds: Household[] = loadedHouseholds;
             if (loadedHouseholds.length > 0) {
               const resByHousehold: { [code: string]: Resident[] } = {};
               mappedResidents.forEach(res => {
@@ -550,9 +758,16 @@ export default function App() {
                 }
               });
 
-              const enrichedHouseholds = loadedHouseholds.map(h => {
-                const matchedResidents = resByHousehold[h.code] || [];
-                if (matchedResidents.length === 0) return h;
+              baseEnrichedHouseholds = loadedHouseholds.map(h => {
+                const allMatched = resByHousehold[h.code] || [];
+                if (allMatched.length === 0) return h;
+
+                // Separate core permanent family members from temporary hostel tenants sharing landlord HK code
+                const permanentMembers = allMatched.filter(r => r.status !== "Tạm trú");
+                const matchedResidents =
+                  (h.type || "Thường trú") === "Thường trú" && permanentMembers.length > 0
+                    ? permanentMembers
+                    : allMatched;
 
                 let owner = matchedResidents.find(r => {
                   const rel = (r.relationToOwner || "").trim().toLowerCase();
@@ -578,9 +793,17 @@ export default function App() {
                   members: membersList
                 };
               });
-
-              setHouseholds(enrichedHouseholds);
             }
+
+            // Tự động xây dựng & đồng bộ Hộ Tạm Trú (CT08) từ nhân khẩu tạm trú
+            const tempBuild = buildTemporaryHouseholdsFromResidents(
+              mappedResidents,
+              baseEnrichedHouseholds
+            );
+            mappedResidents = tempBuild.updatedResidents;
+            loadedHouseholds = tempBuild.mergedHouseholds;
+            setResidents(tempBuild.updatedResidents);
+            setHouseholds(tempBuild.mergedHouseholds);
           }
         } else {
           setHouseholds([]);
@@ -588,42 +811,95 @@ export default function App() {
           setWelfareRecipients([]);
         }
 
-        // 3. Fetch Businesses (Doanh nghiệp, Hộ kinh doanh & Cơ sở lưu trú công khai)
-        const { data: dbBusinesses } = await (supabase as any).from("businesses").select("*");
-        if (dbBusinesses && dbBusinesses.length > 0) {
-          const loadedBusinesses: Business[] = dbBusinesses.map((b: any) => {
-            const matchedMock = initialBusinesses.find(ib =>
-              (ib.internalCode && ib.internalCode === b.internal_code) ||
-              ib.name.trim().toLowerCase() === b.name.trim().toLowerCase() ||
-              ib.id === b.id
-            );
+        // 3–7. Tải song song (Promise.all) Businesses, Field Reports, News, Funds, Tasks & Welfare Records để giảm độ trễ mạng
+        const reportColumns = isApprovedStaff
+          ? "*"
+          : "id, title, category, location, description, reporter_name, status, priority, image_urls, response_content, created_at, resolved_at";
 
-            return {
-              ...(matchedMock || {}),
-              id: matchedMock ? matchedMock.id : b.id,
-              internalCode: b.internal_code || matchedMock?.internalCode,
-              name: b.name,
-              taxCode: b.tax_code || matchedMock?.taxCode || "",
-              type: (b.business_type as any) || matchedMock?.type || "Hộ kinh doanh",
-              businessType: (b.business_type as any) || matchedMock?.businessType || "Hộ kinh doanh",
-              industryGroup: b.industry_group || matchedMock?.industryGroup || "Khác",
-              owner: b.owner_name || matchedMock?.owner || "",
-              phone: isApprovedStaff ? (b.phone || matchedMock?.phone || "") : "",
-              address: b.address,
-              licenseNumber: b.license_number || matchedMock?.licenseNumber || "",
-              status: (b.status as any) || matchedMock?.status || "Đang hoạt động",
-              safetyCertified: b.safety_certified ?? matchedMock?.safetyCertified ?? true,
-              employeeCount: b.employee_count || matchedMock?.employeeCount || 1,
-              coordinates: b.coordinates || matchedMock?.coordinates || "10.7935, 106.7445",
-              isAccommodation: b.is_accommodation ?? matchedMock?.isAccommodation ?? false,
-              soPhong: b.room_count || matchedMock?.soPhong || 0,
-              soNguoiLuuTru: b.guest_count || matchedMock?.soNguoiLuuTru || 0,
-              image: matchedMock?.image || b.image_url || "https://images.unsplash.com/photo-1555854877-bab0e564b8d5?w=500"
-            };
-          });
+        const [
+          { data: dbBusinesses },
+          { data: dbReports },
+          { data: dbNews },
+          { data: dbFunds },
+          dbTasks,
+          dbRecipients,
+          dbAssociations,
+          businessExtendedMeta,
+        ] = await Promise.all([
+          (supabase as any).from("businesses").select("*"),
+          (supabase as any).from("field_reports").select(reportColumns).order("created_at", { ascending: false }),
+          (supabase as any).from("community_news").select("*").order("created_at", { ascending: false }),
+          (supabase as any).from("neighborhood_funds").select("*").order("created_at", { ascending: false }),
+          isApprovedStaff ? loadTasksFromDb() : Promise.resolve(null),
+          isApprovedStaff ? loadWelfareRecord<WelfareRecipient[]>("recipients") : Promise.resolve(null),
+          isApprovedStaff ? loadAssociationRecord<Association[]>("associations") : Promise.resolve(null),
+          isApprovedStaff
+            ? loadPortalSetting<Record<string, any>>(BUSINESS_EXTENDED_META_KEY)
+            : Promise.resolve(null),
+        ]);
+
+        const deletedBizIds = new Set<string>(
+          Array.isArray(businessExtendedMeta?.__deleted_ids__)
+            ? businessExtendedMeta.__deleted_ids__.map((x: any) => String(x))
+            : []
+        );
+        const isDeletedBusiness = (biz: {
+          id?: string;
+          internalCode?: string;
+          name?: string;
+        }) => {
+          if (deletedBizIds.size === 0) return false;
+          if (biz.id && deletedBizIds.has(String(biz.id))) return true;
+          if (biz.internalCode && deletedBizIds.has(String(biz.internalCode))) return true;
+          if (biz.name && deletedBizIds.has("NAME:" + biz.name.trim().toLowerCase())) {
+            return true;
+          }
+          return false;
+        };
+
+        if (dbBusinesses && dbBusinesses.length > 0) {
+          const loadedBusinesses: Business[] = dbBusinesses
+            .map((b: any) => {
+              const matchedMock = initialBusinesses.find(ib =>
+                (ib.internalCode && ib.internalCode === b.internal_code) ||
+                ib.name.trim().toLowerCase() === b.name.trim().toLowerCase() ||
+                ib.id === b.id
+              );
+
+              const baseBiz: Business = {
+                ...(matchedMock || {}),
+                id: matchedMock ? matchedMock.id : b.id,
+                internalCode: b.internal_code || matchedMock?.internalCode,
+                name: b.name,
+                taxCode: b.tax_code || matchedMock?.taxCode || "",
+                type: (b.business_type as any) || matchedMock?.type || "Hộ kinh doanh",
+                businessType: (b.business_type as any) || matchedMock?.businessType || "Hộ kinh doanh",
+                industryGroup: b.industry_group || matchedMock?.industryGroup || "Khác",
+                owner: b.owner_name || matchedMock?.owner || "",
+                phone: isApprovedStaff ? (b.phone || matchedMock?.phone || "") : "",
+                address: String(b.address || "")
+                  .replace(/,\s*(?:TP\.?|Thành\s*phố)\s*Thủ\s*Đức/gi, "")
+                  .replace(/\s{2,}/g, " ")
+                  .trim(),
+                licenseNumber: b.license_number || matchedMock?.licenseNumber || "",
+                status: (b.status as any) || matchedMock?.status || "Đang hoạt động",
+                safetyCertified: b.safety_certified ?? matchedMock?.safetyCertified ?? true,
+                employeeCount: b.employee_count || matchedMock?.employeeCount || 1,
+                coordinates: b.coordinates || matchedMock?.coordinates || "10.7935, 106.7445",
+                isAccommodation: b.is_accommodation ?? matchedMock?.isAccommodation ?? false,
+                soPhong: b.room_count || matchedMock?.soPhong || 0,
+                soNguoiLuuTru: b.guest_count || matchedMock?.soNguoiLuuTru || 0,
+                image: matchedMock?.image || b.image_url || "https://images.unsplash.com/photo-1555854877-bab0e564b8d5?w=500"
+              };
+              return isApprovedStaff
+                ? applyBusinessExtendedMeta(baseBiz, b, businessExtendedMeta)
+                : baseBiz;
+            })
+            .filter((b) => !isDeletedBusiness(b));
 
           const existingCodes = new Set(loadedBusinesses.map(b => b.internalCode || b.name));
           initialBusinesses.forEach(ib => {
+            if (isDeletedBusiness(ib)) return;
             const key = ib.internalCode || ib.name;
             if (!existingCodes.has(key)) {
               loadedBusinesses.push(ib);
@@ -631,23 +907,30 @@ export default function App() {
           });
 
           if (isApprovedStaff && mappedResidents.length > 0) {
-            const autoHostels = autoExtractHostelBusinesses(mappedResidents, loadedBusinesses);
+            const autoHostels = autoExtractHostelBusinesses(
+              mappedResidents,
+              loadedBusinesses
+            ).filter((hb) => !isDeletedBusiness(hb));
             if (autoHostels.length > 0) {
               loadedBusinesses.push(...autoHostels);
             }
           }
 
           setBusinesses(loadedBusinesses);
+
+          if (isApprovedStaff && mappedResidents.length > 0 && loadedHouseholds.length > 0) {
+            void savePublicKp3StatsToDb({
+              households_count: loadedHouseholds.length,
+              residents_count: mappedResidents.length,
+              permanent_count: mappedResidents.filter(r => r.status === "Thường trú").length,
+              temporary_count: mappedResidents.filter(r => r.status === "Tạm trú").length,
+              businesses_count: loadedBusinesses.length,
+            });
+          }
+        } else if (deletedBizIds.size > 0) {
+          setBusinesses((prev) => prev.filter((b) => !isDeletedBusiness(b)));
         }
 
-        // 4. Fetch Field Reports (Không select reporter_phone khi chưa đăng nhập Cán bộ)
-        const reportColumns = isApprovedStaff
-          ? "*"
-          : "id, title, category, location, description, reporter_name, status, priority, image_urls, response_content, created_at, resolved_at";
-        const { data: dbReports } = await (supabase as any)
-          .from("field_reports")
-          .select(reportColumns)
-          .order("created_at", { ascending: false });
         if (dbReports && dbReports.length > 0) {
           setReports(dbReports.map((rep: any) => {
             const createdDate = rep.created_at ? new Date(rep.created_at) : new Date();
@@ -708,21 +991,9 @@ export default function App() {
           }));
         }
 
-        // 5. Fetch Community News (giữ đầy đủ ảnh, liên kết, tệp đính kèm từ DB)
-        const { data: dbNews } = await (supabase as any)
-          .from("community_news")
-          .select("*")
-          .order("created_at", { ascending: false });
-
         if (dbNews && dbNews.length > 0) {
           setNewsList(dbNews.map(mapDbNewsToLocal));
         }
-
-        // 6. Fetch Neighborhood Funds (tách rạch ròi Phiếu Thu & Phiếu Chi)
-        const { data: dbFunds } = await (supabase as any)
-          .from("neighborhood_funds")
-          .select("*")
-          .order("created_at", { ascending: false });
 
         if (dbFunds && dbFunds.length > 0) {
           const thuRows = dbFunds.filter((f: any) => f.transaction_type !== "chi");
@@ -760,7 +1031,9 @@ export default function App() {
               : new Date().toLocaleDateString("vi-VN"),
             receiver: f.payer_or_receiver || "Đơn vị thụ hưởng",
             evidence: f.evidence_code || undefined,
-            approvedBy: f.approved_by || "Nguyễn Văn Hùng",
+            approvedBy:
+              f.approved_by ||
+              extractKeyLeadersSummary(getStoredAssociations()).partySecretary.name,
           }));
 
           try {
@@ -780,16 +1053,75 @@ export default function App() {
           }
         }
 
-        // 7. Fetch Tasks & Welfare Records cho Cán bộ đã đăng nhập
-        const [dbTasks, dbRecipients] = await Promise.all([
-          loadTasksFromDb(),
-          isApprovedStaff ? loadWelfareRecord<WelfareRecipient[]>("recipients") : Promise.resolve(null),
-        ]);
         if (dbTasks && dbTasks.length > 0) {
           setTasks(dbTasks);
         }
         if (Array.isArray(dbRecipients) && dbRecipients.length > 0) {
           setWelfareRecipients(dbRecipients);
+        }
+
+        // Đồng bộ 2 chiều Chi bộ/Đoàn thể <-> Cổng Cư dân (Bí thư Chi bộ luôn đứng đầu KP3)
+        if (isApprovedStaff) {
+          const mergedLandingBase = mergeLandingConfig(savedLandingCfg || undefined);
+          const baseAssocs =
+            Array.isArray(dbAssociations) && dbAssociations.length > 0
+              ? dbAssociations
+              : getStoredAssociations();
+          const prevPartyLeader = baseAssocs.find((a) => a.id === "ASC_DANG")?.leaderName;
+          const reconciledAssocs = reconcileLegacyAssociationsIfNeeded(
+            baseAssocs,
+            mergedLandingBase.leadership,
+            mergedLandingBase.leadershipSyncedV1
+          );
+          const reconciled =
+            reconciledAssocs.find((a) => a.id === "ASC_DANG")?.leaderName !== prevPartyLeader;
+          const canonicalAssocs = sortAssociationsAndMembers(reconciledAssocs);
+          const syncedLanding = syncLandingConfigWithAssociations(
+            mergedLandingBase,
+            canonicalAssocs
+          );
+
+          setAssociationsState(canonicalAssocs);
+          saveStoredAssociations(canonicalAssocs);
+          setLandingConfig(syncedLanding);
+
+          // Đồng bộ liên thông chức vụ từ Quản lý Chi hội sang Lịch & Nhiệm vụ ngay khi nạp CSDL
+          if (dbTasks && dbTasks.length > 0) {
+            const { tasks: syncedTasks, changed: tasksChanged } =
+              reconcileTasksWithAssociations(dbTasks, canonicalAssocs);
+            if (tasksChanged) {
+              setTasks(syncedTasks);
+              saveStoredTasks(syncedTasks);
+              syncTasksDiffToDb(dbTasks, syncedTasks);
+            }
+          }
+
+          if (Array.isArray(dbSchedules) && dbSchedules.length > 0) {
+            const { schedules: syncedSchedules, changed: schedulesChanged } =
+              reconcileSchedulesWithAssociations(dbSchedules, canonicalAssocs);
+            if (schedulesChanged) {
+              setAllSchedules(syncedSchedules);
+              setPublicSchedules(
+                syncedSchedules.filter((s) => s.isPublicCitizenVisible === true)
+              );
+              try {
+                localStorage.setItem(
+                  "kp3_community_schedules",
+                  JSON.stringify(syncedSchedules)
+                );
+              } catch {}
+              syncSchedulesToDb(dbSchedules, syncedSchedules);
+            }
+          }
+
+          if (
+            reconciled ||
+            !mergedLandingBase.leadershipSyncedV1 ||
+            !mergedLandingBase.associationLeaders?.length
+          ) {
+            saveAssociationRecord("associations", canonicalAssocs);
+            saveLandingConfigToDb(syncedLanding);
+          }
         }
       } catch (e) {
         console.warn("Lỗi nạp dữ liệu từ Supabase:", e);
@@ -800,7 +1132,7 @@ export default function App() {
 
     fetchSupabaseData();
   }, [authChecked, verifiedStaff?.userId]);
-  
+
   // New State variables for the 3 additional views
   const [welfareRecipients, setWelfareRecipients] = useState<WelfareRecipient[]>(() => {
     if (isSupabaseConfigured) return [];
@@ -820,15 +1152,24 @@ export default function App() {
     } catch {}
     return initialCommunityEvents;
   });
+  const [associations, setAssociationsState] = useState<Association[]>(() =>
+    getStoredAssociations()
+  );
   const [landingConfig, setLandingConfig] = useState<LandingConfig>(() => {
+    const initialAssocs = getStoredAssociations();
     try {
       const saved = localStorage.getItem(LANDING_CONFIG_STORAGE_KEY);
       if (saved) {
-        return mergeLandingConfig(JSON.parse(saved));
+        const parsed = mergeLandingConfig(JSON.parse(saved));
+        return syncLandingConfigWithAssociations(parsed, initialAssocs);
       }
     } catch {}
-    return DEFAULT_LANDING_CONFIG;
+    return syncLandingConfigWithAssociations(DEFAULT_LANDING_CONFIG, initialAssocs);
   });
+  const keyLeaders = React.useMemo(
+    () => extractKeyLeadersSummary(associations, landingConfig.leadership || []),
+    [associations, landingConfig.leadership]
+  );
   useEffect(() => {
     try {
       localStorage.setItem("kp3_community_events", JSON.stringify(communityEvents));
@@ -839,12 +1180,89 @@ export default function App() {
       localStorage.setItem(LANDING_CONFIG_STORAGE_KEY, JSON.stringify(landingConfig));
     } catch {}
   }, [landingConfig]);
-  const handleUpdateLandingConfig = (next: LandingConfig) => {
-    setLandingConfig(next);
+
+  const handleAssociationsChange = (next: Association[]) => {
+    const canonical = sortAssociationsAndMembers(next);
+    setAssociationsState(canonical);
+    saveStoredAssociations(canonical);
+    saveAssociationRecord("associations", canonical);
+
+    const nextLeaders = extractKeyLeadersSummary(canonical);
+    if (isSupabaseConfigured && supabase && verifiedStaff?.role === "admin" && nextLeaders.partySecretary.name) {
+      (supabase as any)
+        .from("user_profiles")
+        .update({ full_name: `Bí thư ${nextLeaders.partySecretary.name}` })
+        .eq("email", "bdhkhupho3.ap@gmail.com")
+        .then(() => {})
+        .catch(() => {});
+    }
+
+    setLandingConfig((prevLanding) => {
+      const syncedLanding = syncLandingConfigWithAssociations(prevLanding, canonical);
+      try {
+        localStorage.setItem(LANDING_CONFIG_STORAGE_KEY, JSON.stringify(syncedLanding));
+      } catch {}
+      saveLandingConfigToDb(syncedLanding);
+      return syncedLanding;
+    });
+
+    // Đồng bộ tức thì Lịch công tác & Nhiệm vụ khi đổi Trưởng/Phó tại Quản lý Chi hội
+    setTasks((prevTasks) => {
+      const { tasks: nextTasks, changed } = reconcileTasksWithAssociations(
+        prevTasks,
+        canonical
+      );
+      if (!changed) return prevTasks;
+      saveStoredTasks(nextTasks);
+      syncTasksDiffToDb(prevTasks, nextTasks);
+      return nextTasks;
+    });
+
+    setAllSchedules((prevSchedules) => {
+      const { schedules: nextSchedules, changed } =
+        reconcileSchedulesWithAssociations(prevSchedules, canonical);
+      if (!changed) return prevSchedules;
+      setPublicSchedules(
+        nextSchedules.filter((s) => s.isPublicCitizenVisible === true)
+      );
+      try {
+        localStorage.setItem(
+          "kp3_community_schedules",
+          JSON.stringify(nextSchedules)
+        );
+      } catch {}
+      syncSchedulesToDb(prevSchedules, nextSchedules);
+      return nextSchedules;
+    });
+  };
+
+  const handleResyncLeadershipFromAssociations = () => {
+    const canonical = sortAssociationsAndMembers(associations);
+    const syncedLanding = syncLandingConfigWithAssociations(landingConfig, canonical);
+    setLandingConfig(syncedLanding);
     try {
-      localStorage.setItem(LANDING_CONFIG_STORAGE_KEY, JSON.stringify(next));
+      localStorage.setItem(LANDING_CONFIG_STORAGE_KEY, JSON.stringify(syncedLanding));
     } catch {}
-    saveLandingConfigToDb(next);
+    saveLandingConfigToDb(syncedLanding);
+  };
+
+  const handleUpdateLandingConfig = (next: LandingConfig) => {
+    const normalizedNext = mergeLandingConfig(next);
+    // Đồng bộ ngược thay đổi Cán bộ trên Cổng về Chi bộ / Ban Điều hành / Chi hội
+    const updatedAssocs = syncPortalLeaderChangeToAssociations(
+      associations,
+      normalizedNext.leadership || []
+    );
+    setAssociationsState(updatedAssocs);
+    saveStoredAssociations(updatedAssocs);
+    saveAssociationRecord("associations", updatedAssocs);
+
+    const finalLanding = syncLandingConfigWithAssociations(normalizedNext, updatedAssocs);
+    setLandingConfig(finalLanding);
+    try {
+      localStorage.setItem(LANDING_CONFIG_STORAGE_KEY, JSON.stringify(finalLanding));
+    } catch {}
+    saveLandingConfigToDb(finalLanding);
   };
   const [fundContributions, setFundContributions] = useState<FundContribution[]>(initialFundContributions);
   const [fundExpenditures, setFundExpenditures] = useState<FundExpenditure[]>(() => {
@@ -937,6 +1355,21 @@ export default function App() {
     }
   };
 
+  const handleRefreshNewsList = async () => {
+    if (!isSupabaseConfigured || !supabase) return;
+    try {
+      const { data } = await (supabase as any)
+        .from("community_news")
+        .select("*")
+        .order("created_at", { ascending: false });
+      if (data && Array.isArray(data)) {
+        setNewsList(data.map(mapDbNewsToLocal));
+      }
+    } catch (e) {
+      console.warn("Supabase refresh news error:", e);
+    }
+  };
+
   // Target item for GIS Map navigation & sync
   const [targetGisItem, setTargetGisItem] = useState<TargetGisItem | null>(null);
 
@@ -945,13 +1378,77 @@ export default function App() {
     setActiveTab("gis");
   };
 
-  // Notifications State Mock
-  const [notifications, setNotifications] = useState([
-    { id: 1, text: "Phản ánh mới hẻm 42 vừa được gửi", unread: true },
-    { id: 2, text: "Yêu cầu duyệt GPKD Cửa hàng 247", unread: true }
-  ]);
+  // Notifications State (Real dynamic operational notifications + session activity)
+  const [notifications, setNotifications] = useState<
+    Array<{
+      id: number | string;
+      text: string;
+      unread: boolean;
+      path?: string;
+      tab?: ActiveTab;
+    }>
+  >([]);
+  const [systemAlertsMarkedRead, setSystemAlertsMarkedRead] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
   const notificationsRef = useRef<HTMLDivElement>(null);
+
+  const liveOperationalNotifications = useMemo(() => {
+    const openReportsCount = reports.filter((r) => r.status !== "Đã giải quyết").length;
+    let expiringTempCount = 0;
+    for (let i = 0; i < residents.length; i++) {
+      const r = residents[i];
+      if (r.status === "Tạm trú" && r.temporaryExpDate) {
+        if (getTemporaryResidenceExpiryStatus(r.temporaryExpDate).isWarning) {
+          expiringTempCount++;
+        }
+      }
+    }
+    const openTasksCount = tasks.filter((t) => t.status !== "Hoàn thành").length;
+
+    const items: Array<{
+      id: string;
+      text: string;
+      subtext: string;
+      unread: boolean;
+      path: string;
+      tab: ActiveTab;
+    }> = [];
+
+    items.push({
+      id: "sys-open-reports",
+      text: `${openReportsCount.toLocaleString("vi-VN")} phản ánh 1022 đang chờ / đang xử lý`,
+      subtext: "Nhấn để điều phối & cập nhật tiến độ hiện trường",
+      unread: !systemAlertsMarkedRead && openReportsCount > 0,
+      path: "/dashboard/reports",
+      tab: "reports",
+    });
+
+    if (currentUser?.role === "canbo") {
+      items.push({
+        id: "sys-expiring-temp",
+        text: `${expiringTempCount.toLocaleString("vi-VN")} nhân khẩu tạm trú sắp hết hạn (≤ 30 ngày)`,
+        subtext: "Nhấn để lọc danh sách nhắc gia hạn Mẫu CT01",
+        unread: !systemAlertsMarkedRead && expiringTempCount > 0,
+        path: "/dashboard/residents?expiry=expiring",
+        tab: "residents",
+      });
+
+      items.push({
+        id: "sys-open-tasks",
+        text: `${openTasksCount.toLocaleString("vi-VN")} nhiệm vụ công tác đang mở`,
+        subtext: "Nhấn để mở bảng phân công & lịch công tác KP3",
+        unread: !systemAlertsMarkedRead && openTasksCount > 0,
+        path: "/dashboard/tasks",
+        tab: "tasks",
+      });
+    }
+
+    return items;
+  }, [reports, residents, tasks, systemAlertsMarkedRead, currentUser?.role]);
+
+  const hasUnreadNotifications =
+    notifications.some((n) => n.unread) ||
+    liveOperationalNotifications.some((n) => n.unread);
 
   useEffect(() => {
     if (!showNotifications) return;
@@ -1002,88 +1499,162 @@ export default function App() {
     }
   };
 
+  const householdsRef = useRef<Household[]>(households);
+  useEffect(() => {
+    householdsRef.current = households;
+  }, [households]);
+
+  const handleHouseholdsChange: React.Dispatch<React.SetStateAction<Household[]>> = (updater) => {
+    setHouseholds((prev) => {
+      const next = typeof updater === "function" ? (updater as (p: Household[]) => Household[])(prev) : updater;
+      if (verifiedStaffRef.current) {
+        void syncHouseholdsDiffToDb(prev, next);
+      }
+      return next;
+    });
+  };
+
+  const updateResidentsWithSync: React.Dispatch<React.SetStateAction<Resident[]>> = (
+    updaterOrNext
+  ) => {
+    setResidents((prev) => {
+      const next =
+        typeof updaterOrNext === "function"
+          ? (updaterOrNext as (p: Resident[]) => Resident[])(prev)
+          : updaterOrNext;
+      if (verifiedStaffRef.current || currentUser?.role === "canbo") {
+        void syncResidentsDiffToDb(prev, next);
+      }
+      const tempBuild = buildTemporaryHouseholdsFromResidents(next, householdsRef.current);
+      setTimeout(() => {
+        setHouseholds(tempBuild.mergedHouseholds);
+      }, 0);
+      return tempBuild.updatedResidents;
+    });
+  };
+
+  const handleBusinessesChange: React.Dispatch<React.SetStateAction<Business[]>> = (updater) => {
+    setBusinesses((prev) => {
+      const next = typeof updater === "function" ? (updater as (p: Business[]) => Business[])(prev) : updater;
+      if (verifiedStaffRef.current) {
+        void syncBusinessesDiffToDb(prev, next, householdsRef.current);
+      }
+      return next;
+    });
+  };
+
   // Handlers for State Management
   const handleAddResident = (newResident: Resident) => {
-    setResidents([newResident, ...residents]);
-    
+    const resWithId: Resident = newResident.id
+      ? newResident
+      : { ...newResident, id: `R-${Date.now()}` };
+
+    setResidents((prev) => [resWithId, ...prev]);
+    if (verifiedStaffRef.current || currentUser?.role === "canbo") {
+      void upsertResidentToDb(resWithId);
+    }
+
     // Auto-update household members if matched
-    const hhId = newResident.householdId;
-    setHouseholds(households.map(hh => {
-      if (hh.code === hhId) {
-        return {
-          ...hh,
-          memberCount: hh.memberCount + 1,
-          members: [...hh.members, {
-            name: newResident.fullName,
-            relation: newResident.relationToOwner,
-            cccd: newResident.cccd,
-            phone: newResident.phone,
-            birthYear: parseInt(newResident.birthDate.split("/")[2]) || 1990
-          }]
-        };
-      }
-      return hh;
-    }));
+    const hhId = resWithId.householdId;
+    if (hhId) {
+      handleHouseholdsChange((prev) =>
+        prev.map((hh) => {
+          if (hh.code === hhId) {
+            return {
+              ...hh,
+              memberCount: hh.memberCount + 1,
+              members: [
+                ...hh.members,
+                {
+                  name: resWithId.fullName,
+                  relation: resWithId.relationToOwner,
+                  cccd: resWithId.cccd,
+                  phone: resWithId.phone,
+                  birthYear: parseInt(resWithId.birthDate.split("/")[2]) || 1990,
+                },
+              ],
+            };
+          }
+          return hh;
+        })
+      );
+    }
   };
 
   const handleDeleteResident = (id: string) => {
-    const resToDelete = residents.find(r => r.id === id);
-    setResidents(residents.filter(r => r.id !== id));
+    const target = residents.find((r) => r.id === id);
+    setResidents((prev) => prev.filter((r) => r.id !== id));
+    if (verifiedStaffRef.current || currentUser?.role === "canbo") {
+      void deleteResidentFromDb(id, target?.cccd);
+    }
 
-    if (resToDelete) {
-      const hhId = resToDelete.householdId;
-      setHouseholds(households.map(hh => {
-        if (hh.code === hhId) {
-          const updatedMembers = hh.members.filter(m => m.cccd !== resToDelete.cccd);
-          return {
-            ...hh,
-            memberCount: updatedMembers.length,
-            members: updatedMembers
-          };
-        }
-        return hh;
-      }));
+    if (target) {
+      const hhId = target.householdId;
+      handleHouseholdsChange((prev) =>
+        prev.map((hh) => {
+          if (hh.code === hhId) {
+            const updatedMembers = hh.members.filter((m) => m.cccd !== target.cccd);
+            return {
+              ...hh,
+              memberCount: updatedMembers.length,
+              members: updatedMembers,
+            };
+          }
+          return hh;
+        })
+      );
     }
   };
 
   const handleAddHousehold = (newH: Household) => {
-    setHouseholds([newH, ...households]);
-    
-    // Add owner to residents roster
-    const ownerRes: Resident = {
-      id: "R" + (residents.length + 1).toString().padStart(3, "0"),
-      fullName: newH.ownerName,
-      gender: "Nam",
-      birthDate: "01/01/1975",
-      cccd: newH.members[0]?.cccd || "N/A",
-      phone: newH.members[0]?.phone || "N/A",
-      status: (newH.type === "Tạm trú" ? "Tạm trú" : "Thường trú") as "Thường trú" | "Tạm trú",
-      occupation: "Kinh doanh",
-      address: newH.address,
-      householdId: newH.code,
-      relationToOwner: "Chủ hộ",
-      avatar: "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150",
-      joinDate: new Date().toLocaleDateString("vi-VN")
-    };
-    setResidents([ownerRes, ...residents]);
+    handleHouseholdsChange((prev) => [newH, ...prev]);
+
+    // Chỉ khởi tạo nhân khẩu chủ hộ nếu chưa tồn tại trong danh sách cư dân (tránh tạo trùng khi HouseholdFormPage đã đồng bộ)
+    const ownerCccd = (newH.members?.[0]?.cccd || "").trim();
+    setResidents((prev) => {
+      const alreadyExists = prev.some(
+        (r) =>
+          (ownerCccd && ownerCccd !== "N/A" && (r.cccd || "").trim() === ownerCccd) ||
+          (newH.code && (r.householdId || "").trim() === newH.code.trim())
+      );
+      if (alreadyExists) return prev;
+      const ownerRes: Resident = {
+        id:
+          typeof crypto !== "undefined" && typeof crypto.randomUUID === "function"
+            ? crypto.randomUUID()
+            : "R" + (prev.length + 1).toString().padStart(4, "0"),
+        fullName: newH.ownerName,
+        gender: "Nam",
+        birthDate: newH.members?.[0]?.birthYear ? `01/01/${newH.members[0].birthYear}` : "",
+        cccd: ownerCccd || "N/A",
+        phone: newH.members?.[0]?.phone || "N/A",
+        status: (newH.type === "Tạm trú" ? "Tạm trú" : "Thường trú") as "Thường trú" | "Tạm trú",
+        occupation: "",
+        address: newH.address,
+        currentAddress: newH.address,
+        householdId: newH.code,
+        relationToOwner: "Chủ hộ",
+        ownerName: newH.ownerName,
+        avatar: "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150",
+        joinDate: new Date().toLocaleDateString("vi-VN"),
+      };
+      if (verifiedStaffRef.current) {
+        void upsertResidentToDb(ownerRes);
+      }
+      return [ownerRes, ...prev];
+    });
   };
 
   const handleToggleBusinessCertification = (id: string) => {
-    setBusinesses(businesses.map(b => {
-      if (b.id === id) {
-        return { ...b, safetyCertified: !b.safetyCertified };
-      }
-      return b;
-    }));
+    handleBusinessesChange((prev) =>
+      prev.map((b) => (b.id === id ? { ...b, safetyCertified: !b.safetyCertified } : b))
+    );
   };
 
   const handleUpdateBusinessStatus = (id: string, status: "Đang hoạt động" | "Tạm ngưng" | "Chờ duyệt" | "Chuyển địa điểm" | "Chưa xác minh") => {
-    setBusinesses(businesses.map(b => {
-      if (b.id === id) {
-        return { ...b, status };
-      }
-      return b;
-    }));
+    handleBusinessesChange((prev) =>
+      prev.map((b) => (b.id === id ? { ...b, status } : b))
+    );
   };
 
   const syncReportToSupabase = async (report: FieldReport, latestNote?: string) => {
@@ -1118,18 +1689,31 @@ export default function App() {
 
     if (isSupabaseConfigured && supabase) {
       try {
-        await (supabase as any).from("field_reports").insert({
-          title: normalized.title,
-          category: normalized.category,
-          location: normalized.location,
-          description: normalized.description,
-          reporter_name: normalized.reporterName,
-          reporter_phone: normalized.reporterPhone,
-          status: normalized.status,
-          priority: normalized.priority || "Bình thường",
-          image_urls: getBeforeImages(normalized),
-          response_content: serializeReportMetadata(normalized),
-        });
+        const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+          normalized.id
+        );
+        const { data: inserted } = await (supabase as any)
+          .from("field_reports")
+          .insert({
+            ...(isUuid ? { id: normalized.id } : {}),
+            title: normalized.title,
+            category: normalized.category,
+            location: normalized.location,
+            description: normalized.description,
+            reporter_name: normalized.reporterName,
+            reporter_phone: normalized.reporterPhone,
+            status: normalized.status,
+            priority: normalized.priority || "Bình thường",
+            image_urls: getBeforeImages(normalized),
+            response_content: serializeReportMetadata(normalized),
+          })
+          .select("id")
+          .maybeSingle();
+        if (inserted?.id && inserted.id !== normalized.id) {
+          setReports((prev) =>
+            prev.map((r) => (r.id === normalized.id ? { ...r, id: inserted.id } : r))
+          );
+        }
       } catch (err) {
         console.warn("Supabase insert report error:", err);
       }
@@ -1137,8 +1721,8 @@ export default function App() {
   };
 
   const handleUpdateReportStatus = async (
-    id: string, 
-    status: FieldReport["status"], 
+    id: string,
+    status: FieldReport["status"],
     actorName: string = "Cán bộ quản lý",
     actionDetail: string = "Cập nhật tiến độ xử lý phản ánh.",
     afterImages?: string[]
@@ -1303,31 +1887,48 @@ export default function App() {
   };
 
   const handleAddWelfareRecipient = (newRec: WelfareRecipient) => {
-    const updated = [newRec, ...welfareRecipients];
-    setWelfareRecipients(updated);
-    try { localStorage.setItem("kp3_welfare_recipients", JSON.stringify(updated)); } catch {}
-    saveWelfareRecord("recipients", updated);
+    setWelfareRecipients((prev) => {
+      if (prev.some((w) => w.id === newRec.id)) return prev;
+      const updated = [newRec, ...prev];
+      try {
+        localStorage.setItem("kp3_welfare_recipients", JSON.stringify(updated));
+      } catch {}
+      void saveWelfareRecord("recipients", updated);
+      return updated;
+    });
   };
 
   const handleUpdateWelfareStatus = (id: string, status: WelfareRecipient["status"]) => {
-    const updated = welfareRecipients.map(w => w.id === id ? { ...w, status } : w);
-    setWelfareRecipients(updated);
-    try { localStorage.setItem("kp3_welfare_recipients", JSON.stringify(updated)); } catch {}
-    saveWelfareRecord("recipients", updated);
+    setWelfareRecipients((prev) => {
+      const updated = prev.map((w) => (w.id === id ? { ...w, status } : w));
+      try {
+        localStorage.setItem("kp3_welfare_recipients", JSON.stringify(updated));
+      } catch {}
+      void saveWelfareRecord("recipients", updated);
+      return updated;
+    });
   };
 
   const handleUpdateWelfareRecipient = (updatedRec: WelfareRecipient) => {
-    const updated = welfareRecipients.map(w => w.id === updatedRec.id ? updatedRec : w);
-    setWelfareRecipients(updated);
-    try { localStorage.setItem("kp3_welfare_recipients", JSON.stringify(updated)); } catch {}
-    saveWelfareRecord("recipients", updated);
+    setWelfareRecipients((prev) => {
+      const updated = prev.map((w) => (w.id === updatedRec.id ? updatedRec : w));
+      try {
+        localStorage.setItem("kp3_welfare_recipients", JSON.stringify(updated));
+      } catch {}
+      void saveWelfareRecord("recipients", updated);
+      return updated;
+    });
   };
 
   const handleDeleteWelfareRecipient = (id: string) => {
-    const updated = welfareRecipients.filter(w => w.id !== id);
-    setWelfareRecipients(updated);
-    try { localStorage.setItem("kp3_welfare_recipients", JSON.stringify(updated)); } catch {}
-    saveWelfareRecord("recipients", updated);
+    setWelfareRecipients((prev) => {
+      const updated = prev.filter((w) => w.id !== id);
+      try {
+        localStorage.setItem("kp3_welfare_recipients", JSON.stringify(updated));
+      } catch {}
+      void saveWelfareRecord("recipients", updated);
+      return updated;
+    });
   };
 
   const handleAddCommunityEvent = (newEvent: CommunityEvent) => {
@@ -1409,6 +2010,35 @@ export default function App() {
           .eq("id", updatedExp.id);
       } catch (err) {
         console.warn("Supabase update expenditure error:", err);
+      }
+    }
+  };
+
+  const handleBatchAddFundContributions = async (newItems: FundContribution[]) => {
+    if (!newItems || newItems.length === 0) return;
+    setFundContributions((prev) => [...newItems, ...prev]);
+
+    if (isSupabaseConfigured && supabase) {
+      try {
+        const chunkSize = 500;
+        for (let i = 0; i < newItems.length; i += chunkSize) {
+          const chunk = newItems.slice(i, i + chunkSize).map((newCont) => ({
+            id: newCont.id,
+            transaction_type: "thu",
+            fund_name: newCont.fundName,
+            household_code: newCont.householdCode,
+            payer_or_receiver: newCont.ownerName,
+            amount: newCont.amount,
+            description: newCont.note || `Đóng góp ${newCont.fundName}`,
+            evidence_code:
+              newCont.receiptCode || `PT-${Date.now().toString().slice(-4)}`,
+            status: newCont.status || "Chưa nộp",
+            approved_by: "Ban điều hành KP3",
+          }));
+          await (supabase as any).from("neighborhood_funds").insert(chunk);
+        }
+      } catch (err) {
+        console.warn("Supabase batch insert fund error:", err);
       }
     }
   };
@@ -1566,24 +2196,32 @@ export default function App() {
       joinDate: new Date().toLocaleDateString("vi-VN")
     };
 
-    setResidents([newRes, ...residents]);
+    setResidents((prev) => [newRes, ...prev]);
+    if (verifiedStaffRef.current || currentUser?.role === "canbo") {
+      void upsertResidentToDb(newRes);
+    }
 
-    setHouseholds(households.map(hh => {
-      if (hh.code === reg.householdId) {
-        return {
-          ...hh,
-          memberCount: hh.memberCount + 1,
-          members: [...hh.members, {
-            name: reg.fullName,
-            relation: reg.relationToOwner,
-            cccd: reg.cccd,
-            phone: reg.phone,
-            birthYear: parseInt(reg.birthDate.split("/")[2]) || 1995
-          }]
-        };
-      }
-      return hh;
-    }));
+    handleHouseholdsChange((prev) =>
+      prev.map((hh) => {
+        if (hh.code === reg.householdId) {
+          return {
+            ...hh,
+            memberCount: hh.memberCount + 1,
+            members: [
+              ...hh.members,
+              {
+                name: reg.fullName,
+                relation: reg.relationToOwner,
+                cccd: reg.cccd,
+                phone: reg.phone,
+                birthYear: parseInt(reg.birthDate.split("/")[2]) || 1995,
+              },
+            ],
+          };
+        }
+        return hh;
+      })
+    );
 
     setPendingRegistrations(pendingRegistrations.filter(r => r.id !== reg.id));
 
@@ -1603,7 +2241,7 @@ export default function App() {
       case "dashboard": return "Bảng Điều Hành Tổng Quan";
       case "residents": return "Quản lý Nhân Khẩu & Dân cư";
       case "households": return "Hệ thống Quản lý Sổ Hộ khẩu";
-      case "enterprises": return "Quản lý Doanh nghiệp Vừa & Nhỏ (DNNVV)";
+      case "enterprises": return "Quản lý Doanh nghiệp";
       case "businesses": return "Quản lý Cơ sở Kinh doanh KP3";
       case "gis": return "Bản đồ số không gian GIS";
       case "tasks": return "Lịch Công Tác & Nhiệm Vụ KP3";
@@ -1619,6 +2257,50 @@ export default function App() {
     }
   };
 
+  const getSubrouteActionLabel = (pathname: string, tab: ActiveTab): string | null => {
+    const basePath = getDashboardExtensionPath(tab);
+    if (!pathname || pathname === basePath || pathname === `${basePath}/`) return null;
+    if (pathname.includes("/add-member/")) return "Thêm nhân khẩu vào hộ";
+    if (pathname.endsWith("/new") || pathname.includes("/new/")) return "Thêm mới hồ sơ";
+    if (pathname.includes("/edit/")) return "Chỉnh sửa hồ sơ";
+    if (pathname.includes("/resolve/")) return "Nghiệm thu & Xử lý";
+    if (pathname.includes("/detail/")) return "Chi tiết hồ sơ";
+    return null;
+  };
+
+  const staffRoleLabel =
+    verifiedStaff?.role === "admin"
+      ? "Quản trị viên KP3"
+      : verifiedStaff
+      ? "Cán bộ KP3"
+      : "Ban Điều hành KP3";
+
+  const isMasterSecretaryAccount = Boolean(
+    currentUser?.role === "canbo" &&
+      (verifiedStaff?.email?.toLowerCase() === "bdhkhupho3.ap@gmail.com" ||
+        currentUser?.username?.toLowerCase() === "bdhkhupho3.ap@gmail.com" ||
+        currentUser?.username === "canbo" ||
+        currentUser?.fullName?.startsWith("Bí thư "))
+  );
+
+  const effectiveStaffName =
+    isMasterSecretaryAccount && keyLeaders.partySecretary.name
+      ? `Bí thư ${keyLeaders.partySecretary.name}`
+      : currentUser?.fullName || "Cán bộ KP3";
+
+  const displayCurrentUser =
+    currentUser && currentUser.role === "canbo"
+      ? { ...currentUser, fullName: effectiveStaffName }
+      : currentUser;
+
+  const staffInitials = (effectiveStaffName || "KP")
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(-2)
+    .map((p) => p.charAt(0).toUpperCase())
+    .join("");
+
   if (isSupabaseConfigured && !authChecked && Boolean(getTabFromDashboardPath(routePath))) {
     return (
       <LoadingFade
@@ -1631,40 +2313,51 @@ export default function App() {
 
   if (!currentUser) {
     return (
-      <LoginAndRegister
-        onLoginSuccess={(user) => {
-          if (user.staffSession) {
-            updateVerifiedStaff(user.staffSession);
-          }
-          const cleanUser = {
-            username: user.username,
-            fullName: user.fullName,
-            role: user.role,
-            cccd: user.cccd,
-            householdCode: user.householdCode,
-            phone: user.phone,
-          };
-          setCurrentUser(cleanUser);
-          try {
-            localStorage.setItem("kp3_auth_user", JSON.stringify(cleanUser));
-          } catch (e) {}
-          if (cleanUser.role === "canbo") {
-            setActiveTab("cultural");
-            navigate(ROUTES.DASHBOARD_CULTURAL);
-          } else {
+      <Suspense
+        fallback={
+          <LoadingFade
+            variant="screen"
+            title="Đang tải cổng đăng nhập..."
+            subtitle="Hệ thống Quản lý Thông minh Khu phố 3 An Phú"
+          />
+        }
+      >
+        <LoginAndRegister
+          onLoginSuccess={(user) => {
+            if (user.staffSession) {
+              updateVerifiedStaff(user.staffSession);
+            }
+            const cleanUser = {
+              username: user.username,
+              fullName: user.fullName,
+              role: user.role,
+              cccd: user.cccd,
+              householdCode: user.householdCode,
+              phone: user.phone,
+            };
+            setCurrentUser(cleanUser);
+            try {
+              localStorage.setItem("kp3_auth_user", JSON.stringify(cleanUser));
+            } catch (e) {}
+            if (cleanUser.role === "canbo") {
+              setActiveTab("dashboard");
+              navigate(ROUTES.DASHBOARD);
+            } else {
+              navigate(ROUTES.HOME);
+            }
+          }}
+          onRegisterSubmit={(newReg) => {
+            setPendingRegistrations([newReg, ...pendingRegistrations]);
+          }}
+          householdCodes={households.map(h => h.code)}
+          partySecretaryName={keyLeaders.partySecretary.name}
+          onBackToLanding={() => {
+            setCurrentUser(PUBLIC_CITIZEN_USER);
+            setCitizenSubView(null);
             navigate(ROUTES.HOME);
-          }
-        }}
-        onRegisterSubmit={(newReg) => {
-          setPendingRegistrations([newReg, ...pendingRegistrations]);
-        }}
-        householdCodes={households.map(h => h.code)}
-        onBackToLanding={() => {
-          setCurrentUser(PUBLIC_CITIZEN_USER);
-          setCitizenSubView(null);
-          navigate(ROUTES.HOME);
-        }}
-      />
+          }}
+        />
+      </Suspense>
     );
   }
 
@@ -1674,83 +2367,93 @@ export default function App() {
   if ((currentUser.role === "nguoidan" || !isDashboardUrl) && !citizenSubView) {
     const isAdminUser = currentUser.role === "canbo";
     return (
-      <CitizenLandingPage
-        residents={residents}
-        households={households}
-        businesses={businesses}
-        reports={reports}
-        forms={administrativeForms}
-        events={communityEvents}
-        news={newsList}
-        isAdmin={isAdminUser}
-        adminName={isAdminUser ? currentUser.fullName : undefined}
-        landingConfig={landingConfig}
-        onUpdateLandingConfig={handleUpdateLandingConfig}
-        onAddNews={handleAddNews}
-        onUpdateNews={handleUpdateNews}
-        onDeleteNews={handleDeleteNews}
-        onAddEvent={handleAddCommunityEvent}
-        onUpdateEvent={handleUpdateCommunityEvent}
-        onDeleteEvent={handleDeleteCommunityEvent}
-        onAddReport={handleAddReport}
-        onOpenStaffLogin={() => {
-          if (isAdminUser) {
+      <Suspense
+        fallback={
+          <LoadingFade
+            variant="screen"
+            title="Đang tải Cổng Cư dân số..."
+            subtitle="Khu phố 3, Phường An Phú"
+          />
+        }
+      >
+        <CitizenLandingPage
+          residents={residents}
+          households={households}
+          businesses={businesses}
+          reports={reports}
+          forms={administrativeForms}
+          events={communityEvents}
+          publicSchedules={publicSchedules}
+          news={newsList}
+          isAdmin={isAdminUser}
+          adminName={isAdminUser ? effectiveStaffName : undefined}
+          landingConfig={landingConfig}
+          onUpdateLandingConfig={handleUpdateLandingConfig}
+          onAddNews={handleAddNews}
+          onUpdateNews={handleUpdateNews}
+          onDeleteNews={handleDeleteNews}
+          onRefreshNews={handleRefreshNewsList}
+          onAddEvent={handleAddCommunityEvent}
+          onUpdateEvent={handleUpdateCommunityEvent}
+          onDeleteEvent={handleDeleteCommunityEvent}
+          onAddReport={handleAddReport}
+          onOpenStaffLogin={() => {
+            if (isAdminUser) {
+              setActiveTab("dashboard");
+              setCitizenSubView(null);
+              navigate(ROUTES.DASHBOARD);
+            } else {
+              setCurrentUser(null);
+              navigate(ROUTES.LOGIN);
+            }
+          }}
+          onOpenDashboard={() => {
             setActiveTab("cultural");
             setCitizenSubView(null);
             navigate(ROUTES.DASHBOARD_CULTURAL);
-          } else {
-            setCurrentUser(null);
-            navigate(ROUTES.LOGIN);
-          }
-        }}
-        onOpenDashboard={() => {
-          setActiveTab("cultural");
-          setCitizenSubView(null);
-          navigate(ROUTES.DASHBOARD_CULTURAL);
-        }}
-        onLogoutAdmin={() => {
-          try {
-            localStorage.removeItem("kp3_auth_user");
-          } catch {}
-          if (supabase) {
-            supabase.auth.signOut().catch(() => {});
-          }
-          updateVerifiedStaff(null);
-          setCurrentUser(PUBLIC_CITIZEN_USER);
-          navigate(ROUTES.HOME);
-        }}
-        onSwitchToCanBo={() => {
-          if (isAdminUser && (!isSupabaseConfigured || verifiedStaff)) {
+          }}
+          onLogoutAdmin={() => {
+            clearSensitiveStaffLocalStorage();
+            if (supabase) {
+              supabase.auth.signOut().catch(() => {});
+            }
+            updateVerifiedStaff(null);
+            setCurrentUser(PUBLIC_CITIZEN_USER);
+            navigate(ROUTES.HOME);
+          }}
+          onSwitchToCanBo={() => {
+            if (isAdminUser && (!isSupabaseConfigured || verifiedStaff)) {
+              setActiveTab("cultural");
+              setCitizenSubView(null);
+              navigate(ROUTES.DASHBOARD_CULTURAL);
+              return;
+            }
+            if (isSupabaseConfigured) {
+              setCurrentUser(null);
+              setCitizenSubView(null);
+              navigate(ROUTES.LOGIN);
+              return;
+            }
+            try {
+              localStorage.setItem("kp3_auth_user", JSON.stringify(CANBO_USER));
+            } catch {}
+            setCurrentUser(CANBO_USER);
             setActiveTab("cultural");
             setCitizenSubView(null);
             navigate(ROUTES.DASHBOARD_CULTURAL);
-            return;
-          }
-          if (isSupabaseConfigured) {
-            setCurrentUser(null);
-            setCitizenSubView(null);
-            navigate(ROUTES.LOGIN);
-            return;
-          }
-          try {
-            localStorage.setItem("kp3_auth_user", JSON.stringify(CANBO_USER));
-          } catch {}
-          setCurrentUser(CANBO_USER);
-          setActiveTab("cultural");
-          setCitizenSubView(null);
-          navigate(ROUTES.DASHBOARD_CULTURAL);
-        }}
-        onNavigateToTab={(tab) => {
-          if (isAdminUser) {
-            setActiveTab(tab);
-            setCitizenSubView(null);
-            navigate(getDashboardExtensionPath(tab));
-          } else {
-            setCitizenSubView(tab);
-            setActiveTab(tab);
-          }
-        }}
-      />
+          }}
+          onNavigateToTab={(tab) => {
+            if (isAdminUser) {
+              setActiveTab(tab);
+              setCitizenSubView(null);
+              navigate(getDashboardExtensionPath(tab));
+            } else {
+              setCitizenSubView(tab);
+              setActiveTab(tab);
+            }
+          }}
+        />
+      </Suspense>
     );
   }
 
@@ -1808,15 +2511,16 @@ export default function App() {
 
         {/* Subview Content */}
         <main className="flex-1 p-3.5 sm:p-5 lg:p-6 overflow-y-auto max-w-7xl w-full mx-auto min-w-0">
-          <AppErrorBoundary fallbackTab={citizenSubView} onReset={() => setActiveTab(citizenSubView)}>
+          <AppErrorBoundary fallbackTab={`${citizenSubView}:${routePath}`} onReset={() => setActiveTab(citizenSubView)}>
+            <Suspense fallback={<LoadingFade variant="inline" title="Đang tải phân hệ..." subtitle="KP3 Smart City" />}>
             {citizenSubView === "gis" && (
-              <GisMap 
+              <GisMap
                 households={households}
-                onUpdateHouseholds={setHouseholds}
+                onUpdateHouseholds={() => {}}
                 residents={residents}
-                onUpdateResidents={setResidents}
+                onUpdateResidents={() => {}}
                 businesses={businesses}
-                onUpdateBusinesses={setBusinesses}
+                onUpdateBusinesses={() => {}}
                 reports={reports}
                 targetGisItem={targetGisItem}
                 onClearTargetGisItem={() => setTargetGisItem(null)}
@@ -1837,36 +2541,41 @@ export default function App() {
                   fundExpenditures,
                   communityEvents,
                   tasks,
+                  leadership: landingConfig.leadership,
                 }}
               />
             )}
             {citizenSubView === "finance" && (
-              <NeighborhoodFunds 
+              <NeighborhoodFunds
                 contributions={fundContributions}
                 expenditures={fundExpenditures}
                 onAddContribution={handleAddFundContribution}
-                onUpdateContributionStatus={handleUpdateContributionStatus}
+                onUpdateContributionStatus={() => {}}
                 households={households}
+                defaultApproverName={keyLeaders.partySecretary.name}
                 readOnly={true}
               />
             )}
             {citizenSubView === "forms" && (
-              <AdministrativeForms 
+              <AdministrativeForms
                 forms={administrativeForms}
-                onAddForm={handleAddForm}
-                onUpdateForm={handleUpdateForm}
-                onDeleteForm={handleDeleteForm}
-                currentUser={currentUser} 
+                onAddForm={() => {}}
+                onUpdateForm={() => {}}
+                onDeleteForm={() => {}}
+                currentUser={currentUser}
+                {...({ readOnly: true } as any)}
               />
             )}
             {citizenSubView === "reports" && (
-              <ReportsPage 
-                reports={reports} 
+              <ReportsPage
+                reports={reports}
+                residents={residents}
+                households={households}
                 isDataLoading={isDataLoading}
                 basePath={ROUTES.REFLECTION}
-                onAddReport={handleAddReport} 
-                onUpdateReportStatus={handleUpdateReportStatus} 
-                onUpdateReports={setReports}
+                onAddReport={handleAddReport}
+                onUpdateReportStatus={() => {}}
+                onUpdateReports={() => {}}
                 onAddMessage={handleAddReportMessage}
                 onSubmitFeedback={handleSubmitReportFeedback}
                 onReopenReport={handleReopenReport}
@@ -1879,38 +2588,44 @@ export default function App() {
               />
             )}
             {citizenSubView === "party" && (
-              <PartyPage 
-                partyMembers={partyMembers} 
+              <PartyPage
+                partyMembers={partyMembers}
                 residents={residents}
+                associations={associations}
+                onAssociationsChange={() => {}}
                 basePath="/citizen/party"
+                {...({ readOnly: true } as any)}
               />
             )}
             {citizenSubView === "welfare" && (
-              <SocialWelfare 
+              <SocialWelfare
                 recipients={welfareRecipients}
-                onUpdateStatus={handleUpdateWelfareStatus}
-                onAddRecipient={handleAddWelfareRecipient}
-                onUpdateRecipient={handleUpdateWelfareRecipient}
-                onDeleteRecipient={handleDeleteWelfareRecipient}
+                onUpdateStatus={() => {}}
+                onAddRecipient={() => {}}
+                onUpdateRecipient={() => {}}
+                onDeleteRecipient={() => {}}
                 residents={residents}
+                {...({ readOnly: true } as any)}
               />
             )}
             {citizenSubView === "cultural" && (
-              <CulturalPage 
+              <CulturalPage
                 events={communityEvents}
-                onAddEvent={handleAddCommunityEvent}
-                onUpdateEventStatus={handleUpdateEventStatus}
-                onUpdateEvent={handleUpdateCommunityEvent}
-                onDeleteEvent={handleDeleteCommunityEvent}
+                onAddEvent={() => {}}
+                onUpdateEventStatus={() => {}}
+                onUpdateEvent={() => {}}
+                onDeleteEvent={() => {}}
                 newsList={newsList}
-                onAddNews={handleAddNews}
-                onUpdateNews={handleUpdateNews}
-                onDeleteNews={handleDeleteNews}
+                onAddNews={() => {}}
+                onUpdateNews={() => {}}
+                onDeleteNews={() => {}}
+                {...({ readOnly: true } as any)}
               />
             )}
             {citizenSubView === "plan" && (
               <PlanArchitecture />
             )}
+            </Suspense>
           </AppErrorBoundary>
         </main>
       </div>
@@ -1918,23 +2633,27 @@ export default function App() {
   }
 
   // 3. CỔNG CÁN BỘ QUẢN LÝ (KHU VỰC NGHIỆP VỤ RIÊNG)
+  const subrouteActionLabel = getSubrouteActionLabel(routePath, activeTab);
+
   return (
     <div className="min-h-screen bg-slate-50 flex font-sans">
       {/* Sidebar Navigation */}
-      <Sidebar 
-        activeTab={activeTab} 
+      <Sidebar
+        activeTab={activeTab}
         setActiveTab={(tab) => {
           setActiveTab(tab);
           navigate(getDashboardExtensionPath(tab));
-        }} 
-        currentUser={currentUser}
+        }}
+        currentUser={displayCurrentUser || currentUser}
+        staffRoleLabel={staffRoleLabel}
+        isCollapsed={isSidebarCollapsed}
+        onToggleCollapse={toggleSidebarCollapsed}
         onLogout={() => {
-          try {
-            localStorage.removeItem("kp3_auth_user");
-            if (supabase) {
-              supabase.auth.signOut().catch(() => {});
-            }
-          } catch (e) {}
+          clearSensitiveStaffLocalStorage();
+          if (supabase) {
+            supabase.auth.signOut().catch(() => {});
+          }
+          updateVerifiedStaff(null);
           setCurrentUser(null);
           navigate(ROUTES.LOGIN);
         }}
@@ -1952,24 +2671,71 @@ export default function App() {
         residentPermissions={residentPermissions}
       />
 
+      <QuickCommandModal
+        isOpen={showCommandModal}
+        onClose={() => setShowCommandModal(false)}
+        isStaff={currentUser.role === "canbo"}
+        residents={residents}
+        households={households}
+        businesses={businesses}
+        reports={reports}
+        tasks={tasks}
+        onSelectTab={(tab) => {
+          setActiveTab(tab);
+          setCitizenSubView(null);
+          navigate(getDashboardExtensionPath(tab));
+        }}
+      />
+
       {/* Main Content Area */}
-      <div className="flex-1 flex flex-col md:pl-20 lg:pl-64 min-w-0 transition-all duration-300">
-        
+      <div className={`flex-1 flex flex-col ${isSidebarCollapsed ? "lg:pl-20" : "lg:pl-64"} min-w-0 transition-all duration-300`}>
+
         {/* Top Header Bar */}
-        <header className="min-h-16 h-auto py-2 border-b border-slate-200 bg-white flex items-center justify-between px-3 sm:px-6 sticky top-0 z-30 shrink-0 transition-colors">
-          <div className="flex items-center gap-2 sm:gap-3 pl-14 md:pl-0 flex-1 min-w-0 mr-2 sm:mr-4">
-            <h2 className="font-bold text-slate-900 text-sm sm:text-base lg:text-lg tracking-tight leading-snug sm:truncate">
-              {currentUser.role === "nguoidan" && activeTab === "dashboard" ? "Cổng Dịch Vụ Cư Dân Số" : getTabTitle()}
-            </h2>
-            <span className="hidden 2xl:inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-800 border border-emerald-200 shrink-0 select-none">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-600"></span>
-              Cổng Điều Hành Số • Đề án 06/CP • KP3 An Phú
+        <header className="h-16 border-b border-slate-200 bg-white flex items-center justify-between px-3 sm:px-6 sticky top-0 z-30 shrink-0 transition-colors">
+          <div className="flex items-center gap-1.5 sm:gap-2 pl-12 lg:pl-0 flex-1 min-w-0 mr-2 sm:mr-3">
+            <span className="hidden sm:inline text-xs font-semibold text-emerald-700 shrink-0 select-none">
+              KP3 An Phú ›
             </span>
+            {subrouteActionLabel ? (
+              <nav aria-label="Breadcrumb" className="flex items-center gap-1.5 min-w-0 flex-1">
+                <button
+                  type="button"
+                  onClick={() => navigate(getDashboardExtensionPath(activeTab))}
+                  className="text-xs sm:text-sm font-semibold text-slate-500 hover:text-emerald-700 transition-colors truncate max-w-[140px] sm:max-w-[260px] cursor-pointer"
+                  title={`Quay lại ${getTabTitle()}`}
+                >
+                  {getTabTitle()}
+                </button>
+                <ChevronRight size={14} className="text-slate-400 shrink-0" aria-hidden="true" />
+                <h2 className="font-bold text-slate-900 text-xs sm:text-sm lg:text-base tracking-tight truncate min-w-0">
+                  {subrouteActionLabel}
+                </h2>
+              </nav>
+            ) : (
+              <h2 className="font-bold text-slate-900 text-sm sm:text-base lg:text-lg tracking-tight leading-snug truncate min-w-0 flex-1">
+                {currentUser.role === "nguoidan" && activeTab === "dashboard" ? "Cổng Dịch Vụ Cư Dân Số" : getTabTitle()}
+              </h2>
+            )}
           </div>
 
           {/* Right Header items */}
-          <div className="flex items-center gap-2 shrink-0">
-            
+          <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+            {/* Quick Command Palette Trigger (Ctrl+K) */}
+            <button
+              id="header-quick-command"
+              type="button"
+              aria-label="Tìm kiếm và chuyển nhanh phân hệ (Ctrl+K)"
+              onClick={() => setShowCommandModal(true)}
+              className="h-10 w-10 md:w-auto md:px-3 inline-flex items-center justify-center gap-2 rounded-xl border border-slate-200/90 bg-slate-50/80 hover:bg-slate-100 text-slate-600 hover:text-slate-900 text-xs font-medium transition-colors cursor-pointer shrink-0"
+              title="Tìm nhanh phân hệ & thao tác (Ctrl+K)"
+            >
+              <Search size={15} className="text-slate-500 shrink-0" />
+              <span className="hidden md:inline text-slate-500">Tìm nhanh...</span>
+              <kbd className="hidden lg:inline-flex items-center px-1.5 py-0.5 rounded bg-white border border-slate-200 text-[10px] font-mono font-bold text-slate-500">
+                Ctrl K
+              </kbd>
+            </button>
+
             {/* Info button for Plan & Database design */}
             <Link
               to={getDashboardExtensionPath("plan")}
@@ -1979,9 +2745,9 @@ export default function App() {
                 setActiveTab("plan");
                 navigate(getDashboardExtensionPath("plan"));
               }}
-              className={`h-11 w-11 sm:h-10 sm:w-10 text-xs inline-flex items-center justify-center rounded-lg border transition-colors cursor-pointer relative ${
-                activeTab === "plan" 
-                  ? "bg-emerald-50 border-emerald-200 text-emerald-800" 
+              className={`hidden sm:inline-flex h-10 w-10 text-xs items-center justify-center rounded-lg border transition-colors cursor-pointer relative ${
+                activeTab === "plan"
+                  ? "bg-emerald-50 border-emerald-200 text-emerald-800"
                   : "border-transparent text-slate-600 hover:text-slate-900 hover:bg-slate-100"
               }`}
               title="Đề án & Thiết kế Kiến trúc Cơ sở dữ liệu (/dashboard/plan)"
@@ -1991,34 +2757,67 @@ export default function App() {
 
             {/* Notifications panel toggle button */}
             <div ref={notificationsRef} className="relative">
-              <button 
+              <button
                 id="header-notifications"
                 type="button"
                 aria-expanded={showNotifications}
                 aria-haspopup="true"
                 aria-label="Mở danh sách thông báo"
                 onClick={() => setShowNotifications((s) => !s)}
-                className="h-11 w-11 sm:h-10 sm:w-10 text-xs inline-flex items-center justify-center text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-lg border border-transparent transition-colors cursor-pointer relative"
+                className="h-10 w-10 text-xs inline-flex items-center justify-center text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-lg border border-transparent transition-colors cursor-pointer relative"
               >
                 <Bell size={18} />
-                {notifications.some(n => n.unread) && (
+                {hasUnreadNotifications && (
                   <span className="absolute top-2 right-2 w-2 h-2 bg-rose-600 rounded-full ring-2 ring-white"></span>
                 )}
               </button>
 
               {showNotifications && (
-                <div className="fixed inset-x-3 top-16 sm:absolute sm:inset-x-auto sm:top-auto sm:right-0 sm:mt-2 sm:w-80 bg-white rounded-xl border border-slate-200 p-2 z-50">
+                <div className="absolute right-0 top-full mt-2 w-80 max-w-[calc(100vw-1.5rem)] bg-white rounded-xl border border-slate-200 shadow-xl p-2 z-50">
                   <div className="px-3 py-2 border-b border-slate-200 flex justify-between items-center bg-slate-50 rounded-t-lg">
-                    <span className="font-bold text-xs text-slate-800">Thông báo mới nhận</span>
-                    <button 
+                    <span className="font-bold text-xs text-slate-800">Thông báo điều hành KP3</span>
+                    <button
                       type="button"
-                      onClick={() => setNotifications(notifications.map(n => ({ ...n, unread: false })))}
+                      onClick={() => {
+                        setSystemAlertsMarkedRead(true);
+                        setNotifications((prev) => prev.map((n) => ({ ...n, unread: false })));
+                      }}
                       className="text-xs text-emerald-700 hover:text-emerald-800 font-bold cursor-pointer py-1 px-1.5 rounded"
                     >
                       Đánh dấu đã đọc
                     </button>
                   </div>
-                  <div className="py-1 divide-y divide-slate-100 max-h-48 overflow-y-auto evon-scroll">
+                  <div className="py-1 divide-y divide-slate-100 max-h-64 overflow-y-auto evon-scroll">
+                    {liveOperationalNotifications.map((item) => (
+                      <button
+                        key={item.id}
+                        type="button"
+                        onClick={() => {
+                          setShowNotifications(false);
+                          setActiveTab(item.tab);
+                          if (item.path.includes("?")) {
+                            window.history.pushState({}, "", item.path);
+                            window.dispatchEvent(new PopStateEvent("popstate"));
+                            window.dispatchEvent(
+                              new CustomEvent("app:navigate", { detail: { path: item.path } })
+                            );
+                          } else {
+                            navigate(item.path);
+                          }
+                        }}
+                        className="w-full text-left p-2.5 text-xs text-slate-800 hover:bg-emerald-50/60 rounded-lg flex items-start gap-2.5 cursor-pointer transition-colors"
+                      >
+                        <span
+                          className={`w-2 h-2 rounded-full shrink-0 mt-1.5 ${
+                            item.unread ? "bg-rose-600" : "bg-emerald-600"
+                          }`}
+                        />
+                        <div className="min-w-0 flex-1">
+                          <p className="font-semibold text-slate-900 leading-snug">{item.text}</p>
+                          <p className="text-[11px] text-slate-500 mt-0.5">{item.subtext}</p>
+                        </div>
+                      </button>
+                    ))}
                     {notifications.map((n) => (
                       <div key={n.id} className="p-2.5 text-xs text-slate-700 hover:bg-slate-50 rounded-lg flex items-start gap-2">
                         <span className={`w-1.5 h-1.5 rounded-full shrink-0 mt-1.5 ${n.unread ? "bg-rose-600" : "bg-slate-400"}`}></span>
@@ -2033,7 +2832,7 @@ export default function App() {
             {/* Role Indicator & Quick Switch */}
             {currentUser.role === "nguoidan" ? (
               <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
-                <div className="hidden xl:inline-flex h-8 items-center gap-1.5 px-2.5 bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-lg text-xs font-bold">
+                <div className="hidden 2xl:inline-flex h-8 items-center gap-1.5 px-2.5 bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-lg text-xs font-bold">
                   <span className="w-2 h-2 rounded-full bg-emerald-600"></span>
                   <span>Cổng Cư dân</span>
                 </div>
@@ -2053,32 +2852,18 @@ export default function App() {
                     setActiveTab("cultural");
                     navigate(ROUTES.DASHBOARD_CULTURAL);
                   }}
-                  className="inline-flex min-h-[44px] items-center gap-1 sm:gap-1.5 px-3 bg-emerald-700 hover:bg-emerald-800 text-white rounded-lg text-xs font-bold transition-colors cursor-pointer shrink-0"
+                  className="inline-flex h-10 items-center gap-1 sm:gap-1.5 px-3 bg-emerald-700 hover:bg-emerald-800 text-white rounded-lg text-xs font-bold transition-colors cursor-pointer shrink-0"
                   title="Chuyển sang Bàn làm việc Cán bộ quản lý"
                 >
                   <span className="hidden sm:inline">Đăng nhập </span><span>Cán bộ</span>
                 </button>
-                <button
-                  id="header-open-auth"
-                  onClick={() => {
-                    updateVerifiedStaff(null);
-                    setCurrentUser(null);
-                    navigate(ROUTES.LOGIN);
-                  }}
-                  className="hidden md:inline-flex h-11 sm:h-10 items-center gap-1 px-3 bg-white hover:bg-slate-100 border border-slate-300 text-slate-800 rounded-lg text-xs font-semibold cursor-pointer shrink-0 whitespace-nowrap"
-                  title="Đăng nhập tài khoản cá nhân / Đăng ký nhân khẩu mới"
-                >
-                  <span>Tài khoản</span>
-                </button>
               </div>
             ) : (
               <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
-                <div className="hidden xl:inline-flex h-10 items-center gap-1.5 px-2.5 bg-indigo-50 border border-indigo-200 text-indigo-800 rounded-lg text-xs font-bold whitespace-nowrap">
-                  <span className="w-2 h-2 rounded-full bg-indigo-600"></span>
-                  <span>Cán bộ</span>
-                </div>
                 <button
                   id="header-back-cudan"
+                  type="button"
+                  aria-label="Về Cổng Cư dân"
                   onClick={() => {
                     try {
                       localStorage.setItem("kp3_auth_user", JSON.stringify(currentUser));
@@ -2086,46 +2871,30 @@ export default function App() {
                     setCitizenSubView(null);
                     navigate(ROUTES.HOME);
                   }}
-                  className="inline-flex h-11 sm:h-10 items-center gap-1 sm:gap-1.5 px-3 bg-emerald-700 hover:bg-emerald-800 text-white rounded-lg text-xs font-bold transition-colors cursor-pointer shrink-0 whitespace-nowrap"
+                  className="inline-flex h-10 w-10 sm:w-auto items-center justify-center gap-1.5 sm:px-3 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl text-xs font-bold transition-colors cursor-pointer shrink-0 whitespace-nowrap"
                   title="Xem Trang chủ Cổng Cư dân (giữ quyền Cán bộ để chỉnh sửa trực tiếp)"
                 >
-                  <span className="hidden sm:inline">Về Cổng&nbsp;</span><span>Cư dân</span>
-                </button>
-                <button
-                  id="header-logout-auth"
-                  onClick={() => {
-                    try {
-                      localStorage.removeItem("kp3_auth_user");
-                      if (supabase) {
-                        supabase.auth.signOut().catch(() => {});
-                      }
-                    } catch (e) {}
-                    updateVerifiedStaff(null);
-                    setCurrentUser(null);
-                    navigate(ROUTES.LOGIN);
-                  }}
-                  className="hidden md:inline-flex h-11 sm:h-10 items-center gap-1 px-3 bg-white hover:bg-slate-100 border border-slate-300 text-slate-800 rounded-lg text-xs font-semibold cursor-pointer shrink-0 whitespace-nowrap"
-                  title="Đăng xuất khỏi hệ thống"
-                >
-                  <span>Đăng xuất</span>
+                  <Home size={15} className="shrink-0" aria-hidden="true" />
+                  <span className="hidden sm:inline">Cổng Cư dân</span>
                 </button>
               </div>
             )}
 
-            {/* User identity display */}
+            {/* User identity display (compact on laptop since Sidebar footer already shows full identity) */}
             <div className="flex items-center gap-2 border-l border-slate-200 pl-2 sm:pl-3">
               {currentUser.role === "canbo" ? (
                 <>
-                  <div className="text-right hidden sm:block">
-                    <span className="text-xs font-bold text-slate-800 block">{currentUser.fullName}</span>
-                    <span className="text-xs text-slate-600 font-mono uppercase tracking-wider block">Bí thư Chi bộ KP3</span>
+                  <div className="text-right hidden 2xl:block">
+                    <span className="text-xs font-bold text-slate-800 block max-w-[160px] truncate">{effectiveStaffName}</span>
+                    <span className="text-[11px] text-slate-500 font-semibold uppercase tracking-wider block">{staffRoleLabel}</span>
                   </div>
-                  <img 
-                    src="https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150"
-                    alt={currentUser.fullName}
-                    className="w-8 h-8 rounded-full border border-slate-200 object-cover shadow-xs shrink-0"
-                    referrerPolicy="no-referrer"
-                  />
+                  <div
+                    aria-label={effectiveStaffName}
+                    title={`${effectiveStaffName} (${staffRoleLabel})`}
+                    className="w-8 h-8 rounded-full bg-emerald-700 text-white border border-emerald-600 flex items-center justify-center font-bold text-xs shadow-xs shrink-0 select-none"
+                  >
+                    {staffInitials}
+                  </div>
                 </>
               ) : (
                 <>
@@ -2145,7 +2914,7 @@ export default function App() {
 
         {/* Dynamic view routing based on tab state */}
         <main className="flex-1 p-3.5 sm:p-5 lg:p-6 overflow-y-auto max-w-7xl w-full mx-auto min-w-0">
-          {isDataLoading && (
+          {isDataLoading && activeTab === "dashboard" && (
             <LoadingFade
               variant="inline"
               title="Đang đồng bộ dữ liệu cư dân & địa bàn từ CSDL..."
@@ -2153,26 +2922,30 @@ export default function App() {
               className="mb-4"
             />
           )}
-          <AppErrorBoundary fallbackTab={activeTab} onReset={() => setActiveTab(activeTab)}>
-            <motion.div
-              key={activeTab}
-              initial={{ opacity: 0, y: 6 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
-              className="w-full"
+          <AppErrorBoundary fallbackTab={`${activeTab}:${routePath}`} onReset={() => setActiveTab(activeTab)}>
+            <Suspense
+              fallback={
+                <LoadingFade
+                  variant="inline"
+                  title="Đang tải phân hệ điều hành..."
+                  subtitle="KP3 Smart City"
+                />
+              }
             >
+            <div className="w-full">
           {activeTab === "dashboard" && (
-            <Dashboard 
-              residents={residents} 
-              households={households} 
-              businesses={businesses} 
-              reports={reports} 
+            <Dashboard
+              residents={residents}
+              households={households}
+              businesses={businesses}
+              reports={reports}
               forms={administrativeForms}
               tasks={tasks}
+              schedules={allSchedules}
               fundContributions={fundContributions}
               fundExpenditures={fundExpenditures}
               welfareCount={welfareRecipients.length}
-              setActiveTab={setActiveTab} 
+              setActiveTab={setActiveTab}
               currentUser={currentUser}
             />
           )}
@@ -2186,8 +2959,8 @@ export default function App() {
               isDataLoading={isDataLoading}
               onAddResident={handleAddResident}
               onDeleteResident={handleDeleteResident}
-              onUpdateResidents={setResidents}
-              onUpdateHouseholds={setHouseholds}
+              onUpdateResidents={updateResidentsWithSync}
+              onUpdateHouseholds={handleHouseholdsChange}
               onNavigateToGis={handleNavigateToGis}
               setActiveTab={setActiveTab}
             />
@@ -2197,12 +2970,13 @@ export default function App() {
             <HouseholdsPage
               households={households}
               residents={residents}
+              businesses={businesses}
               currentUser={currentUser}
               residentPermissions={residentPermissions}
               isDataLoading={isDataLoading}
               onAddHousehold={handleAddHousehold}
-              onUpdateHouseholds={setHouseholds}
-              onUpdateResidents={setResidents}
+              onUpdateHouseholds={handleHouseholdsChange}
+              onUpdateResidents={updateResidentsWithSync}
               onNavigateToGis={handleNavigateToGis}
               setActiveTab={setActiveTab}
             />
@@ -2216,32 +2990,32 @@ export default function App() {
               isDataLoading={isDataLoading}
               onToggleCertification={handleToggleBusinessCertification}
               onUpdateStatus={handleUpdateBusinessStatus}
-              onUpdateBusinesses={setBusinesses}
+              onUpdateBusinesses={handleBusinessesChange}
               onNavigateToGis={handleNavigateToGis}
             />
           )}
 
           {activeTab === "businesses" && (
-            <BusinessesPage 
-              businesses={businesses} 
+            <BusinessesPage
+              businesses={businesses}
               residents={residents}
               households={households}
               isDataLoading={isDataLoading}
-              onToggleCertification={handleToggleBusinessCertification} 
-              onUpdateStatus={handleUpdateBusinessStatus} 
-              onUpdateBusinesses={setBusinesses}
+              onToggleCertification={handleToggleBusinessCertification}
+              onUpdateStatus={handleUpdateBusinessStatus}
+              onUpdateBusinesses={handleBusinessesChange}
               onNavigateToGis={handleNavigateToGis}
             />
           )}
 
           {activeTab === "gis" && (
-            <GisMap 
+            <GisMap
               households={households}
-              onUpdateHouseholds={setHouseholds}
+              onUpdateHouseholds={handleHouseholdsChange}
               residents={residents}
-              onUpdateResidents={setResidents}
+              onUpdateResidents={updateResidentsWithSync}
               businesses={businesses}
-              onUpdateBusinesses={setBusinesses}
+              onUpdateBusinesses={handleBusinessesChange}
               reports={reports}
               targetGisItem={targetGisItem}
               onClearTargetGisItem={() => setTargetGisItem(null)}
@@ -2257,7 +3031,8 @@ export default function App() {
             <TasksPage
               tasks={tasks}
               onTasksChange={handleTasksChange}
-              creatorLabel={currentUser?.fullName || "Đ/c Nguyễn Văn Hùng (Bí thư Chi bộ)"}
+              creatorLabel={currentUser?.fullName || keyLeaders.partySecretary.formattedWithTitle}
+              associationsList={associations}
               isDataLoading={isDataLoading}
             />
           )}
@@ -2275,16 +3050,19 @@ export default function App() {
                 fundExpenditures,
                 communityEvents,
                 tasks,
+                leadership: landingConfig.leadership,
               }}
             />
           )}
 
           {activeTab === "reports" && (
-            <ReportsPage 
-              reports={reports} 
+            <ReportsPage
+              reports={reports}
+              residents={residents}
+              households={households}
               isDataLoading={isDataLoading}
-              onAddReport={handleAddReport} 
-              onUpdateReportStatus={handleUpdateReportStatus} 
+              onAddReport={handleAddReport}
+              onUpdateReportStatus={handleUpdateReportStatus}
               onUpdateReports={setReports}
               onEditReport={handleEditReport}
               onDeleteReport={handleDeleteReport}
@@ -2324,22 +3102,29 @@ export default function App() {
                 currentUser={currentUser}
                 landingConfig={landingConfig}
                 onUpdateLandingConfig={handleUpdateLandingConfig}
+                onResyncLeadership={handleResyncLeadershipFromAssociations}
+                onNavigate={(tab) => {
+                  setActiveTab(tab);
+                  navigate(getDashboardExtensionPath(tab));
+                }}
               />
             ) : (
-              <AdministrativeForms 
+              <AdministrativeForms
                 forms={administrativeForms}
                 onAddForm={handleAddForm}
                 onUpdateForm={handleUpdateForm}
                 onDeleteForm={handleDeleteForm}
-                currentUser={currentUser} 
+                currentUser={currentUser}
               />
             )
           )}
 
           {activeTab === "party" && (
-            <PartyPage 
-              partyMembers={partyMembers} 
+            <PartyPage
+              partyMembers={partyMembers}
               residents={residents}
+              associations={associations}
+              onAssociationsChange={handleAssociationsChange}
               onCreateTask={(newTask) => handleTasksChange([newTask, ...tasks])}
               onNavigate={(tab) => {
                 setActiveTab(tab as ActiveTab);
@@ -2350,7 +3135,7 @@ export default function App() {
           )}
 
           {activeTab === "welfare" && (
-            <SocialWelfare 
+            <SocialWelfare
               recipients={welfareRecipients}
               onUpdateStatus={handleUpdateWelfareStatus}
               onAddRecipient={handleAddWelfareRecipient}
@@ -2362,7 +3147,7 @@ export default function App() {
           )}
 
           {activeTab === "cultural" && (
-            <CulturalPage 
+            <CulturalPage
               events={communityEvents}
               onAddEvent={handleAddCommunityEvent}
               onUpdateEventStatus={handleUpdateEventStatus}
@@ -2372,14 +3157,16 @@ export default function App() {
               onAddNews={handleAddNews}
               onUpdateNews={handleUpdateNews}
               onDeleteNews={handleDeleteNews}
+              onRefreshNews={handleRefreshNewsList}
             />
           )}
 
           {activeTab === "finance" && (
-            <NeighborhoodFunds 
+            <NeighborhoodFunds
               contributions={fundContributions}
               expenditures={fundExpenditures}
               onAddContribution={handleAddFundContribution}
+              onBatchAddContributions={handleBatchAddFundContributions}
               onUpdateContribution={handleUpdateFundContribution}
               onDeleteContribution={handleDeleteFundContribution}
               onUpdateContributionStatus={handleUpdateContributionStatus}
@@ -2388,6 +3175,7 @@ export default function App() {
               onDeleteExpenditure={handleDeleteFundExpenditure}
               onSyncRenamedFund={handleSyncRenamedFund}
               households={households}
+              defaultApproverName={keyLeaders.partySecretary.name}
               readOnly={false}
             />
           )}
@@ -2398,7 +3186,7 @@ export default function App() {
 
           {activeTab === "settings" && (
             <SettingsAndPermissions
-              defaultSubTab={pendingRegistrations.length > 0 ? "approvals" : "portal"}
+              defaultSubTab="approvals"
               onNavigate={(tab) => {
                 setActiveTab(tab);
                 navigate(getDashboardExtensionPath(tab));
@@ -2421,12 +3209,15 @@ export default function App() {
               onAddNews={handleAddNews}
               onUpdateNews={handleUpdateNews}
               onDeleteNews={handleDeleteNews}
+              onRefreshNews={handleRefreshNewsList}
               currentUser={currentUser}
               landingConfig={landingConfig}
               onUpdateLandingConfig={handleUpdateLandingConfig}
+              onResyncLeadership={handleResyncLeadershipFromAssociations}
             />
           )}
-            </motion.div>
+            </div>
+            </Suspense>
           </AppErrorBoundary>
         </main>
       </div>

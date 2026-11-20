@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import {
   AlertCircle,
   ArrowLeft,
+  Camera,
   Check,
   ChevronLeft,
   ChevronRight,
@@ -9,11 +10,14 @@ import {
   ExternalLink,
   Eye,
   EyeOff,
+  FileCheck,
   GitBranch,
   History,
   Home,
+  Layers,
   MapPin,
   Navigation,
+  Search,
   Sparkles,
   Trash2,
   Undo2,
@@ -21,7 +25,7 @@ import {
   Users,
   X,
 } from "lucide-react";
-import { Household, Resident, TargetGisItem } from "../types";
+import { Business, Household, Resident, TargetGisItem } from "../types";
 import {
   decimalToDMS,
   generateDefaultCoordinatesForAddress,
@@ -29,9 +33,13 @@ import {
   parseCoordinates as parseGisCoords,
 } from "../utils/gisUtils";
 import { extractKp3Area, maskCccd, maskPhone } from "../utils/kp3Utils";
+import { resolveCoLocatedEntities } from "../utils/addressCoLocationUtils";
+import { normalizeEntityLandParcels } from "../utils/landParcelsUtils";
 import { DetailGrid, DetailRow } from "../components/common/DetailRow";
 import { LoadingFade } from "../components/common/LoadingFade";
+import { MultiParcelDetailView } from "../components/common/MultiParcelDetailView";
 import { PageHeader } from "../components/common/PageHeader";
+import { SharedAddressHubCard } from "../components/common/SharedAddressHubCard";
 import { ReportSelect } from "../components/reports/ReportSelect";
 import { ConfirmModal, InlineNotice } from "../components/ui/ConfirmModal";
 import HouseholdBusinesses from "../components/household/HouseholdBusinesses";
@@ -42,6 +50,7 @@ import {
   getHouseholdAddMemberPath,
   getHouseholdDetailPath,
   getHouseholdEditPath,
+  getResidentDetailPath,
   navigate,
 } from "../routes";
 
@@ -51,6 +60,7 @@ export interface HouseholdDetailPageProps {
   householdId: string;
   households: Household[];
   residents: Resident[];
+  businesses?: Business[];
   isDataLoading?: boolean;
   onUpdateHouseholds: React.Dispatch<React.SetStateAction<Household[]>>;
   onUpdateResidents: React.Dispatch<React.SetStateAction<Resident[]>>;
@@ -67,6 +77,7 @@ export default function HouseholdDetailPage({
   householdId,
   households,
   residents,
+  businesses = [],
   isDataLoading = false,
   onUpdateHouseholds,
   onUpdateResidents,
@@ -80,6 +91,7 @@ export default function HouseholdDetailPage({
 }: HouseholdDetailPageProps) {
   const [detailTab, setDetailTab] = useState<HouseholdDetailTab>("members");
   const [showFullPii, setShowFullPii] = useState(false);
+  const [memberSearchQuery, setMemberSearchQuery] = useState("");
 
   // Sub-modals for actions inside household detail
   const [showTreeModal, setShowTreeModal] = useState(false);
@@ -744,6 +756,24 @@ export default function HouseholdDetailPage({
                     Đã lưu trữ
                   </span>
                 )}
+                {household.timemarkVerified && (
+                  <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full font-bold bg-amber-50 text-amber-900 border border-amber-300 shadow-2xs">
+                    <Sparkles size={11} className="text-amber-600" />
+                    <span>Timemark GPS</span>
+                  </span>
+                )}
+                {(() => {
+                  const parcels = normalizeEntityLandParcels(household);
+                  if (parcels.length < 2) return null;
+                  return (
+                    <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full font-bold bg-indigo-50 text-indigo-800 border border-indigo-200">
+                      <Layers size={11} className="text-indigo-600" />
+                      <span>
+                        Ghép {String(parcels.length).padStart(2, "0")} Sổ đỏ
+                      </span>
+                    </span>
+                  );
+                })()}
               </div>
               <p className="text-xs text-slate-600 flex items-center gap-1.5">
                 <MapPin
@@ -790,7 +820,18 @@ export default function HouseholdDetailPage({
             }`}
           >
             <Home size={14} aria-hidden="true" />
-            <span>Hộ kinh doanh tại địa chỉ</span>
+            <span>
+              Doanh nghiệp &amp; Cơ sở KD cùng địa chỉ (
+              {(() => {
+                const co = resolveCoLocatedEntities({
+                  focusHousehold: household,
+                  households,
+                  businesses,
+                });
+                return co.enterprises.length + co.businesses.length;
+              })()}
+              )
+            </span>
             {detailTab === "businesses" && (
               <div className="absolute bottom-0 left-0 w-full h-0.5 bg-emerald-700" />
             )}
@@ -892,6 +933,86 @@ export default function HouseholdDetailPage({
                     />
                   )}
                 </DetailGrid>
+
+                {/* Khối Đa Thửa Đất & Nhiều Sổ Đỏ (GCN QSDĐ) */}
+                <div className="pt-2 border-t border-slate-200/80">
+                  <MultiParcelDetailView entity={household} />
+                </div>
+
+                {/* Tổ hợp Doanh nghiệp • Cơ sở KD • Nhà trọ Cùng Địa Chỉ */}
+                <div className="pt-2 border-t border-slate-200/80">
+                  <SharedAddressHubCard
+                    focusHousehold={household}
+                    households={households}
+                    businesses={businesses}
+                  />
+                </div>
+
+                {/* Khối Ảnh hiện trường & Timemark Verified Geolocation */}
+                <div className="space-y-2.5 pt-3 border-t border-slate-200">
+                  <h4 className="text-xs font-bold text-slate-900 uppercase tracking-wider flex items-center justify-between border-b border-slate-200 pb-2">
+                    <span className="flex items-center gap-1.5">
+                      <Camera size={14} className="text-amber-600" />
+                      Hình ảnh Hiện trường &amp; Khảo sát Thực tế Timemark
+                    </span>
+                    {household.timemarkVerified && (
+                      <span className="text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-amber-500 text-white shadow-2xs flex items-center gap-1">
+                        <Sparkles size={11} /> Timemark 100% Chân thực
+                      </span>
+                    )}
+                  </h4>
+
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                    <div className="relative rounded-xl overflow-hidden bg-slate-100 border border-slate-200 aspect-video md:aspect-auto md:h-44">
+                      <img
+                        src={household.houseImage || "https://images.unsplash.com/photo-1570129477492-45c003edd2be?w=500"}
+                        alt={`Nhà ở hộ ${household.ownerName}`}
+                        className="w-full h-full object-cover"
+                      />
+                      {household.timemarkHash && (
+                        <div className="absolute top-2 right-2 bg-black/70 backdrop-blur-xs text-white text-[10px] font-mono px-2 py-0.5 rounded-md border border-white/20">
+                          #{household.timemarkHash}
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="md:col-span-2 bg-slate-50/80 rounded-xl p-3 border border-slate-200/80 flex flex-col justify-between space-y-2 text-xs">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                        <div>
+                          <span className="text-[11px] text-slate-500 font-medium block">Tọa độ GPS xác thực:</span>
+                          <span className="font-mono font-bold text-slate-800 text-[12px]">{household.coordinates || "Chưa ghi nhận"}</span>
+                        </div>
+                        <div>
+                          <span className="text-[11px] text-slate-500 font-medium block">Thời gian khảo sát:</span>
+                          <span className="font-semibold text-slate-800 text-[12px]">{household.photoTakenAt || "Chưa ghi nhận"}</span>
+                        </div>
+                        <div>
+                          <span className="text-[11px] text-slate-500 font-medium block">Độ cao định vị:</span>
+                          <span className="font-semibold text-slate-800">{household.photoElevation || "Chưa ghi nhận"}</span>
+                        </div>
+                        <div>
+                          <span className="text-[11px] text-slate-500 font-medium block">Phương hướng camera:</span>
+                          <span className="font-semibold text-slate-800">{household.photoDirection || "Chưa ghi nhận"}</span>
+                        </div>
+                      </div>
+
+                      <div className="pt-2 border-t border-slate-200 flex items-center justify-between">
+                        <span className="text-[11px] text-emerald-800 font-semibold flex items-center gap-1">
+                          <Check size={12} className="text-emerald-600" /> Dữ liệu đã đồng bộ Bản đồ số GIS KP3
+                        </span>
+                        {household.coordinates && (
+                          <button
+                            type="button"
+                            onClick={() => handleDirections(household)}
+                            className="text-[11px] font-bold text-emerald-700 hover:text-emerald-900 cursor-pointer"
+                          >
+                            Xem trên bản đồ ➜
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </div>
               </div>
 
               <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 pt-1">
@@ -949,96 +1070,183 @@ export default function HouseholdDetailPage({
                   Sổ hộ khẩu chưa có thành viên nào. Nhấn "Thêm nhân khẩu" để
                   nhập khẩu thành viên.
                 </div>
-              ) : (
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  {household.members.map((m) => (
-                    <div
-                      key={m.cccd}
-                      className="p-3 bg-white hover:border-slate-300 border border-slate-200 rounded-xl space-y-2 transition-colors"
-                    >
-                      <div className="flex justify-between items-start gap-2">
-                        <button
-                          type="button"
-                          onClick={() =>
-                            setProfileViewMember({
-                              name: m.name,
-                              relation: m.relation,
-                              cccd: m.cccd,
-                            })
-                          }
-                          className="text-left cursor-pointer hover:text-emerald-800 transition-colors flex-1 min-w-0"
-                        >
-                          <h4 className="font-bold text-slate-900 text-xs sm:text-sm hover:underline truncate">
-                            {m.name}
-                          </h4>
-                          <p className="text-xs text-slate-600 font-mono truncate">
-                            Sinh {m.birthYear} • CCCD:{" "}
-                            {maskCccd(m.cccd, showFullPii)}
-                          </p>
-                        </button>
-                        <span
-                          className={`px-2 py-0.5 rounded-md text-xs font-bold shrink-0 border ${
-                            m.relation === "Chủ hộ"
-                              ? "bg-emerald-50 text-emerald-800 border-emerald-200"
-                              : "bg-slate-100 text-slate-700 border-slate-200"
-                          }`}
-                        >
-                          {m.relation}
-                        </span>
-                      </div>
+              ) : (() => {
+                const q = memberSearchQuery.trim().toLowerCase();
+                const filteredMembers = q
+                  ? household.members.filter(
+                      (m) =>
+                        (m.name || "").toLowerCase().includes(q) ||
+                        (m.cccd || "").toLowerCase().includes(q) ||
+                        String(m.birthYear || "").includes(q) ||
+                        (m.relation || "").toLowerCase().includes(q) ||
+                        (m.phone || "").toLowerCase().includes(q)
+                    )
+                  : household.members;
 
-                      <div className="pt-2 border-t border-slate-100 flex items-center justify-between text-xs gap-2">
-                        <span className="text-slate-600 font-mono truncate">
-                          {m.phone && m.phone !== "N/A"
-                            ? maskPhone(m.phone, showFullPii)
-                            : "—"}
-                        </span>
-                        <div className="flex items-center gap-1 shrink-0">
+                const resolveMemberResident = (m: typeof household.members[number]) =>
+                  residents.find(
+                    (r) =>
+                      (m.cccd && r.cccd && r.cccd.trim() === m.cccd.trim()) ||
+                      (r.fullName.trim().toLowerCase() === m.name.trim().toLowerCase() &&
+                        r.householdId === household.code)
+                  );
+
+                return (
+                  <div className="space-y-3">
+                    {household.members.length > 1 && (
+                      <div className="relative">
+                        <Search
+                          size={14}
+                          className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none"
+                        />
+                        <input
+                          type="text"
+                          value={memberSearchQuery}
+                          onChange={(e) => setMemberSearchQuery(e.target.value)}
+                          placeholder="Tìm nhanh thành viên theo họ tên, CCCD, quan hệ, năm sinh..."
+                          aria-label="Tìm nhanh thành viên trong sổ hộ khẩu"
+                          className="w-full pl-8 pr-8 py-2 rounded-xl border border-slate-200/90 bg-slate-50/70 focus:bg-white text-xs text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600 transition-all"
+                        />
+                        {memberSearchQuery && (
                           <button
                             type="button"
-                            onClick={() =>
+                            onClick={() => setMemberSearchQuery("")}
+                            aria-label="Xóa tìm kiếm thành viên"
+                            className="absolute right-2.5 top-1/2 -translate-y-1/2 p-0.5 rounded text-slate-400 hover:text-slate-700 hover:bg-slate-100 cursor-pointer"
+                          >
+                            <X size={13} />
+                          </button>
+                        )}
+                      </div>
+                    )}
+
+                    {filteredMembers.length === 0 ? (
+                      <div className="p-6 text-center text-slate-500 border border-dashed border-slate-200 rounded-xl text-xs">
+                        Không tìm thấy thành viên khớp từ khóa &ldquo;{memberSearchQuery.trim()}&rdquo;.
+                      </div>
+                    ) : (
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        {filteredMembers.map((m) => {
+                          const matchedResident = resolveMemberResident(m);
+                          const handleOpenMemberDetail = () => {
+                            if (matchedResident) {
+                              navigate(getResidentDetailPath(matchedResident.id));
+                            } else {
                               setProfileViewMember({
                                 name: m.name,
                                 relation: m.relation,
                                 cccd: m.cccd,
-                              })
+                              });
                             }
-                            className="min-h-7 text-xs bg-white hover:bg-slate-100 text-slate-700 border border-slate-300 px-2 py-0.5 rounded-lg font-semibold transition-colors cursor-pointer"
-                          >
-                            Hồ sơ
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => startMoveMember(m.name, m.cccd)}
-                            className="min-h-7 text-xs bg-white hover:bg-slate-100 text-indigo-700 border border-slate-300 px-2 py-0.5 rounded-lg font-semibold transition-colors cursor-pointer"
-                          >
-                            Chuyển
-                          </button>
-                          {m.relation !== "Chủ hộ" && (
-                            <>
-                              <button
-                                type="button"
-                                onClick={startSplitHousehold}
-                                className="min-h-7 text-xs bg-white hover:bg-slate-100 text-emerald-800 border border-slate-300 px-2 py-0.5 rounded-lg font-semibold transition-colors cursor-pointer"
+                          };
+
+                          return (
+                            <div
+                              key={`${m.cccd}-${m.name}`}
+                              role="button"
+                              tabIndex={0}
+                              onClick={handleOpenMemberDetail}
+                              onKeyDown={(e) => {
+                                if (e.target !== e.currentTarget) return;
+                                if (e.key === "Enter" || e.key === " ") {
+                                  e.preventDefault();
+                                                                  handleOpenMemberDetail();
+                                }
+                              }}
+                              title={`Nhấn để mở thông tin chi tiết của ${m.name}`}
+                              className="group p-3 bg-white hover:border-emerald-400 hover:shadow-2xs border border-slate-200 rounded-xl space-y-2 transition-all cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500"
+                            >
+                              <div className="flex justify-between items-start gap-2">
+                                <div className="text-left flex-1 min-w-0">
+                                  <h4 className="font-bold text-slate-900 group-hover:text-emerald-700 transition-colors text-xs sm:text-sm truncate">
+                                    {m.name}
+                                  </h4>
+                                  <p className="text-xs text-slate-600 font-mono truncate">
+                                    {m.birthYear ? `Sinh ${m.birthYear} • ` : ""}CCCD:{" "}
+                                    {maskCccd(m.cccd, showFullPii)}
+                                  </p>
+                                  <p className="text-xs text-slate-600 font-mono mt-0.5">
+                                    SĐT:{" "}
+                                    {m.phone && m.phone !== "N/A"
+                                      ? maskPhone(m.phone, showFullPii)
+                                      : "Chưa cập nhật"}
+                                  </p>
+                                </div>
+                                <span
+                                  className={`px-2 py-0.5 rounded-md text-xs font-bold shrink-0 border ${
+                                    m.relation === "Chủ hộ"
+                                      ? "bg-emerald-50 text-emerald-800 border-emerald-200"
+                                      : "bg-slate-100 text-slate-700 border-slate-200"
+                                  }`}
+                                >
+                                  {m.relation}
+                                </span>
+                              </div>
+
+                              <div
+                                className="pt-2 border-t border-slate-100 flex flex-wrap items-center justify-end text-xs gap-1.5"
+                                onClick={(e) => e.stopPropagation()}
                               >
-                                Tách
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => handleRemoveMember(m.cccd)}
-                                className="min-h-7 min-w-7 inline-flex items-center justify-center text-xs text-rose-700 hover:bg-rose-50 p-1 rounded-lg transition-colors cursor-pointer"
-                                aria-label={`Xóa ${m.name} khỏi sổ`}
-                              >
-                                <Trash2 size={14} aria-hidden="true" />
-                              </button>
-                            </>
-                          )}
-                        </div>
+                                <div className="flex flex-wrap items-center justify-end gap-1.5">
+                                  <button
+                                    type="button"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setProfileViewMember({
+                                        name: m.name,
+                                        relation: m.relation,
+                                        cccd: m.cccd,
+                                      });
+                                    }}
+                                    className="min-h-7 text-xs bg-white hover:bg-slate-100 text-slate-700 border border-slate-300 px-2 py-0.5 rounded-lg font-semibold transition-colors cursor-pointer"
+                                  >
+                                    Thẻ QR
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      startMoveMember(m.name, m.cccd);
+                                    }}
+                                    className="min-h-7 text-xs bg-white hover:bg-slate-100 text-indigo-700 border border-slate-300 px-2 py-0.5 rounded-lg font-semibold transition-colors cursor-pointer"
+                                  >
+                                    Chuyển
+                                  </button>
+                                  {m.relation !== "Chủ hộ" && (
+                                    <>
+                                      <button
+                                        type="button"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          startSplitHousehold();
+                                        }}
+                                        className="min-h-7 text-xs bg-white hover:bg-slate-100 text-emerald-800 border border-slate-300 px-2 py-0.5 rounded-lg font-semibold transition-colors cursor-pointer"
+                                      >
+                                        Tách
+                                      </button>
+                                      <button
+                                        type="button"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          handleRemoveMember(m.cccd);
+                                        }}
+                                        className="min-h-7 min-w-7 inline-flex items-center justify-center text-xs text-rose-700 hover:bg-rose-50 p-1 rounded-lg transition-colors cursor-pointer"
+                                        aria-label={`Xóa ${m.name} khỏi sổ`}
+                                      >
+                                        <Trash2 size={14} aria-hidden="true" />
+                                      </button>
+                                    </>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })}
                       </div>
-                    </div>
-                  ))}
-                </div>
-              )}
+                    )}
+                  </div>
+                );
+              })()}
             </div>
           )}
 
@@ -1046,7 +1254,9 @@ export default function HouseholdDetailPage({
             <div className="bg-white">
               <HouseholdBusinesses
                 household={household}
+                households={households}
                 residents={residents}
+                businessesState={businesses}
               />
             </div>
           )}
@@ -1094,8 +1304,8 @@ export default function HouseholdDetailPage({
       {/* Chuyển hộ tịch Modal */}
       {showMoveModal && moveTargetMember && (
         <div className="fixed inset-0 bg-slate-900/50 flex items-center justify-center z-50 p-4 backdrop-blur-xs animate-in fade-in duration-150">
-          <div className="bg-white rounded-2xl w-full max-w-md overflow-hidden border border-slate-200 animate-in zoom-in-95 duration-150">
-            <div className="bg-slate-50 border-b border-slate-200 text-slate-900 p-4 flex justify-between items-center">
+          <div className="bg-white rounded-2xl w-full max-w-md max-h-[90vh] flex flex-col overflow-hidden border border-slate-200 animate-in zoom-in-95 duration-150">
+            <div className="bg-slate-50 border-b border-slate-200 text-slate-900 p-4 flex justify-between items-center shrink-0">
               <h3 className="font-bold text-sm">Chuyển hộ tịch Nhân khẩu</h3>
               <button
                 type="button"
@@ -1107,7 +1317,7 @@ export default function HouseholdDetailPage({
               </button>
             </div>
 
-            <div className="p-5 space-y-4 text-xs text-slate-700">
+            <div className="p-5 space-y-4 text-xs text-slate-700 overflow-y-auto flex-1">
               <p className="leading-relaxed">
                 Đang thực hiện chuyển nhân khẩu{" "}
                 <strong>{moveTargetMember.name}</strong> (CCCD:{" "}
@@ -1160,8 +1370,8 @@ export default function HouseholdDetailPage({
       {/* Tách hộ tịch Modal */}
       {showSplitModal && (
         <div className="fixed inset-0 bg-slate-900/50 flex items-center justify-center z-50 p-4 backdrop-blur-xs animate-in fade-in duration-150">
-          <div className="bg-white rounded-2xl w-full max-w-lg overflow-hidden border border-slate-200 animate-in zoom-in-95 duration-150">
-            <div className="bg-slate-50 border-b border-slate-200 text-slate-900 p-4 flex justify-between items-center">
+          <div className="bg-white rounded-2xl w-full max-w-lg max-h-[90vh] flex flex-col overflow-hidden border border-slate-200 animate-in zoom-in-95 duration-150">
+            <div className="bg-slate-50 border-b border-slate-200 text-slate-900 p-4 flex justify-between items-center shrink-0">
               <div>
                 <h3 className="font-bold text-sm">
                   Tách hộ tịch (Chia tách gia đình)
@@ -1180,7 +1390,7 @@ export default function HouseholdDetailPage({
               </button>
             </div>
 
-            <div className="p-5 space-y-4 text-xs text-slate-700">
+            <div className="p-5 space-y-4 text-xs text-slate-700 overflow-y-auto flex-1">
               <div className="space-y-1.5">
                 <label className="font-bold text-slate-700 block">
                   Tích chọn các thành viên muốn tách sổ *
@@ -1309,8 +1519,17 @@ export default function HouseholdDetailPage({
       {profileViewMember && (
         <HouseholdMemberProfile
           resident={
-            residents.find((r) => r.cccd === profileViewMember.cccd) || null
+            residents.find(
+              (r) =>
+                (profileViewMember.cccd &&
+                  r.cccd &&
+                  r.cccd.trim() === profileViewMember.cccd.trim()) ||
+                (r.fullName.trim().toLowerCase() ===
+                  profileViewMember.name.trim().toLowerCase() &&
+                  r.householdId === household.code)
+            ) || null
           }
+          fallbackMember={profileViewMember}
           relation={profileViewMember.relation}
           onClose={() => setProfileViewMember(null)}
         />
@@ -1324,9 +1543,9 @@ export default function HouseholdDetailPage({
         >
           <div
             onClick={(e) => e.stopPropagation()}
-            className="bg-white rounded-2xl border border-slate-200 w-full max-w-lg overflow-hidden animate-in zoom-in-95 duration-200 text-slate-800"
+            className="bg-white rounded-2xl border border-slate-200 w-full max-w-lg max-h-[90vh] flex flex-col overflow-hidden animate-in zoom-in-95 duration-200 text-slate-800"
           >
-            <div className="bg-slate-50 p-4 text-slate-900 flex justify-between items-center border-b border-slate-200">
+            <div className="bg-slate-50 p-4 text-slate-900 flex justify-between items-center border-b border-slate-200 shrink-0">
               <div className="flex items-center gap-2.5">
                 <div className="p-2 bg-emerald-50 border border-emerald-200 rounded-xl text-emerald-700">
                   <MapPin size={18} />
@@ -1350,7 +1569,7 @@ export default function HouseholdDetailPage({
               </button>
             </div>
 
-            <div className="p-5 space-y-4 text-xs">
+            <div className="p-5 space-y-4 text-xs overflow-y-auto flex-1">
               <div className="bg-slate-50 p-3 rounded-xl border border-slate-200 space-y-1">
                 <span className="text-xs text-slate-600 font-bold uppercase tracking-wider block">
                   Địa chỉ hộ cư trú:

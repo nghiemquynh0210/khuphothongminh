@@ -3,6 +3,7 @@
 
 // Mock Supabase client để tránh gọi DB thật trong tests
 vi.mock('../lib/supabase', () => ({
+  isSupabaseConfigured: false,
   supabase: {
     from: vi.fn(() => ({
       select: vi.fn().mockReturnThis(),

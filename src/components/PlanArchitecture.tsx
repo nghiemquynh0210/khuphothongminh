@@ -1817,7 +1817,7 @@ Sau khi các **Tổ nhân dân tự quản kết thúc hoạt động** theo ch�
 
                     {/* Dictionary Columns Grid */}
                     <div className="overflow-x-auto">
-                      <table className="w-full text-left text-xs font-sans divide-y divide-slate-100">
+                      <table className="w-full min-w-[760px] text-left text-xs font-sans divide-y divide-slate-100">
                         <thead className="bg-slate-100/50 text-slate-600 font-bold uppercase text-xs tracking-wider">
                           <tr>
                             <th className="px-4 py-3">Tên cột</th>
@@ -1944,7 +1944,7 @@ Sau khi các **Tổ nhân dân tự quản kết thúc hoạt động** theo ch�
                   <span className="font-bold text-xs text-slate-800">Ma trận Phân quyền Quyền hạn cụ thể trên các Module</span>
                 </div>
                 <div className="overflow-x-auto">
-                  <table className="w-full text-left text-xs font-sans divide-y divide-slate-100">
+                  <table className="w-full min-w-[760px] text-left text-xs font-sans divide-y divide-slate-100">
                     <thead className="bg-slate-100/50 text-slate-600 font-bold uppercase text-xs tracking-wider">
                       <tr>
                         <th className="px-4 py-3">Phân hệ Module</th>
@@ -2173,7 +2173,7 @@ Sau khi các **Tổ nhân dân tự quản kết thúc hoạt động** theo ch�
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
 
             {/* Timeline sidebar list */}
-            <div className="lg:col-span-5 bg-white border border-slate-200 rounded-2xl p-4 shadow-sm h-[680px] flex flex-col">
+            <div className="lg:col-span-5 bg-white border border-slate-200 rounded-2xl p-4 shadow-sm max-h-[340px] lg:max-h-none lg:h-[680px] flex flex-col">
               <div className="pb-3 border-b border-slate-100 mb-3 flex justify-between items-center shrink-0">
                 <span className="text-xs font-black text-slate-800 uppercase tracking-wider font-mono">Danh sách Giai đoạn (1 - 21)</span>
                 <span className="text-xs bg-slate-100 px-2 py-0.5 rounded text-slate-700 font-mono">Sắp xếp tuần tự</span>
@@ -2236,7 +2236,7 @@ Sau khi các **Tổ nhân dân tự quản kết thúc hoạt động** theo ch�
             </div>
 
             {/* Dynamic details pane */}
-            <div className="lg:col-span-7 bg-white border border-slate-200 rounded-2xl p-6 shadow-sm h-[680px] overflow-y-auto space-y-6 scrollbar-thin">
+            <div className="lg:col-span-7 bg-white border border-slate-200 rounded-2xl p-6 shadow-sm lg:h-[680px] lg:overflow-y-auto space-y-6 scrollbar-thin">
               {(() => {
                 const phase = roadmapPhases[activeRoadmapPhase];
                 if (!phase) return null;
@@ -2451,7 +2451,7 @@ Sau khi các **Tổ nhân dân tự quản kết thúc hoạt động** theo ch�
 
                     {/* Prompt Box (Flat Hairline Light) */}
                     <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-3">
-                      <div className="flex justify-between items-center gap-2">
+                      <div className="flex flex-wrap justify-between items-center gap-2">
                         <div className="flex items-center gap-1.5 text-xs font-bold text-slate-800 uppercase tracking-wider font-mono">
                           <Bot size={14} className="text-emerald-700" />
                           Prompt cho giai đoạn tiếp theo

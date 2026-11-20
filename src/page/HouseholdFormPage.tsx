@@ -1,19 +1,34 @@
 import React, { useEffect, useMemo, useState } from "react";
 import {
   ArrowLeft,
+  Camera,
+  Check,
+  FileCheck,
+  FileText,
   Home,
   MapPin,
   Plus,
   ShieldAlert,
   Sparkles,
   Trash2,
+  Upload,
+  UserCheck,
   Users,
 } from "lucide-react";
-import { Household, Resident } from "../types";
+import { Household, LandParcelCertificate, Resident } from "../types";
 import {
   generateDefaultCoordinatesForAddress,
   parseCoordinates as parseGisCoords,
 } from "../utils/gisUtils";
+import {
+  createEmptyLandParcel,
+  normalizeEntityLandParcels,
+  summarizeLandParcels,
+} from "../utils/landParcelsUtils";
+import { extractTimemarkFromImage } from "../utils/timemarkParser";
+import { uploadFileToStorageBucket } from "../utils/imageUpload";
+import { ResidentSelectModal } from "../components/business/ResidentSelectModal";
+import { MultiParcelEditor } from "../components/common/MultiParcelEditor";
 import { PageHeader } from "../components/common/PageHeader";
 import { LoadingFade } from "../components/common/LoadingFade";
 import { ReportSelect } from "../components/reports/ReportSelect";
@@ -102,6 +117,9 @@ export default function HouseholdFormPage({
     "Thường trú"
   );
   const [newOwner, setNewOwner] = useState("");
+  const [newOwnerCccd, setNewOwnerCccd] = useState("");
+  const [newOwnerPhone, setNewOwnerPhone] = useState("");
+  const [selectedOwnerResident, setSelectedOwnerResident] = useState<Resident | null>(null);
   const [newAddress, setNewAddress] = useState("");
   const [tempMembers, setTempMembers] = useState<TempMember[]>([]);
 
@@ -119,6 +137,23 @@ export default function HouseholdFormPage({
   );
   const [editOwner, setEditOwner] = useState("");
   const [editNotes, setEditNotes] = useState("");
+
+  // Đa Thửa Đất & Nhiều Sổ Đỏ (GCN QSDĐ)
+  const [landParcels, setLandParcels] = useState<LandParcelCertificate[]>([
+    createEmptyLandParcel(0, { loaiDat: "Đất ở đô thị (ODT)" }),
+  ]);
+
+  // Timemark OCR state
+  const [houseImage, setHouseImage] = useState<string | undefined>(undefined);
+  const [timemarkHash, setTimemarkHash] = useState<string | undefined>(undefined);
+  const [timemarkVerified, setTimemarkVerified] = useState<boolean>(false);
+  const [photoElevation, setPhotoElevation] = useState<string | undefined>(undefined);
+  const [photoDirection, setPhotoDirection] = useState<string | undefined>(undefined);
+  const [photoTakenAt, setPhotoTakenAt] = useState<string | undefined>(undefined);
+  const [isTimemarkProcessing, setIsTimemarkProcessing] = useState(false);
+
+  // Modal Chọn Cư Dân
+  const [isResidentModalOpen, setIsResidentModalOpen] = useState(false);
 
   // Shared GPS state
   const [coordInput, setCoordInput] = useState("");
@@ -144,11 +179,32 @@ export default function HouseholdFormPage({
         const coords = targetHousehold.coordinates || "";
         setCoordInput(coords);
         setParsedGPS(parseGpsPreview(coords));
+        const normalizedParcels = normalizeEntityLandParcels(targetHousehold);
+        setLandParcels(
+          normalizedParcels.length > 0
+            ? normalizedParcels
+            : [
+                createEmptyLandParcel(0, {
+                  loaiDat: "Đất ở đô thị (ODT)",
+                  tenChuSuDung: targetHousehold.ownerName || "",
+                  addressNote: targetHousehold.address || "",
+                }),
+              ]
+        );
+        setHouseImage(targetHousehold.houseImage);
+        setTimemarkHash(targetHousehold.timemarkHash);
+        setTimemarkVerified(Boolean(targetHousehold.timemarkVerified));
+        setPhotoElevation(targetHousehold.photoElevation);
+        setPhotoDirection(targetHousehold.photoDirection);
+        setPhotoTakenAt(targetHousehold.photoTakenAt);
       }
     } else {
       setNewHCode("");
       setNewHType("Thường trú");
       setNewOwner("");
+      setNewOwnerCccd("");
+      setNewOwnerPhone("");
+      setSelectedOwnerResident(null);
       setNewAddress("");
       setTempMembers([]);
       setNewMemberName("");
@@ -158,8 +214,89 @@ export default function HouseholdFormPage({
       setNewMemberPhone("");
       setCoordInput("");
       setParsedGPS(null);
+      setLandParcels([
+        createEmptyLandParcel(0, { loaiDat: "Đất ở đô thị (ODT)" }),
+      ]);
+      setHouseImage(undefined);
+      setTimemarkHash(undefined);
+      setTimemarkVerified(false);
+      setPhotoElevation(undefined);
+      setPhotoDirection(undefined);
+      setPhotoTakenAt(undefined);
     }
   }, [mode, householdId, targetHousehold]);
+
+  const handleSelectResident = (res: Resident) => {
+    setSelectedOwnerResident(res);
+    if (mode === "create") {
+      setNewOwner(res.fullName);
+      setNewOwnerCccd(res.cccd || "");
+      setNewOwnerPhone(res.phone && res.phone !== "N/A" ? res.phone : "");
+      if (res.address && !newAddress) {
+        setNewAddress(res.address);
+      }
+    } else {
+      setEditOwner(res.fullName);
+    }
+    setLandParcels((prev) =>
+      prev.map((p, idx) =>
+        idx === 0 && !p.tenChuSuDung
+          ? { ...p, tenChuSuDung: res.fullName }
+          : p
+      )
+    );
+    setIsResidentModalOpen(false);
+    setNotice({
+      message: `Đã chọn Cư dân "${res.fullName}" (CCCD: ${res.cccd || "Chưa cập nhật"}) làm Chủ hộ!`,
+      type: "success",
+    });
+  };
+
+  const handleProcessImageUpload = async (file: File) => {
+    setIsTimemarkProcessing(true);
+    try {
+      const localBase64 = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = (e) => resolve((e.target?.result as string) || "");
+        reader.onerror = () => reject(new Error("FileReader error"));
+        reader.readAsDataURL(file);
+      });
+
+      let storedUrl = localBase64;
+      try {
+        storedUrl = await uploadFileToStorageBucket(file, "cadastral-docs", "households");
+      } catch {
+        storedUrl = localBase64;
+      }
+      setHouseImage(storedUrl);
+
+      const ocrResult = await extractTimemarkFromImage(file);
+      if (ocrResult) {
+        handleCoordInputChange(ocrResult.coordinates);
+        setTimemarkHash(ocrResult.timemarkHash);
+        setTimemarkVerified(ocrResult.isVerified);
+        setPhotoElevation(ocrResult.elevation);
+        setPhotoDirection(ocrResult.direction);
+        setPhotoTakenAt(ocrResult.rawTime || ocrResult.recordedTime);
+
+        if (ocrResult.address && mode === "create" && !newAddress) {
+          setNewAddress(ocrResult.address);
+        }
+
+        setNotice({
+          message: `Trích xuất Timemark thành công: Tọa độ GPS ${ocrResult.coordinates} • Xác thực ${ocrResult.timemarkHash || "OK"}`,
+          type: "success",
+        });
+      }
+    } catch (err) {
+      setNotice({
+        message: "Không thể trích xuất watermark Timemark từ ảnh.",
+        type: "error",
+      });
+    } finally {
+      setIsTimemarkProcessing(false);
+    }
+  };
 
   const goBackToList = () => {
     if (onCancel) {
@@ -211,13 +348,46 @@ export default function HouseholdFormPage({
     const trimmedCode = newHCode.trim();
     const trimmedOwner = newOwner.trim();
     const trimmedAddress = newAddress.trim();
-    const primaryOwnerCccd = `079${Math.floor(100000000 + Math.random() * 900000000)}`;
+
+    const matchedExistingResident =
+      (selectedOwnerResident &&
+      selectedOwnerResident.fullName.trim().toLowerCase() === trimmedOwner.toLowerCase()
+        ? selectedOwnerResident
+        : null) ||
+      (newOwnerCccd.trim()
+        ? residents.find((r) => r.cccd === newOwnerCccd.trim()) || null
+        : null) ||
+      residents.find(
+        (r) =>
+          r.fullName.trim().toLowerCase() === trimmedOwner.toLowerCase() &&
+          (!r.address || r.address.trim().toLowerCase() === trimmedAddress.toLowerCase())
+      ) ||
+      null;
+
+    const primaryOwnerCccd =
+      newOwnerCccd.trim() || matchedExistingResident?.cccd || "";
+    const primaryOwnerPhone =
+      newOwnerPhone.trim() ||
+      (matchedExistingResident?.phone && matchedExistingResident.phone !== "N/A"
+        ? matchedExistingResident.phone
+        : "") ||
+      undefined;
+    const primaryOwnerBirthDate = matchedExistingResident?.birthDate || "";
+    const primaryOwnerBirthYear = (() => {
+      const m = String(primaryOwnerBirthDate).match(/\b(19\d{2}|20\d{2})\b/);
+      return m ? parseInt(m[1], 10) : 0;
+    })();
+    const primaryOwnerOccupation = matchedExistingResident?.occupation || "";
+    const primaryOwnerGender = matchedExistingResident?.gender || "Nam";
+
     const finalCoordinates = parsedGPS ? parsedGPS.formatted : coordInput.trim();
 
     const candidateId = "H" + (households.length + 1).toString().padStart(3, "0");
     const uniqueId = households.some((h) => h.id === candidateId)
       ? `H-${Date.now()}`
       : candidateId;
+
+    const parcelSummary = summarizeLandParcels(landParcels);
 
     const newH: Household = {
       id: uniqueId,
@@ -227,13 +397,31 @@ export default function HouseholdFormPage({
       type: newHType,
       memberCount: tempMembers.length + 1,
       coordinates: finalCoordinates || undefined,
+      landParcels:
+        parcelSummary.meaningfulParcels.length > 0
+          ? parcelSummary.meaningfulParcels
+          : undefined,
+      toBanDo: parcelSummary.toBanDoSummary || undefined,
+      soThua: parcelSummary.soThuaSummary || undefined,
+      dienTich: parcelSummary.totalArea || undefined,
+      loaiDat: parcelSummary.loaiDatSummary || undefined,
+      tenChuSuDung: parcelSummary.tenChuSuDungSummary || trimmedOwner,
+      soGcn: parcelSummary.soGcnSummary || undefined,
+      soVaoSo: parcelSummary.soVaoSoSummary || undefined,
+      soDoFile: parcelSummary.primarySoDoFile || undefined,
+      houseImage,
+      timemarkHash,
+      timemarkVerified,
+      photoElevation,
+      photoDirection,
+      photoTakenAt,
       members: [
         {
           name: trimmedOwner,
           relation: "Chủ hộ",
           cccd: primaryOwnerCccd,
-          birthYear: 1980,
-          phone: "09XXXXXXXX",
+          birthYear: primaryOwnerBirthYear,
+          phone: primaryOwnerPhone,
         },
         ...tempMembers,
       ],
@@ -241,49 +429,95 @@ export default function HouseholdFormPage({
 
     onAddHousehold(newH);
 
-    const newResidents: Resident[] = [
-      {
-        id: "R" + Math.floor(1000 + Math.random() * 9000),
-        fullName: trimmedOwner,
-        gender: "Nam",
-        birthDate: "15/05/1980",
-        cccd: primaryOwnerCccd,
-        phone: "09XXXXXXXX",
-        status: newHType,
-        occupation: "Kinh doanh tự do",
-        address: trimmedAddress,
-        householdId: trimmedCode,
-        relationToOwner: "Chủ hộ",
-        joinDate: new Date().toLocaleDateString("vi-VN"),
-      },
-      ...tempMembers.map((m) => ({
-        id: "R" + Math.floor(1000 + Math.random() * 9000),
-        fullName: m.name,
-        gender: (m.relation === "Vợ" || m.relation === "Con gái"
-          ? "Nữ"
-          : "Nam") as "Nam" | "Nữ",
-        birthDate: `01/01/${m.birthYear}`,
-        cccd: m.cccd,
-        phone: m.phone || "N/A",
-        status: newHType,
-        occupation: "Học sinh / Thành viên",
-        address: trimmedAddress,
-        householdId: trimmedCode,
-        relationToOwner: m.relation,
-        joinDate: new Date().toLocaleDateString("vi-VN"),
-      })),
-    ];
-
     onUpdateResidents((prev) => {
-      const additions = newResidents.filter(
-        (candidate) =>
-          !prev.some(
-            (existing) =>
-              existing.cccd === candidate.cccd &&
-              existing.householdId === candidate.householdId
-          )
-      );
-      return additions.length > 0 ? [...prev, ...additions] : prev;
+      let nextList = [...prev];
+
+      // Update existing owner resident or append if genuinely new
+      if (matchedExistingResident) {
+        nextList = nextList.map((r) =>
+          r.id === matchedExistingResident.id
+            ? {
+                ...r,
+                cccd: primaryOwnerCccd || r.cccd,
+                phone: primaryOwnerPhone || r.phone,
+                address: trimmedAddress,
+                householdId: trimmedCode,
+                relationToOwner: "Chủ hộ",
+              }
+            : r
+        );
+      } else if (
+        primaryOwnerCccd &&
+        nextList.some((r) => r.cccd === primaryOwnerCccd)
+      ) {
+        nextList = nextList.map((r) =>
+          r.cccd === primaryOwnerCccd
+            ? {
+                ...r,
+                fullName: trimmedOwner,
+                phone: primaryOwnerPhone || r.phone,
+                address: trimmedAddress,
+                householdId: trimmedCode,
+                relationToOwner: "Chủ hộ",
+              }
+            : r
+        );
+      } else {
+        nextList.push({
+          id: `R-${Date.now()}`,
+          fullName: trimmedOwner,
+          gender: primaryOwnerGender,
+          birthDate: primaryOwnerBirthDate,
+          cccd: primaryOwnerCccd,
+          phone: primaryOwnerPhone || "",
+          status: newHType,
+          occupation: primaryOwnerOccupation,
+          address: trimmedAddress,
+          householdId: trimmedCode,
+          relationToOwner: "Chủ hộ",
+          joinDate: new Date().toLocaleDateString("vi-VN"),
+        });
+      }
+
+      // Update or append tempMembers preserving real resident fields if already in DB
+      tempMembers.forEach((m, idx) => {
+        const existingMember = m.cccd
+          ? nextList.find((r) => r.cccd === m.cccd)
+          : undefined;
+        if (existingMember) {
+          nextList = nextList.map((r) =>
+            r.id === existingMember.id
+              ? {
+                  ...r,
+                  phone: m.phone || r.phone,
+                  address: trimmedAddress,
+                  householdId: trimmedCode,
+                  relationToOwner: m.relation,
+                }
+              : r
+          );
+        } else {
+          nextList.push({
+            id: `R-${Date.now()}-${idx + 1}`,
+            fullName: m.name,
+            gender:
+              m.relation === "Vợ" || m.relation === "Con gái" || m.relation === "Mẹ"
+                ? "Nữ"
+                : "Nam",
+            birthDate: m.birthYear ? `01/01/${m.birthYear}` : "",
+            cccd: m.cccd,
+            phone: m.phone || "",
+            status: newHType,
+            occupation: "",
+            address: trimmedAddress,
+            householdId: trimmedCode,
+            relationToOwner: m.relation,
+            joinDate: new Date().toLocaleDateString("vi-VN"),
+          });
+        }
+      });
+
+      return nextList;
     });
 
     if (onSaved) {
@@ -319,12 +553,73 @@ export default function HouseholdFormPage({
       actor: "Cán bộ Tư pháp",
     };
 
+    const parcelSummary = summarizeLandParcels(landParcels);
+
+    // Sync members if a resident from outside current household was chosen as owner
+    let nextMembers = [...(targetHousehold.members || [])];
+    const trimmedEditOwner = editOwner.trim();
+    const existingMemberMatch = nextMembers.find(
+      (m) => m.name.trim().toLowerCase() === trimmedEditOwner.toLowerCase()
+    );
+    if (existingMemberMatch) {
+      nextMembers = nextMembers.map((m) =>
+        m.name.trim().toLowerCase() === trimmedEditOwner.toLowerCase()
+          ? { ...m, relation: "Chủ hộ" }
+          : m.relation === "Chủ hộ"
+          ? { ...m, relation: "Thành viên" }
+          : m
+      );
+    } else if (
+      selectedOwnerResident &&
+      selectedOwnerResident.fullName.trim().toLowerCase() === trimmedEditOwner.toLowerCase()
+    ) {
+      const birthMatch = String(selectedOwnerResident.birthDate || "").match(
+        /\b(19\d{2}|20\d{2})\b/
+      );
+      nextMembers = [
+        {
+          name: selectedOwnerResident.fullName,
+          relation: "Chủ hộ",
+          cccd: selectedOwnerResident.cccd || "",
+          birthYear: birthMatch ? parseInt(birthMatch[1], 10) : 0,
+          phone:
+            selectedOwnerResident.phone && selectedOwnerResident.phone !== "N/A"
+              ? selectedOwnerResident.phone
+              : undefined,
+        },
+        ...nextMembers.map((m) =>
+          m.relation === "Chủ hộ" ? { ...m, relation: "Thành viên" } : m
+        ),
+      ];
+    }
+
     const updatedHousehold: Household = {
       ...targetHousehold,
       address: editAddress.trim(),
       type: editType,
-      ownerName: editOwner.trim(),
+      ownerName: trimmedEditOwner,
+      members: nextMembers,
+      memberCount: nextMembers.length,
       coordinates: finalCoordinates || undefined,
+      landParcels:
+        parcelSummary.meaningfulParcels.length > 0
+          ? parcelSummary.meaningfulParcels
+          : undefined,
+      toBanDo: parcelSummary.toBanDoSummary || undefined,
+      soThua: parcelSummary.soThuaSummary || undefined,
+      dienTich: parcelSummary.totalArea || undefined,
+      loaiDat: parcelSummary.loaiDatSummary || undefined,
+      tenChuSuDung: parcelSummary.tenChuSuDungSummary || editOwner.trim(),
+      soGcn: parcelSummary.soGcnSummary || undefined,
+      soVaoSo: parcelSummary.soVaoSoSummary || undefined,
+      soDoFile:
+        parcelSummary.primarySoDoFile || (targetHousehold as any).soDoFile,
+      houseImage: houseImage || (targetHousehold as any).houseImage,
+      timemarkHash: timemarkHash || (targetHousehold as any).timemarkHash,
+      timemarkVerified: timemarkVerified !== undefined ? timemarkVerified : (targetHousehold as any).timemarkVerified,
+      photoElevation: photoElevation || (targetHousehold as any).photoElevation,
+      photoDirection: photoDirection || (targetHousehold as any).photoDirection,
+      photoTakenAt: photoTakenAt || (targetHousehold as any).photoTakenAt,
       ...(editNotes.trim() ? { notes: editNotes.trim() } : { notes: "" }),
       auditHistory: [newLog, ...logs],
     } as Household;
@@ -403,7 +698,7 @@ export default function HouseholdFormPage({
             type="button"
             id="btn-household-form-back"
             onClick={goBackToList}
-            className="inline-flex items-center gap-2 min-h-[40px] bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 px-3.5 py-2 rounded-xl font-bold text-xs transition-colors cursor-pointer"
+            className="inline-flex items-center gap-2 min-h-[40px] bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 px-3.5 py-2 rounded-xl font-bold text-xs transition-colors cursor-pointer whitespace-nowrap shrink-0"
           >
             <ArrowLeft size={15} />
             <span>Quay lại danh sách</span>
@@ -421,7 +716,7 @@ export default function HouseholdFormPage({
 
       {mode === "create" ? (
         <div className="bg-white rounded-2xl border border-slate-200/80 shadow-xs overflow-hidden">
-          <div className="bg-slate-50/80 border-b border-slate-200 px-5 py-3.5 flex flex-wrap items-center justify-between gap-2">
+          <div className="bg-slate-50/80 border-b border-slate-200 px-4 sm:px-5 py-3.5 flex flex-wrap items-center justify-between gap-2">
             <div className="flex items-center gap-2">
               <Home className="text-emerald-600" size={18} />
               <span className="font-bold text-xs sm:text-sm text-slate-800">
@@ -435,7 +730,7 @@ export default function HouseholdFormPage({
 
           <form
             onSubmit={handleCreateHousehold}
-            className="p-5 sm:p-6 space-y-5 text-xs text-slate-700"
+            className="p-3.5 sm:p-6 space-y-5 text-xs text-slate-700"
           >
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-1.5">
@@ -474,22 +769,68 @@ export default function HouseholdFormPage({
               </div>
             </div>
 
-            <div className="space-y-1.5">
-              <label
-                htmlFor="new-h-owner"
-                className="font-bold text-slate-700 block"
-              >
-                Tên Chủ hộ mới *
-              </label>
-              <input
-                id="new-h-owner"
-                type="text"
-                required
-                placeholder="Nguyễn Văn A"
-                value={newOwner}
-                onChange={(e) => setNewOwner(e.target.value)}
-                className="w-full px-3 h-10 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-emerald-500 bg-white"
-              />
+            <div className="space-y-3">
+              <div className="space-y-1.5">
+                <div className="flex flex-wrap items-center justify-between gap-1">
+                  <label
+                    htmlFor="new-h-owner"
+                    className="font-bold text-slate-700 block"
+                  >
+                    Tên Chủ hộ mới *
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => setIsResidentModalOpen(true)}
+                    className="text-xs font-bold text-emerald-700 hover:text-emerald-800 flex items-center gap-1 cursor-pointer"
+                  >
+                    <UserCheck size={12} /> Chọn từ 11.632 Cư dân
+                  </button>
+                </div>
+                <input
+                  id="new-h-owner"
+                  type="text"
+                  required
+                  placeholder="Nguyễn Văn A"
+                  value={newOwner}
+                  onChange={(e) => setNewOwner(e.target.value)}
+                  className="w-full px-3 h-10 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-emerald-500 bg-white"
+                />
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="space-y-1.5">
+                  <label
+                    htmlFor="new-h-owner-cccd"
+                    className="font-bold text-slate-700 block"
+                  >
+                    Số CCCD Chủ hộ
+                  </label>
+                  <input
+                    id="new-h-owner-cccd"
+                    type="text"
+                    placeholder="Tự động điền khi chọn từ Dân cư hoặc nhập tay..."
+                    value={newOwnerCccd}
+                    onChange={(e) => setNewOwnerCccd(e.target.value)}
+                    className="w-full px-3 h-10 border border-slate-200 rounded-xl text-sm font-mono focus:outline-none focus:border-emerald-500 bg-white"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <label
+                    htmlFor="new-h-owner-phone"
+                    className="font-bold text-slate-700 block"
+                  >
+                    Số điện thoại Chủ hộ
+                  </label>
+                  <input
+                    id="new-h-owner-phone"
+                    type="text"
+                    placeholder="SĐT liên hệ thực tế (nếu có)..."
+                    value={newOwnerPhone}
+                    onChange={(e) => setNewOwnerPhone(e.target.value)}
+                    className="w-full px-3 h-10 border border-slate-200 rounded-xl text-sm font-mono focus:outline-none focus:border-emerald-500 bg-white"
+                  />
+                </div>
+              </div>
             </div>
 
             <div className="space-y-1.5">
@@ -553,6 +894,88 @@ export default function HouseholdFormPage({
                 <div className="text-xs text-emerald-700 bg-emerald-50 border border-emerald-200 p-2.5 rounded-xl font-mono">
                   ✓ Phát hiện hệ WGS84: Vĩ độ <strong>{parsedGPS.lat}</strong>,
                   Kinh độ <strong>{parsedGPS.lng}</strong>
+                </div>
+              )}
+            </div>
+
+            {/* Nhóm Đa Thửa Đất & Nhiều Sổ Đỏ (GCN QSDĐ) */}
+            <div className="p-2.5 sm:p-4 border border-indigo-200/80 rounded-xl bg-indigo-50/25">
+              <MultiParcelEditor
+                sectionTitle="Hồ sơ Địa chính & Giấy chứng nhận QSDĐ (Hỗ trợ Ghép Thửa / Nhiều Sổ Đỏ)"
+                parcels={landParcels}
+                onChange={setLandParcels}
+                defaultOwnerName={newOwner}
+                defaultAddress={newAddress}
+                onNotice={(n) => setNotice(n)}
+              />
+            </div>
+
+            {/* Nhóm Hình ảnh Thực tế Nhà ở & Định vị Timemark */}
+            <div className="p-4 border border-amber-200/80 rounded-xl bg-amber-50/30 space-y-3">
+              <div className="flex flex-wrap items-center justify-between gap-2 border-b border-amber-100 pb-2">
+                <span className="font-bold text-slate-800 text-xs flex items-center gap-1.5 uppercase tracking-wider">
+                  <Camera size={15} className="text-amber-600" />
+                  Hình ảnh Hiện trường &amp; Khảo sát Thực tế Timemark
+                </span>
+                {timemarkVerified && (
+                  <span className="text-[11px] font-bold text-amber-900 bg-amber-100 border border-amber-300 px-2.5 py-0.5 rounded-full flex items-center gap-1">
+                    <Check size={11} className="text-emerald-700" /> Đã xác thực Timemark
+                  </span>
+                )}
+              </div>
+
+              {/* Upload Dropzone Timemark */}
+              <div className="border-2 border-dashed border-amber-200 hover:border-amber-400 rounded-xl p-3 bg-white text-center transition-colors">
+                <input
+                  type="file"
+                  id="timemark-upload-create"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) handleProcessImageUpload(file);
+                  }}
+                />
+                <label
+                  htmlFor="timemark-upload-create"
+                  className="cursor-pointer flex flex-col items-center gap-1 text-xs text-slate-600"
+                >
+                  <Camera size={18} className="text-amber-600" />
+                  <span className="font-bold text-amber-900">
+                    {isTimemarkProcessing ? "Đang trích xuất Watermark Timemark..." : "Tải lên ảnh chụp khảo sát Timemark Camera"}
+                  </span>
+                  <span className="text-[11px] text-slate-400">
+                    Tự động nhận diện Tọa độ GPS, Thời gian chụp, Độ cao, Phương hướng và Mã băm xác thực
+                  </span>
+                </label>
+              </div>
+
+              {houseImage && (
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 bg-white p-3 rounded-xl border border-amber-200/70 items-center">
+                  <div className="relative h-28 rounded-lg overflow-hidden border border-slate-200">
+                    <img src={houseImage} alt="Ảnh thực tế" className="w-full h-full object-cover" />
+                    {timemarkHash && (
+                      <span className="absolute bottom-1 right-1 text-[9px] font-mono bg-black/75 text-white px-1.5 py-0.5 rounded">
+                        #{timemarkHash}
+                      </span>
+                    )}
+                  </div>
+                  <div className="sm:col-span-2 space-y-1 text-xs">
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-slate-500 font-medium">Tọa độ GPS:</span>
+                      <strong className="font-mono text-emerald-800">{coordInput || "Chưa có"}</strong>
+                    </div>
+                    {photoTakenAt && (
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-slate-500 font-medium">Thời gian:</span>
+                        <span className="text-slate-800 font-semibold">{photoTakenAt}</span>
+                      </div>
+                    )}
+                    <div className="flex items-center gap-3 text-[11px] text-slate-600">
+                      {photoElevation && <span>Độ cao: <strong>{photoElevation}</strong></span>}
+                      {photoDirection && <span>Hướng: <strong>{photoDirection}</strong></span>}
+                    </div>
+                  </div>
                 </div>
               )}
             </div>
@@ -702,7 +1125,7 @@ export default function HouseholdFormPage({
 
           <form
             onSubmit={handleSaveEditHousehold}
-            className="p-5 sm:p-6 space-y-5 text-xs text-slate-700"
+            className="p-3.5 sm:p-6 space-y-5 text-xs text-slate-700"
           >
             <div className="space-y-1.5">
               <label
@@ -723,18 +1146,38 @@ export default function HouseholdFormPage({
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-1.5">
-                <label className="font-bold text-slate-700 block">
-                  Chủ hộ đại diện *
-                </label>
+                <div className="min-h-[24px] flex flex-wrap items-center justify-between gap-1">
+                  <label className="font-bold text-slate-700 block">
+                    Chủ hộ đại diện *
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => setIsResidentModalOpen(true)}
+                    className="text-xs font-bold text-emerald-700 hover:text-emerald-800 flex items-center gap-1 cursor-pointer"
+                  >
+                    <UserCheck size={12} /> Chọn từ 11.632 Cư dân
+                  </button>
+                </div>
                 {targetHousehold && targetHousehold.members.length > 0 ? (
                   <ReportSelect
                     aria-label="Chủ hộ đại diện"
                     value={editOwner}
                     onChange={setEditOwner}
-                    options={targetHousehold.members.map((m) => ({
-                      value: m.name,
-                      label: `${m.name} (${m.relation})`,
-                    }))}
+                    options={[
+                      ...targetHousehold.members.map((m) => ({
+                        value: m.name,
+                        label: `${m.name} (${m.relation})`,
+                      })),
+                      ...(editOwner &&
+                      !targetHousehold.members.some((m) => m.name === editOwner)
+                        ? [
+                            {
+                              value: editOwner,
+                              label: `${editOwner} (Cư dân KP3 đã chọn)`,
+                            },
+                          ]
+                        : []),
+                    ]}
                     className="w-full"
                   />
                 ) : (
@@ -749,9 +1192,11 @@ export default function HouseholdFormPage({
                 )}
               </div>
               <div className="space-y-1.5">
-                <label className="font-bold text-slate-700 block">
-                  Phân hệ cư trú
-                </label>
+                <div className="min-h-[24px] flex items-center">
+                  <label className="font-bold text-slate-700 block">
+                    Phân hệ cư trú
+                  </label>
+                </div>
                 <ReportSelect
                   aria-label="Phân hệ cư trú"
                   value={editType}
@@ -807,6 +1252,88 @@ export default function HouseholdFormPage({
               )}
             </div>
 
+            {/* Nhóm Đa Thửa Đất & Nhiều Sổ Đỏ (GCN QSDĐ) */}
+            <div className="p-2.5 sm:p-4 border border-indigo-200/80 rounded-xl bg-indigo-50/25">
+              <MultiParcelEditor
+                sectionTitle="Hồ sơ Địa chính & Giấy chứng nhận QSDĐ (Hỗ trợ Ghép Thửa / Nhiều Sổ Đỏ)"
+                parcels={landParcels}
+                onChange={setLandParcels}
+                defaultOwnerName={editOwner}
+                defaultAddress={editAddress}
+                onNotice={(n) => setNotice(n)}
+              />
+            </div>
+
+            {/* Nhóm Hình ảnh Thực tế Nhà ở & Định vị Timemark */}
+            <div className="p-4 border border-amber-200/80 rounded-xl bg-amber-50/30 space-y-3">
+              <div className="flex flex-wrap items-center justify-between gap-2 border-b border-amber-100 pb-2">
+                <span className="font-bold text-slate-800 text-xs flex items-center gap-1.5 uppercase tracking-wider">
+                  <Camera size={15} className="text-amber-600" />
+                  Hình ảnh Hiện trường &amp; Khảo sát Thực tế Timemark
+                </span>
+                {timemarkVerified && (
+                  <span className="text-[11px] font-bold text-amber-900 bg-amber-100 border border-amber-300 px-2.5 py-0.5 rounded-full flex items-center gap-1">
+                    <Check size={11} className="text-emerald-700" /> Đã xác thực Timemark
+                  </span>
+                )}
+              </div>
+
+              {/* Upload Dropzone Timemark */}
+              <div className="border-2 border-dashed border-amber-200 hover:border-amber-400 rounded-xl p-3 bg-white text-center transition-colors">
+                <input
+                  type="file"
+                  id="timemark-upload-edit"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) handleProcessImageUpload(file);
+                  }}
+                />
+                <label
+                  htmlFor="timemark-upload-edit"
+                  className="cursor-pointer flex flex-col items-center gap-1 text-xs text-slate-600"
+                >
+                  <Camera size={18} className="text-amber-600" />
+                  <span className="font-bold text-amber-900">
+                    {isTimemarkProcessing ? "Đang trích xuất Watermark Timemark..." : "Tải lên ảnh chụp khảo sát Timemark Camera"}
+                  </span>
+                  <span className="text-[11px] text-slate-400">
+                    Tự động nhận diện Tọa độ GPS, Thời gian chụp, Độ cao, Phương hướng và Mã băm xác thực
+                  </span>
+                </label>
+              </div>
+
+              {houseImage && (
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 bg-white p-3 rounded-xl border border-amber-200/70 items-center">
+                  <div className="relative h-28 rounded-lg overflow-hidden border border-slate-200">
+                    <img src={houseImage} alt="Ảnh thực tế" className="w-full h-full object-cover" />
+                    {timemarkHash && (
+                      <span className="absolute bottom-1 right-1 text-[9px] font-mono bg-black/75 text-white px-1.5 py-0.5 rounded">
+                        #{timemarkHash}
+                      </span>
+                    )}
+                  </div>
+                  <div className="sm:col-span-2 space-y-1 text-xs">
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-slate-500 font-medium">Tọa độ GPS:</span>
+                      <strong className="font-mono text-emerald-800">{coordInput || "Chưa có"}</strong>
+                    </div>
+                    {photoTakenAt && (
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-slate-500 font-medium">Thời gian:</span>
+                        <span className="text-slate-800 font-semibold">{photoTakenAt}</span>
+                      </div>
+                    )}
+                    <div className="flex items-center gap-3 text-[11px] text-slate-600">
+                      {photoElevation && <span>Độ cao: <strong>{photoElevation}</strong></span>}
+                      {photoDirection && <span>Hướng: <strong>{photoDirection}</strong></span>}
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+
             <div className="space-y-1.5">
               <label
                 htmlFor="edit-h-notes"
@@ -841,6 +1368,16 @@ export default function HouseholdFormPage({
           </form>
         </div>
       )}
+
+      {/* Modal Chọn Cư Dân */}
+      <ResidentSelectModal
+        isOpen={isResidentModalOpen}
+        onClose={() => setIsResidentModalOpen(false)}
+        residents={residents}
+        targetRole="owner"
+        currentValue={mode === "create" ? newOwner : editOwner}
+        onSelect={handleSelectResident}
+      />
     </div>
   );
 }

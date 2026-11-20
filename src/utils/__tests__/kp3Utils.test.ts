@@ -3,6 +3,8 @@ import {
   KP3_TO_LIST,
   extractToDanPho,
   formatDecimalVN,
+  formatShortRecordId,
+  formatVNDate,
   maskCccd,
   maskPhone,
   computeKp3PopulationMetrics,
@@ -10,6 +12,7 @@ import {
   isSmallBusinessOrHostel,
   generateKp3AssistantReply,
 } from "../kp3Utils";
+import { formatTextNumbers } from "../numberFormat";
 import type { Resident, Household, Business } from "../../types";
 
 describe("kp3Utils", () => {
@@ -146,5 +149,58 @@ describe("kp3Utils", () => {
       "canbo"
     );
     expect(reply).toContain("500.000");
+  });
+
+  it("formats long PostgreSQL UUIDs into concise readable record IDs and preserves short codes", () => {
+    expect(formatShortRecordId("51d76d1b-02a2-4cb2-8754-f1b908e12a34", "PA")).toBe("PA-51D76D1B");
+    expect(formatShortRecordId("42f74b95-07d3-4f88-91c2-abc123456789", "NV")).toBe("NV-42F74B95");
+    expect(formatShortRecordId("REP901", "PA")).toBe("REP901");
+    expect(formatShortRecordId("", "PA")).toBe("PA-—");
+  });
+
+  it("formats ISO dates to Vietnamese DD/MM/YYYY format cleanly", () => {
+    expect(formatVNDate("2026-10-25")).toBe("25/10/2026");
+    expect(formatVNDate("15/11/2026")).toBe("15/11/2026");
+    expect(formatVNDate("")).toBe("—");
+  });
+
+  it("preserves hotline 1022 and calendar/legal years while dot-formatting metric counts", () => {
+    expect(formatTextNumbers("Tổng đài 1022")).toBe("Tổng đài 1022");
+    expect(formatTextNumbers("KP3 1022")).toBe("KP3 1022");
+    expect(formatTextNumbers("Kế hoạch Năm 2026")).toBe("Kế hoạch Năm 2026");
+    expect(formatTextNumbers("Luật 2023")).toBe("Luật 2023");
+    expect(formatTextNumbers("Quy mô 11632 nhân khẩu")).toBe("Quy mô 11.632 nhân khẩu");
+  });
+
+  it("classifies Nhà sách / Cơ sở kinh doanh khác consistently as enterprise and never promotes hostels", () => {
+    const bookstore: Business = {
+      id: "E7",
+      name: "Nhà sách Văn Hóa An Phú",
+      type: "Thương mại",
+      businessType: "Cơ sở kinh doanh khác",
+      owner: "Lê Minh",
+      phone: "0909",
+      address: "18 Lương Định Của",
+      licenseNumber: "GP-99",
+      status: "Đang hoạt động",
+      employeeCount: 6,
+      safetyCertified: true,
+    };
+    const largeHostel: Business = {
+      id: "H99",
+      name: "Nhà trọ Đại Gia Đình",
+      type: "Lưu trú",
+      businessType: "Hộ kinh doanh",
+      owner: "Phạm Văn Bình",
+      phone: "0913137155",
+      address: "17/A3 KP3",
+      licenseNumber: "GP-17",
+      status: "Đang hoạt động",
+      employeeCount: 10,
+      safetyCertified: true,
+      isAccommodation: true,
+    };
+    expect(isEnterpriseRecord(bookstore)).toBe(true);
+    expect(isEnterpriseRecord(largeHostel)).toBe(false);
   });
 });

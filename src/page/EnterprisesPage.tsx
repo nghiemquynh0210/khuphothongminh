@@ -40,6 +40,8 @@ export default function EnterprisesPage(props: EnterprisesPageProps) {
     location.search
   );
   const [savedNotice, setSavedNotice] = useState<string | null>(null);
+  const [activeMainTab, setActiveMainTab] = useState<"list" | "economicReport">("list");
+  const [viewMode, setViewMode] = useState<"card" | "table">("card");
 
   useEffect(() => {
     if (!savedNotice) return;
@@ -82,6 +84,8 @@ export default function EnterprisesPage(props: EnterprisesPageProps) {
           mode="edit"
           enterpriseId={routeMatch.enterpriseId}
           businesses={props.businesses}
+          residents={props.residents}
+          households={props.households}
           isDataLoading={props.isDataLoading}
           onUpdateBusinesses={props.onUpdateBusinesses}
           onCancel={() =>
@@ -101,6 +105,8 @@ export default function EnterprisesPage(props: EnterprisesPageProps) {
       <EnterpriseFormPage
         mode="create"
         businesses={props.businesses}
+        residents={props.residents}
+        households={props.households}
         isDataLoading={props.isDataLoading}
         onUpdateBusinesses={props.onUpdateBusinesses}
         onCancel={() => navigate(ROUTES.DASHBOARD_ENTERPRISES)}
@@ -134,6 +140,10 @@ export default function EnterprisesPage(props: EnterprisesPageProps) {
           onUpdateStatus={props.onUpdateStatus}
           onUpdateBusinesses={props.onUpdateBusinesses}
           onNavigateToGis={props.onNavigateToGis}
+          activeMainTab={activeMainTab}
+          onActiveMainTabChange={setActiveMainTab}
+          viewMode={viewMode}
+          onViewModeChange={setViewMode}
         />
       )}
     </div>

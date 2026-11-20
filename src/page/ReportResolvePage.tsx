@@ -25,6 +25,7 @@ import { PageHeader } from "../components/common/PageHeader";
 import { ReportImage } from "../components/reports/ImageLightboxModal";
 import { InlineNotice } from "../components/ui/ConfirmModal";
 import { ROUTES, getReportDetailPath, navigate } from "../routes";
+import { formatShortRecordId } from "../utils/kp3Utils";
 
 export interface ReportResolvePageProps {
   reportId: string;
@@ -218,9 +219,9 @@ export default function ReportResolvePage({
     <div className="space-y-5 animate-fade-in">
       <PageHeader
         badgeIcon={<CheckCircle2 size={14} className="text-emerald-700 shrink-0" />}
-        badgeText={`Nghiệm thu & Hoàn tất • ${report.id}`}
+        badgeText={`Nghiệm thu & Hoàn tất • ${formatShortRecordId(report.id, "PA")}`}
         badgeSubtext={report.category}
-        title={`Hoàn tất xử lý hồ sơ ${report.id}`}
+        title={`Hoàn tất xử lý hồ sơ ${formatShortRecordId(report.id, "PA")}`}
         description={report.title}
         actions={
           <Button

@@ -234,7 +234,7 @@ export default function Kp3SchematicView({
             Không tìm thấy phân khu GIS phù hợp với từ khóa "{searchTo}".
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 xl:grid-cols-2 gap-3">
             {filteredZones.map((item) => {
               const { zone, householdCount, businessCount, infraCount, activeReportCount } = item;
               const isSelected = activeToFilter === zone.toNumber;
@@ -358,19 +358,19 @@ export default function Kp3SchematicView({
         </button>
 
         <div className="bg-slate-50 rounded-xl border border-slate-200 p-3 space-y-2 text-xs">
-          <div className="flex items-center justify-between gap-2">
+          <div className="flex flex-wrap items-center justify-between gap-2">
             <span className="text-slate-600">Diện tích đường biên</span>
             <span className="font-bold text-slate-900">{areaFormatted}</span>
           </div>
-          <div className="flex items-center justify-between gap-2">
+          <div className="flex flex-wrap items-center justify-between gap-2">
             <span className="text-slate-600">Chu vi khép kín</span>
             <span className="font-bold text-slate-900">{perimeterFormatted}</span>
           </div>
-          <div className="flex items-center justify-between gap-2">
+          <div className="flex flex-wrap items-center justify-between gap-2">
             <span className="text-slate-600">Số mốc tọa độ</span>
             <span className="font-bold text-slate-900">{formatVNNumber(verticesCount)} điểm</span>
           </div>
-          <div className="flex items-center justify-between gap-2">
+          <div className="flex flex-wrap items-center justify-between gap-2">
             <span className="text-slate-600">Trực thuộc</span>
             <span className="font-bold text-slate-900">Phường An Phú, TP. HCM</span>
           </div>

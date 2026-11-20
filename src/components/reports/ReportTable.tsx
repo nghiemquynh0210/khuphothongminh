@@ -19,6 +19,7 @@ import {
   TableRow,
 } from "../ui";
 import { mapReportStatusToBadge } from "./ReportCard";
+import { formatShortRecordId } from "../../utils/kp3Utils";
 
 export interface ReportTableProps {
   reports: FieldReport[];
@@ -36,16 +37,16 @@ export function ReportTable({
   onOpenResolve,
 }: ReportTableProps) {
   return (
-    <Table aria-label="Bảng theo dõi phản ánh hiện trường KP3">
+    <Table className="min-w-[1020px]" aria-label="Bảng theo dõi phản ánh hiện trường KP3">
       <TableHeader>
         <TableRow>
           <TableHead className="w-24">Mã HS</TableHead>
-          <TableHead>Nội dung &amp; Địa điểm</TableHead>
+          <TableHead className="min-w-[260px]">Nội dung &amp; Địa điểm</TableHead>
           <TableHead className="w-40">Nhóm / Ưu tiên</TableHead>
           <TableHead className="w-44">Đơn vị phụ trách</TableHead>
           <TableHead className="w-28">Minh chứng</TableHead>
           <TableHead className="w-36">Trạng thái / SLA</TableHead>
-          <TableHead className="text-right w-48">Thao tác</TableHead>
+          <TableHead className="text-right w-48 sticky right-0 bg-white z-10 shadow-[-4px_0_8px_-4px_rgba(15,23,42,0.08)]">Thao tác</TableHead>
         </TableRow>
       </TableHeader>
       <TableBody>
@@ -62,21 +63,39 @@ export function ReportTable({
           const badgeInfo = mapReportStatusToBadge(report.status);
 
           return (
-            <TableRow key={report.id}>
-              <TableCell className="font-mono text-xs font-semibold text-slate-700 tabular-nums">
-                {report.id}
+            <TableRow
+              key={report.id}
+              tabIndex={0}
+              onClick={() => onOpenDetail(report)}
+              onKeyDown={(e) => {
+                if (e.target !== e.currentTarget) return;
+                if (e.key === "Enter" || e.key === " ") {
+                  e.preventDefault();
+                  onOpenDetail(report);
+                }
+              }}
+              className="cursor-pointer hover:bg-emerald-50/40 transition-colors group"
+            >
+              <TableCell className="font-mono text-xs font-semibold text-slate-700 tabular-nums" title={report.id}>
+                {formatShortRecordId(report.id, "PA")}
               </TableCell>
-              <TableCell>
+              <TableCell className="min-w-[260px]">
                 <div className="space-y-0.5 max-w-md">
-                  <button
-                    type="button"
-                    onClick={() => onOpenDetail(report)}
-                    className="font-semibold text-slate-900 hover:text-emerald-700 text-left line-clamp-1 cursor-pointer focus-visible:outline-none focus-visible:underline"
-                  >
+                  <div className="font-semibold text-slate-900 group-hover:text-emerald-700 text-left line-clamp-1 transition-colors">
                     {report.title}
-                  </button>
-                  <div className="text-xs text-slate-600 truncate">
-                    {report.location} • {report.reportedAt}
+                  </div>
+                  <div className="text-xs text-slate-600 truncate flex items-center gap-1.5">
+                    <span>{report.location} • {report.reportedAt}</span>
+                    {report.timemarkVerified && (
+                      <span className="text-[9.5px] font-bold px-1.5 py-0.5 rounded bg-amber-50 text-amber-800 border border-amber-300">
+                        GPS
+                      </span>
+                    )}
+                    {report.linkedHouseholdCode && (
+                      <span className="text-[9.5px] font-bold px-1.5 py-0.5 rounded bg-blue-50 text-blue-700 border border-blue-200">
+                        Hộ {report.linkedHouseholdCode}
+                      </span>
+                    )}
                   </div>
                 </div>
               </TableCell>
@@ -125,7 +144,10 @@ export function ReportTable({
                   </span>
                 </div>
               </TableCell>
-              <TableCell className="text-right">
+              <TableCell
+                className="text-right sticky right-0 bg-white group-hover:bg-emerald-50 z-10 shadow-[-4px_0_8px_-4px_rgba(15,23,42,0.06)]"
+                onClick={(e) => e.stopPropagation()}
+              >
                 <div className="inline-flex items-center justify-end gap-1.5">
                   {!readOnly && report.status === "Đã tiếp nhận" && (
                     <Button

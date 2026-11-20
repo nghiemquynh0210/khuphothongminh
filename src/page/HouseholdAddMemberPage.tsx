@@ -108,15 +108,15 @@ export default function HouseholdAddMemberPage({
     } as Household;
 
     const newR: Resident = {
-      id: "R" + Math.floor(1000 + Math.random() * 9000),
+      id: `R-${Date.now()}`,
       fullName: trimmedName,
       gender:
-        addMemRelation === "Vợ" || addMemRelation === "Con gái" ? "Nữ" : "Nam",
+        addMemRelation === "Vợ" || addMemRelation === "Con gái" || addMemRelation === "Mẹ" ? "Nữ" : "Nam",
       birthDate: `01/01/${addMemBirthYear}`,
       cccd: trimmedCccd,
-      phone: trimmedPhone || "N/A",
+      phone: trimmedPhone || "",
       status: targetHousehold.type || "Thường trú",
-      occupation: "Thành viên",
+      occupation: "",
       address: targetHousehold.address,
       householdId: targetHousehold.code,
       relationToOwner: addMemRelation,
@@ -186,7 +186,7 @@ export default function HouseholdAddMemberPage({
             type="button"
             id="btn-household-add-member-back"
             onClick={goBackToList}
-            className="inline-flex items-center gap-2 min-h-[40px] bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 px-3.5 py-2 rounded-xl font-bold text-xs transition-colors cursor-pointer"
+            className="inline-flex items-center gap-2 min-h-[40px] bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 px-3.5 py-2 rounded-xl font-bold text-xs transition-colors cursor-pointer whitespace-nowrap shrink-0"
           >
             <ArrowLeft size={15} />
             <span>Quay lại danh sách</span>

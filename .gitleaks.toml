@@ -8,7 +8,6 @@ title = "KP3 An Phu - Gitleaks Config"
   ]
   paths = [
     '''.env.example''',
-    '''AGENTS.md''',
   ]
 
 [[rules]]

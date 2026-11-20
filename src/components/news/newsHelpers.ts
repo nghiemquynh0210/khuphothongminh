@@ -6,7 +6,7 @@ import {
   Sparkles,
   Users,
 } from "lucide-react";
-import { LocalNews } from "../../types";
+import { CommunityEvent, LocalNews } from "../../types";
 
 export interface NewsCoverPreset {
   id: string;
@@ -199,5 +199,135 @@ export function normalizeExternalUrl(raw: string): string | null {
   if (/^(javascript|data|vbscript):/i.test(trimmed)) return null;
   if (/^https?:\/\//i.test(trimmed)) return trimmed;
   return `https://${trimmed}`;
+}
+
+export function normalizeNewsAuthor(author?: string): string {
+  const trimmed = (author || "").trim();
+  if (
+    !trimmed ||
+    /nguyễn văn hùng\s*-\s*bí thư chi bộ/i.test(trimmed) ||
+    /^nguyễn văn hùng$/i.test(trimmed)
+  ) {
+    return "Ban Điều hành Khu phố 3";
+  }
+  return trimmed;
+}
+
+export function normalizeNewsItem(item: LocalNews): LocalNews {
+  const cleanAuthor = normalizeNewsAuthor(item.author);
+  return cleanAuthor === item.author ? item : { ...item, author: cleanAuthor };
+}
+
+export function doesEventMatchVenue(eventLocation: string, venueFullName: string): boolean {
+  const loc = (eventLocation || "").trim().toLowerCase();
+  const venueLower = (venueFullName || "").trim().toLowerCase();
+  if (!loc || !venueLower) return false;
+  if (loc === venueLower) return true;
+
+  const venueShort = venueLower.split("(")[0].trim();
+  if (loc === venueShort) return true;
+
+  if (venueShort.startsWith("sân ")) {
+    return loc.includes("sân nhà văn hóa") || loc.includes("sân nvh");
+  }
+  if (venueShort.startsWith("phòng sinh hoạt")) {
+    return loc.includes("phòng sinh hoạt");
+  }
+  if (venueShort.startsWith("điểm sinh hoạt")) {
+    return loc.includes("điểm sinh hoạt");
+  }
+  if (venueShort.startsWith("nhà văn hóa")) {
+    return (loc.includes("nhà văn hóa") || loc.includes("hội trường")) && !loc.includes("sân ");
+  }
+  return loc.includes(venueShort);
+}
+
+function extractNormalizedEventSchedule(rawDateTime: string): {
+  dateKey: string | null;
+  startMin: number;
+  endMin: number;
+  rawNorm: string;
+} {
+  const raw = (rawDateTime || "").trim();
+  const rawNorm = raw.toLowerCase().replace(/\s+/g, " ");
+  let dateKey: string | null = null;
+  let strippedForTime = raw;
+
+  const dmyMatch = raw.match(/\b(\d{1,2})[\/\-](\d{1,2})[\/\-](20\d{2})\b/);
+  const ymdMatch = raw.match(/\b(20\d{2})[\/\-](\d{1,2})[\/\-](\d{1,2})\b/);
+  if (dmyMatch) {
+    const dd = dmyMatch[1].padStart(2, "0");
+    const mm = dmyMatch[2].padStart(2, "0");
+    const yyyy = dmyMatch[3];
+    dateKey = `${yyyy}-${mm}-${dd}`;
+    strippedForTime = raw.replace(dmyMatch[0], " ");
+  } else if (ymdMatch) {
+    const yyyy = ymdMatch[1];
+    const mm = ymdMatch[2].padStart(2, "0");
+    const dd = ymdMatch[3].padStart(2, "0");
+    dateKey = `${yyyy}-${mm}-${dd}`;
+    strippedForTime = raw.replace(ymdMatch[0], " ");
+  }
+
+  const timeMatches = Array.from(
+    strippedForTime.matchAll(/\b([01]?\d|2[0-3])(?:[:hHg]([0-5]\d)|\s*[hHg])\b/g)
+  );
+  if (timeMatches.length >= 2) {
+    const startMin = Number(timeMatches[0][1]) * 60 + Number(timeMatches[0][2] || 0);
+    const endMin = Number(timeMatches[1][1]) * 60 + Number(timeMatches[1][2] || 0);
+    return {
+      dateKey,
+      startMin: Math.min(startMin, endMin),
+      endMin: Math.max(endMin, startMin + 30),
+      rawNorm,
+    };
+  }
+  if (timeMatches.length === 1) {
+    const startMin = Number(timeMatches[0][1]) * 60 + Number(timeMatches[0][2] || 0);
+    return {
+      dateKey,
+      startMin,
+      endMin: startMin + 120,
+      rawNorm,
+    };
+  }
+
+  return {
+    dateKey,
+    startMin: 0,
+    endMin: 24 * 60,
+    rawNorm,
+  };
+}
+
+export function findVenueScheduleConflicts(
+  candidateLocation: string,
+  candidateDateTime: string,
+  allEvents: CommunityEvent[],
+  excludeEventId?: string
+): CommunityEvent[] {
+  const cleanLoc = (candidateLocation || "").trim();
+  const cleanTime = (candidateDateTime || "").trim();
+  if (!cleanLoc || !cleanTime) return [];
+
+  const candSched = extractNormalizedEventSchedule(cleanTime);
+
+  return allEvents.filter((ev) => {
+    if (excludeEventId && ev.id === excludeEventId) return false;
+    if (ev.status === "Đã kết thúc" || ev.status === "Đã hủy") return false;
+
+    const sameVenue =
+      doesEventMatchVenue(ev.location, cleanLoc) ||
+      doesEventMatchVenue(cleanLoc, ev.location);
+    if (!sameVenue) return false;
+
+    const evSched = extractNormalizedEventSchedule(ev.dateTime);
+    if (candSched.dateKey && evSched.dateKey) {
+      if (candSched.dateKey !== evSched.dateKey) return false;
+      return candSched.startMin < evSched.endMin && evSched.startMin < candSched.endMin;
+    }
+
+    return candSched.rawNorm.length >= 5 && candSched.rawNorm === evSched.rawNorm;
+  });
 }
 

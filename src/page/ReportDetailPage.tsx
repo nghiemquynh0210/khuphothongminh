@@ -7,6 +7,7 @@ import {
   CheckSquare,
   Clock,
   Edit2,
+  Home,
   ImagePlus,
   Loader2,
   Lock,
@@ -15,6 +16,7 @@ import {
   MessageSquareWarning,
   RotateCcw,
   Send,
+  Sparkles,
   Star,
   Trash2,
   UserCheck,
@@ -22,8 +24,10 @@ import {
 } from "lucide-react";
 import {
   FieldReport,
+  Household,
   ReportMessage,
   ReportPriority,
+  Resident,
   TargetGisItem,
 } from "../types";
 import {
@@ -31,7 +35,9 @@ import {
   CITIZEN_QUICK_REPLIES,
   KP3_TEAMS,
   REPORT_PRIORITY_CONFIG,
+  dispatchQuickKp3TaskFromReport,
   formatNowVNString,
+  formatReportCoordinates,
   getAfterImages,
   getBeforeImages,
   getCategoryMeta,
@@ -41,6 +47,7 @@ import {
   reportToTargetGisItem,
 } from "../data/reportConfig";
 import { uploadReportImages } from "../utils/imageUpload";
+import { formatShortRecordId } from "../utils/kp3Utils";
 import { DetailList, DetailRow } from "../components/common/DetailRow";
 import { LoadingFade } from "../components/common/LoadingFade";
 import { PageHeader } from "../components/common/PageHeader";
@@ -56,6 +63,7 @@ import {
 } from "../components/reports/ImageLightboxModal";
 import {
   ROUTES,
+  getHouseholdDetailPath,
   getReportEditPath,
   getReportResolvePath,
   navigate,
@@ -88,6 +96,8 @@ export interface ReportDetailPageProps {
   onSubmitFeedback: (reportId: string, rating: number, comment: string) => void;
   onNavigateToGis?: (item: TargetGisItem) => void;
   onCreateTask?: (report: FieldReport) => void;
+  residents?: Resident[];
+  households?: Household[];
 }
 
 export default function ReportDetailPage({
@@ -110,11 +120,24 @@ export default function ReportDetailPage({
   onSubmitFeedback,
   onNavigateToGis,
   onCreateTask,
+  households = [],
 }: ReportDetailPageProps) {
   const report = useMemo(() => {
     const found = reports.find((r) => r.id === reportId);
     return found ? normalizeReport(found) : null;
   }, [reports, reportId]);
+
+  const linkedHousehold = useMemo(() => {
+    if (!report?.linkedHouseholdCode) return null;
+    const code = report.linkedHouseholdCode.trim().toLowerCase();
+    return (
+      households.find(
+        (h) =>
+          h.code.trim().toLowerCase() === code ||
+          String(h.id).trim().toLowerCase() === code
+      ) || null
+    );
+  }, [report?.linkedHouseholdCode, households]);
 
   const [chatChannel, setChatChannel] = useState<"public" | "internal">(
     "public"
@@ -139,9 +162,15 @@ export default function ReportDetailPage({
 
   useEffect(() => {
     if (!pageNotice) return;
-    const t = window.setTimeout(() => setPageNotice(null), 3500);
+    const t = window.setTimeout(() => setPageNotice(null), 4000);
     return () => window.clearTimeout(t);
   }, [pageNotice]);
+
+  useEffect(() => {
+    if (readOnly && chatChannel === "internal") {
+      setChatChannel("public");
+    }
+  }, [readOnly, chatChannel]);
 
   useEffect(() => {
     if (!report) return;
@@ -230,12 +259,32 @@ export default function ReportDetailPage({
     })),
   ];
 
-  const publicMessages = (report.messages || []).filter((m) => !m.isInternal);
-  const internalMessages = (report.messages || []).filter((m) =>
-    Boolean(m.isInternal)
-  );
+  const allMessages = readOnly
+    ? (report.messages || []).filter((m) => m.isInternal !== true)
+    : report.messages || [];
+  const publicMessages = allMessages.filter((m) => m.isInternal !== true);
+  const internalMessages = readOnly
+    ? []
+    : allMessages.filter((m) => m.isInternal === true);
   const displayedMessages =
-    !readOnly && chatChannel === "internal" ? internalMessages : publicMessages;
+    !readOnly && chatChannel === "internal"
+      ? internalMessages
+      : publicMessages.filter((m) => m.isInternal !== true);
+
+  const handleQuickCreateKp3Task = () => {
+    if (readOnly) return;
+    if (onCreateTask) {
+      onCreateTask(report);
+      setPageNotice(
+        `Đã giao thành Nhiệm vụ KP3 từ phản ánh "${report.title}" cho đơn vị "${report.assignedUnit || "Ban Điều hành KP3"}".`
+      );
+      return;
+    }
+    const created = dispatchQuickKp3TaskFromReport(report, currentActorName);
+    setPageNotice(
+      `Đã tạo Nhiệm vụ KP3 [${created.id}] giao cho "${created.unit}" và đồng bộ CSDL thành công!`
+    );
+  };
 
   const handleAttachMessagePhotos = async (fileList: FileList | null) => {
     if (!fileList || fileList.length === 0) return;
@@ -308,7 +357,7 @@ export default function ReportDetailPage({
             className="text-emerald-700 shrink-0"
           />
         }
-        badgeText={`Hồ sơ phản ánh • ${report.id}`}
+        badgeText={`Hồ sơ phản ánh • ${formatShortRecordId(report.id, "PA")}`}
         badgeSubtext={report.status}
         title={report.title}
         description={`${report.location} • Gửi lúc ${report.reportedAt}`}
@@ -334,20 +383,15 @@ export default function ReportDetailPage({
                 Bản đồ GIS
               </Button>
             )}
-            {!readOnly && onCreateTask && (
+            {!readOnly && (
               <Button
                 type="button"
                 variant="outline"
                 size="sm"
                 leftIcon={<CheckSquare size={14} className="text-indigo-700" />}
-                onClick={() => {
-                  onCreateTask(report);
-                  setPageNotice(
-                    `Đã chuyển phản ánh "${report.title}" sang bảng Nhiệm vụ & Lịch công tác.`
-                  );
-                }}
+                onClick={handleQuickCreateKp3Task}
               >
-                Giao việc
+                Giao thành Nhiệm vụ KP3
               </Button>
             )}
             {!readOnly && (
@@ -409,11 +453,21 @@ export default function ReportDetailPage({
       />
 
       {pageNotice && (
-        <InlineNotice
-          type="success"
-          message={pageNotice}
-          onDismiss={() => setPageNotice(null)}
-        />
+        <>
+          <div
+            role="status"
+            aria-live="polite"
+            className="fixed bottom-6 right-6 z-50 bg-slate-900 text-white border border-emerald-500/40 px-4 py-3 rounded-xl shadow-xl flex items-center gap-2.5 text-xs font-medium max-w-sm"
+          >
+            <CheckCircle2 size={16} className="text-emerald-400 shrink-0" aria-hidden="true" />
+            <span>{pageNotice}</span>
+          </div>
+          <InlineNotice
+            type="success"
+            message={pageNotice}
+            onDismiss={() => setPageNotice(null)}
+          />
+        </>
       )}
 
       {/* Top Metadata & Badges */}
@@ -448,6 +502,18 @@ export default function ReportDetailPage({
             <Clock size={12} aria-hidden="true" />
             {sla.label}
           </span>
+          {report.timemarkVerified && (
+            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-amber-50 text-amber-900 border border-amber-300 shadow-2xs">
+              <Sparkles size={11} className="text-amber-600" />
+              <span>Timemark GPS</span>
+            </span>
+          )}
+          {report.linkedHouseholdCode && (
+            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-blue-50 text-blue-800 border border-blue-200">
+              <Home size={11} className="text-blue-600" />
+              <span>Hộ {report.linkedHouseholdCode}</span>
+            </span>
+          )}
         </div>
       </div>
 
@@ -616,6 +682,28 @@ export default function ReportDetailPage({
                   </div>
                 </div>
               )}
+
+              {report.timemarkVerified && (
+                <div className="p-3 bg-amber-50/80 rounded-xl border border-amber-300 text-xs space-y-1.5 mt-2">
+                  <div className="flex items-center justify-between">
+                    <span className="font-bold text-amber-950 flex items-center gap-1.5">
+                      <Sparkles size={13} className="text-amber-600" />
+                      ✓ Timemark Verified • 100% Chân thực
+                    </span>
+                    {report.timemarkHash && (
+                      <span className="font-mono text-[10px] bg-amber-200/80 text-amber-900 px-2 py-0.5 rounded font-bold">
+                        #{report.timemarkHash}
+                      </span>
+                    )}
+                  </div>
+                  <div className="grid grid-cols-2 gap-x-3 gap-y-1 text-[11px] text-slate-700">
+                    <div>GPS: <strong className="font-mono text-emerald-800">{formatReportCoordinates(report) || "Đã định vị"}</strong></div>
+                    <div>Thời gian: <strong>{report.photoTakenAt || report.reportedAt}</strong></div>
+                    {report.photoElevation && <div>Độ cao: <strong>{report.photoElevation}</strong></div>}
+                    {report.photoDirection && <div>Hướng: <strong>{report.photoDirection}</strong></div>}
+                  </div>
+                </div>
+              )}
             </div>
           </div>
 
@@ -635,6 +723,33 @@ export default function ReportDetailPage({
                 isMono
               />
               <DetailRow label="Địa điểm sự cố" value={report.location} />
+              {report.linkedHouseholdCode && (
+                <DetailRow
+                  label="Liên kết Hộ dân"
+                  value={
+                    !readOnly && linkedHousehold ? (
+                      <button
+                        type="button"
+                        onClick={() => navigate(getHouseholdDetailPath(linkedHousehold.id))}
+                        className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-blue-50 hover:bg-blue-100 border border-blue-200 text-blue-700 font-mono text-xs font-bold cursor-pointer transition-colors"
+                      >
+                        <Home size={12} /> Hộ {report.linkedHouseholdCode} • Xem Sổ hộ khẩu ➜
+                      </button>
+                    ) : (
+                      <span className="font-mono text-blue-700 font-bold">
+                        Hộ {report.linkedHouseholdCode}
+                      </span>
+                    )
+                  }
+                />
+              )}
+              {formatReportCoordinates(report) && (
+                <DetailRow
+                  label="Tọa độ GPS"
+                  value={formatReportCoordinates(report)}
+                  isMono
+                />
+              )}
               <DetailRow
                 label="Đơn vị phụ trách"
                 value={report.assignedUnit || "Ban Điều hành KP3"}
@@ -784,7 +899,7 @@ export default function ReportDetailPage({
                     aria-hidden="true"
                   />
                   <p className="text-xs font-semibold text-slate-700">
-                    {chatChannel === "internal"
+                    {!readOnly && chatChannel === "internal"
                       ? "Chưa có ghi chú nội bộ giữa các cán bộ."
                       : "Chưa có tin nhắn trao đổi trực tiếp."}
                   </p>

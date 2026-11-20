@@ -6,6 +6,11 @@ import PartyMemberFormPage from "./PartyMemberFormPage";
 import { Association, AssociationMember, PartyMember, Resident, TaskItem } from "../types";
 import { getStoredAssociations, saveStoredAssociations } from "../data/associationsData";
 import { loadAssociationRecord, saveAssociationRecord } from "../utils/supabaseSync";
+import {
+  assignMemberRoleInAssociation,
+  classifyMemberRoleTier,
+  sortAssociationsAndMembers,
+} from "../utils/leadershipSync";
 import { InlineNotice } from "../components/ui/ConfirmModal";
 import {
   ROUTES,
@@ -45,6 +50,15 @@ export default function PartyPage({
 
   const [internalAssocs, setInternalAssocs] = useState<Association[]>(getStoredAssociations);
   const associations = externalAssocs ?? internalAssocs;
+  const [selectedAssociationId, setSelectedAssociationId] = useState<string>("ASC_DANG");
+  const [activeSubTab, setActiveSubTab] = useState<"associations" | "meetings" | "multi_role" | "decisions" | "org_chart">("associations");
+  const [assocViewMode, setAssocViewMode] = useState<"card" | "table">("card");
+
+  useEffect(() => {
+    if (routeMatch && "assocId" in routeMatch && routeMatch.assocId) {
+      setSelectedAssociationId(routeMatch.assocId);
+    }
+  }, [routeMatch]);
 
   const [savedNotice, setSavedNotice] = useState<string | null>(null);
 
@@ -55,29 +69,33 @@ export default function PartyPage({
   }, [savedNotice]);
 
   useEffect(() => {
+    // Chỉ tự nạp từ Supabase khi chạy độc lập (không nhận externalAssocs từ App.tsx)
+    if (externalAssocs) return;
     let active = true;
     loadAssociationRecord<Association[]>("associations").then((rows) => {
       if (active && Array.isArray(rows) && rows.length > 0) {
+        const sorted = sortAssociationsAndMembers(rows);
         if (onAssociationsChange) {
-          onAssociationsChange(rows);
+          onAssociationsChange(sorted);
         } else {
-          setInternalAssocs(rows);
-          saveStoredAssociations(rows);
+          setInternalAssocs(sorted);
+          saveStoredAssociations(sorted);
         }
       }
     });
     return () => {
       active = false;
     };
-  }, []);
+  }, [Boolean(externalAssocs)]);
 
   const saveAssocs = (next: Association[]) => {
+    const sorted = sortAssociationsAndMembers(next);
     if (onAssociationsChange) {
-      onAssociationsChange(next);
+      onAssociationsChange(sorted);
     } else {
-      setInternalAssocs(next);
-      saveStoredAssociations(next);
-      saveAssociationRecord("associations", next);
+      setInternalAssocs(sorted);
+      saveStoredAssociations(sorted);
+      saveAssociationRecord("associations", sorted);
     }
   };
 
@@ -90,7 +108,7 @@ export default function PartyPage({
   };
 
   const handleAddMember = (assocId: string, newMember: AssociationMember) => {
-    const next = associations.map((assoc) => {
+    const baseNext = associations.map((assoc) => {
       if (assoc.id !== assocId) return assoc;
       const prev = assoc.members || [];
       const exists = prev.some((m) => m.cccd === newMember.cccd);
@@ -101,11 +119,15 @@ export default function PartyPage({
           : [...prev, newMember],
       };
     });
-    saveAssocs(next);
+    const synced = assignMemberRoleInAssociation(baseNext, assocId, newMember.cccd, newMember.role, {
+      decisionNumber: newMember.decisionNumber,
+      decisionDate: newMember.decisionDate,
+    });
+    saveAssocs(synced);
   };
 
   const handleUpdateMember = (assocId: string, updatedMember: AssociationMember) => {
-    const next = associations.map((assoc) => {
+    const baseNext = associations.map((assoc) => {
       if (assoc.id !== assocId) return assoc;
       return {
         ...assoc,
@@ -114,15 +136,41 @@ export default function PartyPage({
         ),
       };
     });
-    saveAssocs(next);
+    const synced = assignMemberRoleInAssociation(
+      baseNext,
+      assocId,
+      updatedMember.cccd,
+      updatedMember.role,
+      {
+        decisionNumber: updatedMember.decisionNumber,
+        decisionDate: updatedMember.decisionDate,
+      }
+    );
+    saveAssocs(synced);
   };
 
   const handleRemoveMember = (assocId: string, memberCccd: string) => {
     const next = associations.map((assoc) => {
       if (assoc.id !== assocId) return assoc;
+      const remaining = (assoc.members || []).filter((m) => m.cccd !== memberCccd);
+      const nextHead =
+        remaining.find((m) => classifyMemberRoleTier(m.role) === "head") ||
+        remaining.find((m) => classifyMemberRoleTier(m.role) === "deputy");
       return {
         ...assoc,
-        members: (assoc.members || []).filter((m) => m.cccd !== memberCccd),
+        leaderName:
+          assoc.leaderCccd === memberCccd
+            ? nextHead
+              ? nextHead.fullName
+              : "Chưa phân công"
+            : assoc.leaderName,
+        leaderCccd:
+          assoc.leaderCccd === memberCccd
+            ? nextHead
+              ? nextHead.cccd
+              : "N/A"
+            : assoc.leaderCccd,
+        members: remaining,
       };
     });
     saveAssocs(next);
@@ -140,6 +188,7 @@ export default function PartyPage({
           onAddAssociation={handleAddAssociation}
           onCancel={() => navigate(basePath)}
           onSaved={(saved) => {
+            setSelectedAssociationId(saved.id);
             setSavedNotice(`Đã thành lập chi hội "${saved.name}" (Mã: ${saved.id}) thành công!`);
             navigate(basePath);
           }}
@@ -244,18 +293,32 @@ export default function PartyPage({
         residents={residents}
         associations={associations}
         onAssociationsChange={saveAssocs}
+        selectedAssociationId={selectedAssociationId}
+        onSelectedAssociationIdChange={setSelectedAssociationId}
+        activeSubTab={activeSubTab}
+        onActiveSubTabChange={setActiveSubTab}
+        assocViewMode={assocViewMode}
+        onAssocViewModeChange={setAssocViewMode}
         onCreateTask={onCreateTask}
         onNavigate={onNavigate}
         basePath={basePath}
         onOpenCreateAssoc={() => navigate(getPartyAssociationCreatePath(basePath))}
-        onOpenEditAssoc={(assoc) => navigate(getPartyAssociationEditPath(assoc.id, basePath))}
-        onOpenAddMember={(assoc) => navigate(getPartyMemberCreatePath(assoc.id, basePath))}
-        onOpenMemberDetail={(member, assoc) =>
-          navigate(getPartyMemberDetailPath(member.cccd, assoc?.id, basePath))
-        }
-        onOpenEditMember={(member, assoc) =>
-          navigate(getPartyMemberEditPath(member.cccd, assoc?.id, basePath))
-        }
+        onOpenEditAssoc={(assoc) => {
+          setSelectedAssociationId(assoc.id);
+          navigate(getPartyAssociationEditPath(assoc.id, basePath));
+        }}
+        onOpenAddMember={(assoc) => {
+          setSelectedAssociationId(assoc.id);
+          navigate(getPartyMemberCreatePath(assoc.id, basePath));
+        }}
+        onOpenMemberDetail={(member, assoc) => {
+          if (assoc?.id) setSelectedAssociationId(assoc.id);
+          navigate(getPartyMemberDetailPath(member.cccd, assoc?.id, basePath));
+        }}
+        onOpenEditMember={(member, assoc) => {
+          if (assoc?.id) setSelectedAssociationId(assoc.id);
+          navigate(getPartyMemberEditPath(member.cccd, assoc?.id, basePath));
+        }}
       />
     </div>
   );

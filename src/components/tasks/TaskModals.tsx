@@ -17,6 +17,13 @@ interface CreateTaskModalProps {
   editingTask?: TaskItem | null;
 }
 
+function getDefaultDeadlineIso(): string {
+  const d = new Date();
+  d.setDate(d.getDate() + 7);
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+}
+
 export const CreateTaskModal: React.FC<CreateTaskModalProps> = ({
   isOpen,
   onClose,
@@ -39,7 +46,7 @@ export const CreateTaskModal: React.FC<CreateTaskModalProps> = ({
   const [assigneePhone, setAssigneePhone] = useState(initialLeader?.phone || "0909123888");
   const [isCustomAssignee, setIsCustomAssignee] = useState(false);
   const [priority, setPriority] = useState<TaskItem["priority"]>("Cao");
-  const [deadline, setDeadline] = useState("2026-10-25");
+  const [deadline, setDeadline] = useState(getDefaultDeadlineIso);
   const [attachments, setAttachments] = useState<TaskAttachment[]>([]);
   const [fileError, setFileError] = useState("");
   const [previewAtt, setPreviewAtt] = useState<TaskAttachment | null>(null);
@@ -63,7 +70,7 @@ export const CreateTaskModal: React.FC<CreateTaskModalProps> = ({
       );
       setIsCustomAssignee(!isInMembers);
       setPriority(editingTask.priority);
-      setDeadline(editingTask.deadline || "2026-10-25");
+      setDeadline(editingTask.deadline || getDefaultDeadlineIso());
       setAttachments(editingTask.attachments || []);
       setFileError("");
       return;
@@ -80,7 +87,7 @@ export const CreateTaskModal: React.FC<CreateTaskModalProps> = ({
     setAssigneePhone(defLeader?.phone || "0909123888");
     setIsCustomAssignee(false);
     setPriority("Cao");
-    setDeadline("2026-10-25");
+    setDeadline(getDefaultDeadlineIso());
     setAttachments([]);
     setFileError("");
   }, [isOpen, editingTask, associationsList]);
@@ -133,8 +140,12 @@ export const CreateTaskModal: React.FC<CreateTaskModalProps> = ({
       setTitleError("Vui lòng nhập tiêu đề nhiệm vụ.");
       return;
     }
+    const fallbackUuid =
+      typeof crypto !== "undefined" && typeof crypto.randomUUID === "function"
+        ? crypto.randomUUID()
+        : `00000000-0000-4000-8000-${Date.now().toString(16).padStart(12, "0").slice(-12)}`;
     const newTask: TaskItem = {
-      id: editingTask?.id || `TASK-${String(existingCount + 1).padStart(3, "0")}`,
+      id: editingTask?.id || fallbackUuid,
       title: title.trim(),
       description: desc.trim() || "Thực hiện theo phân công của Ban Điều hành KP3.",
       unit,

@@ -38,6 +38,8 @@ interface VietQrModalProps {
   readOnly?: boolean;
   onClose: () => void;
   onConfirmPaid?: (id: string) => void;
+  onReportTransfer?: (contribution: FundContribution, transferMemo: string) => void;
+  isTransferReported?: boolean;
 }
 
 export default function VietQrModal({
@@ -46,10 +48,13 @@ export default function VietQrModal({
   readOnly = false,
   onClose,
   onConfirmPaid,
+  onReportTransfer,
+  isTransferReported = false,
 }: VietQrModalProps) {
   const [copiedAcc, setCopiedAcc] = useState(false);
   const [copiedMemo, setCopiedMemo] = useState(false);
   const [isConfirming, setIsConfirming] = useState(false);
+  const [hasReportedLocal, setHasReportedLocal] = useState(isTransferReported);
 
   const targetBankId = category?.bankId || BANK_CONFIG.bankId;
   const targetAccountNo = category?.bankAccountNo || BANK_CONFIG.accountNo;
@@ -108,10 +113,26 @@ export default function VietQrModal({
             <Download size={14} /> Tải ảnh QR
           </a>
 
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <Button variant="outline" size="sm" onClick={onClose}>
               Đóng
             </Button>
+            {onReportTransfer && contribution.status !== "Đã nộp" && (
+              <Button
+                variant={hasReportedLocal || isTransferReported ? "secondary" : "emerald"}
+                size="sm"
+                leftIcon={<CheckCircle2 size={14} />}
+                disabled={hasReportedLocal || isTransferReported}
+                onClick={() => {
+                  onReportTransfer(contribution, transferMemo);
+                  setHasReportedLocal(true);
+                }}
+              >
+                {hasReportedLocal || isTransferReported
+                  ? "Đã báo chuyển khoản"
+                  : "Báo đã chuyển khoản VietQR"}
+              </Button>
+            )}
             {!readOnly && onConfirmPaid && contribution.status !== "Đã nộp" && (
               <Button
                 variant="emerald"

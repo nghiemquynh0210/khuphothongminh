@@ -3,15 +3,19 @@ import {
   AlertTriangle,
   ArrowLeft,
   Camera,
+  Check,
   CheckCircle2,
+  Home,
   Loader2,
   LocateFixed,
   MessageSquareWarning,
   Plus,
   Send,
+  Sparkles,
+  UserCheck,
   X,
 } from "lucide-react";
-import { FieldReport, ReportCategory, ReportPriority } from "../types";
+import { FieldReport, Household, ReportCategory, ReportPriority, Resident } from "../types";
 import {
   KP3_STREETS,
   KP3_TEAMS,
@@ -27,6 +31,9 @@ import {
   uploadReportImages,
 } from "../utils/imageUpload";
 import { KP3_CENTER, decimalToDMS } from "../utils/gisUtils";
+import { extractTimemarkFromImage } from "../utils/timemarkParser";
+import { ResidentSelectModal } from "../components/business/ResidentSelectModal";
+import { HouseholdSelectModal } from "../components/business/HouseholdSelectModal";
 import { Button, Input } from "../components/ui";
 import { LoadingFade } from "../components/common/LoadingFade";
 import { PageHeader } from "../components/common/PageHeader";
@@ -43,6 +50,8 @@ export interface ReportFormPageProps {
   mode: "create" | "edit";
   reportId?: string;
   reports: FieldReport[];
+  residents?: Resident[];
+  households?: Household[];
   isDataLoading?: boolean;
   readOnly?: boolean;
   currentUser?: {
@@ -61,6 +70,8 @@ export default function ReportFormPage({
   mode,
   reportId,
   reports,
+  residents = [],
+  households = [],
   isDataLoading = false,
   readOnly = false,
   currentUser,
@@ -92,6 +103,18 @@ export default function ReportFormPage({
   const [isUploading, setIsUploading] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
+  // Timemark & Link metadata state
+  const [timemarkHash, setTimemarkHash] = useState<string | undefined>(undefined);
+  const [timemarkVerified, setTimemarkVerified] = useState<boolean>(false);
+  const [photoElevation, setPhotoElevation] = useState<string | undefined>(undefined);
+  const [photoDirection, setPhotoDirection] = useState<string | undefined>(undefined);
+  const [photoTakenAt, setPhotoTakenAt] = useState<string | undefined>(undefined);
+  const [linkedHouseholdCode, setLinkedHouseholdCode] = useState<string | undefined>(undefined);
+  const [reporterResidentId, setReporterResidentId] = useState<string | undefined>(undefined);
+
+  const [isResidentModalOpen, setIsResidentModalOpen] = useState(false);
+  const [isHouseholdModalOpen, setIsHouseholdModalOpen] = useState(false);
+
   useEffect(() => {
     setErrorMsg(null);
     if (mode === "edit" && targetReport) {
@@ -110,6 +133,13 @@ export default function ReportFormPage({
       );
       setBeforeImages(getBeforeImages(targetReport));
       setGpsCoords({ lat: targetReport.lat, lng: targetReport.lng });
+      setTimemarkHash(targetReport.timemarkHash);
+      setTimemarkVerified(Boolean(targetReport.timemarkVerified));
+      setPhotoElevation(targetReport.photoElevation);
+      setPhotoDirection(targetReport.photoDirection);
+      setPhotoTakenAt(targetReport.photoTakenAt);
+      setLinkedHouseholdCode(targetReport.linkedHouseholdCode);
+      setReporterResidentId(targetReport.reporterResidentId);
     } else if (mode === "create") {
       const defaultCat: ReportCategory = "Rác thải";
       setTitle("");
@@ -124,8 +154,42 @@ export default function ReportFormPage({
       setAssignedUnit(getCategoryMeta(defaultCat).defaultUnit);
       setBeforeImages([]);
       setGpsCoords({});
+      setTimemarkHash(undefined);
+      setTimemarkVerified(false);
+      setPhotoElevation(undefined);
+      setPhotoDirection(undefined);
+      setPhotoTakenAt(undefined);
+      setLinkedHouseholdCode(undefined);
+      setReporterResidentId(undefined);
     }
   }, [mode, targetReport, defaultReporterName]);
+
+  const handleSelectResident = (res: Resident) => {
+    setReporterName(res.fullName);
+    if (res.phone && res.phone !== "N/A") {
+      setReporterPhone(res.phone);
+    }
+    setReporterResidentId(res.id);
+    setIsResidentModalOpen(false);
+  };
+
+  const handleSelectHousehold = (hh: Household) => {
+    setLinkedHouseholdCode(hh.code);
+    if (!location.trim() && hh.address) {
+      setLocation(hh.address);
+    }
+    if (hh.coordinates && !gpsCoords.lat) {
+      const parsed = hh.coordinates.split(",");
+      if (parsed.length === 2) {
+        const lat = parseFloat(parsed[0].trim());
+        const lng = parseFloat(parsed[1].trim());
+        if (!isNaN(lat) && !isNaN(lng)) {
+          setGpsCoords({ lat, lng });
+        }
+      }
+    }
+    setIsHouseholdModalOpen(false);
+  };
 
   const handleCategoryChange = (val: string) => {
     const nextCat = val as ReportCategory;
@@ -151,6 +215,24 @@ export default function ReportFormPage({
     setErrorMsg(null);
     try {
       const files = Array.from(fileList).slice(0, remaining);
+      if (files.length > 0) {
+        try {
+          const ocrResult = await extractTimemarkFromImage(files[0]);
+          if (ocrResult) {
+            setGpsCoords({ lat: ocrResult.lat, lng: ocrResult.lng });
+            if (!location.trim() && ocrResult.address) {
+              setLocation(ocrResult.address);
+            }
+            setTimemarkHash(ocrResult.timemarkHash);
+            setTimemarkVerified(ocrResult.isVerified);
+            setPhotoElevation(ocrResult.elevation);
+            setPhotoDirection(ocrResult.direction);
+            setPhotoTakenAt(ocrResult.rawTime || ocrResult.recordedTime);
+          }
+        } catch (ocrErr) {
+          console.warn("[ReportFormPage] Timemark OCR check skipped:", ocrErr);
+        }
+      }
       const { urls, errors } = await uploadReportImages(files, "before");
       if (urls.length > 0) {
         setBeforeImages((prev) =>
@@ -249,6 +331,13 @@ export default function ReportFormPage({
         lng: gpsCoords.lng ?? targetReport.lng,
         beforeImages,
         beforeImage: beforeImages[0] || targetReport.beforeImage,
+        timemarkHash: timemarkHash || targetReport.timemarkHash,
+        timemarkVerified: timemarkVerified !== undefined ? timemarkVerified : targetReport.timemarkVerified,
+        photoElevation: photoElevation || targetReport.photoElevation,
+        photoDirection: photoDirection || targetReport.photoDirection,
+        photoTakenAt: photoTakenAt || targetReport.photoTakenAt,
+        linkedHouseholdCode: linkedHouseholdCode || targetReport.linkedHouseholdCode,
+        reporterResidentId: reporterResidentId || targetReport.reporterResidentId,
       };
 
       if (onEditReport) {
@@ -262,7 +351,10 @@ export default function ReportFormPage({
       return;
     }
 
-    const newId = `REP${String(Math.floor(100 + Math.random() * 900))}`;
+    const newId =
+      typeof crypto !== "undefined" && typeof crypto.randomUUID === "function"
+        ? crypto.randomUUID()
+        : `00000000-0000-4000-8000-${Date.now().toString(16).padStart(12, "0").slice(-12)}`;
     const newReport: FieldReport = {
       id: newId,
       title: title.trim(),
@@ -288,6 +380,13 @@ export default function ReportFormPage({
       status: "Đã tiếp nhận",
       beforeImages,
       beforeImage: beforeImages[0],
+      timemarkHash,
+      timemarkVerified,
+      photoElevation,
+      photoDirection,
+      photoTakenAt,
+      linkedHouseholdCode,
+      reporterResidentId,
       timeline: [
         {
           time: timeStr,
@@ -403,7 +502,7 @@ export default function ReportFormPage({
             required
             value={category}
             onChange={handleCategoryChange}
-            options={REPORT_CATEGORIES.slice(0, 6).map((c) => ({
+            options={REPORT_CATEGORIES.map((c) => ({
               value: c.id,
               label: c.label,
             }))}
@@ -446,6 +545,17 @@ export default function ReportFormPage({
               className="shrink-0"
             >
               Lấy GPS
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              size="md"
+              onClick={() => setIsHouseholdModalOpen(true)}
+              leftIcon={<Home size={15} className="text-blue-700" />}
+              className="shrink-0"
+              title="Liên kết hộ dân gần hiện trường"
+            >
+              {linkedHouseholdCode ? `Hộ ${linkedHouseholdCode}` : "Gắn Hộ dân"}
             </Button>
           </div>
 
@@ -573,14 +683,44 @@ export default function ReportFormPage({
               </label>
             )}
           </div>
+
+          {timemarkVerified && (
+            <div className="p-3 bg-amber-50/80 rounded-xl border border-amber-300 text-xs flex flex-wrap items-center justify-between gap-2 mt-2">
+              <div className="flex items-center gap-2">
+                <span className="text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-amber-500 text-white shadow-2xs flex items-center gap-1">
+                  <Sparkles size={11} /> Timemark GPS 100% Chân thực
+                </span>
+                {timemarkHash && (
+                  <span className="font-mono text-[10px] bg-amber-200/80 text-amber-900 px-2 py-0.5 rounded font-bold">
+                    #{timemarkHash}
+                  </span>
+                )}
+                <span className="text-slate-700">
+                  {photoElevation ? `Độ cao: ${photoElevation}` : ""} {photoDirection ? `• Hướng: ${photoDirection}` : ""}
+                </span>
+              </div>
+              <span className="text-[11px] text-emerald-800 font-semibold flex items-center gap-1">
+                <Check size={12} className="text-emerald-600" /> Tọa độ GPS đã được bóc tách tự động
+              </span>
+            </div>
+          )}
         </div>
 
         {/* Reporter info */}
         <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200 space-y-3">
-          <div className="flex items-center justify-between gap-2">
-            <span className="text-xs font-semibold text-slate-800">
-              Thông tin liên hệ phản hồi
-            </span>
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-semibold text-slate-800">
+                Thông tin liên hệ phản hồi
+              </span>
+              <button
+                type="button"
+                onClick={() => setIsResidentModalOpen(true)}
+                className="text-xs font-bold text-emerald-700 hover:text-emerald-800 flex items-center gap-1 cursor-pointer"
+              >
+                <UserCheck size={12} /> Chọn từ 11.632 Cư dân
+              </button>
+            </div>
             <label className="inline-flex items-center gap-2 text-xs font-medium text-slate-700 cursor-pointer">
               <input
                 type="checkbox"
@@ -627,6 +767,25 @@ export default function ReportFormPage({
           </Button>
         </div>
       </form>
+
+      {/* Modal Chọn Cư Dân */}
+      <ResidentSelectModal
+        isOpen={isResidentModalOpen}
+        onClose={() => setIsResidentModalOpen(false)}
+        residents={residents}
+        targetRole="owner"
+        currentValue={reporterName}
+        onSelect={handleSelectResident}
+      />
+
+      {/* Modal Chọn Hộ Dân */}
+      <HouseholdSelectModal
+        isOpen={isHouseholdModalOpen}
+        onClose={() => setIsHouseholdModalOpen(false)}
+        households={households}
+        currentCode={linkedHouseholdCode}
+        onSelect={handleSelectHousehold}
+      />
     </div>
   );
 }
