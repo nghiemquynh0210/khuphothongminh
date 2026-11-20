@@ -3,6 +3,7 @@ import {
   Calendar,
   ChevronRight,
   Clock,
+  Download,
   Edit2,
   ExternalLink,
   FileText,
@@ -18,6 +19,7 @@ import {
   Search,
   Settings,
   ShieldCheck,
+  Smartphone,
   Trash2,
   Users,
   X,
@@ -628,6 +630,16 @@ export default function CitizenLandingPage({
                   <MessageCircle size={15} className="text-blue-600" />
                   <span>Mở trên Zalo</span>
                   <ExternalLink size={13} className="text-blue-400" />
+                </a>
+                <a
+                  href="https://github.com/nghiemquynh0210/khuphothongminh/releases/latest/download/KP3-AnPhu.apk"
+                  target="_blank"
+                  rel="noreferrer"
+                  className="px-4 py-2.5 rounded-xl bg-emerald-400 hover:bg-emerald-300 text-slate-950 font-extrabold text-xs inline-flex items-center gap-1.5 shadow-sm transition-all"
+                >
+                  <Smartphone size={15} />
+                  <span>Tải App Android (.APK)</span>
+                  <Download size={13} />
                 </a>
                 <a
                   href="https://zalo.me/bdhkhupho3"

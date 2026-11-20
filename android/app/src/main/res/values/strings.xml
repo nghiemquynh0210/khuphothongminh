@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">KP3 An Phú</string>
+    <string name="title_activity_main">KP3 An Phú</string>
+    <string name="package_name">vn.tphcm.anphu.khupho3</string>
+    <string name="custom_url_scheme">vn.tphcm.anphu.khupho3</string>
+</resources>

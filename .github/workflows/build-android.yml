@@ -1,0 +1,98 @@
+name: Build & Release KP3 An Phu Android App (APK + AAB)
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - "android/**"
+      - "capacitor.config.ts"
+      - ".github/workflows/build-android.yml"
+
+permissions:
+  contents: write
+
+jobs:
+  build-android:
+    name: Build Signed Android APK & AAB
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "npm"
+
+      - name: Setup Java JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: "temurin"
+          java-version: "21"
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install dependencies & Build Web Portal (Full 14 Modules)
+        env:
+          VITE_SUPABASE_URL: "https://wjdgaobhipkgzveidtra.supabase.co"
+          VITE_SUPABASE_ANON_KEY: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndqZGdhb2JoaXBrZ3p2ZWlkdHJhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTE4NTk0MzQsImV4cCI6MjEwNzQzNTQzNH0.7fw6blUWmBm9lJ-tfazcGEsr20KOT6Qn1ytSZk_CMtU"
+        run: |
+          npm ci --legacy-peer-deps || npm install
+          npm run build
+          npx cap sync android
+
+      - name: Generate Release Keystore & Build Signed APK + AAB
+        working-directory: android
+        run: |
+          chmod +x gradlew
+          keytool -genkeypair -v \
+            -keystore kp3-release.jks \
+            -alias kp3anphu \
+            -keyalg RSA \
+            -keysize 2048 \
+            -validity 10000 \
+            -storepass kp3anphu2026 \
+            -keypass kp3anphu2026 \
+            -dname "CN=Ban Dieu Hanh Khu Pho 3, OU=Phuong An Phu, O=TP Ho Chi Minh, L=TP Ho Chi Minh, ST=HCM, C=VN"
+
+          ./gradlew assembleRelease bundleRelease
+
+          mkdir -p ../release-artifacts
+          APK_PATH=$(find app/build/outputs/apk/release -name "*-release.apk" | head -n 1)
+          if [ -z "$APK_PATH" ]; then
+            APK_PATH=$(find app/build/outputs/apk/release -name "*.apk" | head -n 1)
+          fi
+          AAB_PATH=$(find app/build/outputs/bundle/release -name "*.aab" | head -n 1)
+          cp "$APK_PATH" ../release-artifacts/KP3-AnPhu.apk
+          cp "$AAB_PATH" ../release-artifacts/KP3-AnPhu.aab
+          ls -lh ../release-artifacts/
+
+      - name: Upload Build Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: KP3-AnPhu-Android-Packages
+          path: release-artifacts/*
+
+      - name: Publish Official GitHub Release (KP3-AnPhu.apk)
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: android-v1.0.0
+          name: "Ứng dụng Android Khu phố 3 – Phường An Phú (Bản Đầy Đủ v1.0.0)"
+          body: |
+            ### 📱 Ứng dụng Android Chính thức: Khu phố 3 – Phường An Phú, TP. Hồ Chí Minh
+            - **Package ID:** `vn.tphcm.anphu.khupho3`
+            - **Phiên bản:** Bản Đầy Đủ Tất-cả-trong-một (Cổng Cư dân số + 14 phân hệ Điều hành Cán bộ, GIS, AI OCR Camera, Phản ánh 1022, Zalo OA).
+            - **Tải cài đặt trực tiếp trên điện thoại Android:** Tải file **`KP3-AnPhu.apk`** bên dưới và mở để cài đặt.
+            - **Gói Google Play Store:** File `KP3-AnPhu.aab`.
+          files: |
+            release-artifacts/KP3-AnPhu.apk
+            release-artifacts/KP3-AnPhu.aab
+          draft: false
+          prerelease: false
+          make_latest: "true"

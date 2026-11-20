@@ -106,6 +106,14 @@ function checkOcrRateLimit(ip: string): boolean {
 }
 
 export default async function ocrDocumentHandler(req: any, res: any) {
+  const origin = String(req.headers?.origin || "*");
+  res.setHeader("Access-Control-Allow-Origin", origin || "*");
+  res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
+  res.setHeader("Vary", "Origin");
+  if (req.method === "OPTIONS") {
+    return res.status(200).end();
+  }
   if (req.method !== "POST") {
     return res.status(405).json({ error: "Method not allowed" });
   }

@@ -31,6 +31,10 @@
     "@animate-ui/react": "^2.4.2",
     "@astryxdesign/core": "^0.7.11",
     "@astryxdesign/theme-neutral": "^0.7.11",
+    "@capacitor/android": "^8.6.2",
+    "@capacitor/app": "^8.1.2",
+    "@capacitor/core": "^8.6.2",
+    "@capacitor/status-bar": "^8.0.4",
     "@google/genai": "^2.4.0",
     "@stylexjs/stylex": "^0.19.1",
     "@supabase/supabase-js": "^2.117.3",
@@ -55,6 +59,7 @@
   },
   "devDependencies": {
     "@astryxdesign/cli": "^0.7.11",
+    "@capacitor/cli": "^8.6.2",
     "@eslint/js": "^10.0.1",
     "@testing-library/dom": "^10.4.2",
     "@testing-library/jest-dom": "^7.0.1",

@@ -709,7 +709,15 @@ async function syncOrphanAuthUsers(
 }
 
 export default async function handler(req: any, res: any) {
+  const origin = String(req.headers?.origin || "*");
+  res.setHeader("Access-Control-Allow-Origin", origin || "*");
+  res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
+  res.setHeader("Vary", "Origin");
   res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate");
+  if (req.method === "OPTIONS") {
+    return res.status(200).end();
+  }
 
   const method = String(req?.method || "GET").toUpperCase();
   const { supabaseUrl, anonKey, serviceRoleKey } = getEnvConfig();
