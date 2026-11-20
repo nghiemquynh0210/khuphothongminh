@@ -1781,11 +1781,12 @@ export default async function notificationsHandler(req: any, res: any) {
       );
       const is60mUrgent = timeInfo.inRemindWindow || onlyWithinLeadWindow;
       const autoMeetingDedupePrefix = `mtg_auto_${remindLeadMinutes}m:${row.id}:${row.schedule_date}`;
+      const legacyAutoAllKey = `mtg_${remindLeadMinutes}m:${row.id}:${row.schedule_date}:auto`;
       const alreadyAutoReminded = existingLogs.some(
         (l) =>
           l.status === "sent" &&
           l.dedupeKey &&
-          l.dedupeKey.startsWith(autoMeetingDedupePrefix)
+          (l.dedupeKey.startsWith(autoMeetingDedupePrefix) || l.dedupeKey === legacyAutoAllKey)
       );
 
       const formattedMessage = is60mUrgent

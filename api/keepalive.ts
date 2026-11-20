@@ -409,16 +409,15 @@ async function checkAndDispatchDue60mMeetings(
 
     for (const target of targets) {
       const dedupeKey = `mtg_auto_${leadMinutes}m:${row.id}:${todayVnIso}:${target.cadreKey}`;
-      // Tương thích ngược với khóa cũ chỉ khi bản ghi cũ thực sự được gửi TRONG HÔM NAY (cùng ngày họp)
-      const legacyKey = `mtg_${leadMinutes}m:${row.id}:${todayVnIso}:${target.cadreKey}`;
-      const sentTodayLegacy = logs.some(
+      const legacyAutoAllKey = `mtg_${leadMinutes}m:${row.id}:${todayVnIso}:auto`;
+      const legacyCadreKey = `mtg_${leadMinutes}m:${row.id}:${todayVnIso}:${target.cadreKey}`;
+      const sentLegacyAuto = logs.some(
         (l) =>
           l?.status === "sent" &&
-          l?.dedupeKey === legacyKey &&
-          String(l?.timestamp || "").startsWith(todayVnIso) &&
-          String(l?.actorName || "").includes("Tự động")
+          (l?.dedupeKey === legacyAutoAllKey ||
+            (l?.dedupeKey === legacyCadreKey && String(l?.actorName || "").includes("Tự động")))
       );
-      if (sentAutoDedupeSet.has(dedupeKey) || sentTodayLegacy) continue;
+      if (sentAutoDedupeSet.has(dedupeKey) || sentLegacyAuto) continue;
 
       const sendRes = await postZaloOaMessageWithRetry(
         accessToken,
