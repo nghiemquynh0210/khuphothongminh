@@ -1459,32 +1459,35 @@ export default function CitizenManagement({
   const activePage = currentPage > totalPages ? totalPages : currentPage;
   const startIndex = (activePage - 1) * itemsPerPage;
   const paginatedResidents = filteredResidents.slice(startIndex, startIndex + itemsPerPage);
+  const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
+  const activeSubFilterCount =
+    (toFilter !== "all" ? 1 : 0) +
+    (genderFilter !== "Tất cả" ? 1 : 0) +
+    (policyFilter !== "Tất cả" ? 1 : 0) +
+    (statusFilter === "Tạm trú" && temporaryExpiryFilter !== "Tất cả" ? 1 : 0);
 
   return (
-    <div id="citizen-management-view" className="space-y-6">
+    <div id="citizen-management-view" className="space-y-4">
       {/* Header and Action Buttons */}
       <PageHeader
-        badgeIcon={<Users size={14} className="text-emerald-600" />}
-        badgeText="CSDL DÂN CƯ ĐỀ ÁN 06/CP • KHU PHỐ 3, PHƯỜNG AN PHÚ"
-        badgeSubtext="VNeID CƠ SỞ"
-        title="Quản Lý Dân Cư Khu Phố"
+        title="Quản lý Dân cư Khu phố"
         actions={
           <div className="flex flex-wrap items-center gap-2">
             <button
               type="button"
               onClick={() => navigate("/dashboard/settings?subtab=zalo_oa")}
-              className="flex items-center gap-1.5 min-h-[40px] bg-blue-50 hover:bg-blue-100 border border-blue-200 text-blue-800 px-3 py-2 rounded-xl font-bold text-xs transition-all shadow-xs cursor-pointer whitespace-nowrap"
+              className="flex items-center gap-1.5 h-9 bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 px-3 rounded-lg font-semibold text-xs transition-colors cursor-pointer whitespace-nowrap"
               title="Nhắc gia hạn tạm trú trước 15 ngày qua Zalo OA & Email cho Chủ nhà trọ và Cư dân"
             >
-              <BellRing size={15} className="text-blue-700 shrink-0" /> Nhắc hạn 15 ngày Zalo OA
+              <BellRing size={14} className="text-slate-500 shrink-0" /> Nhắc hạn Zalo
             </button>
             <button
               id="btn-export-excel"
               onClick={handleExportFullExcel}
-              className="flex items-center gap-1.5 min-h-[40px] bg-slate-50 hover:bg-slate-100 border border-slate-200/90 text-slate-700 px-3 py-2 rounded-xl font-bold text-xs transition-all shadow-xs cursor-pointer hover:shadow-sm whitespace-nowrap"
+              className="flex items-center gap-1.5 h-9 bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 px-3 rounded-lg font-semibold text-xs transition-colors cursor-pointer whitespace-nowrap"
               title="Xuất file Excel danh sách nhân khẩu theo bộ lọc hiện tại"
             >
-              <Download size={15} className="text-slate-600 shrink-0" /> Xuất Excel ({formatVNNumber(filteredResidents.length)})
+              <Download size={14} className="text-slate-500 shrink-0" /> Xuất Excel ({formatVNNumber(filteredResidents.length)})
             </button>
             <button
               id="btn-import-excel"
@@ -1492,16 +1495,16 @@ export default function CitizenManagement({
                 resetImportModalState();
                 setShowImportModal(true);
               }}
-              className="flex items-center gap-1.5 min-h-[40px] bg-white hover:bg-slate-50 border border-emerald-300 text-emerald-700 px-3 py-2 rounded-xl font-bold text-xs transition-all shadow-xs cursor-pointer hover:shadow-sm hover:border-emerald-400 whitespace-nowrap"
+              className="flex items-center gap-1.5 h-9 bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 px-3 rounded-lg font-semibold text-xs transition-colors cursor-pointer whitespace-nowrap"
             >
-              <FileSpreadsheet size={15} className="text-emerald-600 shrink-0" /> Nhập Excel
+              <FileSpreadsheet size={14} className="text-slate-500 shrink-0" /> Nhập Excel
             </button>
             <button
               id="btn-add-resident"
               onClick={handleOpenAddModal}
-              className="flex items-center gap-1.5 min-h-[40px] bg-emerald-700 hover:bg-emerald-800 text-white px-3.5 py-2 rounded-xl font-bold text-xs transition-colors cursor-pointer whitespace-nowrap"
+              className="flex items-center gap-1.5 h-9 bg-emerald-700 hover:bg-emerald-800 text-white px-3.5 rounded-lg font-semibold text-xs transition-colors cursor-pointer whitespace-nowrap shadow-2xs"
             >
-              <Plus size={15} className="shrink-0" /> Thêm Cư dân
+              <Plus size={14} className="shrink-0" /> Thêm cư dân
             </button>
           </div>
         }
@@ -1576,112 +1579,195 @@ export default function CitizenManagement({
         />
       </div>
 
-      {/* Filter and Search Bar - 2-tier clean layout */}
-      <div className="bg-white p-3.5 sm:p-4 rounded-2xl border border-slate-200 space-y-3">
-        {/* Tier 1: Search Box & Status Pills */}
-        <div className="flex flex-col 2xl:flex-row gap-3 items-stretch 2xl:items-center justify-between">
+      {/* Minimalist Single-Row Filter & Search Bar (Collapsible Advanced Filters) */}
+      <div className="bg-white p-3 rounded-xl border border-slate-200/80 space-y-2.5 shadow-2xs">
+        <div className="flex flex-col 2xl:flex-row gap-2.5 items-stretch 2xl:items-center justify-between">
           <CitizenSearchInput
             defaultValue={searchTerm}
             onSearch={handleSearchChange}
           />
 
-          {/* Residency Status Tabs */}
-          <div className="flex flex-wrap items-center gap-1 bg-slate-100/80 border border-slate-200 p-1 rounded-xl">
-            <button
-              type="button"
-              onClick={() => handleStatusFilterChange("Tất cả")}
-              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-colors cursor-pointer ${statusFilter === "Tất cả"
-                  ? "bg-white text-slate-900 border border-slate-200"
-                  : "text-slate-600 hover:text-slate-900 font-medium"
+          <div className="flex flex-wrap items-center justify-between 2xl:justify-end gap-2">
+            {/* Residency Status Tabs */}
+            <div className="flex flex-wrap items-center gap-0.5 bg-slate-100/90 border border-slate-200/80 p-1 rounded-lg">
+              <button
+                type="button"
+                onClick={() => handleStatusFilterChange("Tất cả")}
+                className={`px-2.5 py-1 rounded-md text-xs transition-colors cursor-pointer ${
+                  statusFilter === "Tất cả"
+                    ? "bg-white text-slate-900 font-semibold shadow-2xs"
+                    : "text-slate-600 hover:text-slate-900 font-medium"
                 }`}
-            >
-              Tất cả ({formatVNNumber(tabCounts.all)})
-            </button>
-            <button
-              type="button"
-              onClick={() => handleStatusFilterChange("Thường trú")}
-              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-colors cursor-pointer ${statusFilter === "Thường trú"
-                  ? "bg-white text-emerald-800 border border-emerald-200"
-                  : "text-slate-600 hover:text-slate-900 font-medium"
+              >
+                Tất cả ({formatVNNumber(tabCounts.all)})
+              </button>
+              <button
+                type="button"
+                onClick={() => handleStatusFilterChange("Thường trú")}
+                className={`px-2.5 py-1 rounded-md text-xs transition-colors cursor-pointer ${
+                  statusFilter === "Thường trú"
+                    ? "bg-white text-slate-900 font-semibold shadow-2xs"
+                    : "text-slate-600 hover:text-slate-900 font-medium"
                 }`}
-            >
-              Thường trú ({formatVNNumber(tabCounts.thuongTru)})
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                setStatusFilter("Tạm trú");
-                setTemporaryExpiryFilter("Tất cả");
-                setCurrentPage(1);
-              }}
-              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-colors cursor-pointer flex items-center gap-1.5 ${
-                statusFilter === "Tạm trú" && temporaryExpiryFilter === "Tất cả"
-                  ? "bg-white text-amber-800 border border-amber-200"
-                  : "text-slate-600 hover:text-slate-900 font-medium"
-              }`}
-            >
-              <span>Tạm trú ({formatVNNumber(tabCounts.tamTru)})</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                setStatusFilter("Tạm trú");
-                setTemporaryExpiryFilter("Sắp hết hạn (< 30 ngày)");
-                setCurrentPage(1);
-              }}
-              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-colors cursor-pointer flex items-center gap-1 ${
-                statusFilter === "Tạm trú" && temporaryExpiryFilter === "Sắp hết hạn (< 30 ngày)"
-                  ? "bg-amber-600 text-white"
-                  : "text-amber-800 hover:bg-amber-50 font-semibold"
-              }`}
-            >
-              <AlertTriangle size={12} className="shrink-0" />
-              <span>Sắp hết hạn ({formatVNNumber(tamTruExpiringSoonCount)})</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                setStatusFilter("Tạm trú");
-                setTemporaryExpiryFilter("Đã hết hạn");
-                setCurrentPage(1);
-              }}
-              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-colors cursor-pointer flex items-center gap-1 ${
-                statusFilter === "Tạm trú" && temporaryExpiryFilter === "Đã hết hạn"
-                  ? "bg-rose-600 text-white"
-                  : "text-rose-700 hover:bg-rose-50 font-semibold"
-              }`}
-            >
-              <AlertCircle size={12} className="shrink-0" />
-              <span>Quá hạn ({formatVNNumber(tamTruExpiredCount)})</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => handleStatusFilterChange("Tạm vắng")}
-              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-colors cursor-pointer ${statusFilter === "Tạm vắng"
-                  ? "bg-white text-slate-800 border border-slate-200"
-                  : "text-slate-600 hover:text-slate-900 font-medium"
+              >
+                Thường trú ({formatVNNumber(tabCounts.thuongTru)})
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setStatusFilter("Tạm trú");
+                  setTemporaryExpiryFilter("Tất cả");
+                  setCurrentPage(1);
+                }}
+                className={`px-2.5 py-1 rounded-md text-xs transition-colors cursor-pointer ${
+                  statusFilter === "Tạm trú" && temporaryExpiryFilter === "Tất cả"
+                    ? "bg-white text-slate-900 font-semibold shadow-2xs"
+                    : "text-slate-600 hover:text-slate-900 font-medium"
                 }`}
-            >
-              Tạm vắng ({formatVNNumber(tabCounts.tamVang)})
-            </button>
-            <button
-              type="button"
-              onClick={() => handleStatusFilterChange("Người nước ngoài")}
-              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-colors cursor-pointer flex items-center gap-1.5 ${statusFilter === "Người nước ngoài"
-                  ? "bg-purple-700 text-white"
-                  : "text-purple-700 hover:text-purple-900 font-medium hover:bg-purple-50"
+              >
+                Tạm trú ({formatVNNumber(tabCounts.tamTru)})
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setStatusFilter("Tạm trú");
+                  setTemporaryExpiryFilter("Sắp hết hạn (< 30 ngày)");
+                  setCurrentPage(1);
+                }}
+                className={`px-2.5 py-1 rounded-md text-xs transition-colors cursor-pointer flex items-center gap-1 ${
+                  statusFilter === "Tạm trú" && temporaryExpiryFilter === "Sắp hết hạn (< 30 ngày)"
+                    ? "bg-amber-600 text-white font-semibold"
+                    : "text-amber-700 hover:bg-amber-50 font-medium"
                 }`}
-            >
-              <Globe size={13} className={statusFilter === "Người nước ngoài" ? "text-purple-100" : "text-purple-600"} />
-              Người nước ngoài ({formatVNNumber(tabCounts.foreigners)})
-            </button>
+              >
+                <span>Sắp hết hạn ({formatVNNumber(tamTruExpiringSoonCount)})</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setStatusFilter("Tạm trú");
+                  setTemporaryExpiryFilter("Đã hết hạn");
+                  setCurrentPage(1);
+                }}
+                className={`px-2.5 py-1 rounded-md text-xs transition-colors cursor-pointer flex items-center gap-1 ${
+                  statusFilter === "Tạm trú" && temporaryExpiryFilter === "Đã hết hạn"
+                    ? "bg-rose-600 text-white font-semibold"
+                    : "text-rose-700 hover:bg-rose-50 font-medium"
+                }`}
+              >
+                <span>Quá hạn ({formatVNNumber(tamTruExpiredCount)})</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => handleStatusFilterChange("Tạm vắng")}
+                className={`px-2.5 py-1 rounded-md text-xs transition-colors cursor-pointer ${
+                  statusFilter === "Tạm vắng"
+                    ? "bg-white text-slate-900 font-semibold shadow-2xs"
+                    : "text-slate-600 hover:text-slate-900 font-medium"
+                }`}
+              >
+                Tạm vắng ({formatVNNumber(tabCounts.tamVang)})
+              </button>
+              {tabCounts.foreigners > 0 && (
+                <button
+                  type="button"
+                  onClick={() => handleStatusFilterChange("Người nước ngoài")}
+                  className={`px-2.5 py-1 rounded-md text-xs transition-colors cursor-pointer ${
+                    statusFilter === "Người nước ngoài"
+                      ? "bg-white text-slate-900 font-semibold shadow-2xs"
+                      : "text-slate-600 hover:text-slate-900 font-medium"
+                  }`}
+                >
+                  Nước ngoài ({formatVNNumber(tabCounts.foreigners)})
+                </button>
+              )}
+            </div>
+
+            <div className="flex items-center gap-1.5 shrink-0">
+              {/* Toggle Advanced Sub-filters */}
+              <button
+                type="button"
+                onClick={() => setShowAdvancedFilters((v) => !v)}
+                className={`h-9 px-2.5 rounded-lg border text-xs font-semibold inline-flex items-center gap-1.5 cursor-pointer transition-colors ${
+                  showAdvancedFilters || activeSubFilterCount > 0
+                    ? "bg-slate-900 text-white border-slate-900"
+                    : "bg-white text-slate-700 border-slate-200 hover:bg-slate-50"
+                }`}
+              >
+                <Filter size={13} />
+                <span>Bộ lọc</span>
+                {activeSubFilterCount > 0 && (
+                  <span className="px-1.5 py-0.2 rounded-full bg-white/20 text-[10px] font-mono">
+                    {activeSubFilterCount}
+                  </span>
+                )}
+              </button>
+
+              {/* Privacy-by-default PII Mask Toggle */}
+              <button
+                type="button"
+                onClick={() => {
+                  setShowFullCccd((prev) => {
+                    const next = !prev;
+                    if (next) {
+                      void recordAuditLog({
+                        actorName: "Cán bộ Quản lý Dân cư",
+                        actorRole: "Ban điều hành Khu phố 3",
+                        category: "PII_ACCESS",
+                        actionTitle: "Bật hiển thị số CCCD / Hộ chiếu đầy đủ",
+                        targetSummary: `Mở khóa mặt nạ CCCD trên danh sách dân cư (${filteredResidents.length} nhân khẩu đang lọc)`,
+                      });
+                    }
+                    return next;
+                  });
+                }}
+                className={`flex items-center gap-1.5 px-2.5 h-9 border rounded-lg text-xs font-semibold transition-colors cursor-pointer ${
+                  showFullCccd
+                    ? "bg-amber-50 text-amber-800 border-amber-200"
+                    : "bg-white text-slate-700 hover:bg-slate-50 border-slate-200"
+                }`}
+                title="Bật hoặc tắt che số CCCD / Hộ chiếu trên màn hình dùng chung"
+              >
+                {showFullCccd ? <EyeOff size={13} /> : <Eye size={13} />}
+                <span className="hidden sm:inline">{showFullCccd ? "Che CCCD" : "Hiện CCCD"}</span>
+              </button>
+
+              {/* View Mode Toggle */}
+              <div className="flex items-center border border-slate-200 rounded-lg p-0.5 bg-slate-100/80 gap-0.5 shrink-0">
+                <button
+                  type="button"
+                  onClick={() => setViewMode("table")}
+                  className={`p-1.5 rounded-md transition-colors cursor-pointer ${
+                    viewMode === "table"
+                      ? "bg-white text-slate-900 shadow-2xs"
+                      : "text-slate-500 hover:text-slate-900"
+                  }`}
+                  title="Xem dạng Bảng"
+                  aria-label="Xem dạng Bảng"
+                >
+                  <List size={14} />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setViewMode("card")}
+                  className={`p-1.5 rounded-md transition-colors cursor-pointer ${
+                    viewMode === "card"
+                      ? "bg-white text-slate-900 shadow-2xs"
+                      : "text-slate-500 hover:text-slate-900"
+                  }`}
+                  title="Xem dạng Thẻ"
+                  aria-label="Xem dạng Thẻ"
+                >
+                  <LayoutGrid size={14} />
+                </button>
+              </div>
+            </div>
           </div>
         </div>
 
-        {/* Tier 2: Sub-filters, PII Mask Toggle & View Toggle */}
-        <div className="flex flex-wrap items-center justify-between gap-2.5 pt-2 border-t border-slate-100">
-          <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
-            {/* Temporary Residence Expiry Filter Dropdown */}
+        {/* Collapsible Advanced Sub-filters (Only visible when opened or active) */}
+        {(showAdvancedFilters || activeSubFilterCount > 0) && (
+          <div className="flex flex-wrap items-center gap-2 pt-2.5 border-t border-slate-100">
             {statusFilter === "Tạm trú" && (
               <div className="w-full sm:w-56">
                 <ReportSelect
@@ -1693,7 +1779,7 @@ export default function CitizenManagement({
                   }}
                   options={[
                     { value: "Tất cả", label: `Thời hạn tạm trú: Tất cả (${formatVNNumber(tabCounts.tamTru)})` },
-                    { value: "Sắp hết hạn (< 30 ngày)", label: `⚠ Sắp hết hạn < 30 ngày (${formatVNNumber(tamTruExpiringSoonCount)})` },
+                    { value: "Sắp hết hạn (< 30 ngày)", label: `Sắp hết hạn < 30 ngày (${formatVNNumber(tamTruExpiringSoonCount)})` },
                     { value: "Đã hết hạn", label: `Đã hết hạn tạm trú (${formatVNNumber(tamTruExpiredCount)})` },
                     { value: "Còn hạn dài", label: `Còn hạn dài (${formatVNNumber(Math.max(0, tabCounts.tamTru - tamTruExpiringSoonCount - tamTruExpiredCount))})` },
                   ]}
@@ -1702,7 +1788,6 @@ export default function CitizenManagement({
               </div>
             )}
 
-            {/* KP3 Area Filter */}
             <div className="w-full sm:w-48">
               <ReportSelect
                 aria-label="Lọc theo tuyến / khu vực KP3"
@@ -1719,7 +1804,6 @@ export default function CitizenManagement({
               />
             </div>
 
-            {/* Gender Filter */}
             <div className="w-full sm:w-40">
               <ReportSelect
                 aria-label="Lọc theo giới tính"
@@ -1734,7 +1818,6 @@ export default function CitizenManagement({
               />
             </div>
 
-            {/* Policy / Organization Filter */}
             <div className="w-full sm:w-52">
               <ReportSelect
                 aria-label="Lọc theo diện chính sách"
@@ -1752,80 +1835,27 @@ export default function CitizenManagement({
               />
             </div>
           </div>
-
-          <div className="flex items-center gap-2 shrink-0">
-            {/* Privacy-by-default PII Mask Toggle */}
-            <button
-              type="button"
-              onClick={() => {
-                setShowFullCccd((prev) => {
-                  const next = !prev;
-                  if (next) {
-                    void recordAuditLog({
-                      actorName: "Cán bộ Quản lý Dân cư",
-                      actorRole: "Ban điều hành Khu phố 3",
-                      category: "PII_ACCESS",
-                      actionTitle: "Bật hiển thị số CCCD / Hộ chiếu đầy đủ",
-                      targetSummary: `Mở khóa mặt nạ CCCD trên danh sách dân cư (${filteredResidents.length} nhân khẩu đang lọc)`,
-                    });
-                  }
-                  return next;
-                });
-              }}
-              className={`flex items-center gap-1.5 px-3 h-10 border rounded-xl text-xs font-bold transition-colors cursor-pointer ${
-                showFullCccd
-                  ? "bg-amber-50 text-amber-800 border-amber-200"
-                  : "bg-white text-slate-700 hover:bg-slate-50 border-slate-200"
-              }`}
-              title="Bật hoặc tắt che số CCCD / Hộ chiếu trên màn hình dùng chung"
-            >
-              {showFullCccd ? <EyeOff size={14} /> : <Eye size={14} />}
-              <span>{showFullCccd ? "Che CCCD" : "Hiện CCCD"}</span>
-            </button>
-
-            {/* View Mode Toggle */}
-            <div className="flex items-center border border-slate-200 rounded-xl p-0.5 bg-slate-100/80 gap-0.5 shrink-0">
-              <button
-                type="button"
-                onClick={() => setViewMode("table")}
-                className={`p-2 rounded-lg transition-colors cursor-pointer ${viewMode === "table" ? "bg-white text-emerald-700 border border-slate-200 font-bold" : "text-slate-600 hover:text-slate-900"}`}
-                title="Xem dạng Bảng"
-                aria-label="Xem dạng Bảng"
-              >
-                <List size={15} />
-              </button>
-              <button
-                type="button"
-                onClick={() => setViewMode("card")}
-                className={`p-2 rounded-lg transition-colors cursor-pointer ${viewMode === "card" ? "bg-white text-emerald-700 border border-slate-200 font-bold" : "text-slate-600 hover:text-slate-900"}`}
-                title="Xem dạng Thẻ"
-                aria-label="Xem dạng Thẻ"
-              >
-                <LayoutGrid size={15} />
-              </button>
-            </div>
-          </div>
-        </div>
+        )}
       </div>
 
       {/* Temporary Residence Expiry Alert Banner */}
       {statusFilter === "Tạm trú" && (tamTruExpiringSoonCount > 0 || tamTruExpiredCount > 0) && (
-        <div className="bg-gradient-to-r from-amber-50 via-amber-50/90 to-orange-50 border border-amber-300 rounded-2xl p-4 shadow-xs flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 animate-in fade-in duration-200">
-          <div className="flex items-start gap-3">
-            <div className="p-2 rounded-xl bg-amber-200/80 text-amber-900 shrink-0 mt-0.5">
-              <AlertTriangle size={18} className="animate-pulse text-amber-700" />
+        <div className="bg-amber-50/70 border border-amber-200 rounded-xl p-3.5 shadow-2xs flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+          <div className="flex items-start gap-2.5">
+            <div className="p-1.5 rounded-lg bg-amber-100 text-amber-800 shrink-0 mt-0.5">
+              <AlertTriangle size={15} />
             </div>
             <div>
               <div className="flex items-center gap-2 flex-wrap">
-                <h4 className="font-bold text-amber-950 text-xs sm:text-sm">
-                  Cảnh báo Quản lý Cư trú: Cư dân Tạm trú Sắp hết hạn & Quá hạn
+                <h4 className="font-bold text-amber-950 text-xs">
+                  Cảnh báo Quản lý Cư trú: Cư dân Tạm trú Sắp hết hạn &amp; Quá hạn
                 </h4>
-                <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-amber-200 text-amber-900 border border-amber-300">
+                <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-white text-amber-900 border border-amber-200">
                   Trước 01 tháng (30 ngày)
                 </span>
               </div>
               <p className="text-xs text-amber-900/90 mt-1 leading-relaxed">
-                Phát hiện <strong className="text-amber-950 font-black underline">{tamTruExpiringSoonCount} nhân khẩu</strong> sắp hết hạn tạm trú trong vòng 30 ngày tới và <strong className="text-rose-700 font-black">{tamTruExpiredCount} nhân khẩu</strong> đã hết hạn. Đề nghị cán bộ rà soát, thông báo cho chủ cơ sở lưu trú / nhà trọ và người tạm trú nộp hồ sơ gia hạn theo quy định Luật Cư trú.
+                Phát hiện <strong className="text-amber-950 font-bold">{tamTruExpiringSoonCount} nhân khẩu</strong> sắp hết hạn tạm trú trong vòng 30 ngày tới và <strong className="text-rose-700 font-bold">{tamTruExpiredCount} nhân khẩu</strong> đã hết hạn. Đề nghị cán bộ rà soát, thông báo cho chủ cơ sở lưu trú / nhà trọ và người tạm trú nộp hồ sơ gia hạn theo quy định Luật Cư trú.
               </p>
             </div>
           </div>
@@ -1837,13 +1867,13 @@ export default function CitizenManagement({
                 setTemporaryExpiryFilter("Sắp hết hạn (< 30 ngày)");
                 setCurrentPage(1);
               }}
-              className={`flex-1 sm:flex-none px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-1.5 ${temporaryExpiryFilter === "Sắp hết hạn (< 30 ngày)"
-                  ? "bg-amber-600 text-white shadow-xs"
-                  : "bg-white hover:bg-amber-100 text-amber-900 border border-amber-300 shadow-2xs"
+              className={`flex-1 sm:flex-none h-8 px-3 rounded-lg text-xs font-semibold transition-colors cursor-pointer flex items-center justify-center gap-1.5 ${temporaryExpiryFilter === "Sắp hết hạn (< 30 ngày)"
+                  ? "bg-amber-700 text-white"
+                  : "bg-white hover:bg-amber-100 text-amber-900 border border-amber-300"
                 }`}
             >
               <span>Xem DS sắp hết hạn</span>
-              <span className="px-1.5 py-0.5 rounded-full text-[10px] bg-amber-500 text-white">
+              <span className="px-1.5 py-0.5 rounded-full text-[10px] font-mono bg-amber-600 text-white">
                 {tamTruExpiringSoonCount}
               </span>
             </button>
@@ -1854,7 +1884,7 @@ export default function CitizenManagement({
                   setTemporaryExpiryFilter("Tất cả");
                   setCurrentPage(1);
                 }}
-                className="px-2.5 py-1.5 rounded-xl text-xs font-semibold text-slate-600 hover:bg-white bg-slate-100 border border-slate-200 transition-all cursor-pointer"
+                className="h-8 px-2.5 rounded-lg text-xs font-semibold text-slate-600 hover:bg-white bg-white/80 border border-slate-200 transition-colors cursor-pointer"
               >
                 Hiện tất cả
               </button>

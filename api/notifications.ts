@@ -1,3 +1,5 @@
+import { GoogleGenAI } from "@google/genai";
+
 export const ZALO_OA_KP3_DEFAULTS = {
   oaId: "3124278810088361494",
   oaName: "Ban Điều Hành Khu Phố 3 phường An Phú",
@@ -675,10 +677,10 @@ function detectNewsCategory(
 export default async function notificationsHandler(req: any, res: any) {
   // Hỗ trợ CORS cho Zalo Mini App WebView (https://h5.zdn.vn) và Cổng Cư dân
   const origin = String(req.headers?.origin || "*");
-  res.setHeader("Access-Control-Allow-Origin", origin || "*");
-  res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
-  res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization, x-kp3-cron-secret");
-  res.setHeader("Vary", "Origin");
+  res.setHeader?.("Access-Control-Allow-Origin", origin || "*");
+  res.setHeader?.("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+  res.setHeader?.("Access-Control-Allow-Headers", "Content-Type, Authorization, x-kp3-cron-secret");
+  res.setHeader?.("Vary", "Origin");
 
   if (req.method === "OPTIONS") {
     return res.status(200).end();
@@ -1461,43 +1463,941 @@ export default async function notificationsHandler(req: any, res: any) {
     });
   }
 
-  // 5. Gửi Thông báo chung từ Ban Điều hành Khu phố 3 đến Người dân (Zalo OA Followers + Email + Tin tức Cổng Cư dân)
-  if (action === "send_broadcast") {
-    const title = String(body.title || "").trim();
-    const content = String(body.content || "").trim();
-    const publishToPortalNews = body.publishToPortalNews !== false;
+  // 5. Danh bạ Đối tượng nhận tin, AI Soạn thảo & Phát Thông báo từ Khu phố 3 (Zalo OA + Email + Cổng Cư dân)
+  if (
+    action === "preview_broadcast_audience" ||
+    action === "ai_draft_broadcast" ||
+    action === "send_broadcast"
+  ) {
+    type NewsCategoryLabel =
+      | "Thông báo khẩn"
+      | "Hành chính"
+      | "Y tế & Đời sống"
+      | "Phong trào"
+      | "An sinh xã hội";
+
+    const VALID_NEWS_CATEGORIES = new Set<NewsCategoryLabel>([
+      "Thông báo khẩn",
+      "Hành chính",
+      "Y tế & Đời sống",
+      "Phong trào",
+      "An sinh xã hội",
+    ]);
+
+    const sanitizeAdminGeography = (raw: string): string => {
+      const legacyDistrictPattern = new RegExp(
+        ",\\s*(?:TP\\.?\\s*|Th\\u00e0nh ph\\u1ed1\\s*)Th\\u1ee7\\s*\\u0110\\u1ee9c\\s*,\\s*(?:TP\\.?\\s*|Th\\u00e0nh ph\\u1ed1\\s*)H\\u1ed3 Ch\\u00ed Minh",
+        "gi"
+      );
+      const legacyShortPattern = new RegExp(
+        "(?:TP\\.?\\s*|Th\\u00e0nh ph\\u1ed1\\s*)Th\\u1ee7\\s*\\u0110\\u1ee9c",
+        "gi"
+      );
+      return String(raw || "")
+        .replace(legacyDistrictPattern, ", TP. Hồ Chí Minh")
+        .replace(legacyShortPattern, "TP. Hồ Chí Minh")
+        .trim();
+    };
+
+    const buildRoundedSummary = (rawSummary: string, fallbackContent: string, maxLen = 175): string => {
+      const candidate = sanitizeAdminGeography(rawSummary || "")
+        .replace(/\s+/g, " ")
+        .trim();
+      if (candidate.length >= 20 && candidate.length <= maxLen) return candidate;
+      const base = (candidate || sanitizeAdminGeography(fallbackContent).replace(/\s+/g, " ").trim());
+      if (base.length <= maxLen) return base;
+      const sliced = base.slice(0, maxLen);
+      const lastSpace = sliced.lastIndexOf(" ");
+      return `${(lastSpace > 80 ? sliced.slice(0, lastSpace) : sliced).replace(/[.,;:\-–]+$/, "")}...`;
+    };
+
+    const WELFARE_ASSOC_KEYWORDS: Record<string, string[]> = {
+      ASC_CS_NGHEO: ["hộ nghèo", "ngheo"],
+      ASC_CS_CANNGHEO: ["hộ cận nghèo", "can ngheo"],
+      ASC_CS_NCC: ["người có công", "nguoi co cong", "thương binh", "liệt sĩ"],
+      ASC_CS_GDCS: ["gia đình chính sách", "chinh sach"],
+      ASC_CS_MVNAH: ["mẹ việt nam anh hùng", "me viet nam anh hung"],
+      ASC_CS_NKT: ["khuyết tật", "khuyet tat", "bảo trợ"],
+      ASC_CS_TE: ["trẻ em", "tre em", "mồ côi", "khuyến học"],
+    };
+
+    interface AudienceRecipientPerson {
+      key: string;
+      fullName: string;
+      roleOrCategory: string;
+      groupId: string;
+      groupName: string;
+      phone?: string;
+      email?: string;
+      cccd?: string;
+      zaloUserId?: string;
+      zaloDisplayName?: string;
+    }
+
+    interface AudienceGroupSummary {
+      id: string;
+      name: string;
+      groupType: "all_citizens" | "party_gov" | "mass_org" | "welfare" | "hostel_owners";
+      categoryLabel: string;
+      leaderName?: string;
+      leaderPhone?: string;
+      totalMembers: number;
+      zaloLinkedCount: number;
+      defaultPublishPortal: boolean;
+      recipients: AudienceRecipientPerson[];
+    }
+
+    const loadBroadcastDirectory = async () => {
+      const [
+        followersRaw,
+        cadreMapRaw,
+        prevLogsRaw,
+        assocRes,
+        welfareRes,
+        hostelsRes,
+      ] = await Promise.all([
+        readPrivateSetting<ZaloFollowerRecord[]>(supabaseUrl, serviceRoleKey, FOLLOWERS_KEY),
+        readPrivateSetting<Record<string, CadreZaloMappingEntry>>(
+          supabaseUrl,
+          serviceRoleKey,
+          CADRE_ZALO_MAPPING_KEY
+        ),
+        readPrivateSetting<NotificationLogEntry[]>(supabaseUrl, serviceRoleKey, LOGS_KEY),
+        fetch(`${supabaseUrl}/rest/v1/associations_records?key=eq.associations&select=payload`, {
+          headers: {
+            apikey: serviceRoleKey,
+            Authorization: `Bearer ${serviceRoleKey}`,
+            Accept: "application/json",
+          },
+        }).catch(() => null),
+        fetch(`${supabaseUrl}/rest/v1/welfare_records?key=eq.recipients&select=payload`, {
+          headers: {
+            apikey: serviceRoleKey,
+            Authorization: `Bearer ${serviceRoleKey}`,
+            Accept: "application/json",
+          },
+        }).catch(() => null),
+        fetch(
+          `${supabaseUrl}/rest/v1/businesses?is_accommodation=eq.true&select=id,name,owner_name,phone,address&limit=500`,
+          {
+            headers: {
+              apikey: serviceRoleKey,
+              Authorization: `Bearer ${serviceRoleKey}`,
+              Accept: "application/json",
+            },
+          }
+        ).catch(() => null),
+      ]);
+
+      const followerList: ZaloFollowerRecord[] = Array.isArray(followersRaw) ? followersRaw : [];
+      const cadreMap: Record<string, CadreZaloMappingEntry> =
+        cadreMapRaw && typeof cadreMapRaw === "object" ? cadreMapRaw : {};
+      const existingLogs: NotificationLogEntry[] = Array.isArray(prevLogsRaw) ? prevLogsRaw : [];
+
+      let assocList: any[] = [];
+      if (assocRes && assocRes.ok) {
+        const rows = await assocRes.json().catch(() => []);
+        if (Array.isArray(rows?.[0]?.payload)) assocList = rows[0].payload;
+      }
+
+      let welfareRecipients: any[] = [];
+      if (welfareRes && welfareRes.ok) {
+        const rows = await welfareRes.json().catch(() => []);
+        if (Array.isArray(rows?.[0]?.payload)) welfareRecipients = rows[0].payload;
+      }
+
+      let hostelRows: any[] = [];
+      if (hostelsRes && hostelsRes.ok) {
+        const rows = await hostelsRes.json().catch(() => []);
+        if (Array.isArray(rows)) hostelRows = rows;
+      }
+
+      const resolvePersonZalo = (
+        fullName: string,
+        phone?: string,
+        cccd?: string,
+        directZaloId?: string,
+        directZaloName?: string
+      ): { zaloUserId?: string; zaloDisplayName?: string } => {
+        if (directZaloId && String(directZaloId).trim()) {
+          return {
+            zaloUserId: String(directZaloId).trim(),
+            zaloDisplayName: directZaloName || fullName,
+          };
+        }
+        const normKey = normalizeCadreKey(fullName);
+        const normPhone = phone ? normalizeVnPhoneTo84(phone) : "";
+        const cleanCccd = String(cccd || "").replace(/\D/g, "");
+
+        for (const entry of Object.values(cadreMap)) {
+          if (!entry?.zaloUserId) continue;
+          if (normKey && entry.cadreKey === normKey) {
+            return { zaloUserId: entry.zaloUserId, zaloDisplayName: entry.zaloDisplayName };
+          }
+          if (normKey && normalizeCadreKey(entry.fullName) === normKey) {
+            return { zaloUserId: entry.zaloUserId, zaloDisplayName: entry.zaloDisplayName };
+          }
+          if (normPhone && entry.phone && normalizeVnPhoneTo84(entry.phone) === normPhone) {
+            return { zaloUserId: entry.zaloUserId, zaloDisplayName: entry.zaloDisplayName };
+          }
+        }
+
+        if (cleanCccd.length === 12) {
+          const byCccd = followerList.find(
+            (f) => String(f.cccd || "").replace(/\D/g, "") === cleanCccd
+          );
+          if (byCccd?.zaloUserId) {
+            return { zaloUserId: byCccd.zaloUserId, zaloDisplayName: byCccd.displayName };
+          }
+        }
+
+        const matchedFollower = findMatchingZaloFollower(fullName, phone, followerList);
+        if (matchedFollower?.zaloUserId) {
+          return {
+            zaloUserId: matchedFollower.zaloUserId,
+            zaloDisplayName: matchedFollower.displayName,
+          };
+        }
+        return {};
+      };
+
+      // Tóm tắt lãnh đạo chủ chốt KP3 (Bí thư Chi bộ luôn số 1)
+      let partySecName = "Nghiêm Xuân Quỳnh";
+      let partySecPhone = "0825681868";
+      let partyDepName = "Phạm Ngọc Hà";
+      let partyDepPhone = "0908579479";
+      let headKpName = "Nguyễn Trung Huy";
+      let headKpPhone = "0962037937";
+      let frontHeadName = "Trần Thị Mỹ Dung";
+      let frontHeadPhone = "";
+      let policeName = "Đại úy Trần Quốc Hải";
+      let policePhone = "";
+
+      for (const a of assocList) {
+        const aid = String(a?.id || "");
+        const members = Array.isArray(a?.members) ? a.members : [];
+        if (aid === "ASC_DANG" || aid === "ASC_CHIBO") {
+          const sec = members.find(
+            (m: any) =>
+              String(m?.role || "").toLowerCase().includes("bí thư") &&
+              !String(m?.role || "").toLowerCase().includes("phó")
+          );
+          const dep = members.find((m: any) =>
+            String(m?.role || "").toLowerCase().includes("phó bí thư")
+          );
+          if (sec?.fullName) {
+            partySecName = sec.fullName;
+            if (sec.phone) partySecPhone = sec.phone;
+          }
+          if (dep?.fullName) {
+            partyDepName = dep.fullName;
+            if (dep.phone) partyDepPhone = dep.phone;
+          }
+        } else if (aid === "ASC_BDH") {
+          const head = members.find(
+            (m: any) =>
+              String(m?.role || "").toLowerCase().includes("trưởng") &&
+              !String(m?.role || "").toLowerCase().includes("phó")
+          );
+          if (head?.fullName) {
+            headKpName = head.fullName;
+            if (head.phone) headKpPhone = head.phone;
+          }
+        } else if (aid === "ASC_MT" || aid === "ASC_MATTRAN") {
+          const fh = members.find(
+            (m: any) =>
+              String(m?.role || "").toLowerCase().includes("trưởng") &&
+              !String(m?.role || "").toLowerCase().includes("phó")
+          );
+          if (fh?.fullName) {
+            frontHeadName = fh.fullName;
+            if (fh.phone) frontHeadPhone = fh.phone;
+          }
+        } else if (aid === "ASC_ANTT") {
+          const pol = members.find((m: any) =>
+            String(m?.role || "").toLowerCase().includes("công an")
+          );
+          if (pol?.fullName) {
+            policeName = pol.fullName;
+            if (pol.phone) policePhone = pol.phone;
+          }
+        }
+      }
+
+      const groups: AudienceGroupSummary[] = [];
+
+      // 1. Nhóm mặc định: Toàn thể Người dân Khu phố 3
+      groups.push({
+        id: "ALL_CITIZENS",
+        name: "Toàn thể Người dân Khu phố 3",
+        groupType: "all_citizens",
+        categoryLabel: "Cộng đồng dân cư",
+        leaderName: `${partySecName} (Bí thư Chi bộ) • ${headKpName} (Trưởng BĐH KP3)`,
+        leaderPhone: headKpPhone || partySecPhone,
+        totalMembers: Math.max(ZALO_OA_KP3_DEFAULTS.verifiedFollowersBaseline, followerList.length),
+        zaloLinkedCount: followerList.length,
+        defaultPublishPortal: true,
+        recipients: followerList.map((f) => ({
+          key: `oa:${f.zaloUserId}`,
+          fullName: f.displayName || `Cư dân Zalo #${String(f.zaloUserId).slice(-5)}`,
+          roleOrCategory: "Người dân quan tâm Zalo OA",
+          groupId: "ALL_CITIZENS",
+          groupName: "Toàn thể Người dân Khu phố 3",
+          phone: f.phone,
+          cccd: f.cccd,
+          zaloUserId: f.zaloUserId,
+          zaloDisplayName: f.displayName,
+        })),
+      });
+
+      // 2. Các tổ chức Đảng, Chính quyền, Đoàn thể & Nhóm Chính sách trong associations_records + welfare_records
+      for (const assoc of assocList) {
+        const aid = String(assoc?.id || "").trim();
+        const aname = String(assoc?.name || "").trim();
+        if (!aid || !aname) continue;
+
+        const isPartyGov =
+          aid === "ASC_DANG" ||
+          aid === "ASC_CHIBO" ||
+          aid === "ASC_DANG213" ||
+          aid === "ASC_CTDANG" ||
+          aid === "ASC_BDH" ||
+          aid === "ASC_MT" ||
+          aid === "ASC_MATTRAN" ||
+          aid === "ASC_TOTRUONG";
+        const isWelfare =
+          aid.startsWith("ASC_CS_") ||
+          String(assoc?.category || "").toLowerCase().includes("chính sách");
+
+        const personMap = new Map<string, AudienceRecipientPerson>();
+        const members = Array.isArray(assoc?.members) ? assoc.members : [];
+        let leaderPhone = "";
+
+        for (const m of members) {
+          const fullName = String(m?.fullName || m?.name || "").trim();
+          if (!fullName) continue;
+          const cccd = String(m?.cccd || "").replace(/\D/g, "");
+          const phone = String(m?.phone || "").trim();
+          if (
+            !leaderPhone &&
+            phone &&
+            (fullName === assoc?.leaderName ||
+              /bí thư|trưởng|chi hội trưởng|tổ trưởng|chỉ huy/i.test(String(m?.role || "")))
+          ) {
+            leaderPhone = phone;
+          }
+          const dedupeKey =
+            cccd.length === 12
+              ? `cccd:${cccd}`
+              : `np:${normalizeCadreKey(fullName)}|${normalizeVnPhoneTo84(phone)}`;
+          const zMatch = resolvePersonZalo(
+            fullName,
+            phone,
+            cccd,
+            m?.zaloUserId,
+            m?.zaloDisplayName
+          );
+          personMap.set(dedupeKey, {
+            key: dedupeKey,
+            fullName,
+            roleOrCategory: String(m?.role || aname).trim(),
+            groupId: aid,
+            groupName: aname,
+            phone: phone || undefined,
+            email: m?.email ? String(m.email).trim() : undefined,
+            cccd: cccd || undefined,
+            zaloUserId: zMatch.zaloUserId,
+            zaloDisplayName: zMatch.zaloDisplayName,
+          });
+        }
+
+        // Gộp thêm danh sách đối tượng an sinh thực tế từ bảng welfare_records cho các nhóm ASC_CS_*
+        if (isWelfare && welfareRecipients.length > 0) {
+          const kwList = WELFARE_ASSOC_KEYWORDS[aid] || [normalizeCadreKey(aname)];
+          for (const wr of welfareRecipients) {
+            if (wr?.status === "Đã tạm ngưng") continue;
+            const catRaw = `${wr?.category || ""} ${wr?.subCategoryId || ""} ${wr?.supportLevel || ""}`;
+            const catNorm = catRaw.toLowerCase();
+            const catAscii = normalizeCadreKey(catRaw);
+            const matchedKw = kwList.some(
+              (kw) => catNorm.includes(kw.toLowerCase()) || catAscii.includes(normalizeCadreKey(kw))
+            );
+            if (!matchedKw) continue;
+            const fullName = String(wr?.fullName || "").trim();
+            if (!fullName) continue;
+            const cccd = String(wr?.cccd || "").replace(/\D/g, "");
+            const phone = String(wr?.phone || "").trim();
+            const dedupeKey =
+              cccd.length === 12
+                ? `cccd:${cccd}`
+                : `np:${normalizeCadreKey(fullName)}|${normalizeVnPhoneTo84(phone)}`;
+            if (personMap.has(dedupeKey)) continue;
+            const zMatch = resolvePersonZalo(fullName, phone, cccd);
+            personMap.set(dedupeKey, {
+              key: dedupeKey,
+              fullName,
+              roleOrCategory: String(wr?.category || aname).trim(),
+              groupId: aid,
+              groupName: aname,
+              phone: phone || undefined,
+              cccd: cccd || undefined,
+              zaloUserId: zMatch.zaloUserId,
+              zaloDisplayName: zMatch.zaloDisplayName,
+            });
+          }
+        }
+
+        const recipients = Array.from(personMap.values());
+        groups.push({
+          id: aid,
+          name: aname,
+          groupType: isWelfare ? "welfare" : isPartyGov ? "party_gov" : "mass_org",
+          categoryLabel: String(assoc?.category || (isWelfare ? "Chính sách xã hội" : "Đoàn thể")),
+          leaderName: assoc?.leaderName ? String(assoc.leaderName) : undefined,
+          leaderPhone: leaderPhone || undefined,
+          totalMembers: recipients.length,
+          zaloLinkedCount: recipients.filter((r) => Boolean(r.zaloUserId)).length,
+          defaultPublishPortal: false,
+          recipients,
+        });
+      }
+
+      // 3. Nhóm Chủ cơ sở nhà trọ / Lưu trú từ bảng businesses
+      const hostelOwnerMap = new Map<string, AudienceRecipientPerson>();
+      for (const h of hostelRows) {
+        const ownerName = String(h?.owner_name || "").trim();
+        const bizName = String(h?.name || "Nhà trọ KP3").trim();
+        const phone = String(h?.phone || "").trim();
+        const labelName = ownerName || bizName;
+        if (!labelName) continue;
+        const normPhone = normalizeVnPhoneTo84(phone);
+        const key = normPhone ? `ph:${normPhone}` : `hn:${normalizeCadreKey(labelName)}`;
+        if (hostelOwnerMap.has(key)) continue;
+        const zMatch = resolvePersonZalo(ownerName || bizName, phone);
+        hostelOwnerMap.set(key, {
+          key,
+          fullName: ownerName ? `${ownerName} (${bizName})` : bizName,
+          roleOrCategory: "Chủ cơ sở nhà trọ / lưu trú",
+          groupId: "HOSTEL_OWNERS",
+          groupName: "Chủ nhà trọ & Cơ sở lưu trú",
+          phone: phone || undefined,
+          zaloUserId: zMatch.zaloUserId,
+          zaloDisplayName: zMatch.zaloDisplayName,
+        });
+      }
+      const hostelRecipients = Array.from(hostelOwnerMap.values());
+      groups.push({
+        id: "HOSTEL_OWNERS",
+        name: "Chủ nhà trọ & Cơ sở lưu trú",
+        groupType: "hostel_owners",
+        categoryLabel: "Quản lý lưu trú - PCCC",
+        leaderName: `${policeName} (Công an KV) • ${headKpName} (Trưởng BĐH KP3)`,
+        leaderPhone: policePhone || headKpPhone,
+        totalMembers: hostelRecipients.length,
+        zaloLinkedCount: hostelRecipients.filter((r) => Boolean(r.zaloUserId)).length,
+        defaultPublishPortal: false,
+        recipients: hostelRecipients,
+      });
+
+      return {
+        followerList,
+        existingLogs,
+        groups,
+        leaders: {
+          partySecName,
+          partySecPhone,
+          partyDepName,
+          partyDepPhone,
+          headKpName,
+          headKpPhone,
+          frontHeadName,
+          frontHeadPhone,
+          policeName,
+          policePhone,
+        },
+      };
+    };
+
+    // 5A. Trả về danh mục đối tượng nhận thông báo & thống kê thực tế cho giao diện Lịch & Nhiệm vụ
+    if (action === "preview_broadcast_audience") {
+      const dir = await loadBroadcastDirectory();
+      return res.status(200).json({
+        ok: true,
+        oa: {
+          ...ZALO_OA_KP3_DEFAULTS,
+          followersSyncedCount: dir.followerList.length,
+        },
+        leaders: dir.leaders,
+        audiences: dir.groups.map((g) => ({
+          id: g.id,
+          name: g.name,
+          groupType: g.groupType,
+          categoryLabel: g.categoryLabel,
+          leaderName: g.leaderName,
+          leaderPhone: g.leaderPhone,
+          totalMembers: g.totalMembers,
+          zaloLinkedCount: g.zaloLinkedCount,
+          defaultPublishPortal: g.defaultPublishPortal,
+        })),
+        recentBroadcastLogs: dir.existingLogs
+          .filter((l) => l.notificationType === "community_broadcast")
+          .slice(0, 10),
+      });
+    }
+
+    // 5B. Trợ lý AI Soạn thảo Thông báo theo Đối tượng chọn lọc (Prompt / Ảnh-PDF Công văn / Chuốt văn phong / Lịch-Nhiệm vụ)
+    if (action === "ai_draft_broadcast") {
+      const mode = String(body.mode || "prompt").trim();
+      const userPrompt = String(body.prompt || "").trim();
+      const tone = String(body.tone || "formal").trim();
+      const currentTitle = String(body.currentTitle || "").trim();
+      const currentContent = String(body.currentContent || "").trim();
+      const fileBase64 = typeof body.fileBase64 === "string" ? body.fileBase64 : "";
+      const mimeType = typeof body.mimeType === "string" ? body.mimeType.trim().toLowerCase() : "";
+      const fileName = typeof body.fileName === "string" ? body.fileName : "";
+      const sourceItem = body.sourceItem && typeof body.sourceItem === "object" ? body.sourceItem : null;
+
+      const rawAudienceIds: string[] = Array.isArray(body.targetAudienceIds)
+        ? body.targetAudienceIds.map((x: any) => String(x || "").trim()).filter(Boolean)
+        : ["ALL_CITIZENS"];
+      const targetIds = rawAudienceIds.length > 0 ? rawAudienceIds : ["ALL_CITIZENS"];
+
+      if (fileBase64 && fileBase64.length > 6_000_000) {
+        return res.status(413).json({
+          ok: false,
+          error: "Tệp công văn đính kèm vượt quá 4.2 MB, vui lòng chọn tệp nhẹ hơn.",
+        });
+      }
+
+      if (
+        !userPrompt &&
+        !fileBase64 &&
+        !currentContent &&
+        !sourceItem?.title
+      ) {
+        return res.status(400).json({
+          ok: false,
+          error: "Vui lòng nhập ý chính, chọn một lịch/nhiệm vụ hoặc đính kèm công văn để AI soạn thông báo.",
+        });
+      }
+
+      const dir = await loadBroadcastDirectory();
+      const selectedGroups = dir.groups.filter((g) => targetIds.includes(g.id));
+      const effectiveGroups =
+        selectedGroups.length > 0 ? selectedGroups : [dir.groups[0]];
+      const isAllCitizens = effectiveGroups.some((g) => g.id === "ALL_CITIZENS");
+      const hasPartyGroup = effectiveGroups.some(
+        (g) => g.id === "ASC_DANG" || g.id === "ASC_CHIBO" || g.id === "ASC_DANG213" || g.id === "ASC_CTDANG"
+      );
+      const hasWelfareGroup = effectiveGroups.some((g) => g.groupType === "welfare");
+      const hasHostelGroup = effectiveGroups.some((g) => g.id === "HOSTEL_OWNERS");
+
+      const audienceNamesJoined = isAllCitizens
+        ? "Toàn thể Nhân dân, các hộ gia đình trên địa bàn Khu phố 3, Phường An Phú, TP. Hồ Chí Minh"
+        : effectiveGroups.map((g) => g.name).join(", ");
+
+      // Xác định người ký / đầu mối liên hệ phù hợp nhất với đối tượng nhận tin
+      const contactLines: string[] = [];
+      if (hasPartyGroup) {
+        contactLines.push(
+          `Đ/c ${dir.leaders.partySecName} - Bí thư Chi bộ Khu phố 3${
+            dir.leaders.partySecPhone ? ` (SĐT: ${dir.leaders.partySecPhone})` : ""
+          }`,
+          `Đ/c ${dir.leaders.partyDepName} - Phó Bí thư Chi bộ${
+            dir.leaders.partyDepPhone ? ` (SĐT: ${dir.leaders.partyDepPhone})` : ""
+          }`
+        );
+      } else if (hasWelfareGroup) {
+        contactLines.push(
+          `Đ/c ${dir.leaders.frontHeadName} - Trưởng Ban Công tác Mặt trận Khu phố 3${
+            dir.leaders.frontHeadPhone ? ` (SĐT: ${dir.leaders.frontHeadPhone})` : ""
+          }`,
+          `Ông ${dir.leaders.headKpName} - Trưởng Ban Điều hành Khu phố 3${
+            dir.leaders.headKpPhone ? ` (SĐT: ${dir.leaders.headKpPhone})` : ""
+          }`
+        );
+      } else if (hasHostelGroup) {
+        contactLines.push(
+          `${dir.leaders.policeName} - Công an khu vực Khu phố 3${
+            dir.leaders.policePhone ? ` (SĐT: ${dir.leaders.policePhone})` : ""
+          }`,
+          `Ông ${dir.leaders.headKpName} - Trưởng Ban Điều hành Khu phố 3${
+            dir.leaders.headKpPhone ? ` (SĐT: ${dir.leaders.headKpPhone})` : ""
+          }`
+        );
+      } else {
+        for (const g of effectiveGroups) {
+          if (g.id !== "ALL_CITIZENS" && g.leaderName) {
+            contactLines.push(
+              `${g.leaderName} - Phụ trách ${g.name}${g.leaderPhone ? ` (SĐT: ${g.leaderPhone})` : ""}`
+            );
+          }
+        }
+        contactLines.push(
+          `Ông ${dir.leaders.headKpName} - Trưởng Ban Điều hành Khu phố 3${
+            dir.leaders.headKpPhone ? ` (SĐT: ${dir.leaders.headKpPhone})` : ""
+          }`
+        );
+      }
+
+      const salutationHint = isAllCitizens
+        ? "Kính gửi: Toàn thể Nhân dân và các hộ gia đình tại Khu phố 3, Phường An Phú"
+        : hasPartyGroup
+        ? `Kính gửi: Các đồng chí Đảng viên thuộc ${effectiveGroups.map((g) => g.name).join(", ")} Khu phố 3`
+        : hasWelfareGroup
+        ? `Trân trọng kính mời: Đại diện các hộ gia đình thuộc diện quan tâm chăm lo (${effectiveGroups
+            .map((g) => g.name)
+            .join(", ")}) tại Khu phố 3`
+        : hasHostelGroup
+        ? "Kính gửi: Quý Chủ cơ sở kinh doanh nhà trọ, cơ sở lưu trú trên địa bàn Khu phố 3"
+        : `Kính gửi: Các đồng chí, quý hội viên ${effectiveGroups.map((g) => g.name).join(", ")} Khu phố 3`;
+
+      const suggestedPublishPortal = isAllCitizens;
+
+      const buildFallbackDraft = () => {
+        const rawTopic =
+          sourceItem?.title ||
+          currentTitle ||
+          userPrompt.slice(0, 100) ||
+          "Thông báo công tác tại Khu phố 3, Phường An Phú";
+        const cleanTitle = sanitizeAdminGeography(
+          rawTopic.toLowerCase().startsWith("thông báo")
+            ? rawTopic
+            : `Thông báo: ${rawTopic}`
+        );
+        const bodyParts = [
+          `${salutationHint},`,
+          "",
+          sourceItem
+            ? `${
+                hasPartyGroup ? "Chi ủy Chi bộ" : "Ban Điều hành"
+              } Khu phố 3, Phường An Phú, TP. Hồ Chí Minh trân trọng thông báo và kính mời tham dự/phối hợp nội dung sau:`
+            : `${
+                hasPartyGroup ? "Chi ủy Chi bộ" : "Ban Điều hành"
+              } Khu phố 3, Phường An Phú, TP. Hồ Chí Minh trân trọng thông báo:`,
+          "",
+          sourceItem?.date || sourceItem?.time
+            ? `- Thời gian: ${sourceItem.time ? `${sourceItem.time}, ` : ""}ngày ${sourceItem.date || "theo lịch thông báo"}`
+            : "",
+          sourceItem?.location
+            ? `- Địa điểm: ${sanitizeAdminGeography(sourceItem.location)}`
+            : `- Địa điểm: Văn phòng Khu phố 3 (01 Đường D2, Khu phố 3, Phường An Phú, TP. Hồ Chí Minh)`,
+          `- Nội dung chi tiết: ${sanitizeAdminGeography(
+            currentContent || sourceItem?.description || userPrompt || "Theo kế hoạch triển khai của Khu phố 3."
+          )}`,
+          "",
+          `- Đầu mối liên hệ: ${contactLines[0] || `Ông ${dir.leaders.headKpName} - Trưởng BĐH Khu phố 3`}.`,
+          hasPartyGroup
+            ? "Đề nghị các đồng chí sắp xếp thời gian tham dự đầy đủ, đúng giờ."
+            : "Rất mong quý đại biểu, hội viên và bà con quan tâm phối hợp thực hiện.",
+        ].filter((line, idx, arr) => !(line === "" && arr[idx - 1] === ""));
+
+        const finalContent = bodyParts.join("\n");
+        const detectedCat: NewsCategoryLabel = hasWelfareGroup
+          ? "An sinh xã hội"
+          : tone === "urgent"
+          ? "Thông báo khẩn"
+          : detectNewsCategory(cleanTitle, finalContent);
+
+        return {
+          title: cleanTitle,
+          content: finalContent,
+          portalSummary: buildRoundedSummary("", finalContent),
+          category: detectedCat,
+          suggestedPublishPortal,
+          usedFallback: true,
+        };
+      };
+
+      const apiKey = process.env.GEMINI_API_KEY;
+      if (!apiKey || apiKey === "MY_GEMINI_API_KEY" || apiKey.trim() === "") {
+        const fb = buildFallbackDraft();
+        const hasPiiWarning = /\b\d{12}\b/.test(`${fb.title} ${fb.content}`);
+        return res.status(200).json({ ok: true, ...fb, hasPiiWarning });
+      }
+
+      try {
+        const ai = new GoogleGenAI({
+          apiKey,
+          httpOptions: { headers: { "User-Agent": "aistudio-build" } },
+        });
+
+        const toneInstruction =
+          tone === "urgent"
+            ? "Giọng văn KHẨN TRƯƠNG, CẢNH BÁO RÕ RÀNG, nhấn mạnh thời hạn và biện pháp an toàn ngay đầu bản tin."
+            : tone === "friendly"
+            ? "Giọng văn GẦN GŨI, ẤM ÁP, VẬN ĐỘNG ĐỒNG THUẬN nhưng vẫn giữ chuẩn mực của Ban Điều hành Khu phố."
+            : "Giọng văn HÀNH CHÍNH CÔNG TRANG TRỌNG, CHUẨN MỰC, RÕ RÀNG, MẠCH LẠC.";
+
+        const welfareSensitivityNote = hasWelfareGroup
+          ? "LƯU Ý NHẠY CẢM AN SINH: Khi gửi tới Hộ nghèo, Hộ cận nghèo, Người khuyết tật hoặc Gia đình chính sách, sử dụng từ ngữ trân trọng, nhân văn (ví dụ: 'các hộ gia đình thuộc diện quan tâm chăm lo an sinh', 'gia đình chính sách'), tuyệt đối không dùng lời lẽ gây mặc cảm."
+          : "";
+
+        const systemInstruction = `Bạn là Thư ký Hành chính chuyên trách của Chi bộ & Ban Điều hành Khu phố 3, Phường An Phú, TP. Hồ Chí Minh.
+Nhiệm vụ: Soạn thảo "Thông báo chính thức" để gửi đồng bộ qua kênh Zalo Official Account (Zalo OA Ban Điều hành Khu phố 3) và/hoặc đăng lên Cổng Dịch vụ Cư dân số.
+
+NGỮ CẢNH THỰC TẾ TẠI KHU PHỐ 3 (TUYỆT ĐỐI KHÔNG BỊA ĐẶT TÊN/SĐT KHÁC):
+- Địa danh hành chính bắt buộc sau sáp nhập: "Khu phố 3, Phường An Phú, TP. Hồ Chí Minh" (TUYỆT ĐỐI KHÔNG viết bất kỳ tên quận/thành phố cấp huyện cũ nào trước sáp nhập).
+- Trụ sở Văn phòng Khu phố 3: 01 Đường D2, Khu phố 3, Phường An Phú, TP. Hồ Chí Minh.
+- Thường trực Khu phố 3 (Bí thư Chi bộ đứng đầu Khu phố):
+  + Bí thư Chi bộ: ${dir.leaders.partySecName} (${dir.leaders.partySecPhone})
+  + Phó Bí thư Chi bộ: ${dir.leaders.partyDepName} (${dir.leaders.partyDepPhone})
+  + Trưởng Ban Điều hành Khu phố 3: ${dir.leaders.headKpName} (${dir.leaders.headKpPhone})
+  + Trưởng Ban Công tác Mặt trận: ${dir.leaders.frontHeadName}${dir.leaders.frontHeadPhone ? ` (${dir.leaders.frontHeadPhone})` : ""}
+  + Công an khu vực: ${dir.leaders.policeName}${dir.leaders.policePhone ? ` (${dir.leaders.policePhone})` : ""}
+- ĐỐI TƯỢNG NHẬN THÔNG BÁO ĐANG CHỌN: ${audienceNamesJoined}
+- Lời chào mở đầu phù hợp: "${salutationHint}"
+- Đầu mối liên hệ ưu tiên đưa vào cuối thông báo: ${contactLines.join(" | ")}
+
+QUY TẮC TRÌNH BÀY:
+1. ${toneInstruction}
+2. ${welfareSensitivityNote}
+3. Nội dung "content" tối ưu cho cả màn hình điện thoại Zalo OA (tổng độ dài DƯỚI 1.550 ký tự để cộng thêm phần khung Zalo OA không vượt giới hạn 2.000 ký tự của Zalo):
+   - Mở đầu bằng lời kính gửi đúng đối tượng đã chọn.
+   - Trình bày tách dòng thoáng mắt, dùng gạch đầu dòng rõ ràng cho: Thời gian, Địa điểm, Thành phần / Đối tượng, Nội dung thực hiện / Giấy tờ cần mang theo (nếu có), và Đầu mối liên hệ.
+   - Không bọc markdown \`\`\` và không tự thêm dòng tiêu đề "[THÔNG BÁO KHU PHỐ 3]" ở dòng 1 vì hệ thống Zalo OA sẽ tự gắn khung tiêu đề chuẩn ở ngoài.
+   - Tuyệt đối KHÔNG đưa số CCCD 12 chữ số của cá nhân cư dân vào nội dung thông báo chung.
+4. Trả về DUY NHẤT một chuỗi JSON hợp lệ theo cấu trúc:
+{
+  "title": "Tiêu đề thông báo ngắn gọn, chuẩn hành chính (tối đa 120 ký tự)",
+  "content": "Nội dung chi tiết thông báo hoàn chỉnh",
+  "portalSummary": "Đoạn tóm tắt tròn câu 130 - 170 ký tự để hiển thị ngoài thẻ tin Cổng Cư dân",
+  "category": "Chọn đúng 1 trong 5 giá trị: 'Thông báo khẩn' | 'Hành chính' | 'Y tế & Đời sống' | 'Phong trào' | 'An sinh xã hội'"
+}`;
+
+        let taskPrompt = "";
+        if (mode === "polish") {
+          taskPrompt = `Hãy biên tập, chuẩn hóa câu chữ hành chính và trình bày lại bản nháp thông báo sau cho đúng đối tượng "${audienceNamesJoined}"${
+            body.shortenForZalo ? " (đồng thời rút gọn súc tích dưới 900 ký tự cho dễ đọc nhanh trên Zalo)" : ""
+          }:\nTiêu đề hiện tại: ${currentTitle}\nNội dung hiện tại:\n${currentContent}\n${
+            userPrompt ? `\nYêu cầu bổ sung của cán bộ: ${userPrompt}` : ""
+          }`;
+        } else if (sourceItem) {
+          taskPrompt = `Hãy chuyển đổi mục ${
+            sourceItem.kind === "task" ? "Nhiệm vụ công tác" : "Lịch công tác"
+          } sau đây thành Thông báo chính thức gửi tới "${audienceNamesJoined}":
+- Tiêu đề gốc: ${sourceItem.title || ""}
+- Ngày: ${sourceItem.date || ""}
+- Giờ: ${sourceItem.time || ""}
+- Địa điểm: ${sourceItem.location || ""}
+- Chủ trì / Phụ trách: ${sourceItem.hostOrAssignee || ""}
+- Nội dung gốc: ${sourceItem.description || ""}
+${userPrompt ? `- Ghi chú thêm của cán bộ: ${userPrompt}` : ""}`;
+        } else if (fileBase64) {
+          taskPrompt = `Hãy đọc toàn bộ hình ảnh hoặc tệp PDF công văn/kế hoạch đính kèm, chắt lọc chính xác các thông tin thiết thực nhất liên quan đến đối tượng "${audienceNamesJoined}" tại Khu phố 3 (bỏ các căn cứ pháp lý dài dòng) để soạn thành Thông báo rõ ràng, dễ thực hiện.${
+            userPrompt ? `\nChỉ đạo/ghi chú thêm của cán bộ Khu phố 3: ${userPrompt}` : ""
+          }`;
+        } else {
+          taskPrompt = `Dựa trên ý chính sau đây của cán bộ, hãy soạn hoàn chỉnh Thông báo gửi tới "${audienceNamesJoined}":\n"${userPrompt}"`;
+        }
+
+        const parts: any[] = [{ text: taskPrompt }];
+        if (fileBase64) {
+          const cleanedBase64 = fileBase64.replace(/^data:[^;]+;base64,/, "");
+          const resolvedMime =
+            mimeType === "image/jpg"
+              ? "image/jpeg"
+              : mimeType || (fileName.toLowerCase().endsWith(".pdf") ? "application/pdf" : "image/jpeg");
+          parts.push({
+            inlineData: {
+              mimeType: resolvedMime,
+              data: cleanedBase64,
+            },
+          });
+        }
+
+        const aiRes = await ai.models.generateContent({
+          model: "gemini-2.5-flash",
+          contents: [{ role: "user", parts }],
+          config: {
+            systemInstruction,
+            responseMimeType: "application/json",
+          },
+        });
+
+        const rawText = String(aiRes.text || "")
+          .replace(/^```json\s*/i, "")
+          .replace(/```\s*$/i, "")
+          .trim();
+        const parsed = JSON.parse(rawText);
+
+        const finalTitle = sanitizeAdminGeography(String(parsed?.title || "").trim());
+        const finalContent = sanitizeAdminGeography(String(parsed?.content || "").trim()).slice(0, 1750);
+        if (!finalTitle || !finalContent) {
+          const fb = buildFallbackDraft();
+          return res.status(200).json({
+            ok: true,
+            ...fb,
+            hasPiiWarning: /\b\d{12}\b/.test(`${fb.title} ${fb.content}`),
+          });
+        }
+
+        const rawCat = String(parsed?.category || "").trim() as NewsCategoryLabel;
+        const finalCategory: NewsCategoryLabel = VALID_NEWS_CATEGORIES.has(rawCat)
+          ? rawCat
+          : hasWelfareGroup
+          ? "An sinh xã hội"
+          : detectNewsCategory(finalTitle, finalContent);
+
+        const finalSummary = buildRoundedSummary(String(parsed?.portalSummary || ""), finalContent);
+        const hasPiiWarning = /\b\d{12}\b/.test(`${finalTitle} ${finalContent}`);
+
+        return res.status(200).json({
+          ok: true,
+          title: finalTitle,
+          content: finalContent,
+          portalSummary: finalSummary,
+          category: finalCategory,
+          suggestedPublishPortal,
+          usedFallback: false,
+          hasPiiWarning,
+        });
+      } catch (aiErr: any) {
+        console.warn("[ai_draft_broadcast] Fallback do lỗi AI:", aiErr?.message || aiErr);
+        const fb = buildFallbackDraft();
+        return res.status(200).json({
+          ok: true,
+          ...fb,
+          hasPiiWarning: /\b\d{12}\b/.test(`${fb.title} ${fb.content}`),
+        });
+      }
+    }
+
+    // 5C. Phát Thông báo Chính thức theo Đối tượng đã chọn (Zalo OA + Email + Tin tức Cổng Cư dân)
+    const title = sanitizeAdminGeography(String(body.title || "").trim());
+    const content = sanitizeAdminGeography(String(body.content || "").trim());
+    const rawAudienceIds: string[] = Array.isArray(body.targetAudienceIds)
+      ? body.targetAudienceIds.map((x: any) => String(x || "").trim()).filter(Boolean)
+      : ["ALL_CITIZENS"];
+    const targetIds = rawAudienceIds.length > 0 ? rawAudienceIds : ["ALL_CITIZENS"];
+    const isAllCitizens = targetIds.includes("ALL_CITIZENS");
+    const publishToPortalNews =
+      typeof body.publishToPortalNews === "boolean" ? body.publishToPortalNews : isAllCitizens;
 
     if (!title || !content) {
       return res.status(400).json({
         ok: false,
-        error: "Vui lòng nhập đầy đủ Tiêu đề và Nội dung thông báo gửi người dân.",
+        error: "Vui lòng nhập đầy đủ Tiêu đề và Nội dung thông báo.",
       });
     }
 
-    const [followers, prevLogs] = await Promise.all([
-      readPrivateSetting<ZaloFollowerRecord[]>(supabaseUrl, serviceRoleKey, FOLLOWERS_KEY),
-      readPrivateSetting<NotificationLogEntry[]>(supabaseUrl, serviceRoleKey, LOGS_KEY),
-    ]);
-    const followerList = Array.isArray(followers) ? followers : [];
-    const existingLogs = Array.isArray(prevLogs) ? prevLogs : [];
-    const accessToken = await refreshZaloAccessTokenIfNeeded(
+    const dir = await loadBroadcastDirectory();
+    let accessToken = await refreshZaloAccessTokenIfNeeded(
       savedCfg,
       supabaseUrl,
       serviceRoleKey
     );
+    const resendKey = (savedCfg.resendApiKey || process.env.RESEND_API_KEY || "").trim();
+    const senderEmail = (
+      savedCfg.senderEmail ||
+      "Ban Điều Hành Khu Phố 3 An Phú <onboarding@resend.dev>"
+    ).trim();
 
-    const formattedBroadcast = `📢 [THÔNG BÁO KHU PHỐ 3 - PHƯỜNG AN PHÚ]\n${title.toUpperCase()}\n\n${content}\n\n👉 Xem chi tiết tại Cổng Cư dân KP3: https://bdhkp3.vercel.app\n👉 Zalo OA chính thức: ${ZALO_OA_KP3_DEFAULTS.oaUrl}`;
+    const selectedGroups = isAllCitizens
+      ? [dir.groups[0]]
+      : dir.groups.filter((g) => targetIds.includes(g.id));
+    const effectiveGroups = selectedGroups.length > 0 ? selectedGroups : [dir.groups[0]];
+    const audienceLabel = isAllCitizens
+      ? `Toàn thể Người dân Khu phố 3 (${Math.max(
+          ZALO_OA_KP3_DEFAULTS.verifiedFollowersBaseline,
+          dir.followerList.length
+        )}+ người quan tâm OA)`
+      : effectiveGroups.map((g) => g.name).join(", ");
+
+    const audienceHeaderLine = isAllCitizens
+      ? ""
+      : `🎯 Đối tượng: ${effectiveGroups.map((g) => g.name).join(" • ")}\n`;
+
+    const formattedBroadcast = `📢 [THÔNG BÁO KHU PHỐ 3 - PHƯỜNG AN PHÚ]\n${audienceHeaderLine}${title.toUpperCase()}\n\n${content}\n\n👉 Cổng Cư dân KP3: https://bdhkp3.vercel.app\n👉 Zalo OA chính thức: ${ZALO_OA_KP3_DEFAULTS.oaUrl}`;
+    const safeZaloText =
+      formattedBroadcast.length > 1980
+        ? `${formattedBroadcast.slice(0, 1900)}\n...\n👉 Xem trọn vẹn tại: https://bdhkp3.vercel.app`
+        : formattedBroadcast;
+
+    // Tổng hợp danh sách người nhận duy nhất theo Zalo UID / Email / SĐT
+    const uniqueZaloTargets = new Map<string, string>();
+    const uniqueEmailTargets = new Map<string, string>();
+    const unmatchedManualContacts: Array<{
+      fullName: string;
+      groupName: string;
+      roleOrCategory: string;
+      phone?: string;
+    }> = [];
+    const seenPersonKeys = new Set<string>();
+
+    if (isAllCitizens) {
+      for (const f of dir.followerList) {
+        if (f?.zaloUserId) {
+          uniqueZaloTargets.set(
+            String(f.zaloUserId),
+            f.displayName || `Cư dân #${String(f.zaloUserId).slice(-5)}`
+          );
+        }
+      }
+    } else {
+      for (const grp of effectiveGroups) {
+        for (const p of grp.recipients) {
+          if (seenPersonKeys.has(p.key)) continue;
+          seenPersonKeys.add(p.key);
+          if (p.zaloUserId) {
+            uniqueZaloTargets.set(p.zaloUserId, p.fullName);
+          } else {
+            unmatchedManualContacts.push({
+              fullName: p.fullName,
+              groupName: grp.name,
+              roleOrCategory: p.roleOrCategory,
+              phone: p.phone,
+            });
+          }
+          if (p.email && p.email.includes("@")) {
+            uniqueEmailTargets.set(p.email.toLowerCase(), p.fullName);
+          }
+        }
+      }
+    }
 
     let zaloSent = 0;
-    if (accessToken && followerList.length > 0) {
-      for (const f of followerList.slice(0, 100)) {
-        const r = await sendZaloOaCsMessage(accessToken, f.zaloUserId, formattedBroadcast);
-        if (r.ok) zaloSent++;
+    let zaloFailed = 0;
+    const refreshCtx = { cfg: savedCfg, supabaseUrl, serviceRoleKey };
+    const zaloEntries = Array.from(uniqueZaloTargets.entries());
+
+    if (accessToken && zaloEntries.length > 0) {
+      const BATCH_SIZE = 10;
+      for (let i = 0; i < zaloEntries.length; i += BATCH_SIZE) {
+        const chunk = zaloEntries.slice(i, i + BATCH_SIZE);
+        const results = await Promise.all(
+          chunk.map(([uid]) => sendZaloOaCsMessage(accessToken, uid, safeZaloText, refreshCtx))
+        );
+        for (const r of results) {
+          if (r.newToken) accessToken = r.newToken;
+          if (r.ok) zaloSent++;
+          else zaloFailed++;
+        }
+      }
+    }
+
+    let emailSent = 0;
+    if (!isAllCitizens && resendKey && uniqueEmailTargets.size > 0) {
+      for (const [emailAddr] of Array.from(uniqueEmailTargets.entries()).slice(0, 50)) {
+        const er = await sendResendEmail(
+          resendKey,
+          senderEmail,
+          emailAddr,
+          `[KP3 An Phú - ${effectiveGroups.map((g) => g.name).join(", ")}] ${title}`,
+          formattedBroadcast
+        );
+        if (er.ok) emailSent++;
       }
     }
 
     // Đồng bộ đăng lên bảng community_news trên Cổng Cư dân nếu được chọn
     let portalPublished = false;
+    const requestedCat = String(body.category || "").trim() as NewsCategoryLabel;
+    const resolvedCategory: NewsCategoryLabel = VALID_NEWS_CATEGORIES.has(requestedCat)
+      ? requestedCat
+      : detectNewsCategory(title, content);
+    const resolvedSummary = buildRoundedSummary(String(body.portalSummary || ""), content);
+
     if (publishToPortalNews) {
       const newsRes = await fetch(`${supabaseUrl}/rest/v1/community_news`, {
         method: "POST",
@@ -1509,8 +2409,8 @@ export default async function notificationsHandler(req: any, res: any) {
         },
         body: JSON.stringify({
           title,
-          category: "Thông báo",
-          summary: content.slice(0, 180),
+          category: resolvedCategory,
+          summary: resolvedSummary,
           content,
           author_name: caller.actorName,
           is_pinned: true,
@@ -1522,16 +2422,18 @@ export default async function notificationsHandler(req: any, res: any) {
     const logItem: NotificationLogEntry = {
       id: `NTF-BC-${Date.now()}`,
       timestamp: new Date().toISOString(),
-      channel: zaloSent > 0 ? "zalo_oa" : "outbox_ready",
+      channel: zaloSent > 0 ? "zalo_oa" : emailSent > 0 ? "email" : "outbox_ready",
       notificationType: "community_broadcast",
-      recipientName: `Cư dân Khu phố 3 (${ZALO_OA_KP3_DEFAULTS.verifiedFollowersBaseline}+ người quan tâm OA)`,
-      recipientRole: "community",
+      recipientName: audienceLabel,
+      recipientRole: isAllCitizens ? "community" : "cadre",
       subject: title,
       messagePreview: content.slice(0, 260),
-      status: zaloSent > 0 || portalPublished ? "sent" : "queued_manual_zalo",
-      detail: `Zalo OA đẩy trực tiếp: ${zaloSent} người • Cổng Cư dân: ${
-        portalPublished ? "Đã đăng Thông báo ghim" : "Không đăng"
-      }`,
+      status: zaloSent > 0 || emailSent > 0 || portalPublished ? "sent" : "queued_manual_zalo",
+      detail: `Đối tượng: ${
+        isAllCitizens ? "Toàn Khu phố 3" : effectiveGroups.map((g) => g.name).join(", ")
+      } • Zalo OA đẩy trực tiếp: ${zaloSent}/${zaloEntries.length} người${
+        emailSent > 0 ? ` • Email: ${emailSent}` : ""
+      } • Cổng Cư dân: ${portalPublished ? `Đã ghim (${resolvedCategory})` : "Không đăng công khai"}`,
       actorName: caller.actorName,
     };
 
@@ -1539,13 +2441,20 @@ export default async function notificationsHandler(req: any, res: any) {
       supabaseUrl,
       serviceRoleKey,
       LOGS_KEY,
-      [logItem, ...existingLogs].slice(0, 250)
+      [logItem, ...dir.existingLogs].slice(0, 250)
     );
 
     return res.status(200).json({
       ok: true,
       zaloSent,
+      zaloTargeted: zaloEntries.length,
+      zaloFailed,
+      emailSent,
       portalPublished,
+      resolvedCategory,
+      audienceLabel,
+      isAllCitizens,
+      unmatchedManualContacts: unmatchedManualContacts.slice(0, 80),
       formattedBroadcast,
       oaArticleUrl: "https://oa.nhatkyzalo.vn/manage/content/article/",
     });

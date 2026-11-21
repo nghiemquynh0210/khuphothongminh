@@ -59,8 +59,8 @@ async function startServer() {
   // Trợ lý AI Khu phố 3 Đa phương thức
   app.all("/api/chat", mediaJson, asyncRoute((req, res) => chatHandler(req, res)));
 
-  // Kết nối Zalo OA & Email tự động nhắc gia hạn tạm trú 15 ngày + thông báo cộng đồng
-  app.all("/api/notifications", smallJson, asyncRoute((req, res) => notificationsHandler(req, res)));
+  // Kết nối Zalo OA & Email tự động nhắc gia hạn tạm trú 15 ngày + AI soạn & phát thông báo cộng đồng
+  app.all("/api/notifications", mediaJson, asyncRoute((req, res) => notificationsHandler(req, res)));
 
   // Serve static files or Vite in development
   if (process.env.NODE_ENV !== "production") {

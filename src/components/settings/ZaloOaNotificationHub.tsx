@@ -35,6 +35,7 @@ import CadreZaloLinkModal, {
 
 interface ZaloOaNotificationHubProps {
   onNotify?: (msg: string, type?: "success" | "error" | "info" | "warning") => void;
+  onNavigateToBroadcast?: () => void;
 }
 
 interface CadreMeetingReminderItem {
@@ -113,7 +114,13 @@ function toZaloChatUrl(phone?: string): string | null {
   return `https://zalo.me/${localPhone}`;
 }
 
-export function ZaloOaNotificationHub({ onNotify }: ZaloOaNotificationHubProps) {
+export function ZaloOaNotificationHub({
+  onNotify,
+  onNavigateToBroadcast,
+}: ZaloOaNotificationHubProps) {
+  const [activeHubTab, setActiveHubTab] = useState<
+    "meetings" | "cadres" | "residency" | "logs"
+  >("meetings");
   const [loading, setLoading] = useState(true);
   const [scanning, setScanning] = useState(false);
   const [dispatching, setDispatching] = useState(false);
@@ -516,28 +523,64 @@ export function ZaloOaNotificationHub({ onNotify }: ZaloOaNotificationHubProps) 
   };
 
   return (
-    <div className="space-y-6">
-      {/* 1. KẾT NỐI ZALO OA CHÍNH THỨC CỦA BAN ĐIỀU HÀNH KHU PHỐ 3 */}
-      <div className="bg-white border border-slate-200 border-l-4 border-l-blue-600 rounded-2xl p-5 space-y-4">
-        <div className="flex flex-col lg:flex-row lg:items-start justify-between gap-4">
-          <div className="space-y-1.5">
-            <div className="flex flex-wrap items-center gap-2">
-              <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-blue-50 border border-blue-200 text-blue-800 text-xs font-bold">
-                <ShieldCheck size={13} className="text-blue-700" />
-                Zalo Official Account Tích Vàng Cơ Quan Nhà Nước
-              </span>
-              <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-bold">
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-600 animate-pulse" />
-                Đã liên kết OA ID: {oaMeta.oaId}
-              </span>
+    <div className="space-y-4">
+      {/* 1. COMPACT ZALO OA HEADER & INLINE METRICS */}
+      <div className="bg-white border border-slate-200/90 rounded-2xl p-4 sm:p-5 space-y-3.5 shadow-2xs">
+        <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-3.5">
+          <div className="flex items-start sm:items-center gap-3.5 min-w-0">
+            <img
+              src={`https://api.qrserver.com/v1/create-qr-code/?size=120x120&data=${encodeURIComponent(
+                oaMeta.oaUrl
+              )}`}
+              alt="QR Zalo OA Ban Điều Hành Khu Phố 3"
+              className="w-12 h-12 rounded-xl border border-slate-200 bg-white p-1 shrink-0 hidden sm:block"
+            />
+            <div className="min-w-0 space-y-1">
+              <div className="flex flex-wrap items-center gap-1.5">
+                <h4 className="text-sm sm:text-base font-extrabold text-slate-900 truncate">
+                  {oaMeta.oaName}
+                </h4>
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-blue-50 border border-blue-200 text-blue-800 text-[11px] font-semibold">
+                  <ShieldCheck size={11} className="text-blue-700" />
+                  Tích vàng Cơ quan Nhà nước
+                </span>
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-800 text-[11px] font-mono font-semibold">
+                  OA ID: {oaMeta.oaId}
+                </span>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-slate-600">
+                <span>
+                  Quan tâm OA:{" "}
+                  <strong className="text-slate-900 font-mono">
+                    {Math.max(oaMeta.verifiedFollowersBaseline, linkedFollowersCount)}
+                  </strong>
+                </span>
+                <span className="text-slate-300">•</span>
+                <span>
+                  Cán bộ đã ghép:{" "}
+                  <strong className="text-emerald-700 font-mono">
+                    {cadreStats.linkedCount}/{cadreStats.totalCadres}
+                  </strong>
+                </span>
+                <span className="text-slate-300">•</span>
+                <span>
+                  Đến hạn ≤{remindDaysThreshold}n:{" "}
+                  <strong className="text-amber-700 font-mono">
+                    {loading ? "..." : totalDueResidents} người
+                  </strong>
+                </span>
+                <span className="text-slate-300 hidden sm:inline">•</span>
+                <button
+                  type="button"
+                  onClick={() => copyText("oa-url", oaMeta.oaUrl, "đường dẫn Zalo OA")}
+                  className="inline-flex items-center gap-1 text-blue-700 hover:underline font-semibold cursor-pointer"
+                >
+                  {copiedId === "oa-url" ? <Check size={11} /> : <Copy size={11} />}
+                  <span>zalo.me/bdhkhupho3</span>
+                </button>
+              </div>
             </div>
-            <h4 className="text-base font-black text-slate-900">{oaMeta.oaName}</h4>
-            <p className="text-xs text-slate-600">
-              Trụ sở OA: <strong className="text-slate-800">{oaMeta.headquartersAddress}</strong> • Ứng dụng cấp quyền:{" "}
-              <strong className="font-mono text-slate-800">
-                {oaMeta.linkedAppName} (App ID: {oaMeta.linkedAppId})
-              </strong>
-            </p>
           </div>
 
           <div className="flex flex-wrap items-center gap-2 shrink-0">
@@ -545,194 +588,104 @@ export function ZaloOaNotificationHub({ onNotify }: ZaloOaNotificationHubProps) 
               href={oaMeta.oaUrl}
               target="_blank"
               rel="noreferrer"
-              className="min-h-[40px] inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold transition-colors"
+              className="h-9 inline-flex items-center gap-1.5 px-3 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold transition-colors"
             >
-              <MessageCircle size={14} />
-              <span>Mở kênh Zalo OA</span>
-              <ExternalLink size={12} />
+              <MessageCircle size={13} />
+              <span>Mở Zalo OA</span>
+              <ExternalLink size={11} />
             </a>
             <a
               href="https://oa.nhatkyzalo.vn/manage/profile"
               target="_blank"
               rel="noreferrer"
-              className="min-h-[40px] inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 border border-slate-200 text-slate-800 text-xs font-bold transition-colors"
+              className="h-9 inline-flex items-center gap-1.5 px-3 rounded-lg bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 text-xs font-semibold transition-colors"
             >
               <span>Quản trị OA</span>
-              <ExternalLink size={12} />
+              <ExternalLink size={11} />
             </a>
             <button
               type="button"
-              onClick={() => setShowZaloArticleSync(true)}
-              className="min-h-[40px] inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-blue-50 hover:bg-blue-100 border border-blue-200 text-blue-800 text-xs font-bold transition-colors cursor-pointer shadow-2xs"
-            >
-              <MessageCircle size={14} className="fill-current text-blue-600" />
-              <span>Đồng bộ Bài viết OA</span>
-            </button>
-            <button
-              type="button"
               onClick={() => setShowApiConfig((prev) => !prev)}
-              className="min-h-[40px] inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-white hover:bg-slate-50 border border-slate-200 text-slate-800 text-xs font-bold transition-colors cursor-pointer"
+              className={`h-9 inline-flex items-center gap-1.5 px-3 rounded-lg border text-xs font-semibold transition-colors cursor-pointer ${
+                showApiConfig
+                  ? "bg-slate-900 text-white border-slate-900"
+                  : "bg-white hover:bg-slate-50 border-slate-200 text-slate-700"
+              }`}
             >
-              <Settings2 size={14} className="text-slate-600" />
-              <span>{showApiConfig ? "Ẩn cấu hình API" : "Cấu hình Token & Email"}</span>
+              <Settings2 size={13} />
+              <span>{showApiConfig ? "Đóng cấu hình API" : "Cấu hình API & Webhook"}</span>
             </button>
           </div>
         </div>
 
-        {/* Summary KPI Strip + QR */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-3 pt-2 border-t border-slate-100">
-          <div className="bg-slate-50 border border-slate-200/80 rounded-xl p-3.5 flex items-center gap-3">
-            <img
-              src={`https://api.qrserver.com/v1/create-qr-code/?size=120x120&data=${encodeURIComponent(
-                oaMeta.oaUrl
-              )}`}
-              alt="QR Zalo OA Ban Điều Hành Khu Phố 3"
-              className="w-14 h-14 rounded-lg border border-slate-200 bg-white p-1 shrink-0"
-            />
-            <div className="min-w-0">
-              <p className="text-[11px] font-bold uppercase tracking-wider text-slate-500 flex items-center gap-1">
-                <QrCode size={12} /> Mã QR Cư dân Quan tâm
-              </p>
-              <p className="text-xs font-mono font-bold text-blue-700 truncate mt-0.5">
-                zalo.me/bdhkhupho3
-              </p>
-              <button
-                type="button"
-                onClick={() => copyText("oa-url", oaMeta.oaUrl, "đường dẫn Zalo OA")}
-                className="mt-1 inline-flex items-center gap-1 text-[11px] font-bold text-slate-700 hover:text-blue-700 cursor-pointer"
-              >
-                {copiedId === "oa-url" ? <Check size={11} /> : <Copy size={11} />}
-                <span>Sao chép link mời dân</span>
-              </button>
-            </div>
-          </div>
-
-          <div className="bg-slate-50 border border-slate-200/80 rounded-xl p-3.5">
-            <p className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
-              Người dân quan tâm OA
-            </p>
-            <p className="text-2xl font-black text-slate-900 mt-0.5">
-              {Math.max(oaMeta.verifiedFollowersBaseline, linkedFollowersCount)}
-              <span className="text-xs font-semibold text-slate-600 ml-1.5">người</span>
-            </p>
-            <p className="text-[11px] text-emerald-700 font-semibold mt-0.5">
-              {linkedFollowersCount > 0
-                ? `${linkedFollowersCount} SĐT đã khớp tự động qua Webhook`
-                : "Sẵn sàng nhận tin nhắn SĐT/CCCD từ dân"}
-            </p>
-          </div>
-
-          <div className="bg-amber-50/70 border border-amber-200 rounded-xl p-3.5">
-            <p className="text-[11px] font-bold uppercase tracking-wider text-amber-800">
-              Cư dân đến hạn ≤ {remindDaysThreshold} ngày
-            </p>
-            <p className="text-2xl font-black text-amber-950 mt-0.5">
-              {loading ? "..." : totalDueResidents}
-              <span className="text-xs font-semibold text-amber-800 ml-1.5">nhân khẩu</span>
-            </p>
-            <p className="text-[11px] text-amber-800 font-semibold mt-0.5">
-              Thuộc {totalLandlordGroups} nhà trọ / hộ tạm trú
-            </p>
-          </div>
-
-          <div className="bg-slate-50 border border-slate-200/80 rounded-xl p-3.5">
-            <p className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
-              Chế độ Tự động Nhắc lịch &amp; Hạn
-            </p>
-            <p className="text-xs font-black text-emerald-800 mt-1 flex items-center gap-1.5">
-              <CheckCircle2 size={14} className="text-emerald-700 shrink-0" />
-              <span>
-                Họp CB: <strong>Trước {meetingRemindMinutesBefore} phút</strong> • Tạm trú: <strong>Trước {remindDaysThreshold} ngày</strong>
-              </span>
-            </p>
-            <p className="text-[11px] text-slate-600 mt-1">
-              Zalo Token:{" "}
-              <strong className={hasAccessToken ? "text-emerald-700" : "text-amber-700"}>
-                {hasAccessToken ? "Đã cấp" : "Chế độ 1-chạm"}
-              </strong>{" "}
-              • Email:{" "}
-              <strong className={hasEmailKey ? "text-emerald-700" : "text-slate-700"}>
-                {hasEmailKey ? "Đã bật" : "Chưa nhập key"}
-              </strong>
-            </p>
-          </div>
-        </div>
-
-        {/* Webhook URL Bar */}
-        <div className="bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs">
-          <div className="min-w-0">
-            <span className="font-bold text-slate-700">Webhook nhận sự kiện Zalo OA (Follow / Nhắn SĐT đăng ký): </span>
-            <code className="font-mono text-blue-800 break-all">{webhookUrl}</code>
-          </div>
-          <button
-            type="button"
-            onClick={() => copyText("webhook", webhookUrl, "Webhook URL")}
-            className="min-h-[34px] inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white hover:bg-slate-100 border border-slate-200 text-slate-800 font-bold shrink-0 cursor-pointer"
-          >
-            {copiedId === "webhook" ? <Check size={13} className="text-emerald-700" /> : <Copy size={13} />}
-            <span>Sao chép Webhook</span>
-          </button>
-        </div>
-
-        {/* Collapsible OAuth v4 + Email Configuration Form */}
+        {/* Collapsible OAuth v4 + Webhook + Email Configuration Form */}
         {showApiConfig && (
           <form
             onSubmit={handleSaveConfig}
-            className="bg-slate-50 border border-slate-200 rounded-2xl p-4 space-y-4"
+            className="bg-slate-50/80 border border-slate-200/90 rounded-xl p-4 space-y-3.5 pt-3.5"
           >
-            <div className="flex items-center justify-between border-b border-slate-200 pb-2.5">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-2.5 border-b border-slate-200/80 text-xs">
               <div>
-                <h5 className="text-xs font-black uppercase tracking-wider text-slate-800 flex items-center gap-1.5">
-                  <KeyRound size={14} className="text-blue-700" />
-                  Thiết lập Khóa API Tự động (Zalo OpenAPI v3 / ZNS &amp; Email Resend)
+                <h5 className="text-xs font-bold uppercase tracking-wider text-slate-900 flex items-center gap-1.5">
+                  <KeyRound size={13} className="text-blue-700" />
+                  Khóa API Tự động (Zalo OA v2 / ZNS &amp; Resend Email)
                 </h5>
-                <p className="text-[11px] text-slate-600 mt-0.5">
-                  Toàn bộ khóa bí mật được mã hóa lưu nội bộ trên Supabase (`is_public = false`), tuyệt đối không lộ ra trình duyệt công khai.
+                <p className="text-[11px] text-slate-500 mt-0.5">
+                  Lưu mã hóa nội bộ trên Supabase (`is_public = false`), không lộ ra trình duyệt công khai.
                 </p>
               </div>
+              <button
+                type="button"
+                onClick={() => copyText("webhook", webhookUrl, "Webhook URL")}
+                className="h-8 inline-flex items-center gap-1.5 px-2.5 rounded-lg bg-white hover:bg-slate-100 border border-slate-200 text-slate-700 font-mono text-[11px] shrink-0 cursor-pointer"
+                title={webhookUrl}
+              >
+                {copiedId === "webhook" ? <Check size={12} className="text-emerald-700" /> : <Copy size={12} />}
+                <span>Chép Webhook OA</span>
+              </button>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
-              <label className="flex items-center gap-2.5 bg-white border border-slate-200 rounded-xl p-3 cursor-pointer">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 text-xs">
+              <label className="flex items-center gap-2 bg-white border border-slate-200 rounded-lg px-3 h-9 cursor-pointer">
                 <input
                   type="checkbox"
                   checked={autoRemind15dEnabled}
                   onChange={(e) => setAutoRemind15dEnabled(e.target.checked)}
-                  className="w-4 h-4 accent-emerald-700 rounded"
+                  className="w-3.5 h-3.5 accent-emerald-700 rounded"
                 />
-                <span className="font-bold text-slate-800">
+                <span className="font-semibold text-slate-800 truncate">
                   Tự động quét &amp; nhắc hạn hằng ngày
                 </span>
               </label>
 
-              <div className="bg-white border border-slate-200 rounded-xl p-2.5 flex items-center justify-between gap-2">
-                <span className="font-bold text-slate-700">Mốc báo trước (ngày):</span>
+              <div className="bg-white border border-slate-200 rounded-lg px-3 h-9 flex items-center justify-between gap-2">
+                <span className="font-semibold text-slate-700">Mốc báo trước (ngày):</span>
                 <input
                   type="number"
                   min={1}
                   max={60}
                   value={remindDaysThreshold}
                   onChange={(e) => setRemindDaysThreshold(Number(e.target.value) || 15)}
-                  className="w-20 px-2.5 py-1 border border-slate-200 rounded-lg font-mono font-bold text-right text-slate-900"
+                  className="w-16 h-7 px-2 border border-slate-200 rounded font-mono font-bold text-right text-slate-900"
                 />
               </div>
 
-              <label className="flex items-center gap-2.5 bg-white border border-slate-200 rounded-xl p-3 cursor-pointer">
+              <label className="flex items-center gap-2 bg-white border border-slate-200 rounded-lg px-3 h-9 cursor-pointer">
                 <input
                   type="checkbox"
                   checked={includeExpiredWithin7d}
                   onChange={(e) => setIncludeExpiredWithin7d(e.target.checked)}
-                  className="w-4 h-4 accent-amber-600 rounded"
+                  className="w-3.5 h-3.5 accent-amber-600 rounded"
                 />
-                <span className="font-bold text-slate-800">
-                  Gồm cả hồ sơ vừa quá hạn ≤ 7 ngày
+                <span className="font-semibold text-slate-800 truncate">
+                  Gồm cả hồ sơ quá hạn ≤ 7 ngày
                 </span>
               </label>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
               <div className="space-y-1">
-                <label className="font-bold text-slate-700 block">
+                <label className="font-semibold text-slate-700 block">
                   Zalo OA Access Token {maskedAccessToken && <span className="text-emerald-700 font-mono">({maskedAccessToken})</span>}
                 </label>
                 <input
@@ -740,11 +693,11 @@ export function ZaloOaNotificationHub({ onNotify }: ZaloOaNotificationHubProps) 
                   value={accessTokenInput}
                   onChange={(e) => setAccessTokenInput(e.target.value)}
                   placeholder={`Dán Access Token của App ${oaMeta.linkedAppId} (để trống nếu giữ nguyên)`}
-                  className="w-full min-h-[40px] px-3 py-2 bg-white border border-slate-200 rounded-xl font-mono text-xs"
+                  className="w-full h-9 px-3 bg-white border border-slate-200 rounded-lg font-mono text-xs"
                 />
               </div>
               <div className="space-y-1">
-                <label className="font-bold text-slate-700 block">
+                <label className="font-semibold text-slate-700 block">
                   Zalo OA Refresh Token {maskedRefreshToken && <span className="text-emerald-700 font-mono">({maskedRefreshToken})</span>}
                 </label>
                 <input
@@ -752,46 +705,46 @@ export function ZaloOaNotificationHub({ onNotify }: ZaloOaNotificationHubProps) 
                   value={refreshTokenInput}
                   onChange={(e) => setRefreshTokenInput(e.target.value)}
                   placeholder="Dán Refresh Token OAuth v4 để tự động gia hạn token"
-                  className="w-full min-h-[40px] px-3 py-2 bg-white border border-slate-200 rounded-xl font-mono text-xs"
+                  className="w-full h-9 px-3 bg-white border border-slate-200 rounded-lg font-mono text-xs"
                 />
               </div>
               <div className="space-y-1">
-                <label className="font-bold text-slate-700 block">Zalo App Secret &amp; Mã Mẫu ZNS (Tùy chọn)</label>
+                <label className="font-semibold text-slate-700 block">Zalo App Secret &amp; Mã Mẫu ZNS (Tùy chọn)</label>
                 <div className="grid grid-cols-2 gap-2">
                   <input
                     type="password"
                     value={appSecretInput}
                     onChange={(e) => setAppSecretInput(e.target.value)}
                     placeholder="Zalo App Secret"
-                    className="w-full min-h-[40px] px-3 py-2 bg-white border border-slate-200 rounded-xl font-mono text-xs"
+                    className="w-full h-9 px-3 bg-white border border-slate-200 rounded-lg font-mono text-xs"
                   />
                   <input
                     type="text"
                     value={znsTemplateId}
                     onChange={(e) => setZnsTemplateId(e.target.value)}
                     placeholder="ZNS Template ID"
-                    className="w-full min-h-[40px] px-3 py-2 bg-white border border-slate-200 rounded-xl font-mono text-xs"
+                    className="w-full h-9 px-3 bg-white border border-slate-200 rounded-lg font-mono text-xs"
                   />
                 </div>
               </div>
               <div className="space-y-1">
-                <label className="font-bold text-slate-700 block">
-                  Resend Email API Key &amp; Email nhận báo cáo BĐH {maskedEmailKey && <span className="text-emerald-700 font-mono">({maskedEmailKey})</span>}
+                <label className="font-semibold text-slate-700 block">
+                  Resend API Key &amp; Email nhận báo cáo {maskedEmailKey && <span className="text-emerald-700 font-mono">({maskedEmailKey})</span>}
                 </label>
                 <div className="grid grid-cols-2 gap-2">
                   <input
                     type="password"
                     value={resendApiKeyInput}
                     onChange={(e) => setResendApiKeyInput(e.target.value)}
-                    placeholder="re_xxxxxxxxx (Resend API)"
-                    className="w-full min-h-[40px] px-3 py-2 bg-white border border-slate-200 rounded-xl font-mono text-xs"
+                    placeholder="re_xxxxxxxxx"
+                    className="w-full h-9 px-3 bg-white border border-slate-200 rounded-lg font-mono text-xs"
                   />
                   <input
                     type="email"
                     value={notifyBdhEmail}
                     onChange={(e) => setNotifyBdhEmail(e.target.value)}
                     placeholder="bdhkhupho3.ap@gmail.com"
-                    className="w-full min-h-[40px] px-3 py-2 bg-white border border-slate-200 rounded-xl font-mono text-xs"
+                    className="w-full h-9 px-3 bg-white border border-slate-200 rounded-lg font-mono text-xs"
                   />
                 </div>
               </div>
@@ -801,302 +754,348 @@ export function ZaloOaNotificationHub({ onNotify }: ZaloOaNotificationHubProps) 
               <button
                 type="button"
                 onClick={() => setShowApiConfig(false)}
-                className="min-h-[40px] px-3.5 py-2 rounded-xl bg-white border border-slate-200 text-slate-700 text-xs font-bold cursor-pointer"
+                className="h-9 px-3.5 rounded-lg bg-white border border-slate-200 text-slate-700 text-xs font-semibold cursor-pointer"
               >
                 Đóng
               </button>
               <button
                 type="submit"
                 disabled={savingCfg}
-                className="min-h-[40px] inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-bold cursor-pointer disabled:opacity-50"
+                className="h-9 inline-flex items-center gap-1.5 px-4 rounded-lg bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-semibold cursor-pointer disabled:opacity-50"
               >
-                {savingCfg ? <Loader2 size={14} className="animate-spin" /> : <Check size={14} />}
-                <span>Lưu cấu hình Tự động</span>
+                {savingCfg ? <Loader2 size={13} className="animate-spin" /> : <Check size={13} />}
+                <span>Lưu cấu hình</span>
               </button>
             </div>
           </form>
         )}
       </div>
 
-      {/* 2A. NHẮC LỊCH HỌP & CÔNG TÁC CHO CÁN BỘ KHU PHỐ 3 QUA ZALO OA — TỰ ĐỘNG TRƯỚC 60 PHÚT */}
-      <div className="bg-white border border-slate-200 border-l-4 border-l-indigo-600 rounded-2xl p-5 space-y-4">
-        <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-3">
-          <div>
-            <div className="flex flex-wrap items-center gap-2">
-              <h4 className="text-sm font-black text-slate-900 flex items-center gap-2">
-                <Calendar size={17} className="text-indigo-700" />
-                Nhắc Lịch Họp &amp; Công Tác Cho Cán Bộ Khu Phố 3 Qua Zalo OA ({upcomingMeetings.length} lịch sắp tới)
-              </h4>
-              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-indigo-50 border border-indigo-200 text-indigo-900 text-[11px] font-bold">
-                <Clock size={12} className="text-indigo-700" />
-                {autoRemindMeeting60mEnabled
-                  ? `Tự động nhắc trước ${meetingRemindMinutesBefore} phút`
-                  : "Đang tắt nhắc tự động"}
-              </span>
-            </div>
-            <p className="text-xs text-slate-600 mt-0.5">
-              Hệ thống tự động canh giờ Việt Nam (UTC+7) và đẩy thông báo Zalo OA cho cán bộ dự họp đúng <strong>{meetingRemindMinutesBefore} phút trước giờ bắt đầu cuộc họp</strong> (chống gửi trùng lặp).
-            </p>
-          </div>
+      {/* 2. SEGMENTED SUB-TABS FOR ZALO OA WORKFLOWS */}
+      <div className="flex flex-wrap items-center justify-between gap-2.5">
+        <div className="flex items-center gap-1 overflow-x-auto whitespace-nowrap p-1 bg-slate-100/80 rounded-xl border border-slate-200/80 w-fit max-w-full evon-scroll">
+          <button
+            type="button"
+            onClick={() => setActiveHubTab("meetings")}
+            className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors cursor-pointer flex items-center gap-1.5 shrink-0 ${
+              activeHubTab === "meetings"
+                ? "bg-white text-slate-900 shadow-2xs"
+                : "text-slate-600 hover:text-slate-900"
+            }`}
+          >
+            <Calendar size={13} className={activeHubTab === "meetings" ? "text-emerald-700" : "text-slate-500"} />
+            <span>Nhắc lịch họp CB ({upcomingMeetings.length})</span>
+          </button>
 
-          <div className="flex flex-wrap items-center gap-2 shrink-0">
-            <div className="inline-flex items-center gap-2 bg-slate-50 border border-slate-200 rounded-xl px-3 py-1.5 text-xs">
-              <label className="inline-flex items-center gap-1.5 font-bold text-slate-800 cursor-pointer">
+          <button
+            type="button"
+            onClick={() => setActiveHubTab("cadres")}
+            className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors cursor-pointer flex items-center gap-1.5 shrink-0 ${
+              activeHubTab === "cadres"
+                ? "bg-white text-slate-900 shadow-2xs"
+                : "text-slate-600 hover:text-slate-900"
+            }`}
+          >
+            <Link2 size={13} className={activeHubTab === "cadres" ? "text-emerald-700" : "text-slate-500"} />
+            <span>Danh bạ Zalo CB ({cadreStats.linkedCount}/{cadreStats.totalCadres})</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setActiveHubTab("residency")}
+            className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors cursor-pointer flex items-center gap-1.5 shrink-0 ${
+              activeHubTab === "residency"
+                ? "bg-white text-slate-900 shadow-2xs"
+                : "text-slate-600 hover:text-slate-900"
+            }`}
+          >
+            <BellRing size={13} className={activeHubTab === "residency" ? "text-emerald-700" : "text-slate-500"} />
+            <span>Nhắc hạn tạm trú ({totalLandlordGroups})</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setActiveHubTab("logs")}
+            className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors cursor-pointer flex items-center gap-1.5 shrink-0 ${
+              activeHubTab === "logs"
+                ? "bg-white text-slate-900 shadow-2xs"
+                : "text-slate-600 hover:text-slate-900"
+            }`}
+          >
+            <Mail size={13} className={activeHubTab === "logs" ? "text-emerald-700" : "text-slate-500"} />
+            <span>Nhật ký gửi tin ({recentLogs.length})</span>
+          </button>
+        </div>
+
+        {onNavigateToBroadcast && (
+          <button
+            type="button"
+            onClick={onNavigateToBroadcast}
+            className="h-9 inline-flex items-center gap-1.5 px-3 rounded-lg bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 text-emerald-800 text-xs font-semibold transition-colors cursor-pointer shrink-0"
+          >
+            <Megaphone size={13} className="text-emerald-700" />
+            <span>Phát thông báo AI đa đối tượng →</span>
+          </button>
+        )}
+      </div>
+
+      {/* TAB 2A: NHẮC LỊCH HỌP CÁN BỘ QUA ZALO OA */}
+      {activeHubTab === "meetings" && (
+        <div className="bg-white border border-slate-200/90 rounded-2xl p-4 sm:p-5 space-y-3.5 shadow-2xs">
+          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 pb-2.5 border-b border-slate-100">
+            <div>
+              <h4 className="text-xs font-bold uppercase tracking-wider text-slate-900 flex items-center gap-2">
+                <span className="p-1.5 bg-indigo-50 text-indigo-700 rounded-lg border border-indigo-100">
+                  <Calendar size={13} />
+                </span>
+                Tự động Nhắc Lịch Họp &amp; Công tác Cán bộ qua Zalo OA
+              </h4>
+              <p className="text-xs text-slate-500 mt-1">
+                Canh giờ Việt Nam (UTC+7) đẩy thông báo Zalo OA cho cán bộ dự họp đúng{" "}
+                <strong className="text-slate-700">{meetingRemindMinutesBefore} phút trước giờ bắt đầu</strong>.
+              </p>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-2 shrink-0">
+              <div className="h-9 inline-flex items-center gap-2 bg-slate-50 border border-slate-200 rounded-lg px-3 text-xs">
+                <label className="inline-flex items-center gap-1.5 font-semibold text-slate-700 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={autoRemindMeeting60mEnabled}
+                    onChange={async (e) => {
+                      const nextVal = e.target.checked;
+                      setAutoRemindMeeting60mEnabled(nextVal);
+                      const authHeaders = await getStaffAuthHeaders();
+                      await fetch("/api/notifications", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json", ...authHeaders },
+                        body: JSON.stringify({
+                          action: "save_config",
+                          autoRemindMeeting60mEnabled: nextVal,
+                          meetingRemindMinutesBefore,
+                        }),
+                      }).catch(() => {});
+                      notify(
+                        nextVal
+                          ? `Đã bật tự động nhắc lịch họp qua Zalo OA trước ${meetingRemindMinutesBefore} phút!`
+                          : "Đã tạm tắt tự động nhắc lịch họp trước giờ họp.",
+                        "info"
+                      );
+                    }}
+                    className="w-3.5 h-3.5 accent-emerald-700 rounded"
+                  />
+                  <span>Nhắc trước</span>
+                </label>
                 <input
-                  type="checkbox"
-                  checked={autoRemindMeeting60mEnabled}
-                  onChange={async (e) => {
-                    const nextVal = e.target.checked;
-                    setAutoRemindMeeting60mEnabled(nextVal);
+                  type="number"
+                  min={5}
+                  max={240}
+                  value={meetingRemindMinutesBefore}
+                  onChange={(e) => setMeetingRemindMinutesBefore(Number(e.target.value) || 60)}
+                  onBlur={async () => {
                     const authHeaders = await getStaffAuthHeaders();
                     await fetch("/api/notifications", {
                       method: "POST",
                       headers: { "Content-Type": "application/json", ...authHeaders },
                       body: JSON.stringify({
                         action: "save_config",
-                        autoRemindMeeting60mEnabled: nextVal,
+                        autoRemindMeeting60mEnabled,
                         meetingRemindMinutesBefore,
                       }),
                     }).catch(() => {});
-                    notify(
-                      nextVal
-                        ? `Đã bật tự động nhắc lịch họp qua Zalo OA trước ${meetingRemindMinutesBefore} phút!`
-                        : "Đã tạm tắt tự động nhắc lịch họp trước giờ họp.",
-                      "info"
-                    );
-                  }}
-                  className="w-4 h-4 accent-indigo-700 rounded"
-                />
-                <span>Nhắc trước</span>
-              </label>
-              <input
-                type="number"
-                min={5}
-                max={240}
-                value={meetingRemindMinutesBefore}
-                onChange={(e) => setMeetingRemindMinutesBefore(Number(e.target.value) || 60)}
-                onBlur={async () => {
-                  const authHeaders = await getStaffAuthHeaders();
-                  await fetch("/api/notifications", {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json", ...authHeaders },
-                    body: JSON.stringify({
-                      action: "save_config",
-                      autoRemindMeeting60mEnabled,
-                      meetingRemindMinutesBefore,
-                    }),
-                  }).catch(() => {});
-                  await loadHubState(remindDaysThreshold, includeExpiredWithin7d);
-                }}
-                className="w-14 px-1.5 py-0.5 bg-white border border-slate-200 rounded font-mono font-bold text-center text-indigo-900"
-              />
-              <span className="font-semibold text-slate-600">phút</span>
-            </div>
-
-            <button
-              type="button"
-              disabled={dispatchingMeetingId === "ALL" || upcomingMeetings.length === 0}
-              onClick={async () => {
-                try {
-                  setDispatchingMeetingId("ALL");
-                  const authHeaders = await getStaffAuthHeaders();
-                  const res = await fetch("/api/notifications", {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json", ...authHeaders },
-                    body: JSON.stringify({
-                      action: "scan_or_send_cadre_meeting_reminders",
-                      dryRun: false,
-                      daysAhead: 14,
-                    }),
-                  });
-                  const json = await res.json();
-                  if (res.ok && json?.ok) {
-                    notify(
-                      `Đã phát thông báo nhắc ${json.totalMeetings} lịch họp cho Cán bộ Khu phố 3 qua Zalo OA (${json.sentDirectlyCount} lượt đẩy API tự động • ${json.queuedManualZaloCount} phiếu Zalo 1-chạm)!`,
-                      "success"
-                    );
                     await loadHubState(remindDaysThreshold, includeExpiredWithin7d);
-                  } else {
-                    notify(json?.error || "Không thể phát nhắc lịch họp.", "error");
+                  }}
+                  className="w-12 h-6 px-1 bg-white border border-slate-200 rounded font-mono font-bold text-center text-slate-900"
+                />
+                <span className="text-slate-500">phút</span>
+              </div>
+
+              <button
+                type="button"
+                disabled={dispatchingMeetingId === "ALL" || upcomingMeetings.length === 0}
+                onClick={async () => {
+                  try {
+                    setDispatchingMeetingId("ALL");
+                    const authHeaders = await getStaffAuthHeaders();
+                    const res = await fetch("/api/notifications", {
+                      method: "POST",
+                      headers: { "Content-Type": "application/json", ...authHeaders },
+                      body: JSON.stringify({
+                        action: "scan_or_send_cadre_meeting_reminders",
+                        dryRun: false,
+                        daysAhead: 14,
+                      }),
+                    });
+                    const json = await res.json();
+                    if (res.ok && json?.ok) {
+                      notify(
+                        `Đã phát thông báo nhắc ${json.totalMeetings} lịch họp cho Cán bộ Khu phố 3 qua Zalo OA (${json.sentDirectlyCount} lượt đẩy API tự động • ${json.queuedManualZaloCount} phiếu Zalo 1-chạm)!`,
+                        "success"
+                      );
+                      await loadHubState(remindDaysThreshold, includeExpiredWithin7d);
+                    } else {
+                      notify(json?.error || "Không thể phát nhắc lịch họp.", "error");
+                    }
+                  } finally {
+                    setDispatchingMeetingId(null);
                   }
-                } finally {
-                  setDispatchingMeetingId(null);
-                }
-              }}
-              className="min-h-[40px] inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-indigo-700 hover:bg-indigo-800 text-white text-xs font-bold transition-colors cursor-pointer disabled:opacity-50 shrink-0"
-            >
-              {dispatchingMeetingId === "ALL" ? (
-                <Loader2 size={14} className="animate-spin" />
-              ) : (
-                <Send size={14} />
-              )}
-              <span>Phát nhắc ngay</span>
-            </button>
-          </div>
-        </div>
-
-        {upcomingMeetings.length === 0 ? (
-          <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 text-xs text-slate-600">
-            Hiện chưa có lịch họp / lịch công tác sắp diễn ra trong 14 ngày tới trên bảng Lịch công tác Khu phố 3.
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            {upcomingMeetings.slice(0, 10).map((mtg) => {
-              const firstPhoneCadre = mtg.cadres.find((c) => c.phone);
-              const zaloDirect = firstPhoneCadre ? toZaloChatUrl(firstPhoneCadre.phone) : null;
-
-              return (
-                <div
-                  key={mtg.id}
-                  className="bg-slate-50/90 border border-slate-200 rounded-xl p-3.5 flex flex-col justify-between gap-2.5 text-xs"
-                >
-                  <div className="space-y-1.5">
-                    <div className="flex flex-wrap items-center justify-between gap-1.5">
-                      <span className="px-2 py-0.5 rounded bg-indigo-100 text-indigo-900 border border-indigo-200 font-mono font-bold text-[11px] inline-flex items-center gap-1">
-                        <Clock size={11} />
-                        {mtg.dateFormatted} {mtg.time ? `• ${mtg.time}` : ""}
-                      </span>
-                      {mtg.inRemindWindow ? (
-                        <span className="px-2 py-0.5 rounded-full bg-amber-100 border border-amber-300 text-amber-950 font-bold text-[11px] animate-pulse">
-                          ⏰ Họp sau {mtg.minutesUntilStart} phút (Khung nhắc {meetingRemindMinutesBefore}p)
-                        </span>
-                      ) : mtg.alreadyAutoReminded ? (
-                        <span className="px-2 py-0.5 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-800 font-bold text-[11px]">
-                          ✓ Đã tự động nhắc trước {meetingRemindMinutesBefore}p
-                        </span>
-                      ) : mtg.remindAtHHmm ? (
-                        <span className="px-2 py-0.5 rounded-full bg-blue-50 border border-blue-200 text-blue-800 font-semibold text-[11px]">
-                          🔔 Tự động nhắc lúc {mtg.remindAtHHmm}
-                        </span>
-                      ) : (
-                        <span className="text-[11px] font-semibold text-slate-600">
-                          {mtg.cadres.length} cán bộ tham dự
-                        </span>
-                      )}
-                    </div>
-                    <p className="font-bold text-slate-900 leading-snug">{mtg.title}</p>
-                    <p className="text-[11px] text-slate-600 flex items-center gap-1">
-                      <MapPin size={11} className="shrink-0" />
-                      <span className="truncate">{mtg.location || "Phường An Phú"}</span>
-                    </p>
-                    <div className="flex flex-wrap gap-1 pt-0.5">
-                      {mtg.cadres.slice(0, 4).map((c, idx) => (
-                        <span
-                          key={idx}
-                          className={`px-2 py-0.5 rounded-full border text-[11px] font-semibold inline-flex items-center gap-1 ${
-                            c.zaloUserId
-                              ? "bg-emerald-50 border-emerald-200 text-emerald-900"
-                              : "bg-white border-slate-200 text-slate-800"
-                          }`}
-                        >
-                          {c.zaloUserId && <Check size={10} className="text-emerald-700" />}
-                          <span>
-                            {c.fullName}
-                            {c.zaloUserId ? " (Đã khớp OA)" : c.phone ? ` (${c.phone})` : ""}
-                          </span>
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-
-                  <div className="pt-2 border-t border-slate-200/80 flex flex-wrap items-center justify-end gap-1.5">
-                    <button
-                      type="button"
-                      onClick={() =>
-                        copyText(`mtg-${mtg.id}`, mtg.formattedMessage, `nội dung nhắc lịch "${mtg.title}"`)
-                      }
-                      className="min-h-[32px] inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-white hover:bg-slate-100 border border-slate-200 text-slate-800 font-bold cursor-pointer"
-                    >
-                      {copiedId === `mtg-${mtg.id}` ? (
-                        <Check size={12} className="text-emerald-700" />
-                      ) : (
-                        <Copy size={12} />
-                      )}
-                      <span>Mẫu tin</span>
-                    </button>
-
-                    <button
-                      type="button"
-                      disabled={dispatchingMeetingId === mtg.id}
-                      onClick={async () => {
-                        try {
-                          setDispatchingMeetingId(mtg.id);
-                          await navigator.clipboard?.writeText(mtg.formattedMessage).catch(() => {});
-                          const authHeaders = await getStaffAuthHeaders();
-                          const res = await fetch("/api/notifications", {
-                            method: "POST",
-                            headers: { "Content-Type": "application/json", ...authHeaders },
-                            body: JSON.stringify({
-                              action: "scan_or_send_cadre_meeting_reminders",
-                              dryRun: false,
-                              scheduleId: mtg.id,
-                            }),
-                          });
-                          const json = await res.json();
-                          if (res.ok && json?.ok) {
-                            notify(
-                              `Đã gửi nhắc lịch "${mtg.title}" qua Zalo OA & chép sẵn mẫu tin vào bộ nhớ tạm!`,
-                              "success"
-                            );
-                            await loadHubState(remindDaysThreshold, includeExpiredWithin7d);
-                          }
-                        } finally {
-                          setDispatchingMeetingId(null);
-                        }
-                      }}
-                      className="min-h-[32px] inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-indigo-700 hover:bg-indigo-800 text-white font-bold cursor-pointer disabled:opacity-50"
-                    >
-                      {dispatchingMeetingId === mtg.id ? (
-                        <Loader2 size={12} className="animate-spin" />
-                      ) : (
-                        <BellRing size={12} />
-                      )}
-                      <span>Nhắc qua OA</span>
-                    </button>
-
-                    {zaloDirect && (
-                      <a
-                        href={zaloDirect}
-                        target="_blank"
-                        rel="noreferrer"
-                        onClick={() => {
-                          navigator.clipboard?.writeText(mtg.formattedMessage).catch(() => {});
-                        }}
-                        className="min-h-[32px] inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-bold"
-                      >
-                        <MessageCircle size={12} />
-                        <span>Nhắn Zalo Cán bộ</span>
-                      </a>
-                    )}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        )}
-      </div>
-
-      {/* 2B. DANH BẠ CÁN BỘ & LIÊN KẾT TÀI KHOẢN ZALO OA NHẬN TIN NHẮC LỊCH */}
-      <div className="bg-white border border-slate-200 border-l-4 border-l-teal-600 rounded-2xl p-5 space-y-4">
-        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
-          <div>
-            <div className="flex flex-wrap items-center gap-2">
-              <h4 className="text-sm font-black text-slate-900 flex items-center gap-2">
-                <Link2 size={17} className="text-teal-700" />
-                Danh Bạ Cán Bộ &amp; Liên Kết Zalo OA ({cadreStats.linkedCount}/{cadreStats.totalCadres} đã liên kết)
-              </h4>
-              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-teal-50 border border-teal-200 text-teal-900 text-[11px] font-bold">
-                <Users size={12} className="text-teal-700" />
-                {allFollowers.length} người đang quan tâm OA
-              </span>
+                }}
+                className="h-9 inline-flex items-center gap-1.5 px-3.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold transition-colors cursor-pointer disabled:opacity-50 shrink-0"
+              >
+                {dispatchingMeetingId === "ALL" ? (
+                  <Loader2 size={13} className="animate-spin" />
+                ) : (
+                  <Send size={13} />
+                )}
+                <span>Phát nhắc tất cả</span>
+              </button>
             </div>
-            <p className="text-xs text-slate-600 mt-0.5">
-              Để cán bộ (như Phó Bí thư Phạm Ngọc Hà, Ban Mặt trận, các Chi hội trưởng, Tổ ANTT, Tổ PCCC...) nhận được tin nhắn nhắc lịch họp qua Zalo, hãy bấm <strong>"Ghép Zalo OA"</strong> và chọn tài khoản Zalo tương ứng.
-            </p>
           </div>
 
-          <div className="flex flex-wrap items-center gap-2 shrink-0">
-            <div className="relative">
+          {upcomingMeetings.length === 0 ? (
+            <div className="bg-slate-50/80 border border-slate-200/80 rounded-xl p-4 text-xs text-slate-600">
+              Hiện chưa có lịch họp / lịch công tác sắp diễn ra trong 14 ngày tới trên bảng Lịch công tác Khu phố 3.
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              {upcomingMeetings.slice(0, 10).map((mtg) => {
+                const firstPhoneCadre = mtg.cadres.find((c) => c.phone);
+                const zaloDirect = firstPhoneCadre ? toZaloChatUrl(firstPhoneCadre.phone) : null;
+
+                return (
+                  <div
+                    key={mtg.id}
+                    className="bg-slate-50/60 border border-slate-200/90 rounded-xl p-3.5 flex flex-col justify-between gap-2.5 text-xs"
+                  >
+                    <div className="space-y-1.5">
+                      <div className="flex flex-wrap items-center justify-between gap-1.5">
+                        <span className="px-2 py-0.5 rounded-md bg-white text-slate-800 border border-slate-200 font-mono font-bold text-[11px] inline-flex items-center gap-1">
+                          <Clock size={11} className="text-slate-400" />
+                          {mtg.dateFormatted} {mtg.time ? `• ${mtg.time}` : ""}
+                        </span>
+                        {mtg.inRemindWindow ? (
+                          <span className="px-2 py-0.5 rounded-full bg-amber-50 border border-amber-200 text-amber-800 font-bold text-[11px]">
+                            Họp sau {mtg.minutesUntilStart} phút
+                          </span>
+                        ) : mtg.alreadyAutoReminded ? (
+                          <span className="px-2 py-0.5 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-800 font-bold text-[11px]">
+                            ✓ Đã nhắc tự động
+                          </span>
+                        ) : mtg.remindAtHHmm ? (
+                          <span className="px-2 py-0.5 rounded-full bg-blue-50 border border-blue-200 text-blue-800 font-semibold text-[11px]">
+                            Nhắc lúc {mtg.remindAtHHmm}
+                          </span>
+                        ) : (
+                          <span className="text-[11px] font-medium text-slate-500">
+                            {mtg.cadres.length} cán bộ
+                          </span>
+                        )}
+                      </div>
+                      <p className="font-bold text-slate-900 leading-snug text-xs sm:text-[13px]">{mtg.title}</p>
+                      <p className="text-xs text-slate-500 flex items-center gap-1">
+                        <MapPin size={11} className="shrink-0 text-slate-400" />
+                        <span className="truncate">{mtg.location || "Phường An Phú"}</span>
+                      </p>
+                      <div className="flex flex-wrap gap-1 pt-0.5">
+                        {mtg.cadres.slice(0, 4).map((c, idx) => (
+                          <span
+                            key={idx}
+                            className={`px-2 py-0.5 rounded-md border text-[11px] font-medium inline-flex items-center gap-1 ${
+                              c.zaloUserId
+                                ? "bg-emerald-50 border-emerald-200 text-emerald-800"
+                                : "bg-white border-slate-200 text-slate-700"
+                            }`}
+                          >
+                            {c.zaloUserId && <Check size={10} className="text-emerald-700" />}
+                            <span>{c.fullName}</span>
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div className="pt-2 border-t border-slate-200/70 flex flex-wrap items-center justify-end gap-1.5">
+                      <button
+                        type="button"
+                        onClick={() =>
+                          copyText(`mtg-${mtg.id}`, mtg.formattedMessage, `nội dung nhắc lịch "${mtg.title}"`)
+                        }
+                        className="h-7 inline-flex items-center gap-1 px-2.5 rounded-lg bg-white hover:bg-slate-100 border border-slate-200 text-slate-700 font-semibold cursor-pointer"
+                      >
+                        {copiedId === `mtg-${mtg.id}` ? (
+                          <Check size={11} className="text-emerald-700" />
+                        ) : (
+                          <Copy size={11} />
+                        )}
+                        <span>Mẫu tin</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        disabled={dispatchingMeetingId === mtg.id}
+                        onClick={async () => {
+                          try {
+                            setDispatchingMeetingId(mtg.id);
+                            await navigator.clipboard?.writeText(mtg.formattedMessage).catch(() => {});
+                            const authHeaders = await getStaffAuthHeaders();
+                            const res = await fetch("/api/notifications", {
+                              method: "POST",
+                              headers: { "Content-Type": "application/json", ...authHeaders },
+                              body: JSON.stringify({
+                                action: "scan_or_send_cadre_meeting_reminders",
+                                dryRun: false,
+                                scheduleId: mtg.id,
+                              }),
+                            });
+                            const json = await res.json();
+                            if (res.ok && json?.ok) {
+                              notify(
+                                `Đã gửi nhắc lịch "${mtg.title}" qua Zalo OA & chép sẵn mẫu tin vào bộ nhớ tạm!`,
+                                "success"
+                              );
+                              await loadHubState(remindDaysThreshold, includeExpiredWithin7d);
+                            }
+                          } finally {
+                            setDispatchingMeetingId(null);
+                          }
+                        }}
+                        className="h-7 inline-flex items-center gap-1 px-2.5 rounded-lg bg-emerald-700 hover:bg-emerald-800 text-white font-semibold cursor-pointer disabled:opacity-50"
+                      >
+                        {dispatchingMeetingId === mtg.id ? (
+                          <Loader2 size={11} className="animate-spin" />
+                        ) : (
+                          <BellRing size={11} />
+                        )}
+                        <span>Nhắc OA</span>
+                      </button>
+
+                      {zaloDirect && (
+                        <a
+                          href={zaloDirect}
+                          target="_blank"
+                          rel="noreferrer"
+                          onClick={() => {
+                            navigator.clipboard?.writeText(mtg.formattedMessage).catch(() => {});
+                          }}
+                          className="h-7 inline-flex items-center gap-1 px-2.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-semibold"
+                        >
+                          <MessageCircle size={11} />
+                          <span>Zalo</span>
+                        </a>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* TAB 2B: DANH BẠ CÁN BỘ & LIÊN KẾT ZALO OA (COMPACT TABLE) */}
+      {activeHubTab === "cadres" && (
+        <div className="bg-white border border-slate-200/90 rounded-2xl overflow-hidden shadow-2xs">
+          <div className="p-3.5 border-b border-slate-200/80 bg-slate-50/50 flex flex-col lg:flex-row lg:items-center justify-between gap-2.5">
+            <div className="relative flex-1 max-w-sm">
               <Search
                 size={14}
                 className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
@@ -1105,503 +1104,394 @@ export function ZaloOaNotificationHub({ onNotify }: ZaloOaNotificationHubProps) 
                 type="text"
                 value={cadreSearchTerm}
                 onChange={(e) => setCadreSearchTerm(e.target.value)}
-                placeholder="Tìm cán bộ hoặc chức vụ..."
-                className="pl-8 pr-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 focus:outline-hidden focus:bg-white"
+                placeholder="Tìm cán bộ, chức vụ hoặc chi hội..."
+                className="w-full h-9 pl-9 pr-3 bg-white border border-slate-200 rounded-lg text-xs text-slate-900 focus:outline-none focus:border-emerald-600"
               />
             </div>
-            <button
-              type="button"
-              disabled={autoMatching}
-              onClick={handleAutoMatchAll}
-              className="min-h-[34px] inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-teal-600 hover:bg-teal-700 text-white text-xs font-bold transition-colors cursor-pointer shadow-xs disabled:opacity-50"
-              title="Tự động quét danh bạ 36 cán bộ, đối chiếu SĐT và Họ tên với 347 người đang quan tâm Zalo OA để ghép tự động"
-            >
-              {autoMatching ? <Loader2 size={13} className="animate-spin" /> : <Sparkles size={13} />}
-              <span>Quét &amp; Khớp Tự Động (1-Chạm)</span>
-            </button>
-            <button
-              type="button"
-              disabled={loadingCadres}
-              onClick={loadCadresDirectory}
-              className="min-h-[34px] inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 border border-slate-200 text-slate-800 text-xs font-bold transition-colors cursor-pointer disabled:opacity-50"
-            >
-              <RefreshCw size={13} className={loadingCadres ? "animate-spin" : ""} />
-              <span>Làm mới</span>
-            </button>
-          </div>
-        </div>
 
-        {loadingCadres && cadres.length === 0 ? (
-          <div className="p-6 text-center text-slate-500 text-xs flex items-center justify-center gap-2">
-            <Loader2 size={16} className="animate-spin text-teal-600" />
-            <span>Đang tải danh bạ cán bộ và trạng thái Zalo OA...</span>
-          </div>
-        ) : filteredCadres.length === 0 ? (
-          <div className="p-4 rounded-xl bg-slate-50 border border-slate-200 text-center text-xs text-slate-500">
-            Không tìm thấy cán bộ nào phù hợp với từ khóa "{cadreSearchTerm}".
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
-            {filteredCadres.map((c) => {
-              const isTesting = testingCadreKey === c.cadreKey;
-              return (
-                <div
-                  key={c.cadreKey}
-                  className={`p-3.5 rounded-2xl border transition-all flex flex-col justify-between gap-3 text-xs ${
-                    c.isLinked
-                      ? "bg-teal-50/40 border-teal-200/80 shadow-2xs"
-                      : "bg-slate-50/70 border-slate-200 hover:border-amber-300"
-                  }`}
-                >
-                  <div className="space-y-1.5">
-                    <div className="flex items-center justify-between gap-1.5">
-                      <span className="px-2 py-0.5 rounded-full bg-white border border-slate-200 text-slate-700 font-bold text-[10px] truncate max-w-[170px]">
-                        {c.org}
-                      </span>
-                      {c.isLinked ? (
-                        <span className="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-900 border border-emerald-300 font-bold text-[10px] inline-flex items-center gap-1 shrink-0">
-                          <Check size={10} className="text-emerald-700" />
-                          Đã ghép
-                        </span>
-                      ) : (
-                        <span className="px-2 py-0.5 rounded-full bg-amber-100 text-amber-900 border border-amber-300 font-bold text-[10px] inline-flex items-center gap-1 shrink-0">
-                          <AlertTriangle size={10} className="text-amber-700" />
-                          Chưa ghép
-                        </span>
-                      )}
-                    </div>
-
-                    <div>
-                      <h5 className="font-black text-slate-900 text-sm leading-snug">
-                        {c.fullName}
-                      </h5>
-                      <p className="text-[11px] text-slate-600 font-medium line-clamp-1">
-                        {c.role}
-                      </p>
-                    </div>
-
-                    <div className="flex flex-wrap items-center gap-2 text-[11px] text-slate-500 font-mono">
-                      {c.phone && <span>📞 {c.phone}</span>}
-                      {c.email && <span className="truncate max-w-[130px]">✉️ {c.email}</span>}
-                    </div>
-
-                    {c.isLinked && (
-                      <div className="p-2 rounded-xl bg-white border border-teal-200 flex items-center justify-between gap-2 shadow-2xs">
-                        <div className="min-w-0">
-                          <span className="text-[10px] uppercase font-bold text-teal-800 block">
-                            Tài khoản Zalo OA:
-                          </span>
-                          <span className="font-bold text-slate-900 text-xs truncate block">
-                            {c.zaloDisplayName}
-                          </span>
-                        </div>
-                        <button
-                          type="button"
-                          disabled={isTesting}
-                          onClick={() => handleQuickTestMessage(c)}
-                          className="min-h-[28px] inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-teal-700 hover:bg-teal-800 text-white font-bold text-[11px] shrink-0 cursor-pointer disabled:opacity-50"
-                          title="Gửi tin nhắn Zalo OA thử nghiệm"
-                        >
-                          {isTesting ? <Loader2 size={11} className="animate-spin" /> : <Send size={11} />}
-                          <span>Nhắn thử</span>
-                        </button>
-                      </div>
-                    )}
-                  </div>
-
-                  <div className="pt-2 border-t border-slate-200/70 flex items-center justify-end gap-1.5">
-                    <button
-                      type="button"
-                      onClick={() => setCadreToLink(c)}
-                      className={`min-h-[30px] inline-flex items-center gap-1 px-3 py-1 rounded-xl font-bold text-xs transition-colors cursor-pointer ${
-                        c.isLinked
-                          ? "bg-white hover:bg-slate-100 border border-slate-200 text-slate-700"
-                          : "bg-blue-600 hover:bg-blue-700 text-white shadow-2xs"
-                      }`}
-                    >
-                      <Link2 size={12} />
-                      <span>{c.isLinked ? "Đổi tài khoản" : "Ghép Zalo OA"}</span>
-                    </button>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        )}
-      </div>
-
-      {/* 2C. NHẮC GIA HẠN TẠM TRÚ TRƯỚC 15 NGÀY CHO CHỦ NHÀ TRỌ & CƯ DÂN */}
-      <div className="bg-white border border-slate-200 border-l-4 border-l-amber-500 rounded-2xl p-5 space-y-4">
-        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
-          <div>
-            <h4 className="text-sm font-black text-slate-900 flex items-center gap-2">
-              <BellRing size={17} className="text-amber-600" />
-              Nhắc Gia hạn Tạm trú Tự động Trước {remindDaysThreshold} Ngày (Chủ Nhà trọ &amp; Cư dân)
-            </h4>
-            <p className="text-xs text-slate-600 mt-0.5">
-              Hệ thống tự động gom cụm cư dân sắp hết hạn theo từng <strong>Chủ cơ sở nhà trọ / Chủ hộ tạm trú</strong> để thông báo tập trung qua Zalo OA, Email hoặc nhắn Zalo trực tiếp 1-chạm.
-            </p>
-          </div>
-
-          <div className="flex flex-wrap items-center gap-2 shrink-0">
-            <button
-              type="button"
-              disabled={scanning || loading}
-              onClick={() => handleScanNow(remindDaysThreshold, includeExpiredWithin7d)}
-              className="min-h-[40px] inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 border border-slate-200 text-slate-800 text-xs font-bold transition-colors cursor-pointer disabled:opacity-50"
-            >
-              <RefreshCw size={13} className={scanning ? "animate-spin" : ""} />
-              <span>Quét lại CSDL</span>
-            </button>
-
-            <button
-              type="button"
-              disabled={dispatching || landlordDigests.length === 0}
-              onClick={handleDispatch15dReminders}
-              className="min-h-[40px] inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold transition-colors cursor-pointer disabled:opacity-50"
-            >
-              {dispatching ? (
-                <>
-                  <Loader2 size={14} className="animate-spin" />
-                  <span>Đang phát nhắc hạn...</span>
-                </>
-              ) : (
-                <>
-                  <Send size={14} />
-                  <span>
-                    Phát nhắc hạn {remindDaysThreshold} ngày ({totalLandlordGroups} chủ trọ / hộ)
-                  </span>
-                </>
-              )}
-            </button>
-          </div>
-        </div>
-
-        {loading ? (
-          <div className="py-8 text-center text-xs text-slate-600 flex items-center justify-center gap-2">
-            <Loader2 size={16} className="animate-spin text-amber-600" />
-            <span>Đang đối khớp hạn tạm trú của 9.120 cư dân tạm trú và 108 cơ sở nhà trọ...</span>
-          </div>
-        ) : landlordDigests.length === 0 ? (
-          <div className="bg-emerald-50/70 border border-emerald-200 rounded-xl p-5 text-xs text-emerald-900 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-            <div className="flex items-center gap-2.5">
-              <CheckCircle2 size={18} className="text-emerald-700 shrink-0" />
-              <div>
-                <p className="font-bold">
-                  Hiện không có nhân khẩu tạm trú nào hết hạn trong vòng {remindDaysThreshold} ngày tới!
-                </p>
-                <p className="text-emerald-800 mt-0.5">
-                  Bạn có thể bật tùy chọn rà soát mở rộng 30 ngày hoặc bao gồm hồ sơ vừa quá hạn 7 ngày để kiểm tra thêm.
-                </p>
-              </div>
+            <div className="flex flex-wrap items-center gap-2 shrink-0">
+              <span className="text-xs text-slate-500 mr-1 hidden sm:inline">
+                {allFollowers.length} tài khoản đang quan tâm OA
+              </span>
+              <button
+                type="button"
+                disabled={autoMatching}
+                onClick={handleAutoMatchAll}
+                className="h-9 inline-flex items-center gap-1.5 px-3 rounded-lg bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-semibold transition-colors cursor-pointer disabled:opacity-50"
+                title="Tự động đối chiếu SĐT và Họ tên cán bộ với danh sách người quan tâm Zalo OA"
+              >
+                {autoMatching ? <Loader2 size={13} className="animate-spin" /> : <Sparkles size={13} />}
+                <span>Quét &amp; Khớp tự động</span>
+              </button>
+              <button
+                type="button"
+                disabled={loadingCadres}
+                onClick={loadCadresDirectory}
+                className="h-9 inline-flex items-center gap-1.5 px-3 rounded-lg bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 text-xs font-semibold transition-colors cursor-pointer disabled:opacity-50"
+              >
+                <RefreshCw size={13} className={loadingCadres ? "animate-spin" : ""} />
+                <span>Làm mới</span>
+              </button>
             </div>
-            <button
-              type="button"
-              onClick={() => {
-                setRemindDaysThreshold(30);
-                setIncludeExpiredWithin7d(true);
-                handleScanNow(30, true);
-              }}
-              className="min-h-[38px] px-3 py-1.5 rounded-lg bg-white border border-emerald-300 text-emerald-800 font-bold text-xs shrink-0 cursor-pointer hover:bg-emerald-100"
-            >
-              Quét mở rộng (30 ngày + quá hạn 7 ngày)
-            </button>
           </div>
-        ) : (
-          <div className="border border-slate-200 rounded-xl overflow-hidden">
+
+          {loadingCadres && cadres.length === 0 ? (
+            <div className="p-8 text-center text-slate-500 text-xs flex items-center justify-center gap-2">
+              <Loader2 size={15} className="animate-spin text-emerald-700" />
+              <span>Đang tải danh bạ cán bộ và trạng thái Zalo OA...</span>
+            </div>
+          ) : filteredCadres.length === 0 ? (
+            <div className="p-6 text-center text-xs text-slate-500">
+              Không tìm thấy cán bộ nào phù hợp với từ khóa "{cadreSearchTerm}".
+            </div>
+          ) : (
             <div className="overflow-x-auto">
               <table className="w-full text-left border-collapse text-xs">
                 <thead>
-                  <tr className="bg-slate-50 border-b border-slate-200 text-slate-700 font-bold">
-                    <th className="py-2.5 px-3">Cơ sở Nhà trọ / Hộ tạm trú</th>
-                    <th className="py-2.5 px-3">Chủ nhà trọ / Chủ hộ</th>
-                    <th className="py-2.5 px-3">SĐT Liên hệ Zalo</th>
-                    <th className="py-2.5 px-3 text-center">Số người đến hạn</th>
-                    <th className="py-2.5 px-3">Hạn gần nhất</th>
-                    <th className="py-2.5 px-3 text-right">Thao tác Nhắc hạn</th>
+                  <tr className="bg-slate-50 border-b border-slate-200 text-slate-600 uppercase tracking-wider font-bold">
+                    <th className="py-2.5 px-3.5">Họ và tên Cán bộ</th>
+                    <th className="py-2.5 px-3.5">Đơn vị &amp; Chức vụ</th>
+                    <th className="py-2.5 px-3.5">Điện thoại</th>
+                    <th className="py-2.5 px-3.5">Tài khoản Zalo OA</th>
+                    <th className="py-2.5 px-3.5 text-right">Thao tác</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-200/80">
-                  {landlordDigests.slice(0, 25).map((grp) => {
-                    const earliest = grp.tenants[0];
-                    const zaloChatLink = toZaloChatUrl(grp.landlordPhone);
-                    const isExpanded = expandedGroupKey === grp.key;
-
+                <tbody className="divide-y divide-slate-100">
+                  {filteredCadres.map((c) => {
+                    const isTesting = testingCadreKey === c.cadreKey;
                     return (
-                      <React.Fragment key={grp.key}>
-                        <tr className="hover:bg-slate-50/80 transition-colors">
-                          <td className="py-2.5 px-3">
-                            <p className="font-bold text-slate-900">{grp.hostelName}</p>
-                            <p className="text-[11px] text-slate-500 line-clamp-1">{grp.address}</p>
-                          </td>
-                          <td className="py-2.5 px-3 font-semibold text-slate-800">
-                            {grp.landlordName}
-                          </td>
-                          <td className="py-2.5 px-3 font-mono text-slate-800">
-                            {grp.landlordPhone ? (
-                              <a
-                                href={`tel:${grp.landlordPhone}`}
-                                className="text-blue-700 hover:underline font-bold"
-                              >
-                                {grp.landlordPhone}
-                              </a>
-                            ) : (
-                              <span className="text-slate-400">Chưa cập nhật</span>
-                            )}
-                          </td>
-                          <td className="py-2.5 px-3 text-center">
-                            <button
-                              type="button"
-                              onClick={() =>
-                                setExpandedGroupKey(isExpanded ? null : grp.key)
-                              }
-                              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-amber-50 border border-amber-200 text-amber-900 font-bold cursor-pointer hover:bg-amber-100"
-                            >
-                              <Users size={12} />
-                              <span>{grp.tenantCount} người</span>
-                            </button>
-                          </td>
-                          <td className="py-2.5 px-3">
-                            {earliest && (
-                              <span
-                                className={`inline-flex items-center gap-1 px-2 py-0.5 rounded font-mono font-bold ${
-                                  earliest.daysLeft < 0
-                                    ? "bg-rose-50 text-rose-700 border border-rose-200"
-                                    : "bg-amber-50 text-amber-800 border border-amber-200"
-                                }`}
-                              >
-                                <Clock size={11} />
-                                {earliest.expFormatted} (
-                                {earliest.daysLeft < 0
-                                  ? `Quá ${Math.abs(earliest.daysLeft)}n`
-                                  : `Còn ${earliest.daysLeft}n`}
-                                )
-                              </span>
-                            )}
-                          </td>
-                          <td className="py-2.5 px-3 text-right">
-                            <div className="inline-flex flex-wrap items-center justify-end gap-1.5">
+                      <tr key={c.cadreKey} className="hover:bg-slate-50/70 transition-colors">
+                        <td className="py-2.5 px-3.5 font-bold text-slate-900 whitespace-nowrap">
+                          {c.fullName}
+                        </td>
+                        <td className="py-2.5 px-3.5">
+                          <span className="font-semibold text-slate-800">{c.role}</span>
+                          <span className="text-slate-400 mx-1.5">•</span>
+                          <span className="text-slate-500">{c.org}</span>
+                        </td>
+                        <td className="py-2.5 px-3.5 font-mono text-slate-700 whitespace-nowrap">
+                          {c.phone || <span className="text-slate-400">—</span>}
+                        </td>
+                        <td className="py-2.5 px-3.5 whitespace-nowrap">
+                          {c.isLinked ? (
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200 font-semibold text-[11px]">
+                              <Check size={11} className="text-emerald-700" />
+                              <span>{c.zaloDisplayName}</span>
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-50 text-amber-800 border border-amber-200 font-semibold text-[11px]">
+                              Chưa ghép OA
+                            </span>
+                          )}
+                        </td>
+                        <td className="py-2.5 px-3.5 text-right whitespace-nowrap">
+                          <div className="inline-flex items-center justify-end gap-1.5">
+                            {c.isLinked && (
                               <button
                                 type="button"
-                                onClick={() =>
-                                  copyText(
-                                    `msg-${grp.key}`,
-                                    grp.sampleMessage,
-                                    `nội dung nhắc hạn cho ${grp.landlordName}`
-                                  )
-                                }
-                                className="min-h-[32px] inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 border border-slate-200 text-slate-800 font-bold cursor-pointer"
-                                title="Sao chép mẫu thông báo chuẩn để gửi Zalo/SMS"
+                                disabled={isTesting}
+                                onClick={() => handleQuickTestMessage(c)}
+                                className="h-7 inline-flex items-center gap-1 px-2.5 rounded-lg bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 text-emerald-800 font-semibold text-xs cursor-pointer disabled:opacity-50"
+                                title="Gửi tin nhắn Zalo OA thử nghiệm"
                               >
-                                {copiedId === `msg-${grp.key}` ? (
-                                  <Check size={12} className="text-emerald-700" />
-                                ) : (
-                                  <Copy size={12} />
-                                )}
-                                <span>Mẫu tin</span>
+                                {isTesting ? <Loader2 size={11} className="animate-spin" /> : <Send size={11} />}
+                                <span>Nhắn thử</span>
                               </button>
-
-                              {zaloChatLink && (
-                                <a
-                                  href={zaloChatLink}
-                                  target="_blank"
-                                  rel="noreferrer"
-                                  onClick={() => {
-                                    navigator.clipboard?.writeText(grp.sampleMessage).catch(() => {});
-                                  }}
-                                  className="min-h-[32px] inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-bold"
-                                  title="Tự động chép nội dung & mở cửa sổ chat Zalo trực tiếp với Chủ trọ"
-                                >
-                                  <MessageCircle size={12} />
-                                  <span>Nhắn Zalo</span>
-                                </a>
-                              )}
-                            </div>
-                          </td>
-                        </tr>
-
-                        {isExpanded && (
-                          <tr className="bg-slate-50/90">
-                            <td colSpan={6} className="p-3.5 space-y-2">
-                              <p className="font-bold text-slate-800 text-xs">
-                                Danh sách nhân khẩu đến hạn tại {grp.hostelName}:
-                              </p>
-                              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
-                                {grp.tenants.map((t) => (
-                                  <div
-                                    key={t.id}
-                                    className="bg-white border border-slate-200 rounded-lg px-3 py-2 flex items-center justify-between gap-2"
-                                  >
-                                    <div className="min-w-0">
-                                      <p className="font-bold text-slate-900 truncate">
-                                        {t.fullName}
-                                      </p>
-                                      <p className="font-mono text-[11px] text-slate-600">
-                                        CCCD: {t.cccdMasked} {t.phone ? `• ${t.phone}` : ""}
-                                      </p>
-                                    </div>
-                                    <span className="text-[11px] font-mono font-bold text-amber-800 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded shrink-0">
-                                      {t.expFormatted}
-                                    </span>
-                                  </div>
-                                ))}
-                              </div>
-                            </td>
-                          </tr>
-                        )}
-                      </React.Fragment>
+                            )}
+                            <button
+                              type="button"
+                              onClick={() => setCadreToLink(c)}
+                              className={`h-7 inline-flex items-center gap-1 px-2.5 rounded-lg font-semibold text-xs transition-colors cursor-pointer ${
+                                c.isLinked
+                                  ? "bg-white hover:bg-slate-100 border border-slate-200 text-slate-700"
+                                  : "bg-slate-900 hover:bg-slate-800 text-white"
+                              }`}
+                            >
+                              <Link2 size={11} />
+                              <span>{c.isLinked ? "Đổi" : "Ghép OA"}</span>
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
                     );
                   })}
                 </tbody>
               </table>
             </div>
-          </div>
-        )}
-      </div>
-
-      {/* 3. PHÁT THÔNG BÁO TỪ BAN ĐIỀU HÀNH KHU PHỐ 3 ĐẾN NGƯỜI DÂN */}
-      <div className="bg-white border border-slate-200 border-l-4 border-l-emerald-600 rounded-2xl p-5 space-y-4">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-          <div>
-            <h4 className="text-sm font-black text-slate-900 flex items-center gap-2">
-              <Megaphone size={17} className="text-emerald-700" />
-              Phát Thông báo Chính thức từ Khu phố 3 đến Người dân (Zalo OA &amp; Cổng Cư dân)
-            </h4>
-            <p className="text-xs text-slate-600 mt-0.5">
-              Soạn một lần để gửi đồng bộ tới người dân theo dõi Zalo OA (<strong>zalo.me/bdhkhupho3</strong>) và ghim trực tiếp lên bảng Thông báo Khẩn trên Cổng Dịch vụ Cư dân số.
-            </p>
-          </div>
-          <a
-            href="https://oa.nhatkyzalo.vn/manage/content/article/"
-            target="_blank"
-            rel="noreferrer"
-            className="min-h-[36px] inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 border border-slate-200 text-slate-800 text-xs font-bold shrink-0"
-          >
-            <span>Soạn Bài viết Broadcast OA</span>
-            <ExternalLink size={12} />
-          </a>
+          )}
         </div>
+      )}
 
-        <form onSubmit={handleSendBroadcast} className="space-y-3">
-          <div className="space-y-1">
-            <label className="text-xs font-bold text-slate-700 block">
-              Tiêu đề thông báo gửi người dân *
-            </label>
-            <input
-              type="text"
-              value={broadcastTitle}
-              onChange={(e) => setBroadcastTitle(e.target.value)}
-              placeholder="Ví dụ: Thông báo lịch tổng vệ sinh môi trường & kiểm tra PCCC nhà trọ cuối tuần"
-              className="w-full min-h-[42px] px-3.5 py-2 bg-slate-50 focus:bg-white border border-slate-200 focus:border-emerald-600 rounded-xl text-xs font-semibold text-slate-900 focus:outline-none"
-            />
-          </div>
+      {/* TAB 2C: NHẮC GIA HẠN TẠM TRÚ TRƯỚC 15 NGÀY */}
+      {activeHubTab === "residency" && (
+        <div className="bg-white border border-slate-200/90 rounded-2xl p-4 sm:p-5 space-y-3.5 shadow-2xs">
+          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 pb-2.5 border-b border-slate-100">
+            <div>
+              <h4 className="text-xs font-bold uppercase tracking-wider text-slate-900 flex items-center gap-2">
+                <span className="p-1.5 bg-amber-50 text-amber-700 rounded-lg border border-amber-200/70">
+                  <BellRing size={13} />
+                </span>
+                Nhắc Gia hạn Tạm trú Tự động Trước {remindDaysThreshold} Ngày
+              </h4>
+              <p className="text-xs text-slate-500 mt-1">
+                Gom cụm cư dân sắp hết hạn theo từng <strong>Chủ cơ sở nhà trọ / Chủ hộ tạm trú</strong> để thông báo tập trung qua Zalo OA hoặc Email.
+              </p>
+            </div>
 
-          <div className="space-y-1">
-            <label className="text-xs font-bold text-slate-700 block">
-              Nội dung chi tiết thông báo *
-            </label>
-            <textarea
-              rows={4}
-              value={broadcastContent}
-              onChange={(e) => setBroadcastContent(e.target.value)}
-              placeholder="Nhập thời gian, địa điểm, đối tượng tham gia và đầu mối liên hệ của Ban Điều hành Khu phố 3..."
-              className="w-full p-3.5 bg-slate-50 focus:bg-white border border-slate-200 focus:border-emerald-600 rounded-xl text-xs text-slate-900 focus:outline-none"
-            />
-          </div>
-
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-1">
-            <label className="inline-flex items-center gap-2 text-xs font-semibold text-slate-800 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={publishToPortalNews}
-                onChange={(e) => setPublishToPortalNews(e.target.checked)}
-                className="w-4 h-4 accent-emerald-700 rounded"
-              />
-              <span>Đồng thời đăng &amp; ghim lên mục Thông báo Cổng Cư dân (bdhkp3.vercel.app)</span>
-            </label>
-
-            <button
-              type="submit"
-              disabled={sendingBroadcast}
-              className="min-h-[42px] inline-flex items-center justify-center gap-1.5 px-5 py-2 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-bold transition-colors cursor-pointer disabled:opacity-50"
-            >
-              {sendingBroadcast ? (
-                <>
-                  <Loader2 size={14} className="animate-spin" />
-                  <span>Đang phát thông báo...</span>
-                </>
-              ) : (
-                <>
-                  <Send size={14} />
-                  <span>Phát Thông báo đến Người dân</span>
-                </>
-              )}
-            </button>
-          </div>
-        </form>
-
-        {lastBroadcastPreview && (
-          <div className="bg-emerald-50/70 border border-emerald-200 rounded-xl p-3.5 space-y-2 text-xs">
-            <div className="flex items-center justify-between gap-2">
-              <span className="font-bold text-emerald-950 flex items-center gap-1.5">
-                <Sparkles size={14} className="text-emerald-700" />
-                Bản tin chuẩn Zalo OA vừa tạo:
-              </span>
+            <div className="flex flex-wrap items-center gap-2 shrink-0">
               <button
                 type="button"
-                onClick={() =>
-                  copyText("last-bc", lastBroadcastPreview, "bản tin thông báo Zalo OA")
-                }
-                className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-white border border-emerald-300 text-emerald-800 font-bold cursor-pointer"
+                disabled={scanning || loading}
+                onClick={() => handleScanNow(remindDaysThreshold, includeExpiredWithin7d)}
+                className="h-9 inline-flex items-center gap-1.5 px-3 rounded-lg bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 text-xs font-semibold transition-colors cursor-pointer disabled:opacity-50"
               >
-                <Copy size={12} />
-                <span>Sao chép dán nhóm Zalo Tổ dân phố</span>
+                <RefreshCw size={13} className={scanning ? "animate-spin" : ""} />
+                <span>Quét lại CSDL</span>
+              </button>
+
+              <button
+                type="button"
+                disabled={dispatching || landlordDigests.length === 0}
+                onClick={handleDispatch15dReminders}
+                className="h-9 inline-flex items-center gap-1.5 px-3.5 rounded-lg bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-semibold transition-colors cursor-pointer disabled:opacity-50"
+              >
+                {dispatching ? (
+                  <>
+                    <Loader2 size={13} className="animate-spin" />
+                    <span>Đang phát nhắc hạn...</span>
+                  </>
+                ) : (
+                  <>
+                    <Send size={13} />
+                    <span>Phát nhắc hạn ({totalLandlordGroups} chủ hộ)</span>
+                  </>
+                )}
               </button>
             </div>
-            <pre className="whitespace-pre-wrap font-sans text-slate-800 bg-white border border-emerald-100 rounded-lg p-3 leading-relaxed">
-              {lastBroadcastPreview}
-            </pre>
           </div>
-        )}
-      </div>
 
-      {/* 4. NHẬT KÝ GỬI THÔNG BÁO TỰ ĐỘNG */}
-      {recentLogs.length > 0 && (
-        <div className="bg-white border border-slate-200 rounded-2xl p-5 space-y-3">
-          <h4 className="text-xs font-black uppercase tracking-wider text-slate-700 flex items-center gap-2">
-            <Mail size={14} className="text-slate-600" />
-            Nhật ký Phát Thông báo Zalo OA &amp; Email Gần đây ({recentLogs.length})
-          </h4>
-          <div className="divide-y divide-slate-200/80 border border-slate-200 rounded-xl overflow-hidden">
-            {recentLogs.slice(0, 12).map((log) => (
-              <div
-                key={log.id}
-                className="px-3.5 py-2.5 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs hover:bg-slate-50"
-              >
-                <div className="min-w-0 space-y-0.5">
-                  <div className="flex flex-wrap items-center gap-1.5">
-                    <span className="font-bold text-slate-900">{log.subject}</span>
-                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase bg-slate-100 border border-slate-200 text-slate-700">
-                      {log.channel === "zalo_oa"
-                        ? "Zalo OA"
-                        : log.channel === "zalo_zns"
-                        ? "Zalo ZNS"
-                        : log.channel === "email"
-                        ? "Email"
-                        : "Phiếu Zalo 1-chạm"}
-                    </span>
-                  </div>
-                  <p className="text-slate-600 truncate">
-                    Người nhận: <strong className="text-slate-800">{log.recipientName}</strong>
-                    {log.recipientPhone ? ` (${log.recipientPhone})` : ""} • Thực hiện: {log.actorName}
-                  </p>
-                </div>
-                <div className="text-[11px] font-mono text-slate-500 shrink-0">
-                  {new Date(log.timestamp).toLocaleString("vi-VN")}
-                </div>
+          {loading ? (
+            <div className="py-8 text-center text-xs text-slate-600 flex items-center justify-center gap-2">
+              <Loader2 size={15} className="animate-spin text-emerald-700" />
+              <span>Đang đối khớp hạn tạm trú của cư dân và cơ sở nhà trọ...</span>
+            </div>
+          ) : landlordDigests.length === 0 ? (
+            <div className="bg-emerald-50/60 border border-emerald-200 rounded-xl p-4 text-xs text-emerald-900 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div className="flex items-center gap-2">
+                <CheckCircle2 size={15} className="text-emerald-700 shrink-0" />
+                <span>
+                  Không có nhân khẩu tạm trú nào hết hạn trong vòng <strong>{remindDaysThreshold} ngày</strong> tới.
+                </span>
               </div>
-            ))}
+              <button
+                type="button"
+                onClick={() => {
+                  setRemindDaysThreshold(30);
+                  setIncludeExpiredWithin7d(true);
+                  handleScanNow(30, true);
+                }}
+                className="h-8 px-3 rounded-lg bg-white border border-emerald-300 text-emerald-800 font-semibold text-xs shrink-0 cursor-pointer hover:bg-emerald-100"
+              >
+                Quét mở rộng 30 ngày
+              </button>
+            </div>
+          ) : (
+            <div className="border border-slate-200 rounded-xl overflow-hidden">
+              <div className="overflow-x-auto">
+                <table className="w-full text-left border-collapse text-xs">
+                  <thead>
+                    <tr className="bg-slate-50 border-b border-slate-200 text-slate-600 uppercase tracking-wider font-bold">
+                      <th className="py-2.5 px-3.5">Cơ sở Nhà trọ / Hộ tạm trú</th>
+                      <th className="py-2.5 px-3.5">Chủ nhà trọ / Chủ hộ</th>
+                      <th className="py-2.5 px-3.5">SĐT Liên hệ</th>
+                      <th className="py-2.5 px-3.5 text-center">Đến hạn</th>
+                      <th className="py-2.5 px-3.5">Hạn gần nhất</th>
+                      <th className="py-2.5 px-3.5 text-right">Thao tác</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {landlordDigests.slice(0, 25).map((grp) => {
+                      const earliest = grp.tenants[0];
+                      const zaloChatLink = toZaloChatUrl(grp.landlordPhone);
+                      const isExpanded = expandedGroupKey === grp.key;
+
+                      return (
+                        <React.Fragment key={grp.key}>
+                          <tr className="hover:bg-slate-50/80 transition-colors">
+                            <td className="py-2.5 px-3.5">
+                              <p className="font-bold text-slate-900">{grp.hostelName}</p>
+                              <p className="text-[11px] text-slate-500 line-clamp-1">{grp.address}</p>
+                            </td>
+                            <td className="py-2.5 px-3.5 font-semibold text-slate-800">
+                              {grp.landlordName}
+                            </td>
+                            <td className="py-2.5 px-3.5 font-mono text-slate-800">
+                              {grp.landlordPhone ? (
+                                <a
+                                  href={`tel:${grp.landlordPhone}`}
+                                  className="text-blue-700 hover:underline font-semibold"
+                                >
+                                  {grp.landlordPhone}
+                                </a>
+                              ) : (
+                                <span className="text-slate-400">Chưa cập nhật</span>
+                              )}
+                            </td>
+                            <td className="py-2.5 px-3.5 text-center">
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  setExpandedGroupKey(isExpanded ? null : grp.key)
+                                }
+                                className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-50 border border-amber-200 text-amber-800 font-bold text-[11px] cursor-pointer hover:bg-amber-100"
+                              >
+                                <Users size={11} />
+                                <span>{grp.tenantCount} người</span>
+                              </button>
+                            </td>
+                            <td className="py-2.5 px-3.5">
+                              {earliest && (
+                                <span
+                                  className={`inline-flex items-center gap-1 px-2 py-0.5 rounded font-mono font-semibold text-[11px] border ${
+                                    earliest.daysLeft < 0
+                                      ? "bg-rose-50 text-rose-700 border-rose-200"
+                                      : "bg-amber-50 text-amber-800 border-amber-200"
+                                  }`}
+                                >
+                                  <Clock size={11} />
+                                  {earliest.expFormatted} (
+                                  {earliest.daysLeft < 0
+                                    ? `Quá ${Math.abs(earliest.daysLeft)}n`
+                                    : `Còn ${earliest.daysLeft}n`}
+                                  )
+                                </span>
+                              )}
+                            </td>
+                            <td className="py-2.5 px-3.5 text-right">
+                              <div className="inline-flex items-center justify-end gap-1.5">
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    copyText(
+                                      `msg-${grp.key}`,
+                                      grp.sampleMessage,
+                                      `nội dung nhắc hạn cho ${grp.landlordName}`
+                                    )
+                                  }
+                                  className="h-7 inline-flex items-center gap-1 px-2.5 rounded-lg bg-white hover:bg-slate-100 border border-slate-200 text-slate-700 font-semibold cursor-pointer"
+                                >
+                                  {copiedId === `msg-${grp.key}` ? (
+                                    <Check size={11} className="text-emerald-700" />
+                                  ) : (
+                                    <Copy size={11} />
+                                  )}
+                                  <span>Mẫu tin</span>
+                                </button>
+
+                                {zaloChatLink && (
+                                  <a
+                                    href={zaloChatLink}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    onClick={() => {
+                                      navigator.clipboard?.writeText(grp.sampleMessage).catch(() => {});
+                                    }}
+                                    className="h-7 inline-flex items-center gap-1 px-2.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-semibold"
+                                  >
+                                    <MessageCircle size={11} />
+                                    <span>Zalo</span>
+                                  </a>
+                                )}
+                              </div>
+                            </td>
+                          </tr>
+
+                          {isExpanded && (
+                            <tr className="bg-slate-50/80">
+                              <td colSpan={6} className="p-3.5 space-y-2">
+                                <p className="font-bold text-slate-800 text-xs">
+                                  Danh sách nhân khẩu đến hạn tại {grp.hostelName}:
+                                </p>
+                                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+                                  {grp.tenants.map((t) => (
+                                    <div
+                                      key={t.id}
+                                      className="bg-white border border-slate-200 rounded-lg px-3 py-2 flex items-center justify-between gap-2"
+                                    >
+                                      <div className="min-w-0">
+                                        <p className="font-bold text-slate-900 truncate">
+                                          {t.fullName}
+                                        </p>
+                                        <p className="font-mono text-[11px] text-slate-500">
+                                          CCCD: {t.cccdMasked} {t.phone ? `• ${t.phone}` : ""}
+                                        </p>
+                                      </div>
+                                      <span className="text-[11px] font-mono font-bold text-amber-800 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded shrink-0">
+                                        {t.expFormatted}
+                                      </span>
+                                    </div>
+                                  ))}
+                                </div>
+                              </td>
+                            </tr>
+                          )}
+                        </React.Fragment>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* TAB 2D: NHẬT KÝ GỬI THÔNG BÁO ZALO OA & EMAIL */}
+      {activeHubTab === "logs" && (
+        <div className="bg-white border border-slate-200/90 rounded-2xl overflow-hidden shadow-2xs">
+          <div className="px-4 py-3 border-b border-slate-100 bg-slate-50/50 flex items-center justify-between gap-2">
+            <h4 className="text-xs font-bold uppercase tracking-wider text-slate-900 flex items-center gap-1.5">
+              <Mail size={13} className="text-emerald-700" />
+              Nhật ký Phát Thông báo Zalo OA &amp; Email Gần đây ({recentLogs.length})
+            </h4>
           </div>
+
+          {recentLogs.length === 0 ? (
+            <div className="p-6 text-center text-xs text-slate-500">
+              Chưa có nhật ký gửi thông báo tự động nào gần đây.
+            </div>
+          ) : (
+            <div className="divide-y divide-slate-100">
+              {recentLogs.slice(0, 20).map((log) => (
+                <div
+                  key={log.id}
+                  className="px-4 py-2.5 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs hover:bg-slate-50/70 transition-colors"
+                >
+                  <div className="min-w-0 space-y-0.5">
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      <span className="font-bold text-slate-900">{log.subject}</span>
+                      <span className="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase bg-slate-100 border border-slate-200 text-slate-700">
+                        {log.channel === "zalo_oa"
+                          ? "Zalo OA"
+                          : log.channel === "zalo_zns"
+                          ? "Zalo ZNS"
+                          : log.channel === "email"
+                          ? "Email"
+                          : "Phiếu Zalo 1-chạm"}
+                      </span>
+                    </div>
+                    <p className="text-slate-600 truncate">
+                      Người nhận: <strong className="text-slate-800">{log.recipientName}</strong>
+                      {log.recipientPhone ? ` (${log.recipientPhone})` : ""} • Thực hiện: {log.actorName}
+                    </p>
+                  </div>
+                  <div className="text-[11px] font-mono text-slate-500 shrink-0">
+                    {new Date(log.timestamp).toLocaleString("vi-VN")}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       )}
 

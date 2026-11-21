@@ -458,15 +458,15 @@ export const ReminderSection: React.FC<ReminderSectionProps> = ({
   return (
     <div className="space-y-4">
       {/* Controls */}
-      <search className="bg-white p-3.5 rounded-xl border border-slate-200 flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-3">
-        <div className="flex flex-col sm:flex-row flex-wrap items-stretch sm:items-center gap-2.5 flex-1">
+      <search className="bg-white p-3 rounded-xl border border-slate-200/80 shadow-2xs flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-2.5 text-xs">
+        <div className="flex flex-col sm:flex-row flex-wrap items-stretch sm:items-center gap-2 flex-1">
           <div className="relative flex-1 min-w-[200px] lg:max-w-xs">
             <label htmlFor="reminder-search-input" className="sr-only">
               Tìm lịch báo cáo định kỳ
             </label>
             <Search
-              size={15}
-              className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 pointer-events-none"
+              size={14}
+              className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none"
               aria-hidden="true"
             />
             <input
@@ -476,7 +476,7 @@ export const ReminderSection: React.FC<ReminderSectionProps> = ({
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Tìm tiêu đề, cơ quan, cán bộ..."
-              className="w-full h-11 md:h-10 pl-9 pr-3 bg-white border border-slate-300 rounded-lg text-sm text-slate-900 placeholder:text-slate-500 focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-500/20"
+              className="w-full h-9 pl-9 pr-3 bg-slate-50/70 focus:bg-white border border-slate-200 rounded-lg text-xs text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-emerald-600"
             />
           </div>
 
@@ -579,7 +579,7 @@ export const ReminderSection: React.FC<ReminderSectionProps> = ({
                   </label>
                 </div>
 
-                <h3 className="text-sm font-bold text-slate-900 group-hover:text-indigo-800 leading-snug transition-colors">
+                <h3 className="text-xs sm:text-[13px] font-bold text-slate-900 group-hover:text-emerald-800 leading-snug transition-colors">
                   {rem.title}
                 </h3>
 

@@ -51,6 +51,7 @@ import { normalizeEntityLandParcels } from "../utils/landParcelsUtils";
 import { DetailGrid, DetailRow } from "../components/common/DetailRow";
 import { LoadingFade } from "../components/common/LoadingFade";
 import { MultiParcelDetailView } from "../components/common/MultiParcelDetailView";
+import { RecordDetailShell } from "../components/common/RecordDetailShell";
 import { SharedAddressHubCard } from "../components/common/SharedAddressHubCard";
 import { ReportSelect } from "../components/reports/ReportSelect";
 import { ConfirmModal, InlineNotice } from "../components/ui/ConfirmModal";
@@ -458,280 +459,185 @@ export default function EnterpriseDetailPage({
     "DN"
   );
 
+  const enterpriseTabs = [
+    {
+      id: "legal",
+      label: "Hồ sơ pháp lý & Thuế",
+      icon: <Briefcase size={14} />,
+    },
+    {
+      id: "premises",
+      label: "Trụ sở & Mặt bằng KP3",
+      icon: <MapPin size={14} />,
+    },
+    {
+      id: "personnel",
+      label: "Người đại diện & Lao động",
+      icon: <Users2 size={14} />,
+    },
+    {
+      id: "history",
+      label: "Biến động địa bàn",
+      icon: <History size={14} />,
+    },
+  ];
+
   return (
-    <div className="max-w-6xl mx-auto space-y-4 pb-10">
-      {/* Top Breadcrumb & Prev/Next Bar */}
-      <div className="flex flex-wrap items-center justify-between gap-2 print:hidden">
+    <RecordDetailShell
+      backLabel="Danh sách doanh nghiệp"
+      onBack={handleGoBack}
+      navigation={
+        totalNav > 1 && currentIdx >= 0
+          ? {
+              hasPrev,
+              hasNext,
+              onPrev: () => hasPrev && handleSelectNav(enterprises[currentIdx - 1]),
+              onNext: () => hasNext && handleSelectNav(enterprises[currentIdx + 1]),
+              prevTitle: "Doanh nghiệp trước",
+              nextTitle: "Doanh nghiệp tiếp theo",
+              positionLabel: `${currentIdx + 1} / ${totalNav}`,
+            }
+          : undefined
+      }
+      topRightSlot={
         <button
           type="button"
-          onClick={handleGoBack}
-          className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-xs font-bold transition-colors cursor-pointer"
+          onClick={() => window.print()}
+          className="h-8 px-2.5 border border-slate-200/90 bg-white hover:bg-slate-50 rounded-lg text-xs font-semibold text-slate-700 inline-flex items-center gap-1.5 transition-colors cursor-pointer"
         >
-          <ArrowLeft size={14} />
-          <span>Quay lại Danh sách Doanh nghiệp</span>
+          <Printer size={13} className="text-slate-500" />
+          <span>In phiếu</span>
         </button>
-
-        {totalNav > 1 && currentIdx >= 0 && (
-          <div className="inline-flex items-center gap-1.5 bg-white border border-slate-200 rounded-xl px-2 py-1">
-            <button
-              type="button"
-              disabled={!hasPrev}
-              onClick={() => hasPrev && handleSelectNav(enterprises[currentIdx - 1])}
-              className="p-1.5 rounded-lg text-slate-600 hover:bg-slate-100 disabled:opacity-35 disabled:cursor-not-allowed cursor-pointer transition-colors"
-              aria-label="Doanh nghiệp trước"
-              title="Doanh nghiệp trước"
-            >
-              <ChevronLeft size={15} />
-            </button>
-            <span className="text-xs font-mono font-semibold text-slate-600 px-1.5">
-              Hồ sơ {currentIdx + 1}/{totalNav}
+      }
+      avatarSlot={
+        <div className="relative w-14 h-14 sm:w-16 sm:h-16 rounded-xl border border-slate-200 overflow-hidden shrink-0 group bg-slate-100">
+          <img
+            src={getEnterpriseImage(selectedEnterprise)}
+            alt={selectedEnterprise.name}
+            className="w-full h-full object-cover"
+            referrerPolicy="no-referrer"
+            onError={(e) => {
+              (e.target as HTMLImageElement).src =
+                "https://images.unsplash.com/photo-1497366216548-37526070297c?w=400";
+            }}
+          />
+          <label className="absolute inset-0 bg-slate-950/65 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center text-white cursor-pointer">
+            <Camera size={14} className="text-white mb-0.5" />
+            <span className="text-[10px] font-semibold">Đổi ảnh</span>
+            <input
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={handleChangeAvatarPhoto}
+            />
+          </label>
+        </div>
+      }
+      badgesSlot={
+        <>
+          <span className="font-mono font-semibold px-2 py-0.5 rounded-md bg-slate-100 text-slate-700 border border-slate-200/80">
+            {shortEntId}
+          </span>
+          <span className="font-semibold px-2.5 py-0.5 rounded-full bg-slate-100 text-slate-700 border border-slate-200/80">
+            {selectedEnterprise.businessType || "Doanh nghiệp"} •{" "}
+            {getEnterpriseScaleLabel(selectedEnterprise)}
+          </span>
+          <span
+            className={`font-semibold px-2.5 py-0.5 rounded-full border inline-flex items-center gap-1.5 ${
+              selectedEnterprise.status === "Đang hoạt động"
+                ? "bg-emerald-50 text-emerald-800 border-emerald-200"
+                : selectedEnterprise.status === "Tạm ngưng"
+                ? "bg-rose-50 text-rose-800 border-rose-200"
+                : "bg-amber-50 text-amber-800 border-amber-200"
+            }`}
+          >
+            <span
+              className={`w-1.5 h-1.5 rounded-full ${
+                selectedEnterprise.status === "Đang hoạt động"
+                  ? "bg-emerald-600"
+                  : selectedEnterprise.status === "Tạm ngưng"
+                  ? "bg-rose-600"
+                  : "bg-amber-600"
+              }`}
+            />
+            <span>{selectedEnterprise.status}</span>
+          </span>
+          {selectedEnterprise.timemarkVerified && (
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full font-semibold bg-amber-50 text-amber-800 border border-amber-200">
+              <Sparkles size={11} className="text-amber-600" />
+              <span>Timemark GPS</span>
             </span>
-            <button
-              type="button"
-              disabled={!hasNext}
-              onClick={() => hasNext && handleSelectNav(enterprises[currentIdx + 1])}
-              className="p-1.5 rounded-lg text-slate-600 hover:bg-slate-100 disabled:opacity-35 disabled:cursor-not-allowed cursor-pointer transition-colors"
-              aria-label="Doanh nghiệp tiếp theo"
-              title="Doanh nghiệp tiếp theo"
+          )}
+          {(() => {
+            const hhCodes = getNormalizedLinkedHouseholdCodes(selectedEnterprise);
+            if (hhCodes.length === 0) return null;
+            return (
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full font-semibold bg-slate-100 text-slate-700 border border-slate-200">
+                {hhCodes.length > 1 ? `Ghép ${hhCodes.length} hộ` : `Hộ ${hhCodes[0]}`}
+              </span>
+            );
+          })()}
+        </>
+      }
+      title={selectedEnterprise.name}
+      subtitleSlot={
+        <>
+          <span className="inline-flex items-center gap-1 text-slate-600">
+            <MapPin size={13} className="text-slate-400 shrink-0" />
+            <span>{selectedEnterprise.address}</span>
+          </span>
+          {selectedEnterprise.coordinates && (
+            <a
+              href={`https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(selectedEnterprise.coordinates)}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1 text-emerald-700 hover:underline font-semibold"
             >
-              <ChevronRight size={15} />
-            </button>
+              <ExternalLink size={11} /> Bản đồ
+            </a>
+          )}
+        </>
+      }
+      actionsSlot={
+        <>
+          <div className="min-w-[175px]">
+            <ReportSelect
+              aria-label="Trạng thái hoạt động doanh nghiệp"
+              value={selectedEnterprise.status}
+              onChange={(nextVal) => handleChangeStatus(nextVal as any)}
+              options={[
+                { value: "Đang hoạt động", label: "Đang hoạt động" },
+                { value: "Chờ duyệt", label: "Chờ duyệt" },
+                { value: "Tạm ngưng", label: "Tạm ngưng" },
+                { value: "Chuyển địa điểm", label: "Chuyển địa điểm" },
+              ]}
+            />
           </div>
-        )}
-      </div>
-
-      {/* Main Profile Card */}
-      <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-xs">
-        {/* Header Summary */}
-        <div className="bg-slate-50/80 p-4 sm:p-5 border-b border-slate-200 space-y-4">
-          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-            <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3.5 min-w-0">
-              <div className="relative w-14 h-14 sm:w-16 sm:h-16 rounded-xl border border-slate-200 overflow-hidden shrink-0 group bg-slate-100">
-                <img
-                  src={getEnterpriseImage(selectedEnterprise)}
-                  alt={selectedEnterprise.name}
-                  className="w-full h-full object-cover"
-                  referrerPolicy="no-referrer"
-                  onError={(e) => {
-                    (e.target as HTMLImageElement).src =
-                      "https://images.unsplash.com/photo-1497366216548-37526070297c?w=400";
-                  }}
-                />
-                <label className="absolute inset-0 bg-slate-950/65 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center text-white cursor-pointer">
-                  <Camera size={15} className="text-white mb-0.5" />
-                  <span className="text-[11px] font-semibold">Đổi ảnh</span>
-                  <input
-                    type="file"
-                    accept="image/*"
-                    className="hidden"
-                    onChange={handleChangeAvatarPhoto}
-                  />
-                </label>
-              </div>
-
-              <div className="space-y-1.5 flex-1 min-w-0">
-                <div className="flex flex-wrap items-center gap-2">
-                  <span className="font-mono text-xs font-semibold px-2 py-0.5 rounded-md bg-white text-slate-700 border border-slate-200">
-                    MÃ: {shortEntId}
-                  </span>
-                  <span className="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-white text-slate-700 border border-slate-200 flex items-center gap-1">
-                    <Briefcase size={12} className="text-slate-600" />
-                    <span>
-                      {selectedEnterprise.businessType || "Doanh nghiệp"} •{" "}
-                      {getEnterpriseScaleLabel(selectedEnterprise)}
-                    </span>
-                  </span>
-                  <span
-                    className={`text-xs font-semibold px-2.5 py-0.5 rounded-full border inline-flex items-center gap-1.5 ${
-                      selectedEnterprise.status === "Đang hoạt động"
-                        ? "bg-emerald-50 text-emerald-800 border-emerald-200"
-                        : selectedEnterprise.status === "Tạm ngưng"
-                          ? "bg-rose-50 text-rose-800 border-rose-200"
-                          : "bg-amber-50 text-amber-800 border-amber-200"
-                    }`}
-                  >
-                    <span
-                      className={`w-1.5 h-1.5 rounded-full ${
-                        selectedEnterprise.status === "Đang hoạt động"
-                          ? "bg-emerald-600"
-                          : selectedEnterprise.status === "Tạm ngưng"
-                            ? "bg-rose-600"
-                            : "bg-amber-600"
-                      }`}
-                    />
-                    <span>{selectedEnterprise.status}</span>
-                  </span>
-
-                  {selectedEnterprise.timemarkVerified && (
-                    <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-amber-50 text-amber-900 border border-amber-300 shadow-2xs">
-                      <Sparkles size={11} className="text-amber-600" />
-                      <span>Timemark GPS</span>
-                    </span>
-                  )}
-
-                  {(() => {
-                    const hhCodes =
-                      getNormalizedLinkedHouseholdCodes(selectedEnterprise);
-                    if (hhCodes.length === 0) return null;
-                    return (
-                      <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-blue-50 text-blue-800 border border-blue-200">
-                        <span>
-                          {hhCodes.length > 1
-                            ? `Ghép ${hhCodes.length} hộ (${hhCodes.join(", ")})`
-                            : `Hộ ${hhCodes[0]}`}
-                        </span>
-                      </span>
-                    );
-                  })()}
-
-                  {(() => {
-                    const parcels =
-                      normalizeEntityLandParcels(selectedEnterprise);
-                    if (parcels.length < 2) return null;
-                    return (
-                      <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-indigo-50 text-indigo-800 border border-indigo-200">
-                        <Layers size={11} className="text-indigo-600" />
-                        <span>
-                          Ghép {String(parcels.length).padStart(2, "0")} Sổ đỏ
-                        </span>
-                      </span>
-                    );
-                  })()}
-                </div>
-
-                <h1 className="text-lg sm:text-xl font-extrabold text-slate-900 tracking-tight leading-snug break-words">
-                  {selectedEnterprise.name}
-                </h1>
-
-                <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-slate-600">
-                  <span className="flex items-center gap-1 font-medium text-slate-700">
-                    <MapPin size={13} className="text-emerald-700 shrink-0" />
-                    <span>{selectedEnterprise.address}</span>
-                  </span>
-                  {selectedEnterprise.coordinates && (
-                    <a
-                      href={`https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(selectedEnterprise.coordinates)}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-flex items-center gap-1 text-xs text-emerald-700 hover:text-emerald-900 font-semibold"
-                    >
-                      <ExternalLink size={11} /> Google Maps
-                    </a>
-                  )}
-                </div>
-              </div>
-            </div>
-
-            {/* Action Buttons */}
-            <div className="flex flex-wrap items-center gap-2 shrink-0 print:hidden">
-              <div className="min-w-[195px]">
-                <ReportSelect
-                  aria-label="Trạng thái hoạt động doanh nghiệp"
-                  value={selectedEnterprise.status}
-                  onChange={(nextVal) => handleChangeStatus(nextVal as any)}
-                  options={[
-                    { value: "Đang hoạt động", label: "Trạng thái: Đang hoạt động" },
-                    { value: "Chờ duyệt", label: "Trạng thái: Chờ duyệt" },
-                    { value: "Tạm ngưng", label: "Trạng thái: Tạm ngưng" },
-                    { value: "Chuyển địa điểm", label: "Trạng thái: Chuyển địa điểm" },
-                  ]}
-                />
-              </div>
-              <button
-                type="button"
-                onClick={() => window.print()}
-                className="min-h-9 px-3 py-1.5 border border-slate-200 bg-white hover:bg-slate-50 rounded-lg text-xs font-semibold text-slate-700 inline-flex items-center gap-1.5 transition-colors cursor-pointer"
-              >
-                <Printer size={13} /> In phiếu
-              </button>
-              <button
-                type="button"
-                onClick={() =>
-                  onEdit
-                    ? onEdit(selectedEnterprise)
-                    : navigate(getEnterpriseEditPath(selectedEnterprise.id))
-                }
-                className="min-h-9 px-4 py-1.5 bg-emerald-700 hover:bg-emerald-800 text-white rounded-lg text-xs font-semibold inline-flex items-center gap-1.5 transition-colors cursor-pointer"
-              >
-                <Pencil size={13} /> Chỉnh sửa doanh nghiệp
-              </button>
-              <button
-                type="button"
-                onClick={() => setShowDeleteConfirm(true)}
-                className="min-h-9 px-3 py-1.5 border border-rose-200 bg-white text-rose-700 hover:bg-rose-50 rounded-lg text-xs font-semibold inline-flex items-center gap-1.5 transition-colors cursor-pointer"
-              >
-                <Trash2 size={13} /> Xóa hồ sơ
-              </button>
-            </div>
-          </div>
-        </div>
-
-        {/* Sub-Tabs Navigation */}
-        <div className="flex border-b border-slate-200 bg-white px-4 sm:px-5 gap-5 text-xs font-bold overflow-x-auto print:hidden">
           <button
             type="button"
-            onClick={() => setDetailTab("legal")}
-            className={`py-3 transition-colors relative cursor-pointer flex items-center gap-1.5 shrink-0 ${
-              detailTab === "legal"
-                ? "text-emerald-800"
-                : "text-slate-600 hover:text-slate-900"
-            }`}
+            onClick={() =>
+              onEdit
+                ? onEdit(selectedEnterprise)
+                : navigate(getEnterpriseEditPath(selectedEnterprise.id))
+            }
+            className="h-9 px-3.5 bg-emerald-700 hover:bg-emerald-800 text-white rounded-lg text-xs font-semibold inline-flex items-center gap-1.5 transition-colors cursor-pointer shadow-2xs"
           >
-            <Briefcase size={14} />
-            <span>Hồ sơ pháp lý & Thuế</span>
-            {detailTab === "legal" && (
-              <div className="absolute bottom-0 left-0 w-full h-0.5 bg-emerald-700" />
-            )}
+            <Pencil size={13} /> Chỉnh sửa
           </button>
           <button
             type="button"
-            onClick={() => setDetailTab("premises")}
-            className={`py-3 transition-colors relative cursor-pointer flex items-center gap-1.5 shrink-0 ${
-              detailTab === "premises"
-                ? "text-emerald-800"
-                : "text-slate-600 hover:text-slate-900"
-            }`}
+            onClick={() => setShowDeleteConfirm(true)}
+            className="h-9 px-3 border border-slate-200 hover:border-rose-200 bg-white text-rose-600 hover:bg-rose-50 rounded-lg text-xs font-semibold inline-flex items-center gap-1.5 transition-colors cursor-pointer"
           >
-            <MapPin size={14} />
-            <span>Trụ sở & Mặt bằng KP3</span>
-            {detailTab === "premises" && (
-              <div className="absolute bottom-0 left-0 w-full h-0.5 bg-emerald-700" />
-            )}
+            <Trash2 size={13} /> Xóa
           </button>
-          <button
-            type="button"
-            onClick={() => setDetailTab("personnel")}
-            className={`py-3 transition-colors relative cursor-pointer flex items-center gap-1.5 shrink-0 ${
-              detailTab === "personnel"
-                ? "text-emerald-800"
-                : "text-slate-600 hover:text-slate-900"
-            }`}
-          >
-            <Users2 size={14} />
-            <span>Người đại diện & Lao động</span>
-            {detailTab === "personnel" && (
-              <div className="absolute bottom-0 left-0 w-full h-0.5 bg-emerald-700" />
-            )}
-          </button>
-          <button
-            type="button"
-            onClick={() => setDetailTab("history")}
-            className={`py-3 transition-colors relative cursor-pointer flex items-center gap-1.5 shrink-0 ${
-              detailTab === "history"
-                ? "text-emerald-800"
-                : "text-slate-600 hover:text-slate-900"
-            }`}
-          >
-            <History size={14} />
-            <span>Biến động địa bàn</span>
-            {detailTab === "history" && (
-              <div className="absolute bottom-0 left-0 w-full h-0.5 bg-emerald-700" />
-            )}
-          </button>
-        </div>
-
-        {/* Body Content */}
-        <div className="p-4 sm:p-6 bg-white text-xs sm:text-sm space-y-4">
+        </>
+      }
+      tabs={enterpriseTabs}
+      activeTab={detailTab}
+      onTabChange={(id) => setDetailTab(id as any)}
+      bodyClassName="p-5 sm:p-6 text-xs space-y-4"
+    >
           {/* TAB 1: THÔNG TIN PHÁP LÝ & TỔ CHỨC */}
           {detailTab === "legal" && (
             <div className="animate-in fade-in duration-200 space-y-4">
@@ -1339,8 +1245,6 @@ export default function EnterpriseDetailPage({
               </div>
             </div>
           )}
-        </div>
-      </div>
 
       {/* MODAL THÊM BIẾN ĐỘNG DOANH NGHIỆP */}
       {showChangeLogModal && (
@@ -1732,6 +1636,6 @@ export default function EnterpriseDetailPage({
           />
         </div>
       )}
-    </div>
+    </RecordDetailShell>
   );
 }

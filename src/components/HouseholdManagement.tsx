@@ -411,75 +411,71 @@ export default function HouseholdManagement({
   };
 
   return (
-    <div id="household-management-view" className="space-y-6">
-      
+    <div id="household-management-view" className="space-y-4">
       {/* Top Banner Navigation & Actions */}
       <PageHeader
-        badgeIcon={<Layers className="text-emerald-600 animate-pulse" size={13} />}
-        badgeText="SỔ HỘ TỊCH ĐIỆN TỬ • KHU PHỐ 3, PHƯỜNG AN PHÚ"
-        badgeSubtext="ĐỀ ÁN 06/CP"
-        title="Hệ thống Quản lý Hộ tịch thông minh"
+        title="Quản lý Hộ tịch & Lưu trú"
         actions={
           <div className="flex flex-wrap items-center gap-2">
             <button
               type="button"
               id="btn-export-households-excel"
               onClick={handleExportHouseholdsExcel}
-              className="flex items-center justify-center gap-1.5 bg-slate-50 hover:bg-slate-100 border border-slate-200/90 text-slate-700 px-3.5 h-10 rounded-xl text-xs font-bold transition-colors cursor-pointer shrink-0 whitespace-nowrap"
+              className="flex items-center justify-center gap-1.5 bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 px-3 h-9 rounded-lg text-xs font-semibold transition-colors cursor-pointer shrink-0 whitespace-nowrap"
               title="Xuất danh sách Sổ hộ khẩu theo bộ lọc hiện tại ra tệp Excel (.xlsx)"
             >
-              <Download size={15} className="text-slate-600 shrink-0" />
-              <span>Xuất Excel Hộ khẩu (.xlsx)</span>
+              <Download size={14} className="text-slate-500 shrink-0" />
+              <span>Xuất Excel</span>
             </button>
             <button
               type="button"
               onClick={() => navigate(getHouseholdCreatePath())}
-              className="flex items-center justify-center gap-1.5 bg-emerald-700 hover:bg-emerald-800 text-white px-4 h-10 rounded-xl text-xs font-bold transition-colors cursor-pointer shrink-0 whitespace-nowrap"
+              className="flex items-center justify-center gap-1.5 bg-emerald-700 hover:bg-emerald-800 text-white px-3.5 h-9 rounded-lg text-xs font-semibold transition-colors cursor-pointer shrink-0 whitespace-nowrap shadow-2xs"
             >
-              <Plus size={15} className="shrink-0" />
-              <span>Lập Sổ Hộ Mới</span>
+              <Plus size={14} className="shrink-0" />
+              <span>Lập sổ hộ mới</span>
             </button>
           </div>
         }
       />
 
-      {/* Main Module Tab Bar (đồng bộ layout toàn hệ thống) */}
-      <div className="flex flex-wrap items-center gap-1.5 border border-slate-200/90 rounded-2xl p-1.5 bg-slate-100/80 text-xs text-slate-600 w-fit">
+      {/* Main Module Tab Bar */}
+      <div className="flex flex-wrap items-center gap-1 border border-slate-200/80 rounded-xl p-1 bg-slate-100/80 text-xs text-slate-600 w-fit">
         <button
           type="button"
           onClick={() => setActiveTab("list")}
-          className={`px-3.5 py-2 rounded-xl font-bold transition-colors cursor-pointer flex items-center gap-1.5 ${activeTab === "list" ? "bg-white text-emerald-800 border border-slate-200 shadow-2xs" : "text-slate-600 hover:text-slate-900"}`}
+          className={`px-3 py-1.5 rounded-lg font-semibold transition-colors cursor-pointer flex items-center gap-1.5 ${activeTab === "list" ? "bg-white text-slate-900 shadow-2xs" : "text-slate-600 hover:text-slate-900"}`}
         >
-          <Home size={14} className={activeTab === "list" ? "text-emerald-600" : "text-slate-500"} />
-          <span>Hộ Gia Đình</span>
+          <Home size={13} className={activeTab === "list" ? "text-emerald-700" : "text-slate-500"} />
+          <span>Hộ gia đình</span>
         </button>
         <button
           type="button"
           id="btn-tab-auto-recognition"
           onClick={() => setActiveTab("recognition")}
-          className={`px-3.5 py-2 rounded-xl font-bold transition-colors cursor-pointer flex items-center gap-1.5 ${activeTab === "recognition" ? "bg-white text-emerald-800 border border-slate-200 shadow-2xs" : "text-slate-600 hover:text-slate-900"}`}
+          className={`px-3 py-1.5 rounded-lg font-semibold transition-colors cursor-pointer flex items-center gap-1.5 ${activeTab === "recognition" ? "bg-white text-slate-900 shadow-2xs" : "text-slate-600 hover:text-slate-900"}`}
           title="Quét dữ liệu dân cư thường trú để tự động nhận diện chủ hộ và thành viên"
         >
-          <Sparkles size={14} className={activeTab === "recognition" ? "text-emerald-600" : "text-slate-500"} />
-          <span>Nhận Diện Tự Động</span>
+          <Sparkles size={13} className={activeTab === "recognition" ? "text-emerald-700" : "text-slate-500"} />
+          <span>Nhận diện tự động</span>
         </button>
         <button
           type="button"
           onClick={() => setActiveTab("dashboard")}
-          className={`px-3.5 py-2 rounded-xl font-bold transition-colors cursor-pointer flex items-center gap-1.5 ${activeTab === "dashboard" ? "bg-white text-emerald-800 border border-slate-200 shadow-2xs" : "text-slate-600 hover:text-slate-900"}`}
+          className={`px-3 py-1.5 rounded-lg font-semibold transition-colors cursor-pointer flex items-center gap-1.5 ${activeTab === "dashboard" ? "bg-white text-slate-900 shadow-2xs" : "text-slate-600 hover:text-slate-900"}`}
           title="Báo cáo chuyên sâu và thống kê cơ cấu hộ"
         >
-          <Layers size={14} className={activeTab === "dashboard" ? "text-emerald-600" : "text-slate-500"} />
-          <span>Báo Cáo Thống Kê</span>
+          <Layers size={13} className={activeTab === "dashboard" ? "text-emerald-700" : "text-slate-500"} />
+          <span>Thống kê</span>
         </button>
         <button
           type="button"
           onClick={() => setActiveTab("audit")}
-          className={`px-3.5 py-2 rounded-xl font-bold transition-colors cursor-pointer flex items-center gap-1.5 ${activeTab === "audit" ? "bg-white text-emerald-800 border border-slate-200 shadow-2xs" : "text-slate-600 hover:text-slate-900"}`}
+          className={`px-3 py-1.5 rounded-lg font-semibold transition-colors cursor-pointer flex items-center gap-1.5 ${activeTab === "audit" ? "bg-white text-slate-900 shadow-2xs" : "text-slate-600 hover:text-slate-900"}`}
           title="Rà soát hồ sơ trùng lặp và công cụ gộp sổ"
         >
-          <GitBranch size={14} className={activeTab === "audit" ? "text-emerald-600" : "text-slate-500"} />
-          <span>Trùng Lặp & Gộp Sổ</span>
+          <GitBranch size={13} className={activeTab === "audit" ? "text-emerald-700" : "text-slate-500"} />
+          <span>Trùng lặp &amp; Gộp sổ</span>
         </button>
       </div>
 
@@ -600,17 +596,16 @@ export default function HouseholdManagement({
                   </div>
 
                   {typeFilter === "Tạm trú" && (
-                    <div className="flex flex-wrap items-center justify-between gap-2 p-3 rounded-xl bg-amber-50/70 border border-amber-200/90 text-xs">
-                      <span className="font-bold text-amber-950 flex items-center gap-1.5">
-                        <Calendar size={14} className="text-amber-700 shrink-0" />
-                        <span>Phân loại Hồ sơ Hộ Tạm trú (CT08 &amp; Lưu trú):</span>
+                    <div className="flex flex-wrap items-center justify-between gap-2 px-3 py-2 rounded-xl bg-white border border-slate-200/80 text-xs">
+                      <span className="font-medium text-slate-600">
+                        Nhóm hồ sơ tạm trú:
                       </span>
-                      <div className="flex flex-wrap items-center gap-1.5">
+                      <div className="flex flex-wrap items-center gap-1">
                         {[
                           { id: "all" as const, label: `Tất cả (${formatVNNumber(tamCount)})` },
-                          { id: "independent" as const, label: `Hộ gia đình / Thuê nhà (${formatVNNumber(tempIndepCount)})` },
-                          { id: "hostel" as const, label: `Cụm lưu trú Nhà trọ (${formatVNNumber(tempHostelCount)})` },
-                          { id: "alert" as const, label: `⚠ Sắp / Quá hạn (${formatVNNumber(tempAlertCount)})` },
+                          { id: "independent" as const, label: `Hộ thuê nhà (${formatVNNumber(tempIndepCount)})` },
+                          { id: "hostel" as const, label: `Cụm nhà trọ (${formatVNNumber(tempHostelCount)})` },
+                          { id: "alert" as const, label: `Cần gia hạn (${formatVNNumber(tempAlertCount)})` },
                         ].map((opt) => (
                           <button
                             key={opt.id}
@@ -619,10 +614,10 @@ export default function HouseholdManagement({
                               setTempSubFilter(opt.id);
                               setCurrentPage(1);
                             }}
-                            className={`px-3 py-1.5 rounded-lg font-bold transition-colors cursor-pointer border ${
+                            className={`px-2.5 py-1 rounded-lg font-semibold transition-colors cursor-pointer ${
                               tempSubFilter === opt.id
-                                ? "bg-amber-700 text-white border-amber-700"
-                                : "bg-white text-amber-950 border-amber-200 hover:bg-amber-100/70"
+                                ? "bg-slate-900 text-white"
+                                : "bg-slate-100 text-slate-600 hover:text-slate-900"
                             }`}
                           >
                             {opt.label}
@@ -636,7 +631,7 @@ export default function HouseholdManagement({
             })()}
 
             {/* Filters Bar */}
-          <div className="flex flex-col 2xl:flex-row gap-3 justify-between items-stretch 2xl:items-center bg-white p-4 rounded-xl border border-slate-200">
+          <div className="flex flex-col 2xl:flex-row gap-2.5 justify-between items-stretch 2xl:items-center bg-white p-3 rounded-xl border border-slate-200/80 shadow-2xs">
             {/* Search Box */}
             <HouseholdSearchInput defaultValue={searchTerm} onSearch={handleSearchChange} />
 
@@ -689,7 +684,7 @@ export default function HouseholdManagement({
                   setShowSoftDeleted(!showSoftDeleted);
                   setCurrentPage(1);
                 }}
-                className={`flex items-center gap-1.5 px-3 h-10 border rounded-xl text-xs font-bold transition-colors cursor-pointer ${
+                className={`flex items-center gap-1.5 px-3 h-9 border rounded-lg text-xs font-semibold transition-colors cursor-pointer ${
                   showSoftDeleted 
                     ? "bg-rose-50 text-rose-700 border-rose-200" 
                     : "bg-white text-slate-600 hover:bg-slate-50 border-slate-200"
@@ -700,11 +695,11 @@ export default function HouseholdManagement({
               </button>
 
               {/* View switches */}
-              <div className="flex items-center border border-slate-200 rounded-lg p-0.5 bg-slate-50 gap-0.5 shrink-0">
+              <div className="flex items-center border border-slate-200/80 rounded-lg p-0.5 bg-slate-100/80 gap-0.5 shrink-0">
                 <button
                   type="button"
                   onClick={() => setViewMode("list")}
-                  className={`p-2 rounded transition-colors cursor-pointer ${viewMode === "list" ? "bg-white text-emerald-700 border border-slate-200" : "text-slate-600 hover:text-slate-900"}`}
+                  className={`p-1.5 rounded-md transition-colors cursor-pointer ${viewMode === "list" ? "bg-white text-slate-900 shadow-2xs" : "text-slate-500 hover:text-slate-900"}`}
                   title="Xem dạng Danh sách"
                   aria-label="Xem dạng Danh sách"
                 >
@@ -713,7 +708,7 @@ export default function HouseholdManagement({
                 <button
                   type="button"
                   onClick={() => setViewMode("card")}
-                  className={`p-2 rounded transition-colors cursor-pointer ${viewMode === "card" ? "bg-white text-emerald-700 border border-slate-200" : "text-slate-600 hover:text-slate-900"}`}
+                  className={`p-1.5 rounded-md transition-colors cursor-pointer ${viewMode === "card" ? "bg-white text-slate-900 shadow-2xs" : "text-slate-500 hover:text-slate-900"}`}
                   title="Xem dạng Thẻ Grid"
                   aria-label="Xem dạng Thẻ Grid"
                 >
@@ -724,8 +719,8 @@ export default function HouseholdManagement({
           </div>
 
           {/* Main Container: Toàn bộ chiều rộng cho danh sách Sổ Hộ Khẩu */}
-          <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden flex flex-col w-full">
-            <div className="p-4 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
+          <div className="bg-white rounded-2xl border border-slate-200/90 shadow-2xs overflow-hidden flex flex-col w-full">
+            <div className="px-4 py-3 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
               <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">
                 {showSoftDeleted ? "Lưu trữ thùng rác sổ hộ khẩu" : "Danh sách sổ chính thống"} ({formatVNNumber(filteredHouseholds.length)})
               </span>
@@ -736,11 +731,11 @@ export default function HouseholdManagement({
                 <table className="w-full text-left border-collapse text-xs">
                   <thead>
                     <tr className="bg-slate-50 border-b border-slate-200 text-xs font-bold text-slate-700 uppercase tracking-wider">
-                      <th className="py-3.5 px-4 min-w-[230px] whitespace-nowrap">Mã sổ & Chủ hộ</th>
-                      <th className="py-3.5 px-4 min-w-[260px] whitespace-nowrap">Địa chỉ & Khu vực KP3</th>
-                      <th className="py-3.5 px-4 min-w-[180px] whitespace-nowrap">Loại hộ & Nhân khẩu</th>
-                      <th className="py-3.5 px-4 min-w-[170px] whitespace-nowrap">Định vị & Sổ đỏ</th>
-                      <th className="py-3.5 px-4 text-right min-w-[190px] whitespace-nowrap sticky right-0 bg-slate-50 shadow-[-4px_0_8px_-4px_rgba(0,0,0,0.08)] z-10">
+                      <th className="py-2.5 px-3.5 min-w-[230px] whitespace-nowrap">Mã sổ &amp; Chủ hộ</th>
+                      <th className="py-2.5 px-3.5 min-w-[260px] whitespace-nowrap">Địa chỉ &amp; Khu vực KP3</th>
+                      <th className="py-2.5 px-3.5 min-w-[180px] whitespace-nowrap">Loại hộ &amp; Nhân khẩu</th>
+                      <th className="py-2.5 px-3.5 min-w-[170px] whitespace-nowrap">Định vị &amp; Sổ đỏ</th>
+                      <th className="py-2.5 px-3.5 text-right min-w-[190px] whitespace-nowrap sticky right-0 bg-slate-50 shadow-[-4px_0_8px_-4px_rgba(0,0,0,0.08)] z-10">
                         Thao tác
                       </th>
                     </tr>

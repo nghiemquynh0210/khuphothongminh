@@ -445,7 +445,7 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
             </span>
           </div>
 
-          <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200 text-sm text-slate-800 leading-relaxed whitespace-pre-line">
+          <div className="p-3 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-700 leading-relaxed whitespace-pre-line">
             {task.description}
           </div>
 

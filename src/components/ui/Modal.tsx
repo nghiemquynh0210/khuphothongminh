@@ -48,7 +48,7 @@ export function Modal({
   size = "xl",
   children,
   footer,
-  bodyClassName = "p-5 sm:p-6 bg-white",
+  bodyClassName = "p-5 bg-white text-xs",
   footerClassName = "justify-end",
   closeOnOverlayClick = true,
   compact = false,
@@ -134,8 +134,8 @@ export function Modal({
         } flex flex-col bg-white rounded-2xl border border-slate-200 shadow-xl overflow-hidden z-10 focus:outline-none`}
       >
         <div
-          className={`flex items-start justify-between gap-2.5 bg-white border-b border-slate-200 shrink-0 ${
-            compact ? "px-4 py-2.5 sm:px-5 sm:py-3" : "px-5 py-4 sm:px-6"
+          className={`flex items-start justify-between gap-2.5 bg-slate-50/60 border-b border-slate-200/80 shrink-0 ${
+            compact ? "px-4 py-2.5 sm:px-5 sm:py-3" : "px-5 py-3.5"
           }`}
         >
           {headerSlot ? (
@@ -144,11 +144,11 @@ export function Modal({
             </div>
           ) : (
             <div className="min-w-0 flex-1 pr-2">
-              <h2 id={titleId} className="text-base sm:text-lg font-bold text-slate-900 tracking-tight">
+              <h2 id={titleId} className="text-sm sm:text-base font-extrabold text-slate-900 tracking-tight">
                 {title}
               </h2>
               {description && (
-                <p className="mt-1 text-xs sm:text-sm text-slate-600 leading-relaxed text-pretty">
+                <p className="mt-0.5 text-xs text-slate-500 leading-relaxed text-pretty">
                   {description}
                 </p>
               )}

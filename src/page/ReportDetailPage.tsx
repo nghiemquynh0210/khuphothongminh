@@ -50,7 +50,7 @@ import { uploadReportImages } from "../utils/imageUpload";
 import { formatShortRecordId } from "../utils/kp3Utils";
 import { DetailList, DetailRow } from "../components/common/DetailRow";
 import { LoadingFade } from "../components/common/LoadingFade";
-import { PageHeader } from "../components/common/PageHeader";
+import { RecordDetailShell } from "../components/common/RecordDetailShell";
 import { Button, StatusBadge } from "../components/ui";
 import { InlineNotice } from "../components/ui/ConfirmModal";
 import { ReportSelect } from "../components/reports/ReportSelect";
@@ -349,137 +349,71 @@ export default function ReportDetailPage({
   const quickReplies = readOnly ? CITIZEN_QUICK_REPLIES : CANBO_QUICK_REPLIES;
 
   return (
-    <div className="space-y-4 sm:space-y-5 animate-fade-in">
-      <PageHeader
-        badgeIcon={
-          <MessageSquareWarning
-            size={14}
-            className="text-emerald-700 shrink-0"
-          />
-        }
-        badgeText={`Hồ sơ phản ánh • ${formatShortRecordId(report.id, "PA")}`}
-        badgeSubtext={report.status}
-        title={report.title}
-        description={`${report.location} • Gửi lúc ${report.reportedAt}`}
-        actions={
-          <div className="flex flex-wrap items-center gap-2">
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              leftIcon={<ArrowLeft size={14} />}
-              onClick={handleBack}
-            >
-              Quay lại danh sách
-            </Button>
-            {onNavigateToGis && (
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                leftIcon={<MapPin size={14} className="text-emerald-700" />}
-                onClick={() => onNavigateToGis(reportToTargetGisItem(report))}
-              >
-                Bản đồ GIS
-              </Button>
-            )}
-            {!readOnly && (
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                leftIcon={<CheckSquare size={14} className="text-indigo-700" />}
-                onClick={handleQuickCreateKp3Task}
-              >
-                Giao thành Nhiệm vụ KP3
-              </Button>
-            )}
-            {!readOnly && (
-              <>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  leftIcon={<Edit2 size={14} />}
-                  onClick={() => {
-                    if (onEdit) onEdit(report);
-                    else navigate(getReportEditPath(report.id));
-                  }}
-                >
-                  Chỉnh sửa
-                </Button>
-                <Button
-                  type="button"
-                  variant="destructive"
-                  size="sm"
-                  leftIcon={<Trash2 size={14} />}
-                  onClick={() => setDeleteTarget(report)}
-                >
-                  Xóa
-                </Button>
-              </>
-            )}
-            {!readOnly && report.status === "Đã tiếp nhận" && (
-              <Button
-                type="button"
-                variant="primary"
-                size="sm"
-                onClick={() => {
-                  onStartProcess(report);
-                  setPageNotice(
-                    `Đã chuyển hồ sơ ${report.id} sang trạng thái Đang xử lý.`
-                  );
-                }}
-              >
-                Tiếp nhận &amp; Giao xử lý
-              </Button>
-            )}
-            {!readOnly && report.status === "Đang xử lý" && (
-              <Button
-                type="button"
-                variant="emerald"
-                size="sm"
-                leftIcon={<CheckCircle2 size={14} />}
-                onClick={() => {
-                  if (onResolve) onResolve(report);
-                  else navigate(getReportResolvePath(report.id));
-                }}
-              >
-                Hoàn tất &amp; Đính kèm ảnh Sau
-              </Button>
-            )}
-          </div>
-        }
-      />
-
-      {pageNotice && (
+    <RecordDetailShell
+      backLabel="Danh sách phản ánh"
+      onBack={handleBack}
+      seamlessBody
+      maxWidthClass="max-w-6xl"
+      topRightSlot={
         <>
-          <div
-            role="status"
-            aria-live="polite"
-            className="fixed bottom-6 right-6 z-50 bg-slate-900 text-white border border-emerald-500/40 px-4 py-3 rounded-xl shadow-xl flex items-center gap-2.5 text-xs font-medium max-w-sm"
-          >
-            <CheckCircle2 size={16} className="text-emerald-400 shrink-0" aria-hidden="true" />
-            <span>{pageNotice}</span>
-          </div>
-          <InlineNotice
-            type="success"
-            message={pageNotice}
-            onDismiss={() => setPageNotice(null)}
-          />
+          {onNavigateToGis && (
+            <button
+              type="button"
+              onClick={() => onNavigateToGis(reportToTargetGisItem(report))}
+              className="inline-flex items-center gap-1.5 h-8 px-2.5 rounded-lg bg-white hover:bg-slate-50 border border-slate-200/90 text-slate-700 text-xs font-semibold cursor-pointer transition-colors"
+            >
+              <MapPin size={13} className="text-emerald-700" />
+              <span>Bản đồ GIS</span>
+            </button>
+          )}
+          {!readOnly && (
+            <button
+              type="button"
+              onClick={handleQuickCreateKp3Task}
+              className="inline-flex items-center gap-1.5 h-8 px-2.5 rounded-lg bg-white hover:bg-slate-50 border border-slate-200/90 text-slate-700 text-xs font-semibold cursor-pointer transition-colors"
+            >
+              <CheckSquare size={13} className="text-indigo-700" />
+              <span>Giao thành Nhiệm vụ KP3</span>
+            </button>
+          )}
         </>
-      )}
-
-      {/* Top Metadata & Badges */}
-      <div className="flex flex-wrap items-center justify-between gap-2 p-3 sm:p-4 rounded-xl bg-white border border-slate-200 shadow-2xs">
-        <div className="flex flex-wrap items-center gap-2 min-w-0 flex-1">
+      }
+      noticeSlot={
+        pageNotice ? (
+          <>
+            <div
+              role="status"
+              aria-live="polite"
+              className="fixed bottom-6 right-6 z-50 bg-slate-900 text-white border border-emerald-500/40 px-4 py-3 rounded-xl shadow-xl flex items-center gap-2.5 text-xs font-medium max-w-sm"
+            >
+              <CheckCircle2 size={16} className="text-emerald-400 shrink-0" aria-hidden="true" />
+              <span>{pageNotice}</span>
+            </div>
+            <InlineNotice
+              type="success"
+              message={pageNotice}
+              onDismiss={() => setPageNotice(null)}
+            />
+          </>
+        ) : undefined
+      }
+      avatarSlot={
+        <div className="w-12 h-12 rounded-xl bg-slate-50 border border-slate-200/90 text-emerald-700 flex items-center justify-center">
+          <MessageSquareWarning size={20} aria-hidden="true" />
+        </div>
+      }
+      badgesSlot={
+        <>
+          <span className="font-mono font-semibold px-2 py-0.5 rounded-md bg-slate-100 text-slate-700 border border-slate-200/80">
+            {formatShortRecordId(report.id, "PA")}
+          </span>
           <span
-            className={`px-2.5 py-0.5 rounded-full text-xs font-semibold border ${catMeta.badgeBg} ${catMeta.badgeText} ${catMeta.badgeBorder}`}
+            className={`px-2.5 py-0.5 rounded-full font-semibold border ${catMeta.badgeBg} ${catMeta.badgeText} ${catMeta.badgeBorder}`}
           >
             {report.category}
           </span>
           <span
-            className={`px-2.5 py-0.5 rounded-full text-xs font-semibold border ${prioMeta.bg} ${prioMeta.text} ${prioMeta.border}`}
+            className={`px-2.5 py-0.5 rounded-full font-semibold border ${prioMeta.bg} ${prioMeta.text} ${prioMeta.border}`}
           >
             {prioMeta.label} ({prioMeta.shortSla})
           </span>
@@ -489,7 +423,7 @@ export default function ReportDetailPage({
             size="sm"
           />
           <span
-            className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold border ${
+            className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full font-semibold border ${
               sla.state === "overdue"
                 ? "bg-rose-50 text-rose-800 border-rose-200"
                 : sla.state === "warning"
@@ -499,23 +433,87 @@ export default function ReportDetailPage({
                 : "bg-slate-50 text-slate-700 border-slate-200"
             }`}
           >
-            <Clock size={12} aria-hidden="true" />
-            {sla.label}
+            <Clock size={11} aria-hidden="true" />
+            <span>{sla.label}</span>
           </span>
           {report.timemarkVerified && (
-            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-amber-50 text-amber-900 border border-amber-300 shadow-2xs">
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full font-semibold bg-amber-50 text-amber-900 border border-amber-200">
               <Sparkles size={11} className="text-amber-600" />
               <span>Timemark GPS</span>
             </span>
           )}
           {report.linkedHouseholdCode && (
-            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-blue-50 text-blue-800 border border-blue-200">
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full font-semibold bg-blue-50 text-blue-800 border border-blue-200">
               <Home size={11} className="text-blue-600" />
               <span>Hộ {report.linkedHouseholdCode}</span>
             </span>
           )}
-        </div>
-      </div>
+        </>
+      }
+      title={report.title}
+      subtitleSlot={
+        <>
+          <span className="inline-flex items-center gap-1 text-slate-600">
+            <MapPin size={13} className="text-slate-400 shrink-0" />
+            <span>{report.location}</span>
+          </span>
+          <span className="font-mono text-slate-700">Gửi lúc {report.reportedAt}</span>
+          <span>Phụ trách: <strong className="text-slate-800">{report.assignedUnit || "Ban Điều hành KP3"}</strong></span>
+        </>
+      }
+      actionsSlot={
+        !readOnly ? (
+          <>
+            {report.status === "Đã tiếp nhận" && (
+              <button
+                type="button"
+                onClick={() => {
+                  onStartProcess(report);
+                  setPageNotice(
+                    `Đã chuyển hồ sơ ${report.id} sang trạng thái Đang xử lý.`
+                  );
+                }}
+                className="h-9 px-3.5 bg-slate-900 hover:bg-slate-800 text-white rounded-lg text-xs font-semibold cursor-pointer transition-colors shadow-2xs"
+              >
+                Tiếp nhận &amp; Giao xử lý
+              </button>
+            )}
+            {report.status === "Đang xử lý" && (
+              <button
+                type="button"
+                onClick={() => {
+                  if (onResolve) onResolve(report);
+                  else navigate(getReportResolvePath(report.id));
+                }}
+                className="inline-flex items-center gap-1.5 h-9 px-3.5 bg-emerald-700 hover:bg-emerald-800 text-white rounded-lg text-xs font-semibold cursor-pointer transition-colors shadow-2xs"
+              >
+                <CheckCircle2 size={14} />
+                <span>Hoàn tất &amp; Đính kèm ảnh Sau</span>
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={() => {
+                if (onEdit) onEdit(report);
+                else navigate(getReportEditPath(report.id));
+              }}
+              className="inline-flex items-center gap-1.5 h-9 px-3 bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 rounded-lg text-xs font-semibold cursor-pointer transition-colors"
+            >
+              <Edit2 size={13} />
+              <span>Chỉnh sửa</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setDeleteTarget(report)}
+              className="inline-flex items-center gap-1.5 h-9 px-3 bg-white hover:bg-rose-50 border border-slate-200 hover:border-rose-200 text-rose-600 rounded-lg text-xs font-semibold cursor-pointer transition-colors"
+            >
+              <Trash2 size={13} />
+              <span>Xóa</span>
+            </button>
+          </>
+        ) : undefined
+      }
+    >
 
       {/* Main 2-Column Workspace */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-start">
@@ -708,11 +706,11 @@ export default function ReportDetailPage({
           </div>
 
           {/* Description & Metadata Details */}
-          <div className="rounded-xl border border-slate-200 bg-white p-4 space-y-3 shadow-2xs">
-            <div className="text-xs font-bold text-slate-800 uppercase tracking-wider">
+          <div className="rounded-xl border border-slate-200 bg-white p-4 space-y-3 shadow-2xs text-xs">
+            <div className="text-xs font-bold text-slate-900 uppercase tracking-wider border-b border-slate-200 pb-2">
               Thông tin chi tiết
             </div>
-            <p className="text-xs sm:text-sm text-slate-700 leading-relaxed bg-slate-50 p-3 rounded-lg border border-slate-100">
+            <p className="text-xs text-slate-700 leading-relaxed bg-slate-50 p-3 rounded-lg border border-slate-100">
               {report.description}
             </p>
             <DetailList hideEmpty compact>
@@ -811,10 +809,10 @@ export default function ReportDetailPage({
                         : "bg-slate-400"
                     }`}
                   />
-                  <div className="text-xs font-mono text-slate-600">
+                  <div className="text-[11px] font-mono text-slate-500">
                     {step.time}
                   </div>
-                  <div className="text-sm font-bold text-slate-900">
+                  <div className="text-xs font-bold text-slate-900">
                     {step.title}
                   </div>
                   <p className="text-xs text-slate-700 mt-0.5 leading-relaxed">
@@ -841,10 +839,10 @@ export default function ReportDetailPage({
                   aria-hidden="true"
                 />
                 <div>
-                  <h4 className="text-sm font-bold text-slate-900">
+                  <h4 className="text-xs font-bold text-slate-900 uppercase tracking-wider">
                     Trao đổi 2 chiều Cư dân ↔ Cán bộ
                   </h4>
-                  <p className="text-xs text-slate-600">
+                  <p className="text-[11px] text-slate-500">
                     Hỏi đáp hiện trường và gửi bổ sung hình ảnh trực tiếp
                   </p>
                 </div>
@@ -944,7 +942,7 @@ export default function ReportDetailPage({
                         </span>
                       </div>
 
-                      <p className="text-sm text-slate-800 leading-relaxed whitespace-pre-line">
+                      <p className="text-xs text-slate-800 leading-relaxed whitespace-pre-line">
                         {msg.content}
                       </p>
 
@@ -1067,7 +1065,7 @@ export default function ReportDetailPage({
                       ? "Nhập ghi chú phối hợp nội bộ tổ công tác..."
                       : "Nhập nội dung trao đổi hoặc hướng dẫn..."
                   }
-                  className="flex-1 h-9 px-3 bg-white text-slate-900 text-sm rounded-lg border border-slate-300 placeholder:text-slate-500 focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-500/20"
+                  className="flex-1 h-9 px-3 bg-white text-slate-900 text-xs rounded-lg border border-slate-300 placeholder:text-slate-500 focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-500/20"
                 />
 
                 <Button
@@ -1234,7 +1232,7 @@ export default function ReportDetailPage({
         onChangeIndex={(index) => setLightboxState((s) => ({ ...s, index }))}
         onClose={() => setLightboxState({ items: [], index: 0 })}
       />
-    </div>
+    </RecordDetailShell>
   );
 }
 

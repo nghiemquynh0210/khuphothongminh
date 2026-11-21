@@ -522,7 +522,7 @@ export const ScheduleDetailModal: React.FC<ScheduleDetailModalProps> = ({
           </dl>
 
           {(schedule.description || schedule.content) && (
-            <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200 text-xs sm:text-sm text-slate-800 leading-relaxed whitespace-pre-line">
+            <div className="p-3 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-700 leading-relaxed whitespace-pre-line">
               {schedule.description || schedule.content}
             </div>
           )}

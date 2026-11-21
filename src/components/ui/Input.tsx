@@ -74,12 +74,12 @@ export const Input = React.forwardRef<HTMLInputElement, InputProps>(
             disabled={disabled}
             aria-invalid={error ? "true" : "false"}
             aria-describedby={describedByParts.length > 0 ? describedByParts.join(" ") : undefined}
-            className={`w-full h-11 md:h-10 bg-white text-slate-900 text-sm rounded-lg border transition-colors duration-150 placeholder:text-slate-500 disabled:bg-slate-100 disabled:text-slate-500 disabled:cursor-not-allowed focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-500/20 ${
+            className={`w-full h-9 bg-white text-slate-900 text-xs rounded-lg border transition-colors duration-150 placeholder:text-slate-400 disabled:bg-slate-100 disabled:text-slate-500 disabled:cursor-not-allowed focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-500/20 ${
               leftIcon ? "pl-9" : "pl-3"
-            } ${rightElement ? "pr-10" : "pr-3"} ${
+            } ${rightElement ? "pr-9" : "pr-3"} ${
               error
                 ? "border-rose-600 bg-rose-50/40 focus:border-rose-600 focus:ring-rose-500/20"
-                : "border-slate-300 hover:border-slate-400"
+                : "border-slate-200 hover:border-slate-300"
             } ${className}`}
             {...props}
           />

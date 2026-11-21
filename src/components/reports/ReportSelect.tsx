@@ -119,19 +119,19 @@ export function ReportSelect({
         disabled={disabled}
         onClick={() => !disabled && setIsOpen((o) => !o)}
         onKeyDown={handleKeyDown}
-        className={`group flex h-11 md:h-10 w-full items-center justify-between gap-2 rounded-lg border bg-white px-3 text-left text-sm transition-colors cursor-pointer disabled:bg-slate-100 disabled:text-slate-500 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:border-emerald-600 focus-visible:ring-2 focus-visible:ring-emerald-500/20 ${
+        className={`group flex h-9 w-full items-center justify-between gap-2 rounded-lg border bg-white px-3 text-left text-xs transition-colors cursor-pointer disabled:bg-slate-100 disabled:text-slate-500 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:border-emerald-600 focus-visible:ring-2 focus-visible:ring-emerald-500/20 ${
           isOpen
             ? "border-emerald-600 ring-2 ring-emerald-500/20"
-            : "border-slate-300 hover:border-slate-400 hover:bg-slate-100"
+            : "border-slate-200 hover:border-slate-300 hover:bg-slate-50"
         } ${buttonClassName}`}
       >
-        <span className={`truncate ${selectedOption ? "text-slate-900 font-medium" : "text-slate-500"}`}>
+        <span className={`truncate ${selectedOption ? "text-slate-900 font-semibold" : "text-slate-500"}`}>
           {selectedOption ? selectedOption.label : placeholder}
         </span>
         <ChevronDown
-          size={15}
+          size={14}
           aria-hidden="true"
-          className={`shrink-0 text-slate-500 transition-transform duration-150 ${
+          className={`shrink-0 text-slate-400 transition-transform duration-150 ${
             isOpen ? "rotate-180 text-emerald-700" : ""
           }`}
         />
@@ -141,7 +141,7 @@ export function ReportSelect({
         <div
           id={listboxId}
           role="listbox"
-          className="absolute left-0 right-0 mt-1.5 min-w-full max-w-[calc(100vw-2rem)] max-h-64 sm:max-h-72 overflow-y-auto evon-scroll rounded-xl border border-slate-200 bg-white p-1.5 shadow-lg space-y-1 z-50 origin-top transition-all duration-150"
+          className="absolute left-0 right-0 mt-1 min-w-full max-w-[calc(100vw-2rem)] max-h-64 sm:max-h-72 overflow-y-auto evon-scroll rounded-xl border border-slate-200 bg-white p-1 shadow-lg space-y-0.5 z-50 origin-top transition-all duration-150"
         >
           {options.map((opt, idx) => {
             const selected = opt.value === value;
@@ -157,7 +157,7 @@ export function ReportSelect({
                   onChange(opt.value);
                   setIsOpen(false);
                 }}
-                className={`w-full shrink-0 h-auto min-h-9 flex items-start justify-between gap-2 rounded-lg px-2.5 py-2 text-left text-xs sm:text-sm transition-colors cursor-pointer ${
+                className={`w-full shrink-0 h-auto min-h-8 flex items-start justify-between gap-2 rounded-lg px-2.5 py-1.5 text-left text-xs transition-colors cursor-pointer ${
                   highlighted ? "bg-slate-100 text-slate-900" : "text-slate-700"
                 } ${selected ? "font-semibold text-emerald-800 bg-emerald-50/70" : ""}`}
               >

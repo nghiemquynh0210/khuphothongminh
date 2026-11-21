@@ -15,6 +15,7 @@ import {
   Layers,
   Loader2,
   MapPin,
+  Megaphone,
   PauseCircle,
   RefreshCw,
   Send,
@@ -43,6 +44,7 @@ interface WeeklyScheduleMatrixProps {
     mode?: "reschedule" | "delegate" | "postpone"
   ) => void;
   onEditSchedule: (sch: ScheduleEvent) => void;
+  onDraftBroadcast?: (sch: ScheduleEvent) => void;
   onNotify?: (msg: string, tone?: "success" | "info" | "warning") => void;
 }
 
@@ -78,6 +80,7 @@ export const WeeklyScheduleMatrix: React.FC<WeeklyScheduleMatrixProps> = ({
   onSelectSchedule,
   onOpenReschedule,
   onEditSchedule,
+  onDraftBroadcast,
   onNotify,
 }) => {
   const keyLeaders = useMemo(
@@ -332,8 +335,8 @@ export const WeeklyScheduleMatrix: React.FC<WeeklyScheduleMatrixProps> = ({
       >
         <div className="flex flex-wrap items-center justify-between gap-1.5">
           <div className="flex flex-wrap items-center gap-1.5">
-            <span className="px-2 py-0.5 rounded bg-slate-900 text-white font-mono font-bold text-[11px] inline-flex items-center gap-1">
-              <Clock size={11} />
+            <span className="px-2 py-0.5 rounded-md bg-slate-100 text-slate-800 border border-slate-200 font-mono font-bold text-[11px] inline-flex items-center gap-1">
+              <Clock size={11} className="text-emerald-700" />
               {sch.time}
             </span>
             {renderSourcePill(sch)}
@@ -425,15 +428,28 @@ export const WeeklyScheduleMatrix: React.FC<WeeklyScheduleMatrixProps> = ({
             </button>
           </div>
 
-          <button
-            type="button"
-            onClick={() => onEditSchedule(sch)}
-            className="p-1 rounded-md text-slate-500 hover:text-slate-900 hover:bg-slate-100 cursor-pointer"
-            title="Sửa đầy đủ thông tin lịch"
-            aria-label={`Sửa lịch ${sch.title}`}
-          >
-            <Edit2 size={13} />
-          </button>
+          <div className="flex items-center gap-1">
+            {onDraftBroadcast && (
+              <button
+                type="button"
+                onClick={() => onDraftBroadcast(sch)}
+                className="p-1.5 rounded-md text-emerald-700 hover:text-emerald-900 hover:bg-emerald-50 cursor-pointer"
+                title="Soạn thông báo gửi Người dân / Chi hội từ lịch này"
+                aria-label={`Soạn thông báo từ lịch ${sch.title}`}
+              >
+                <Megaphone size={13} />
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={() => onEditSchedule(sch)}
+              className="p-1.5 rounded-md text-slate-500 hover:text-slate-900 hover:bg-slate-100 cursor-pointer"
+              title="Sửa đầy đủ thông tin lịch"
+              aria-label={`Sửa lịch ${sch.title}`}
+            >
+              <Edit2 size={13} />
+            </button>
+          </div>
         </div>
       </div>
     );
@@ -442,27 +458,27 @@ export const WeeklyScheduleMatrix: React.FC<WeeklyScheduleMatrixProps> = ({
   return (
     <div className="space-y-4">
       {/* Thanh điều khiển Tuần & Lọc Cán bộ KP3 */}
-      <div className="bg-white p-3.5 rounded-2xl border border-slate-200/90 flex flex-col lg:flex-row lg:items-center justify-between gap-3">
+      <div className="bg-white p-3 rounded-xl border border-slate-200/80 shadow-2xs flex flex-col lg:flex-row lg:items-center justify-between gap-2.5 text-xs">
         <div className="flex flex-wrap items-center gap-2">
-          <div className="inline-flex items-center bg-slate-100 p-1 rounded-xl border border-slate-200">
+          <div className="inline-flex items-center h-8 bg-slate-50 p-0.5 rounded-lg border border-slate-200">
             <button
               type="button"
               onClick={() => setWeekMondayIso(shiftIsoDateByDays(weekMondayIso, -7))}
               aria-label="Tuần trước"
-              className="p-1.5 rounded-lg hover:bg-white text-slate-700 cursor-pointer"
+              className="h-full px-1.5 rounded-md hover:bg-white text-slate-700 cursor-pointer"
             >
-              <ChevronLeft size={16} />
+              <ChevronLeft size={14} />
             </button>
-            <span className="px-3 text-xs font-black text-slate-900 font-mono whitespace-nowrap">
+            <span className="px-2.5 text-xs font-bold text-slate-900 font-mono whitespace-nowrap">
               Tuần: {weekDays[0].dmy} – {weekDays[6].dmy}
             </span>
             <button
               type="button"
               onClick={() => setWeekMondayIso(shiftIsoDateByDays(weekMondayIso, 7))}
               aria-label="Tuần sau"
-              className="p-1.5 rounded-lg hover:bg-white text-slate-700 cursor-pointer"
+              className="h-full px-1.5 rounded-md hover:bg-white text-slate-700 cursor-pointer"
             >
-              <ChevronRight size={16} />
+              <ChevronRight size={14} />
             </button>
           </div>
 
@@ -475,7 +491,7 @@ export const WeeklyScheduleMatrix: React.FC<WeeklyScheduleMatrixProps> = ({
                 setWeekMondayIso(getMondayOfIsoDate(e.target.value));
               }
             }}
-            className="h-9 px-2.5 rounded-xl border border-slate-200 text-xs font-mono text-slate-800 bg-white"
+            className="h-8 px-2.5 rounded-lg border border-slate-200 text-xs font-mono text-slate-800 bg-white"
           />
 
           {/* Lọc nhanh theo Cán bộ KP3 */}
@@ -496,9 +512,9 @@ export const WeeklyScheduleMatrix: React.FC<WeeklyScheduleMatrixProps> = ({
                 key={f.id}
                 type="button"
                 onClick={() => setOfficerFilter(f.id)}
-                className={`px-2.5 py-1.5 rounded-xl text-xs font-bold border cursor-pointer transition-colors ${
+                className={`h-8 px-2.5 rounded-lg text-xs font-semibold border cursor-pointer transition-colors ${
                   officerFilter === f.id
-                    ? "bg-emerald-700 text-white border-emerald-700"
+                    ? "bg-slate-900 text-white border-slate-900"
                     : "bg-white text-slate-700 border-slate-200 hover:bg-slate-50"
                 }`}
               >
@@ -513,29 +529,29 @@ export const WeeklyScheduleMatrix: React.FC<WeeklyScheduleMatrixProps> = ({
             type="button"
             disabled={sendingWeekZalo}
             onClick={() => handleDispatchZaloMeetingReminder()}
-            className="px-3.5 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold inline-flex items-center gap-1.5 cursor-pointer transition-colors disabled:opacity-50"
+            className="h-8 px-3 rounded-lg bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-semibold inline-flex items-center gap-1.5 cursor-pointer transition-colors disabled:opacity-50 shadow-2xs"
             title="Tự động nhắc lịch họp tuần qua Zalo OA Ban Điều hành Khu phố 3 cho các cán bộ tham dự"
           >
             {sendingWeekZalo ? (
-              <Loader2 size={14} className="animate-spin" />
+              <Loader2 size={13} className="animate-spin" />
             ) : (
-              <Send size={14} />
+              <Send size={13} />
             )}
-            <span>Nhắc Lịch Cán bộ qua Zalo OA</span>
+            <span>Nhắc Lịch Cán bộ (Zalo OA)</span>
           </button>
 
           <button
             type="button"
             onClick={handleCopyZaloDigest}
-            className="px-3.5 py-2 rounded-xl bg-blue-50 hover:bg-blue-100 text-blue-900 border border-blue-200 text-xs font-bold inline-flex items-center gap-1.5 cursor-pointer transition-colors"
+            className="h-8 px-3 rounded-lg bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 text-xs font-semibold inline-flex items-center gap-1.5 cursor-pointer transition-colors"
           >
             {copiedZalo ? (
-              <Check size={14} className="text-emerald-700" />
+              <Check size={13} className="text-emerald-700" />
             ) : (
-              <Copy size={14} />
+              <Copy size={13} />
             )}
             <span>
-              {copiedZalo ? "Đã chép bản tin Zalo!" : "Copy Lịch tuần"}
+              {copiedZalo ? "Đã chép bản tin!" : "Copy Lịch tuần"}
             </span>
           </button>
         </div>
@@ -585,20 +601,20 @@ export const WeeklyScheduleMatrix: React.FC<WeeklyScheduleMatrixProps> = ({
       )}
 
       {/* Bảng Lịch Tuần Hành Chính (Thứ Hai -> Chủ Nhật | Sáng / Chiều & Tối) */}
-      <div className="bg-white rounded-2xl border border-slate-200/90 overflow-hidden shadow-2xs">
-        <div className="hidden xl:grid xl:grid-cols-12 bg-slate-900 text-white text-xs font-bold uppercase tracking-wider">
-          <div className="xl:col-span-2 p-3 border-r border-slate-800">
+      <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-2xs text-xs">
+        <div className="hidden xl:grid xl:grid-cols-12 bg-slate-50 text-slate-700 border-b border-slate-200 text-xs font-bold uppercase tracking-wider">
+          <div className="xl:col-span-2 py-2.5 px-3.5 border-r border-slate-200">
             Thứ / Ngày
           </div>
-          <div className="xl:col-span-5 p-3 border-r border-slate-800">
+          <div className="xl:col-span-5 py-2.5 px-3.5 border-r border-slate-200">
             Buổi Sáng (07:00 – 11:30)
           </div>
-          <div className="xl:col-span-5 p-3">
+          <div className="xl:col-span-5 py-2.5 px-3.5">
             Buổi Chiều &amp; Tối (13:30 – 21:00)
           </div>
         </div>
 
-        <div className="divide-y divide-slate-200">
+        <div className="divide-y divide-slate-200/80">
           {weekDays.map((wd) => {
             const dayItems = kp3WeekSchedules.filter((s) => s.date === wd.iso);
             const morningItems = dayItems.filter(
@@ -613,13 +629,13 @@ export const WeeklyScheduleMatrix: React.FC<WeeklyScheduleMatrixProps> = ({
               <div
                 key={wd.iso}
                 className={`grid grid-cols-1 xl:grid-cols-12 ${
-                  isToday ? "bg-emerald-50/30" : ""
+                  isToday ? "bg-emerald-50/25" : ""
                 }`}
               >
                 {/* Thanh tiêu đề ngang (dưới 1280px) / Cột Thứ-Ngày (từ 1280px) */}
-                <div className="xl:col-span-2 p-3 bg-slate-50/80 border-b xl:border-b-0 xl:border-r border-slate-200 flex flex-wrap xl:flex-col items-center xl:items-start justify-between xl:justify-start gap-1.5 min-w-0">
+                <div className="xl:col-span-2 p-3 bg-slate-50/60 border-b xl:border-b-0 xl:border-r border-slate-200/80 flex flex-wrap xl:flex-col items-center xl:items-start justify-between xl:justify-start gap-1 min-w-0">
                   <div className="flex flex-wrap items-center gap-1.5">
-                    <span className="font-black text-slate-900 text-xs sm:text-sm whitespace-nowrap">
+                    <span className="font-bold text-slate-900 text-xs whitespace-nowrap">
                       {wd.dayName}
                     </span>
                     {isToday && (

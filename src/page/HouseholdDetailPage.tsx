@@ -39,6 +39,7 @@ import { DetailGrid, DetailRow } from "../components/common/DetailRow";
 import { LoadingFade } from "../components/common/LoadingFade";
 import { MultiParcelDetailView } from "../components/common/MultiParcelDetailView";
 import { PageHeader } from "../components/common/PageHeader";
+import { RecordDetailShell } from "../components/common/RecordDetailShell";
 import { SharedAddressHubCard } from "../components/common/SharedAddressHubCard";
 import { ReportSelect } from "../components/reports/ReportSelect";
 import { ConfirmModal, InlineNotice } from "../components/ui/ConfirmModal";
@@ -610,258 +611,182 @@ export default function HouseholdDetailPage({
   const isSoftDeleted = Boolean((household as any).deletedAt);
   const hType = household.type || "Thường trú";
 
+  const coLocatedCount = (() => {
+    const co = resolveCoLocatedEntities({
+      focusHousehold: household,
+      households,
+      businesses,
+    });
+    return co.enterprises.length + co.businesses.length;
+  })();
+
+  const householdTabs = [
+    {
+      id: "members",
+      label: `Thông tin & Thành viên (${household.members.length})`,
+      icon: <Users size={14} aria-hidden="true" />,
+    },
+    {
+      id: "businesses",
+      label: `Doanh nghiệp & Cơ sở KD cùng địa chỉ (${coLocatedCount})`,
+      icon: <Home size={14} aria-hidden="true" />,
+    },
+    {
+      id: "history",
+      label: "Nhật ký biến động",
+      icon: <History size={14} aria-hidden="true" />,
+    },
+  ];
+
   return (
-    <div className="max-w-5xl mx-auto space-y-4 pb-8 theme-loading-fade">
-      <PageHeader
-        badgeIcon={Home}
-        badgeText="SỔ HỘ KHẨU ĐIỆN TỬ • CSDL ĐỀ ÁN 06/CP"
-        badgeSubtext={household.code}
-        title={`Hộ gia đình: ${household.ownerName}`}
-        description={`${hType} • ${extractKp3Area(household.address)} • ${household.members.length} nhân khẩu • ${household.address}`}
-        showDate={false}
-        actions={
-          <div className="flex flex-wrap items-center gap-2">
-            <button
-              type="button"
-              id="btn-household-detail-back"
-              onClick={handleGoBack}
-              className="inline-flex items-center gap-1.5 px-3 py-2 bg-white hover:bg-slate-50 text-slate-700 border border-slate-300 rounded-xl text-xs font-bold transition-colors cursor-pointer"
-            >
-              <ArrowLeft size={14} />
-              <span>Danh sách hộ</span>
-            </button>
-
-            <div className="inline-flex items-center rounded-xl border border-slate-300 bg-white overflow-hidden">
-              <button
-                type="button"
-                disabled={!prevHousehold}
-                onClick={() =>
-                  prevHousehold && handleGoToHousehold(prevHousehold.id)
-                }
-                title={
-                  prevHousehold
-                    ? `Sổ hộ trước: ${prevHousehold.code}`
-                    : "Không có sổ hộ trước"
-                }
-                aria-label="Sổ hộ trước"
-                className="px-2.5 py-2 text-slate-700 hover:bg-slate-100 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer border-r border-slate-200 transition-colors"
-              >
-                <ChevronLeft size={15} />
-              </button>
-              <button
-                type="button"
-                disabled={!nextHousehold}
-                onClick={() =>
-                  nextHousehold && handleGoToHousehold(nextHousehold.id)
-                }
-                title={
-                  nextHousehold
-                    ? `Sổ hộ sau: ${nextHousehold.code}`
-                    : "Không có sổ hộ sau"
-                }
-                aria-label="Sổ hộ sau"
-                className="px-2.5 py-2 text-slate-700 hover:bg-slate-100 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer transition-colors"
-              >
-                <ChevronRight size={15} />
-              </button>
-            </div>
-
-            <button
-              type="button"
-              id="btn-detail-tree"
-              onClick={() => setShowTreeModal(true)}
-              className="inline-flex items-center gap-1.5 px-3 py-2 bg-white hover:bg-slate-50 text-slate-800 border border-slate-300 rounded-xl text-xs font-bold transition-colors cursor-pointer"
-            >
-              <GitBranch size={14} className="text-emerald-700" />
-              <span>Phả hệ</span>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => handleDirections(household)}
-              className="inline-flex items-center gap-1.5 px-3 py-2 bg-white hover:bg-slate-50 text-slate-800 border border-slate-300 rounded-xl text-xs font-bold transition-colors cursor-pointer"
-            >
-              <Navigation size={14} className="text-emerald-700" />
-              <span>Chỉ đường GIS</span>
-            </button>
-
-            {isSoftDeleted ? (
-              <button
-                type="button"
-                onClick={() => handleRestoreHousehold(household)}
-                className="inline-flex items-center gap-1.5 px-3 py-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 rounded-xl text-xs font-bold transition-colors cursor-pointer"
-              >
-                <Undo2 size={14} />
-                <span>Khôi phục</span>
-              </button>
-            ) : (
-              <button
-                type="button"
-                onClick={() => handleSoftDeleteHousehold(household)}
-                className="inline-flex items-center gap-1.5 px-3 py-2 bg-rose-50 hover:bg-rose-100 text-rose-800 border border-rose-200 rounded-xl text-xs font-bold transition-colors cursor-pointer"
-              >
-                <span>Đóng sổ</span>
-              </button>
-            )}
-
-            <button
-              type="button"
-              id="btn-detail-edit-household"
-              onClick={() => handleEditHousehold(household)}
-              className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl text-xs font-bold transition-colors cursor-pointer"
-            >
-              <Edit3 size={14} />
-              <span>Chỉnh sửa</span>
-            </button>
-          </div>
-        }
-      />
-
-      {notice && !showMoveModal && !showSplitModal && !showPinModal && (
-        <InlineNotice
-          message={notice.message}
-          type={notice.type}
-          onDismiss={() => setNotice(null)}
-        />
-      )}
-
-      {/* Main Card with Header Summary & Sub-Tabs */}
-      <div className="bg-white rounded-2xl border border-slate-200/80 shadow-xs overflow-hidden">
-        {/* Top Meta Strip */}
-        <div className="p-4 sm:p-5 border-b border-slate-200 bg-slate-50/70 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-          <div className="flex items-start sm:items-center gap-3">
-            <div className="w-12 h-12 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-700 flex items-center justify-center shrink-0">
-              <Home size={22} aria-hidden="true" />
-            </div>
-            <div className="min-w-0 space-y-1">
-              <div className="flex flex-wrap items-center gap-1.5 text-xs">
-                <span className="font-mono font-bold px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-800 border border-emerald-200">
-                  {household.code}
-                </span>
-                <span
-                  className={`px-2 py-0.5 rounded-full font-bold border ${
-                    hType === "Tạm trú"
-                      ? "bg-amber-50 text-amber-800 border-amber-200"
-                      : "bg-blue-50 text-blue-800 border-blue-200"
-                  }`}
-                >
-                  {hType}
-                </span>
-                <span className="font-semibold text-slate-600">
-                  {extractKp3Area(household.address)} · {household.members.length}{" "}
-                  nhân khẩu
-                </span>
-                {isSoftDeleted && (
-                  <span className="px-2 py-0.5 rounded-full font-bold bg-rose-50 text-rose-700 border border-rose-200">
-                    Đã lưu trữ
-                  </span>
-                )}
-                {household.timemarkVerified && (
-                  <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full font-bold bg-amber-50 text-amber-900 border border-amber-300 shadow-2xs">
-                    <Sparkles size={11} className="text-amber-600" />
-                    <span>Timemark GPS</span>
-                  </span>
-                )}
-                {(() => {
-                  const parcels = normalizeEntityLandParcels(household);
-                  if (parcels.length < 2) return null;
-                  return (
-                    <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full font-bold bg-indigo-50 text-indigo-800 border border-indigo-200">
-                      <Layers size={11} className="text-indigo-600" />
-                      <span>
-                        Ghép {String(parcels.length).padStart(2, "0")} Sổ đỏ
-                      </span>
-                    </span>
-                  );
-                })()}
-              </div>
-              <p className="text-xs text-slate-600 flex items-center gap-1.5">
-                <MapPin
-                  size={13}
-                  className="text-emerald-700 shrink-0"
-                  aria-hidden="true"
-                />
-                <span className="break-words">{household.address}</span>
-              </p>
-            </div>
-          </div>
-
-          <span className="text-[11px] font-mono bg-white text-slate-700 border border-slate-200 px-2.5 py-1 rounded-full font-semibold self-start sm:self-center shrink-0">
-            Param detail: {householdId}
+    <RecordDetailShell
+      backLabel="Danh sách hộ"
+      backButtonId="btn-household-detail-back"
+      onBack={handleGoBack}
+      navigation={{
+        hasPrev: Boolean(prevHousehold),
+        hasNext: Boolean(nextHousehold),
+        onPrev: () => prevHousehold && handleGoToHousehold(prevHousehold.id),
+        onNext: () => nextHousehold && handleGoToHousehold(nextHousehold.id),
+        prevTitle: prevHousehold ? `Sổ hộ trước: ${prevHousehold.code}` : "Không có sổ hộ trước",
+        nextTitle: nextHousehold ? `Sổ hộ sau: ${nextHousehold.code}` : "Không có sổ hộ sau",
+      }}
+      topRightSlot={
+        <div className="flex items-center gap-1.5">
+          <button
+            type="button"
+            id="btn-detail-tree"
+            onClick={() => setShowTreeModal(true)}
+            className="inline-flex items-center gap-1.5 h-8 px-2.5 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200/90 rounded-lg text-xs font-semibold transition-colors cursor-pointer"
+          >
+            <GitBranch size={13} className="text-slate-500" />
+            <span>Phả hệ</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => handleDirections(household)}
+            className="inline-flex items-center gap-1.5 h-8 px-2.5 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200/90 rounded-lg text-xs font-semibold transition-colors cursor-pointer"
+          >
+            <Navigation size={13} className="text-slate-500" />
+            <span>Chỉ đường GIS</span>
+          </button>
+        </div>
+      }
+      noticeSlot={
+        notice && !showMoveModal && !showSplitModal && !showPinModal ? (
+          <InlineNotice
+            message={notice.message}
+            type={notice.type}
+            onDismiss={() => setNotice(null)}
+          />
+        ) : undefined
+      }
+      avatarSlot={
+        <div className="w-12 h-12 rounded-xl bg-slate-50 border border-slate-200/90 text-emerald-700 flex items-center justify-center">
+          <Home size={20} aria-hidden="true" />
+        </div>
+      }
+      badgesSlot={
+        <>
+          <span className="font-mono font-semibold px-2 py-0.5 rounded-md bg-slate-100 text-slate-700 border border-slate-200/80">
+            {household.code}
           </span>
-        </div>
-
-        {/* Sub-Tabs */}
-        <div className="flex px-4 sm:px-5 gap-4 sm:gap-6 text-xs font-bold border-b border-slate-200 bg-white overflow-x-auto">
-          <button
-            type="button"
-            onClick={() => setDetailTab("members")}
-            className={`py-3 transition-colors relative cursor-pointer flex items-center gap-1.5 whitespace-nowrap ${
-              detailTab === "members"
-                ? "text-emerald-800 font-extrabold"
-                : "text-slate-500 hover:text-slate-800"
+          <span
+            className={`px-2.5 py-0.5 rounded-full font-semibold border ${
+              hType === "Tạm trú"
+                ? "bg-amber-50 text-amber-800 border-amber-200"
+                : "bg-emerald-50 text-emerald-800 border-emerald-200"
             }`}
           >
-            <Users size={14} aria-hidden="true" />
-            <span>
-              Thông tin &amp; Thành viên ({household.members.length})
+            {hType}
+          </span>
+          {isSoftDeleted && (
+            <span className="px-2.5 py-0.5 rounded-full font-semibold bg-rose-50 text-rose-700 border border-rose-200">
+              Đã lưu trữ
             </span>
-            {detailTab === "members" && (
-              <div className="absolute bottom-0 left-0 w-full h-0.5 bg-emerald-700" />
-            )}
-          </button>
-          <button
-            type="button"
-            onClick={() => setDetailTab("businesses")}
-            className={`py-3 transition-colors relative cursor-pointer flex items-center gap-1.5 whitespace-nowrap ${
-              detailTab === "businesses"
-                ? "text-emerald-800 font-extrabold"
-                : "text-slate-500 hover:text-slate-800"
-            }`}
-          >
-            <Home size={14} aria-hidden="true" />
-            <span>
-              Doanh nghiệp &amp; Cơ sở KD cùng địa chỉ (
-              {(() => {
-                const co = resolveCoLocatedEntities({
-                  focusHousehold: household,
-                  households,
-                  businesses,
-                });
-                return co.enterprises.length + co.businesses.length;
-              })()}
-              )
+          )}
+          {household.timemarkVerified && (
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full font-semibold bg-amber-50 text-amber-800 border border-amber-200">
+              <Sparkles size={11} className="text-amber-600" />
+              <span>Timemark GPS</span>
             </span>
-            {detailTab === "businesses" && (
-              <div className="absolute bottom-0 left-0 w-full h-0.5 bg-emerald-700" />
-            )}
-          </button>
+          )}
+          {(() => {
+            const parcels = normalizeEntityLandParcels(household);
+            if (parcels.length < 2) return null;
+            return (
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full font-semibold bg-slate-100 text-slate-700 border border-slate-200">
+                <Layers size={11} />
+                <span>Ghép {String(parcels.length).padStart(2, "0")} Sổ đỏ</span>
+              </span>
+            );
+          })()}
+        </>
+      }
+      title={`Hộ gia đình: ${household.ownerName}`}
+      subtitleSlot={
+        <>
+          <span className="inline-flex items-center gap-1 text-slate-600">
+            <MapPin size={13} className="text-slate-400 shrink-0" aria-hidden="true" />
+            <span className="break-words">{household.address}</span>
+          </span>
+          <span>
+            {extractKp3Area(household.address)} •{" "}
+            <strong className="text-slate-800">{household.members.length} nhân khẩu</strong>
+          </span>
+        </>
+      }
+      actionsSlot={
+        <>
+          {isSoftDeleted ? (
+            <button
+              type="button"
+              onClick={() => handleRestoreHousehold(household)}
+              className="inline-flex items-center gap-1.5 h-9 px-3 bg-white hover:bg-slate-50 text-emerald-700 border border-slate-200 rounded-lg text-xs font-semibold transition-colors cursor-pointer"
+            >
+              <Undo2 size={13} />
+              <span>Khôi phục</span>
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={() => handleSoftDeleteHousehold(household)}
+              className="inline-flex items-center gap-1.5 h-9 px-3 bg-white hover:bg-rose-50 text-rose-600 border border-slate-200 hover:border-rose-200 rounded-lg text-xs font-semibold transition-colors cursor-pointer"
+            >
+              <span>Đóng sổ</span>
+            </button>
+          )}
           <button
             type="button"
-            onClick={() => setDetailTab("history")}
-            className={`py-3 transition-colors relative cursor-pointer flex items-center gap-1.5 whitespace-nowrap ${
-              detailTab === "history"
-                ? "text-slate-900 font-extrabold"
-                : "text-slate-500 hover:text-slate-800"
-            }`}
+            id="btn-detail-edit-household"
+            onClick={() => handleEditHousehold(household)}
+            className="inline-flex items-center gap-1.5 h-9 px-3.5 bg-emerald-700 hover:bg-emerald-800 text-white rounded-lg text-xs font-semibold transition-colors cursor-pointer shadow-2xs"
           >
-            <History size={14} aria-hidden="true" />
-            <span>Nhật ký biến động</span>
-            {detailTab === "history" && (
-              <div className="absolute bottom-0 left-0 w-full h-0.5 bg-slate-900" />
-            )}
+            <Edit3 size={13} />
+            <span>Chỉnh sửa</span>
           </button>
-        </div>
+        </>
+      }
+      tabs={householdTabs}
+      activeTab={detailTab}
+      onTabChange={(id) => setDetailTab(id as any)}
+      bodyClassName="space-y-0"
+    >
 
         {/* Tab Body */}
-        <div className="p-4 sm:p-6 bg-white">
+        <div className="p-5 sm:p-6 bg-white text-xs">
           {detailTab === "members" && (
-            <div className="space-y-5">
-              <div className="bg-slate-50/70 rounded-xl border border-slate-200/90 p-4 space-y-2.5">
-                <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-200/70 pb-2">
-                  <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wider">
-                    Thông tin Sổ Hộ Khẩu
-                  </h3>
+            <div className="space-y-4 animate-in fade-in duration-200">
+              <div className="space-y-3">
+                <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-200 pb-2">
+                  <div className="flex items-center gap-2">
+                    <span className="p-1.5 bg-indigo-50 text-indigo-700 rounded-lg">
+                      <Home size={14} aria-hidden="true" />
+                    </span>
+                    <h4 className="text-xs font-bold text-slate-900 uppercase tracking-wider">
+                      Thông tin Sổ Hộ Khẩu
+                    </h4>
+                  </div>
                   <div className="flex flex-wrap items-center gap-1.5">
                     <button
                       type="button"
@@ -1299,7 +1224,6 @@ export default function HouseholdDetailPage({
             </div>
           )}
         </div>
-      </div>
 
       {/* Chuyển hộ tịch Modal */}
       {showMoveModal && moveTargetMember && (
@@ -1772,7 +1696,7 @@ export default function HouseholdDetailPage({
           onClose={() => setConfirmDialog(null)}
         />
       )}
-    </div>
+    </RecordDetailShell>
   );
 }
 

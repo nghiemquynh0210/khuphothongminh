@@ -18,6 +18,7 @@ import { COVER_PRESETS } from "../components/news/newsHelpers";
 import { DetailGrid, DetailRow } from "../components/common/DetailRow";
 import { LoadingFade } from "../components/common/LoadingFade";
 import { PageHeader } from "../components/common/PageHeader";
+import { RecordDetailShell } from "../components/common/RecordDetailShell";
 import { ConfirmModal, InlineNotice } from "../components/ui/ConfirmModal";
 import { formatShortRecordId } from "../utils/kp3Utils";
 import { loadPortalSetting, savePortalSetting } from "../utils/supabaseSync";
@@ -246,207 +247,170 @@ export default function EventDetailPage({
       : COVER_PRESETS[6]?.url || "https://images.unsplash.com/photo-1511578314322-379afb476865?w=1200&auto=format&fit=crop&q=80";
 
   return (
-    <div className="space-y-6 max-w-5xl mx-auto">
-      {notice && (
-        <InlineNotice
-          type={notice.type}
-          message={notice.message}
-          onDismiss={() => setNotice(null)}
-        />
-      )}
-
-      {/* Page Header */}
-      <PageHeader
-        title={event.title}
-        description="Lịch hội họp, phong trào & Hoạt động văn hóa - cộng đồng Khu phố 3"
-        badgeText={`Sự kiện KP3 • ${event.status}`}
-        actions={
-          <div className="flex flex-wrap items-center gap-2 shrink-0">
-            <button
-              type="button"
-              onClick={handleBack}
-              className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-bold text-slate-700 bg-white border border-slate-200 rounded-xl hover:bg-slate-50 cursor-pointer transition-colors shadow-sm whitespace-nowrap shrink-0"
-            >
-              <ArrowLeft size={14} /> Quay lại
-            </button>
-
-            <button
-              type="button"
-              onClick={() => {
-                if (onEdit) {
-                  onEdit(event);
-                } else {
-                  navigate(getEventEditPath(event.id, basePath));
-                }
-              }}
-              className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-bold text-white bg-emerald-700 hover:bg-emerald-800 rounded-xl shadow-sm cursor-pointer transition-colors whitespace-nowrap shrink-0"
-            >
-              <Edit3 size={14} /> Sửa sự kiện
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setDeleteTarget(event)}
-              className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-bold text-rose-700 bg-rose-50 border border-rose-200 hover:bg-rose-100 rounded-xl cursor-pointer transition-colors whitespace-nowrap shrink-0"
-            >
-              <Trash2 size={14} /> Xóa
-            </button>
-          </div>
-        }
-      />
-
-      {/* Main Container */}
-      <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-        {/* Event Utility Toolbar (Navigation, Share & Print) */}
-        <div className="px-6 sm:px-8 py-3 bg-slate-50/80 border-b border-slate-100 flex flex-wrap items-center justify-between gap-2 text-xs print:hidden">
-          <div className="flex items-center gap-2">
-            {events.length > 1 && currentIdx >= 0 && (
-              <div className="inline-flex items-center rounded-xl border border-slate-200 bg-white p-0.5">
-                <button
-                  type="button"
-                  onClick={handlePrev}
-                  disabled={!hasPrev}
-                  title="Sự kiện trước"
-                  className="p-1.5 text-slate-600 hover:text-slate-900 hover:bg-slate-50 rounded-lg disabled:opacity-30 disabled:pointer-events-none cursor-pointer"
-                >
-                  <ChevronLeft size={15} />
-                </button>
-                <span className="px-2 text-[11px] font-mono font-medium text-slate-600">
-                  Sự kiện {currentIdx + 1}/{events.length}
-                </span>
-                <button
-                  type="button"
-                  onClick={handleNext}
-                  disabled={!hasNext}
-                  title="Sự kiện tiếp theo"
-                  className="p-1.5 text-slate-600 hover:text-slate-900 hover:bg-slate-50 rounded-lg disabled:opacity-30 disabled:pointer-events-none cursor-pointer"
-                >
-                  <ChevronRight size={15} />
-                </button>
-              </div>
-            )}
-          </div>
-
-          <div className="flex flex-wrap items-center gap-2">
-            <button
-              type="button"
-              onClick={handleShare}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-slate-700 bg-white border border-slate-200 rounded-xl hover:bg-slate-50 cursor-pointer transition-colors whitespace-nowrap"
-            >
-              <Share2 size={13} /> Chia sẻ
-            </button>
-            <button
-              type="button"
-              onClick={() => window.print()}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-slate-700 bg-white border border-slate-200 rounded-xl hover:bg-slate-50 cursor-pointer transition-colors whitespace-nowrap"
-            >
-              <Printer size={13} /> In sự kiện
-            </button>
-          </div>
-        </div>
-
-        <div className="space-y-6 p-6 sm:p-8">
-        {/* Banner Cover Image */}
-        <div className="relative rounded-2xl overflow-hidden border border-slate-200 aspect-[21/9] sm:aspect-[24/9] bg-slate-900 group">
-          <img
-            src={eventImg}
-            alt={event.title}
-            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+    <RecordDetailShell
+      backLabel="Danh sách sự kiện"
+      onBack={handleBack}
+      navigation={
+        events.length > 1 && currentIdx >= 0
+          ? {
+              hasPrev,
+              hasNext,
+              onPrev: handlePrev,
+              onNext: handleNext,
+              prevTitle: "Sự kiện trước",
+              nextTitle: "Sự kiện tiếp theo",
+              positionLabel: `${currentIdx + 1} / ${events.length}`,
+            }
+          : undefined
+      }
+      topRightSlot={
+        <>
+          <button
+            type="button"
+            onClick={handleShare}
+            className="inline-flex items-center gap-1.5 h-8 px-2.5 text-xs font-semibold text-slate-700 bg-white border border-slate-200/90 rounded-lg hover:bg-slate-50 cursor-pointer transition-colors"
+          >
+            <Share2 size={13} className="text-slate-500" />
+            <span>Chia sẻ</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => window.print()}
+            className="inline-flex items-center gap-1.5 h-8 px-2.5 text-xs font-semibold text-slate-700 bg-white border border-slate-200/90 rounded-lg hover:bg-slate-50 cursor-pointer transition-colors"
+          >
+            <Printer size={13} className="text-slate-500" />
+            <span>In sự kiện</span>
+          </button>
+        </>
+      }
+      noticeSlot={
+        notice ? (
+          <InlineNotice
+            type={notice.type}
+            message={notice.message}
+            onDismiss={() => setNotice(null)}
           />
-          <div className="absolute inset-0 bg-gradient-to-t from-slate-950/80 via-slate-900/30 to-transparent" />
-          <div className="absolute bottom-4 left-4 right-4 flex flex-wrap items-end justify-between gap-3 text-white">
-            <div className="space-y-1">
-              <div className="flex flex-wrap items-center gap-2">
-                <span className="font-mono text-xs font-semibold px-2 py-0.5 rounded-md bg-white/20 backdrop-blur-md text-white border border-white/30">
-                  MÃ: {shortEvId}
-                </span>
-                <span className="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-emerald-500/80 backdrop-blur-md text-white border border-emerald-400/40">
-                  {event.status}
-                </span>
-              </div>
-              <h1 className="text-lg sm:text-2xl font-black drop-shadow-md text-white">
-                {event.title}
-              </h1>
-            </div>
-
-            {event.status !== "Đã kết thúc" && event.status !== "Đã hủy" && (
-              <button
-                type="button"
-                onClick={handleToggleRsvp}
-                className={`min-h-10 px-4 py-2 rounded-xl text-xs sm:text-sm font-bold inline-flex items-center gap-2 shadow-lg cursor-pointer transition-colors ${
-                  rsvpInfo.registered
-                    ? "bg-emerald-600 hover:bg-emerald-700 text-white border border-emerald-400/40"
-                    : "bg-white hover:bg-slate-100 text-slate-900 border border-white"
-                }`}
-              >
-                <CheckCircle2 size={16} />
-                <span>{rsvpInfo.registered ? "Đã đăng ký tham dự" : "Đăng ký tham dự"}</span>
-              </button>
-            )}
-          </div>
+        ) : undefined
+      }
+      avatarSlot={
+        <div className="w-12 h-12 rounded-xl bg-slate-50 border border-slate-200/90 text-emerald-700 flex items-center justify-center">
+          <CalendarDays size={20} />
         </div>
-
-        {/* Key-Value Details */}
-        <div className="bg-slate-50/80 rounded-2xl border border-slate-200/80 p-5 space-y-4">
-          <h3 className="text-xs font-bold text-slate-600 uppercase tracking-wider flex items-center gap-2">
-            <CalendarDays size={14} className="text-emerald-600" /> Thông tin tổ chức &amp; Địa điểm
-          </h3>
-          <DetailGrid>
-            <DetailRow label="Thời gian tổ chức" value={event.dateTime} isMono />
-            <DetailRow label="Đơn vị chủ trì" value={event.organizer} />
-            <DetailRow label="Địa điểm tổ chức" value={event.location} colSpan={2} />
-            <DetailRow
-              label="Số lượng dự kiến"
-              value={`${totalAttendees} người tham dự`}
-              isNumeric
-            />
-            <DetailRow label="Trạng thái" value={event.status} />
-          </DetailGrid>
-        </div>
-
-        {/* Content Description */}
-        <div className="space-y-3 pt-2">
-          <span className="text-xs font-bold text-slate-700 uppercase tracking-wider block">
-            Nội dung chương trình &amp; Kế hoạch chi tiết
+      }
+      badgesSlot={
+        <>
+          <span className="font-mono font-semibold px-2 py-0.5 rounded-md bg-slate-100 text-slate-700 border border-slate-200/80">
+            {shortEvId}
           </span>
-          <div className="bg-slate-50 rounded-2xl border border-slate-200/80 p-6 text-slate-800 leading-relaxed text-sm whitespace-pre-line font-medium">
-            {event.description || "Chưa có mô tả chi tiết chương trình sự kiện."}
-          </div>
-        </div>
-
-        {/* Footer Navigation Bar */}
-        <div className="pt-6 border-t border-slate-200 flex flex-wrap items-center justify-between gap-3 text-xs">
-          <div className="flex items-center gap-2">
-            {hasPrev && (
-              <button
-                type="button"
-                onClick={handlePrev}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 border border-slate-200 rounded-xl hover:bg-slate-50 font-semibold text-slate-700 cursor-pointer"
-              >
-                <ChevronLeft size={14} /> Sự kiện trước
-              </button>
-            )}
-            {hasNext && (
-              <button
-                type="button"
-                onClick={handleNext}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 border border-slate-200 rounded-xl hover:bg-slate-50 font-semibold text-slate-700 cursor-pointer"
-              >
-                Sự kiện kế tiếp <ChevronRight size={14} />
-              </button>
-            )}
-          </div>
-
-          <div className="flex items-center gap-2">
+          <span
+            className={`px-2.5 py-0.5 rounded-full font-semibold border ${
+              event.status === "Đã kết thúc" || event.status === "Đã hủy"
+                ? "bg-slate-100 text-slate-700 border-slate-200"
+                : "bg-emerald-50 text-emerald-800 border-emerald-200"
+            }`}
+          >
+            {event.status}
+          </span>
+        </>
+      }
+      title={event.title}
+      subtitleSlot={
+        <>
+          <span className="font-mono text-slate-700 font-medium">{event.dateTime}</span>
+          <span>Chủ trì: <strong className="text-slate-800">{event.organizer}</strong></span>
+          <span className="inline-flex items-center gap-1 text-slate-600">
+            <MapPin size={13} className="text-slate-400 shrink-0" />
+            <span>{event.location}</span>
+          </span>
+          <span className="inline-flex items-center gap-1 text-slate-600">
+            <Users size={13} className="text-slate-400 shrink-0" />
+            <span>{totalAttendees} người tham dự</span>
+          </span>
+        </>
+      }
+      actionsSlot={
+        <>
+          {event.status !== "Đã kết thúc" && event.status !== "Đã hủy" && (
             <button
               type="button"
-              onClick={handleBack}
-              className="px-4 py-2 border border-slate-200 rounded-xl hover:bg-slate-100 font-semibold text-slate-700 cursor-pointer"
+              onClick={handleToggleRsvp}
+              className={`h-9 px-3.5 rounded-lg text-xs font-semibold inline-flex items-center gap-1.5 cursor-pointer transition-colors ${
+                rsvpInfo.registered
+                  ? "bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200"
+                  : "bg-slate-900 hover:bg-slate-800 text-white shadow-2xs"
+              }`}
             >
-              Quay lại danh sách
+              <CheckCircle2 size={14} />
+              <span>{rsvpInfo.registered ? "Đã đăng ký" : "Đăng ký tham dự"}</span>
             </button>
-          </div>
+          )}
+
+          <button
+            type="button"
+            onClick={() => {
+              if (onEdit) {
+                onEdit(event);
+              } else {
+                navigate(getEventEditPath(event.id, basePath));
+              }
+            }}
+            className="inline-flex items-center gap-1.5 h-9 px-3.5 text-xs font-semibold text-white bg-emerald-700 hover:bg-emerald-800 rounded-lg shadow-2xs cursor-pointer transition-colors"
+          >
+            <Edit3 size={13} />
+            <span>Sửa sự kiện</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setDeleteTarget(event)}
+            className="inline-flex items-center gap-1.5 h-9 px-3 text-xs font-semibold text-rose-600 bg-white border border-slate-200 hover:border-rose-200 hover:bg-rose-50 rounded-lg cursor-pointer transition-colors"
+          >
+            <Trash2 size={13} />
+            <span>Xóa</span>
+          </button>
+        </>
+      }
+      bodyClassName="p-5 sm:p-6 space-y-5"
+    >
+      {/* Banner Cover Image (Clean, without duplicate title overlay) */}
+      <div className="relative rounded-xl overflow-hidden border border-slate-200/90 aspect-[21/9] sm:aspect-[24/9] bg-slate-100">
+        <img
+          src={eventImg}
+          alt={event.title}
+          className="w-full h-full object-cover"
+        />
+      </div>
+
+      {/* Key-Value Details */}
+      <div className="space-y-2.5">
+        <div className="flex items-center gap-2 border-b border-slate-200 pb-2">
+          <span className="p-1.5 bg-emerald-50 text-emerald-700 rounded-lg">
+            <CalendarDays size={14} />
+          </span>
+          <h4 className="text-xs font-bold text-slate-900 uppercase tracking-wider">
+            Thông tin tổ chức &amp; Địa điểm
+          </h4>
         </div>
+        <DetailGrid compact>
+          <DetailRow label="Thời gian tổ chức" value={event.dateTime} isMono />
+          <DetailRow label="Đơn vị chủ trì" value={event.organizer} />
+          <DetailRow label="Địa điểm tổ chức" value={event.location} colSpan={2} />
+          <DetailRow
+            label="Số lượng dự kiến"
+            value={`${totalAttendees} người tham dự`}
+            isNumeric
+          />
+          <DetailRow label="Trạng thái" value={event.status} />
+        </DetailGrid>
+      </div>
+
+      {/* Content Description */}
+      <div className="space-y-2.5 pt-3 border-t border-slate-100">
+        <h4 className="text-xs font-bold text-slate-900 uppercase tracking-wider border-b border-slate-200 pb-2">
+          Nội dung chương trình &amp; Kế hoạch chi tiết
+        </h4>
+        <div className="bg-slate-50 rounded-xl border border-slate-200/70 p-3.5 text-slate-700 leading-relaxed text-xs whitespace-pre-line">
+          {event.description || "Chưa có mô tả chi tiết chương trình sự kiện."}
         </div>
       </div>
 
@@ -463,6 +427,6 @@ export default function EventDetailPage({
           onClose={() => setDeleteTarget(null)}
         />
       )}
-    </div>
+    </RecordDetailShell>
   );
 }

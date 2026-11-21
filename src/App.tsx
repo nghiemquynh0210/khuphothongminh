@@ -2688,31 +2688,31 @@ export default function App() {
       />
 
       {/* Main Content Area */}
-      <div className={`flex-1 flex flex-col ${isSidebarCollapsed ? "lg:pl-20" : "lg:pl-64"} min-w-0 transition-all duration-300`}>
+      <div className={`flex-1 flex flex-col ${isSidebarCollapsed ? "lg:pl-20" : "lg:pl-60"} min-w-0 transition-all duration-300 bg-[#f8fafc]`}>
 
         {/* Top Header Bar */}
-        <header className="h-16 border-b border-slate-200 bg-white flex items-center justify-between px-3 sm:px-6 sticky top-0 z-30 shrink-0 transition-colors">
+        <header className="h-14 border-b border-slate-200/80 bg-white/95 backdrop-blur-md flex items-center justify-between px-3 sm:px-6 sticky top-0 z-30 shrink-0 transition-colors">
           <div className="flex items-center gap-1.5 sm:gap-2 pl-12 lg:pl-0 flex-1 min-w-0 mr-2 sm:mr-3">
-            <span className="hidden sm:inline text-xs font-semibold text-emerald-700 shrink-0 select-none">
-              KP3 An Phú ›
+            <span className="hidden sm:inline text-xs font-medium text-slate-400 shrink-0 select-none">
+              KP3 An Phú /
             </span>
             {subrouteActionLabel ? (
               <nav aria-label="Breadcrumb" className="flex items-center gap-1.5 min-w-0 flex-1">
                 <button
                   type="button"
                   onClick={() => navigate(getDashboardExtensionPath(activeTab))}
-                  className="text-xs sm:text-sm font-semibold text-slate-500 hover:text-emerald-700 transition-colors truncate max-w-[140px] sm:max-w-[260px] cursor-pointer"
+                  className="text-xs sm:text-sm font-medium text-slate-500 hover:text-slate-900 transition-colors truncate max-w-[140px] sm:max-w-[260px] cursor-pointer"
                   title={`Quay lại ${getTabTitle()}`}
                 >
                   {getTabTitle()}
                 </button>
-                <ChevronRight size={14} className="text-slate-400 shrink-0" aria-hidden="true" />
-                <h2 className="font-bold text-slate-900 text-xs sm:text-sm lg:text-base tracking-tight truncate min-w-0">
+                <ChevronRight size={13} className="text-slate-400 shrink-0" aria-hidden="true" />
+                <h2 className="font-semibold text-slate-900 text-xs sm:text-sm tracking-tight truncate min-w-0">
                   {subrouteActionLabel}
                 </h2>
               </nav>
             ) : (
-              <h2 className="font-bold text-slate-900 text-sm sm:text-base lg:text-lg tracking-tight leading-snug truncate min-w-0 flex-1">
+              <h2 className="font-semibold text-slate-900 text-sm sm:text-base tracking-tight leading-snug truncate min-w-0 flex-1">
                 {currentUser.role === "nguoidan" && activeTab === "dashboard" ? "Cổng Dịch Vụ Cư Dân Số" : getTabTitle()}
               </h2>
             )}
@@ -2720,18 +2720,22 @@ export default function App() {
 
           {/* Right Header items */}
           <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+            <span className="hidden xl:inline text-xs text-slate-400 tabular-nums mr-1 select-none">
+              {new Date().toLocaleDateString("vi-VN")}
+            </span>
+
             {/* Quick Command Palette Trigger (Ctrl+K) */}
             <button
               id="header-quick-command"
               type="button"
               aria-label="Tìm kiếm và chuyển nhanh phân hệ (Ctrl+K)"
               onClick={() => setShowCommandModal(true)}
-              className="h-10 w-10 md:w-auto md:px-3 inline-flex items-center justify-center gap-2 rounded-xl border border-slate-200/90 bg-slate-50/80 hover:bg-slate-100 text-slate-600 hover:text-slate-900 text-xs font-medium transition-colors cursor-pointer shrink-0"
+              className="h-9 w-9 md:w-auto md:px-2.5 inline-flex items-center justify-center gap-2 rounded-lg border border-slate-200/90 bg-slate-50/80 hover:bg-slate-100 text-slate-600 hover:text-slate-900 text-xs font-medium transition-colors cursor-pointer shrink-0"
               title="Tìm nhanh phân hệ & thao tác (Ctrl+K)"
             >
-              <Search size={15} className="text-slate-500 shrink-0" />
+              <Search size={14} className="text-slate-400 shrink-0" />
               <span className="hidden md:inline text-slate-500">Tìm nhanh...</span>
-              <kbd className="hidden lg:inline-flex items-center px-1.5 py-0.5 rounded bg-white border border-slate-200 text-[10px] font-mono font-bold text-slate-500">
+              <kbd className="hidden lg:inline-flex items-center px-1.5 py-0.5 rounded bg-white border border-slate-200 text-[10px] font-mono text-slate-400">
                 Ctrl K
               </kbd>
             </button>
@@ -2871,10 +2875,10 @@ export default function App() {
                     setCitizenSubView(null);
                     navigate(ROUTES.HOME);
                   }}
-                  className="inline-flex h-10 w-10 sm:w-auto items-center justify-center gap-1.5 sm:px-3 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl text-xs font-bold transition-colors cursor-pointer shrink-0 whitespace-nowrap"
+                  className="inline-flex h-9 w-9 sm:w-auto items-center justify-center gap-1.5 sm:px-3 bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 hover:text-slate-900 rounded-lg text-xs font-semibold transition-colors cursor-pointer shrink-0 whitespace-nowrap"
                   title="Xem Trang chủ Cổng Cư dân (giữ quyền Cán bộ để chỉnh sửa trực tiếp)"
                 >
-                  <Home size={15} className="shrink-0" aria-hidden="true" />
+                  <Home size={14} className="shrink-0 text-slate-500" aria-hidden="true" />
                   <span className="hidden sm:inline">Cổng Cư dân</span>
                 </button>
               </div>

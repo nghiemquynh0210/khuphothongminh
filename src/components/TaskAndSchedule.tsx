@@ -14,6 +14,7 @@ import {
   List,
   ListFilter,
   MapPin,
+  Megaphone,
   Plus,
   Printer,
   RefreshCw,
@@ -68,6 +69,7 @@ import { ReminderSection } from "./tasks/ReminderSection";
 import { WardScheduleOcrModal } from "./tasks/WardScheduleOcrModal";
 import { RescheduleAndDelegateModal } from "./tasks/RescheduleAndDelegateModal";
 import { WeeklyScheduleMatrix } from "./tasks/WeeklyScheduleMatrix";
+import { CitizenBroadcastTab, BroadcastSeedSource } from "./tasks/CitizenBroadcastTab";
 
 export {
   INITIAL_TASKS,
@@ -89,8 +91,8 @@ export interface TaskAndScheduleProps {
   onOpenCreate?: () => void;
   onOpenEdit?: (task: TaskItem) => void;
   onOpenDetail?: (task: TaskItem) => void;
-  activeSubTab?: "tasks" | "schedules" | "reminders";
-  onActiveSubTabChange?: (tab: "tasks" | "schedules" | "reminders") => void;
+  activeSubTab?: "tasks" | "schedules" | "reminders" | "broadcast";
+  onActiveSubTabChange?: (tab: "tasks" | "schedules" | "reminders" | "broadcast") => void;
   taskViewMode?: "kanban" | "list";
   onTaskViewModeChange?: (mode: "kanban" | "list") => void;
 }
@@ -109,11 +111,42 @@ export default function TaskAndSchedule({
   taskViewMode: taskViewModeProp,
   onTaskViewModeChange,
 }: TaskAndScheduleProps = {}) {
-  const [internalSubTab, setInternalSubTab] = useState<"tasks" | "schedules" | "reminders">("tasks");
+  const [internalSubTab, setInternalSubTab] = useState<"tasks" | "schedules" | "reminders" | "broadcast">("tasks");
   const activeSubTab = activeSubTabProp ?? internalSubTab;
-  const setActiveSubTab = (tab: "tasks" | "schedules" | "reminders") => {
+  const setActiveSubTab = (tab: "tasks" | "schedules" | "reminders" | "broadcast") => {
     setInternalSubTab(tab);
     onActiveSubTabChange?.(tab);
+  };
+  const [broadcastSeed, setBroadcastSeed] = useState<BroadcastSeedSource | null>(null);
+
+  const openBroadcastFromSchedule = (sch: ScheduleEvent) => {
+    setBroadcastSeed({
+      kind: "schedule",
+      id: sch.id,
+      title: sch.title,
+      date: sch.date,
+      time: sch.time,
+      location: sch.location,
+      description: sch.description || sch.content,
+      hostOrAssignee: sch.host,
+      unit: sch.attendees,
+      nonce: Date.now(),
+    });
+    setActiveSubTab("broadcast");
+  };
+
+  const openBroadcastFromTask = (t: TaskItem) => {
+    setBroadcastSeed({
+      kind: "task",
+      id: t.id,
+      title: t.title,
+      date: t.deadline,
+      description: t.description,
+      hostOrAssignee: t.assignee?.name,
+      unit: t.unit,
+      nonce: Date.now(),
+    });
+    setActiveSubTab("broadcast");
   };
   const [internalTasks, setInternalTasks] = useState<TaskItem[]>(loadStoredTasks);
   const tasks = externalTasks ?? internalTasks;
@@ -267,6 +300,7 @@ export default function TaskAndSchedule({
   const [taskToFilter, setTaskToFilter] = useState("all");
   const [taskPriorityFilter, setTaskPriorityFilter] = useState("all");
   const [taskSearchQuery, setTaskSearchQuery] = useState("");
+  const [showTaskFilters, setShowTaskFilters] = useState(false);
   const [showAddTaskModal, setShowAddTaskModal] = useState(false);
   const [editingTask, setEditingTask] = useState<TaskItem | null>(null);
   const [selectedTask, setSelectedTask] = useState<TaskItem | null>(null);
@@ -568,96 +602,63 @@ export default function TaskAndSchedule({
   };
 
   return (
-    <div id="task-and-schedule-module" className="space-y-5">
+    <div id="task-and-schedule-module" className="space-y-4 text-xs">
       <PageHeader
-        badgeIcon={<Sparkles size={14} className="text-emerald-700" />}
-        badgeText="BAN ĐIỀU HÀNH • KHU PHỐ 3, PHƯỜNG AN PHÚ"
-        badgeSubtext="ĐIỀU HÀNH TÁC NGHIỆP"
         title="Lịch Công Tác & Phân Công Nhiệm Vụ"
+        description="Điều hành lịch tuần cán bộ, phân công nhiệm vụ, báo cáo định kỳ và phát thông báo Khu phố 3"
         actions={
           <div className="flex flex-wrap items-center gap-2 shrink-0">
-            <Button
+            <button
               type="button"
-              variant="outline"
-              size="md"
-              leftIcon={<FileSpreadsheet size={15} className="text-emerald-700" />}
               onClick={handleExportTasksAndSchedulesExcel}
+              className="h-9 px-3 rounded-lg bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 text-xs font-semibold inline-flex items-center gap-1.5 transition-colors cursor-pointer whitespace-nowrap"
             >
-              Xuất Excel Nhiệm vụ &amp; Lịch (.xlsx)
-            </Button>
+              <FileSpreadsheet size={14} className="text-slate-500 shrink-0" />
+              <span>Xuất Excel</span>
+            </button>
             <button
               id="btn-open-ward-schedule-ocr"
               type="button"
               onClick={() => setShowWardOcrModal(true)}
-              className="min-h-10 px-3.5 py-2 rounded-xl bg-indigo-700 hover:bg-indigo-800 text-white text-xs font-bold inline-flex items-center gap-1.5 shadow-xs transition-colors cursor-pointer whitespace-nowrap"
+              className="h-9 px-3 rounded-lg bg-white hover:bg-indigo-50 text-indigo-700 border border-indigo-200 text-xs font-semibold inline-flex items-center gap-1.5 transition-colors cursor-pointer whitespace-nowrap"
               title="Tải PDF / Ảnh Lịch Đảng ủy & UBND Phường để AI tự lên lịch cán bộ KP3"
             >
-              <Sparkles size={15} />
-              <span>AI Đọc Lịch Cấp Trên (OCR)</span>
+              <Sparkles size={14} className="text-indigo-600 shrink-0" />
+              <span>AI Đọc lịch Phường</span>
             </button>
+            {activeSubTab === "tasks" && (
+              <button
+                type="button"
+                onClick={() => {
+                  if (onOpenCreate) {
+                    onOpenCreate();
+                  } else {
+                    setEditingTask(null);
+                    setShowAddTaskModal(true);
+                  }
+                }}
+                className="h-9 px-3.5 rounded-lg bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-semibold inline-flex items-center gap-1.5 shadow-2xs transition-colors cursor-pointer whitespace-nowrap"
+              >
+                <Plus size={14} className="shrink-0" />
+                <span>Giao việc mới</span>
+              </button>
+            )}
+            {activeSubTab === "schedules" && (
+              <button
+                type="button"
+                onClick={() => {
+                  setEditingSchedule(null);
+                  setShowAddScheduleModal(true);
+                }}
+                className="h-9 px-3.5 rounded-lg bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-semibold inline-flex items-center gap-1.5 shadow-2xs transition-colors cursor-pointer whitespace-nowrap"
+              >
+                <Plus size={14} className="shrink-0" />
+                <span>Thêm lịch họp</span>
+              </button>
+            )}
           </div>
         }
       />
-
-      {/* Thanh chuyển 3 phân khu độc lập bên dưới PageHeader */}
-      <div
-        role="tablist"
-        aria-label="Phân khu công tác"
-        className="flex items-center gap-1.5 bg-slate-100/90 p-1.5 rounded-2xl border border-slate-200 overflow-x-auto whitespace-nowrap evon-scroll"
-      >
-        <button
-          id="btn-subtab-tasks"
-          type="button"
-          role="tab"
-          aria-selected={activeSubTab === "tasks"}
-          onClick={() => setActiveSubTab("tasks")}
-          className={`px-3.5 py-2 min-h-10 rounded-xl text-xs font-bold transition-colors cursor-pointer inline-flex items-center gap-1.5 shrink-0 whitespace-nowrap ${
-            activeSubTab === "tasks"
-              ? "bg-white text-emerald-900 border border-slate-200 shadow-2xs"
-              : "text-slate-700 hover:text-slate-900 hover:bg-white/70"
-          }`}
-        >
-          <CheckSquare size={14} aria-hidden="true" />
-          <span>Nhiệm vụ ({tasks.length})</span>
-        </button>
-        <button
-          id="btn-subtab-schedules"
-          type="button"
-          role="tab"
-          aria-selected={activeSubTab === "schedules"}
-          onClick={() => setActiveSubTab("schedules")}
-          className={`px-3.5 py-2 min-h-10 rounded-xl text-xs font-bold transition-colors cursor-pointer inline-flex items-center gap-1.5 shrink-0 whitespace-nowrap ${
-            activeSubTab === "schedules"
-              ? "bg-white text-emerald-900 border border-slate-200 shadow-2xs"
-              : "text-slate-700 hover:text-slate-900 hover:bg-white/70"
-          }`}
-        >
-          <CalendarIcon size={14} aria-hidden="true" />
-          <span>
-            Lịch công tác ({schedules.filter((s) => s.relevanceTier !== "ward_reference").length})
-          </span>
-        </button>
-        <button
-          id="btn-subtab-reminders"
-          type="button"
-          role="tab"
-          aria-selected={activeSubTab === "reminders"}
-          onClick={() => setActiveSubTab("reminders")}
-          className={`px-3.5 py-2 min-h-10 rounded-xl text-xs font-bold transition-colors cursor-pointer inline-flex items-center gap-1.5 shrink-0 whitespace-nowrap ${
-            activeSubTab === "reminders"
-              ? "bg-white text-indigo-900 border border-slate-200 shadow-2xs"
-              : "text-slate-700 hover:text-slate-900 hover:bg-white/70"
-          }`}
-        >
-          <Bell size={14} aria-hidden="true" />
-          <span>Báo cáo định kỳ ({recurringReminders.length})</span>
-          {reminderKpi.due > 0 && (
-            <span className="px-1.5 py-0.5 rounded-full bg-rose-100 text-rose-900 text-xs font-bold">
-              {reminderKpi.due}
-            </span>
-          )}
-        </button>
-      </div>
 
       {notice && (
         <InlineNotice
@@ -669,13 +670,13 @@ export default function TaskAndSchedule({
 
       {/* Adaptive 4 KPI Cards */}
       {activeSubTab === "tasks" && (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3.5">
           <StatCard
             label="Tổng nhiệm vụ KP3"
             value={taskKpi.total}
             badge="việc"
             icon={CheckSquare}
-            color="indigo"
+            color="slate"
             highlighted={taskStatusFilter === "all" && taskPriorityFilter === "all"}
             onClick={() => {
               setTaskStatusFilter("all");
@@ -687,7 +688,7 @@ export default function TaskAndSchedule({
             value={taskKpi.inProgress}
             badge={taskKpi.pendingReview > 0 ? `${taskKpi.pendingReview} chờ duyệt` : "việc"}
             icon={Clock}
-            color="blue"
+            color="slate"
             highlighted={taskStatusFilter === "Đang thực hiện"}
             onClick={() =>
               setTaskStatusFilter((prev) => (prev === "Đang thực hiện" ? "all" : "Đang thực hiện"))
@@ -719,13 +720,13 @@ export default function TaskAndSchedule({
       )}
 
       {activeSubTab === "schedules" && (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3.5">
           <StatCard
             label="Tổng lịch cán bộ KP3"
             value={scheduleKpi.total}
             badge="lịch"
             icon={CalendarIcon}
-            color="indigo"
+            color="slate"
             highlighted={scheduleStatusFilter === "all"}
             onClick={() => setScheduleStatusFilter("all")}
           />
@@ -734,7 +735,7 @@ export default function TaskAndSchedule({
             value={scheduleKpi.upcoming}
             badge="lịch"
             icon={Clock}
-            color="blue"
+            color="slate"
             highlighted={scheduleStatusFilter === "Sắp diễn ra"}
             onClick={() =>
               setScheduleStatusFilter((prev) => (prev === "Sắp diễn ra" ? "all" : "Sắp diễn ra"))
@@ -767,8 +768,8 @@ export default function TaskAndSchedule({
       )}
 
       {activeSubTab === "reminders" && (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          <StatCard label="Lịch báo cáo định kỳ" value={reminderKpi.total} badge={`${reminderKpi.active} đang bật`} icon={Bell} color="indigo" />
+        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3.5">
+          <StatCard label="Lịch báo cáo định kỳ" value={reminderKpi.total} badge={`${reminderKpi.active} đang bật`} icon={Bell} color="slate" />
           <StatCard label="Đến hạn / sắp hạn" value={reminderKpi.due} badge="báo cáo" icon={Clock} color="rose" />
           <StatCard label="Đã nộp kỳ này" value={reminderKpi.submitted} badge="báo cáo" icon={CheckCircle2} color="emerald" />
           <StatCard
@@ -776,24 +777,99 @@ export default function TaskAndSchedule({
             value={taskKpi.total}
             badge="việc"
             icon={CheckSquare}
-            color="blue"
+            color="slate"
             onClick={() => setActiveSubTab("tasks")}
           />
         </div>
       )}
 
+      {/* Compact Segmented Sub-Tab Bar (BusinessManagement Style) */}
+      <div
+        role="tablist"
+        aria-label="Phân khu công tác"
+        className="flex items-center gap-1 bg-slate-100/80 p-1 rounded-xl border border-slate-200/80 w-fit max-w-full overflow-x-auto whitespace-nowrap evon-scroll"
+      >
+        <button
+          id="btn-subtab-tasks"
+          type="button"
+          role="tab"
+          aria-selected={activeSubTab === "tasks"}
+          onClick={() => setActiveSubTab("tasks")}
+          className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors cursor-pointer inline-flex items-center gap-1.5 shrink-0 whitespace-nowrap ${
+            activeSubTab === "tasks"
+              ? "bg-white text-slate-900 font-bold shadow-2xs"
+              : "text-slate-600 hover:text-slate-900"
+          }`}
+        >
+          <CheckSquare size={13} className={activeSubTab === "tasks" ? "text-emerald-700" : "text-slate-500"} aria-hidden="true" />
+          <span>Nhiệm vụ ({tasks.length})</span>
+        </button>
+        <button
+          id="btn-subtab-schedules"
+          type="button"
+          role="tab"
+          aria-selected={activeSubTab === "schedules"}
+          onClick={() => setActiveSubTab("schedules")}
+          className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors cursor-pointer inline-flex items-center gap-1.5 shrink-0 whitespace-nowrap ${
+            activeSubTab === "schedules"
+              ? "bg-white text-slate-900 font-bold shadow-2xs"
+              : "text-slate-600 hover:text-slate-900"
+          }`}
+        >
+          <CalendarIcon size={13} className={activeSubTab === "schedules" ? "text-emerald-700" : "text-slate-500"} aria-hidden="true" />
+          <span>
+            Lịch công tác ({schedules.filter((s) => s.relevanceTier !== "ward_reference").length})
+          </span>
+        </button>
+        <button
+          id="btn-subtab-reminders"
+          type="button"
+          role="tab"
+          aria-selected={activeSubTab === "reminders"}
+          onClick={() => setActiveSubTab("reminders")}
+          className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors cursor-pointer inline-flex items-center gap-1.5 shrink-0 whitespace-nowrap ${
+            activeSubTab === "reminders"
+              ? "bg-white text-slate-900 font-bold shadow-2xs"
+              : "text-slate-600 hover:text-slate-900"
+          }`}
+        >
+          <Bell size={13} className={activeSubTab === "reminders" ? "text-emerald-700" : "text-slate-500"} aria-hidden="true" />
+          <span>Báo cáo định kỳ ({recurringReminders.length})</span>
+          {reminderKpi.due > 0 && (
+            <span className="px-1.5 py-0.2 rounded-full bg-rose-100 text-rose-800 text-[10px] font-bold">
+              {reminderKpi.due}
+            </span>
+          )}
+        </button>
+        <button
+          id="btn-subtab-broadcast"
+          type="button"
+          role="tab"
+          aria-selected={activeSubTab === "broadcast"}
+          onClick={() => setActiveSubTab("broadcast")}
+          className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors cursor-pointer inline-flex items-center gap-1.5 shrink-0 whitespace-nowrap ${
+            activeSubTab === "broadcast"
+              ? "bg-white text-slate-900 font-bold shadow-2xs"
+              : "text-slate-600 hover:text-slate-900"
+          }`}
+        >
+          <Megaphone size={13} aria-hidden="true" className={activeSubTab === "broadcast" ? "text-emerald-700" : "text-slate-500"} />
+          <span>Phát thông báo</span>
+        </button>
+      </div>
+
       {/* SUB-TAB 1: TASKS */}
       {activeSubTab === "tasks" && (
-        <div className="space-y-4">
-          <search className="bg-white p-3.5 rounded-xl border border-slate-200 flex flex-col 2xl:flex-row items-stretch 2xl:items-center justify-between gap-3">
-            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-2.5 flex-1 min-w-0">
-              <div className="relative min-w-0">
+        <div className="space-y-3.5">
+          <search className="bg-white p-3 rounded-xl border border-slate-200/80 shadow-2xs space-y-2.5">
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2.5">
+              <div className="relative flex-1 min-w-0">
                 <label htmlFor="task-search-input" className="sr-only">
                   Tìm kiếm nhiệm vụ
                 </label>
                 <Search
                   size={15}
-                  className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 pointer-events-none"
+                  className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none"
                   aria-hidden="true"
                 />
                 <input
@@ -803,95 +879,118 @@ export default function TaskAndSchedule({
                   value={taskSearchQuery}
                   onChange={(e) => setTaskSearchQuery(e.target.value)}
                   placeholder="Tìm nhiệm vụ, cán bộ nhận..."
-                  className="w-full h-11 md:h-10 pl-9 pr-3 bg-white border border-slate-300 rounded-lg text-sm text-slate-900 placeholder:text-slate-500 focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-500/20"
+                  className="w-full h-9 pl-9 pr-3 bg-slate-50/70 focus:bg-white border border-slate-200 rounded-lg text-xs text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-emerald-600"
                 />
               </div>
 
-              <ReportSelect
-                aria-label="Lọc theo đơn vị"
-                value={taskUnitFilter}
-                onChange={setTaskUnitFilter}
-                className="w-full"
-                options={unitFilterOptions}
-              />
-
-              <ReportSelect
-                aria-label="Lọc theo khu vực KP3"
-                value={taskToFilter}
-                onChange={setTaskToFilter}
-                className="w-full"
-                options={[
-                  { value: "all", label: "Toàn Khu phố 3" },
-                  ...KP3_AREA_LIST.map((area) => ({ value: area, label: area })),
-                ]}
-              />
-
-              <ReportSelect
-                aria-label="Lọc theo mức độ ưu tiên"
-                value={taskPriorityFilter}
-                onChange={setTaskPriorityFilter}
-                className="w-full"
-                options={[
-                  { value: "all", label: "Mọi mức độ" },
-                  { value: "Khẩn cấp", label: "Khẩn cấp" },
-                  { value: "Cao", label: "Ưu tiên cao" },
-                  { value: "Trung bình", label: "Trung bình" },
-                  { value: "Thấp", label: "Thấp" },
-                ]}
-              />
-            </div>
-
-            <div className="flex flex-wrap items-center justify-between 2xl:justify-end gap-2 shrink-0">
-              <div
-                role="group"
-                aria-label="Chế độ xem nhiệm vụ"
-                className="inline-flex items-center rounded-lg border border-slate-200 bg-slate-100 p-0.5"
-              >
+              <div className="flex flex-wrap items-center justify-between sm:justify-end gap-2 shrink-0">
                 <button
                   type="button"
-                  aria-pressed={taskViewMode === "kanban"}
-                  onClick={() => setTaskViewMode("kanban")}
-                  className={`h-9 px-3 rounded-md text-xs font-semibold inline-flex items-center gap-1.5 cursor-pointer transition-colors ${
-                    taskViewMode === "kanban" ? "bg-white text-slate-900 border border-slate-200" : "text-slate-700"
+                  onClick={() => setShowTaskFilters((v) => !v)}
+                  className={`h-9 px-3 rounded-lg border text-xs font-semibold inline-flex items-center gap-1.5 cursor-pointer transition-colors ${
+                    showTaskFilters ||
+                    taskUnitFilter !== "all" ||
+                    taskToFilter !== "all" ||
+                    taskPriorityFilter !== "all"
+                      ? "bg-slate-900 text-white border-slate-900"
+                      : "bg-white text-slate-700 border-slate-200 hover:bg-slate-50"
                   }`}
                 >
-                  <LayoutGrid size={14} aria-hidden="true" />
-                  <span>Kanban</span>
+                  <ListFilter size={13} />
+                  <span>Bộ lọc</span>
                 </button>
-                <button
-                  type="button"
-                  aria-pressed={taskViewMode === "list"}
-                  onClick={() => setTaskViewMode("list")}
-                  className={`h-9 px-3 rounded-md text-xs font-semibold inline-flex items-center gap-1.5 cursor-pointer transition-colors ${
-                    taskViewMode === "list" ? "bg-white text-slate-900 border border-slate-200" : "text-slate-700"
-                  }`}
+
+                <div
+                  role="group"
+                  aria-label="Chế độ xem nhiệm vụ"
+                  className="inline-flex items-center rounded-lg border border-slate-200 bg-slate-100/80 p-0.5"
                 >
-                  <ListFilter size={14} aria-hidden="true" />
-                  <span>Bảng</span>
-                </button>
+                  <button
+                    type="button"
+                    aria-pressed={taskViewMode === "kanban"}
+                    onClick={() => setTaskViewMode("kanban")}
+                    className={`h-8 px-2.5 rounded-md text-xs font-semibold inline-flex items-center gap-1.5 cursor-pointer transition-colors ${
+                      taskViewMode === "kanban" ? "bg-white text-slate-900 shadow-2xs" : "text-slate-600"
+                    }`}
+                  >
+                    <LayoutGrid size={13} aria-hidden="true" />
+                    <span>Kanban</span>
+                  </button>
+                  <button
+                    type="button"
+                    aria-pressed={taskViewMode === "list"}
+                    onClick={() => setTaskViewMode("list")}
+                    className={`h-8 px-2.5 rounded-md text-xs font-semibold inline-flex items-center gap-1.5 cursor-pointer transition-colors ${
+                      taskViewMode === "list" ? "bg-white text-slate-900 shadow-2xs" : "text-slate-600"
+                    }`}
+                  >
+                    <List size={13} aria-hidden="true" />
+                    <span>Bảng</span>
+                  </button>
+                </div>
+
+                <Button
+                  id="btn-add-task-modal"
+                  variant="emerald"
+                  size="sm"
+                  leftIcon={<Plus size={15} />}
+                  onClick={() => {
+                    if (onOpenCreate) {
+                      onOpenCreate();
+                    } else {
+                      setEditingTask(null);
+                      setShowAddTaskModal(true);
+                    }
+                  }}
+                >
+                  Giao việc mới
+                </Button>
               </div>
-
-              <Button
-                id="btn-add-task-modal"
-                variant="emerald"
-                size="md"
-                leftIcon={<Plus size={16} />}
-                onClick={() => {
-                  if (onOpenCreate) {
-                    onOpenCreate();
-                  } else {
-                    setEditingTask(null);
-                    setShowAddTaskModal(true);
-                  }
-                }}
-              >
-                Giao việc mới
-              </Button>
             </div>
+
+            {(showTaskFilters ||
+              taskUnitFilter !== "all" ||
+              taskToFilter !== "all" ||
+              taskPriorityFilter !== "all") && (
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 pt-2.5 border-t border-slate-100">
+                <ReportSelect
+                  aria-label="Lọc theo đơn vị"
+                  value={taskUnitFilter}
+                  onChange={setTaskUnitFilter}
+                  className="w-full"
+                  options={unitFilterOptions}
+                />
+
+                <ReportSelect
+                  aria-label="Lọc theo khu vực KP3"
+                  value={taskToFilter}
+                  onChange={setTaskToFilter}
+                  className="w-full"
+                  options={[
+                    { value: "all", label: "Toàn Khu phố 3" },
+                    ...KP3_AREA_LIST.map((area) => ({ value: area, label: area })),
+                  ]}
+                />
+
+                <ReportSelect
+                  aria-label="Lọc theo mức độ ưu tiên"
+                  value={taskPriorityFilter}
+                  onChange={setTaskPriorityFilter}
+                  className="w-full"
+                  options={[
+                    { value: "all", label: "Mọi mức độ" },
+                    { value: "Khẩn cấp", label: "Khẩn cấp" },
+                    { value: "Cao", label: "Ưu tiên cao" },
+                    { value: "Trung bình", label: "Trung bình" },
+                    { value: "Thấp", label: "Thấp" },
+                  ]}
+                />
+              </div>
+            )}
           </search>
 
           {taskViewMode === "kanban" ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 2xl:grid-cols-4 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 2xl:grid-cols-4 gap-3.5">
               {(["Chờ xử lý", "Đang thực hiện", "Chờ nghiệm thu", "Hoàn thành"] as TaskItem["status"][]).map(
                 (statusCol) => {
                   const colTasks = filteredTasks.filter((t) => t.status === statusCol);
@@ -899,16 +998,18 @@ export default function TaskAndSchedule({
                     <section
                       key={statusCol}
                       aria-label={statusCol}
-                      className="flex flex-col rounded-xl border border-slate-200 bg-slate-50/70 p-3 min-h-[380px]"
+                      className="flex flex-col rounded-xl border border-slate-200/80 bg-slate-50/50 p-3 min-h-[340px]"
                     >
-                      <div className="flex items-center justify-between pb-2.5 mb-2.5 border-b border-slate-200">
+                      <div className="flex items-center justify-between pb-2 mb-2.5 border-b border-slate-200/80">
                         {getStatusBadge(statusCol)}
-                        <span className="text-xs font-bold text-slate-700">{colTasks.length}</span>
+                        <span className="text-xs font-mono font-bold text-slate-600 bg-white px-2 py-0.5 rounded-md border border-slate-200/80">
+                          {colTasks.length}
+                        </span>
                       </div>
 
                       <div className="space-y-2.5 flex-1">
                         {colTasks.length === 0 ? (
-                          <div className="py-10 text-center text-xs text-slate-600">Chưa có nhiệm vụ</div>
+                          <div className="py-10 text-center text-xs text-slate-400">Chưa có nhiệm vụ</div>
                         ) : (
                           colTasks.map((task) => {
                             const openTaskDetail = () => {
@@ -932,20 +1033,20 @@ export default function TaskAndSchedule({
                                   openTaskDetail();
                                 }
                               }}
-                              className="bg-white p-3.5 rounded-xl border border-slate-200 hover:border-emerald-600 hover:shadow-sm transition-all space-y-2.5 cursor-pointer group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600"
+                              className="bg-white p-3.5 rounded-2xl border border-slate-200 hover:border-emerald-400 hover:shadow-2xs transition-all space-y-2 cursor-pointer group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600"
                             >
                               <div className="flex items-center justify-between gap-2">
-                                <span className="text-xs font-mono text-slate-600 font-semibold" title={task.id}>
+                                <span className="text-[11px] font-mono text-slate-500 font-semibold bg-slate-50 px-1.5 py-0.5 rounded border border-slate-200/80" title={task.id}>
                                   {formatShortRecordId(task.id, "NV")}
                                 </span>
                                 {getPriorityBadge(task.priority)}
                               </div>
 
-                              <h3 className="text-left w-full text-sm font-bold text-slate-900 group-hover:text-emerald-800 leading-snug transition-colors">
+                              <h3 className="text-left w-full text-xs sm:text-[13px] font-bold text-slate-900 group-hover:text-emerald-800 leading-snug transition-colors">
                                 {task.title}
                               </h3>
 
-                              <p className="text-xs text-slate-600 line-clamp-2">{task.description}</p>
+                              <p className="text-xs text-slate-500 line-clamp-2 leading-relaxed">{task.description}</p>
 
                               <div className="space-y-1">
                                 <div className="flex justify-between text-xs text-slate-700 font-medium">
@@ -985,6 +1086,15 @@ export default function TaskAndSchedule({
                                     className="min-h-[32px] px-1.5 inline-flex items-center text-xs font-semibold text-indigo-800 hover:underline cursor-pointer whitespace-nowrap"
                                   >
                                     Chi tiết
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => openBroadcastFromTask(task)}
+                                    className="min-h-[32px] px-1.5 inline-flex items-center gap-1 text-xs font-semibold text-emerald-800 hover:text-emerald-950 cursor-pointer"
+                                    title="AI soạn thông báo Zalo OA & Cổng Cư dân từ nhiệm vụ này"
+                                    aria-label={`Soạn thông báo từ nhiệm vụ ${task.title}`}
+                                  >
+                                    <Megaphone size={13} />
                                   </button>
                                   <button
                                     type="button"
@@ -1131,6 +1241,15 @@ export default function TaskAndSchedule({
                               <Button
                                 variant="ghost"
                                 size="sm"
+                                title="AI soạn thông báo từ nhiệm vụ này"
+                                aria-label={`Soạn thông báo từ nhiệm vụ ${t.title}`}
+                                onClick={() => openBroadcastFromTask(t)}
+                              >
+                                <Megaphone size={14} className="text-emerald-700" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
                                 aria-label={`Sửa nhiệm vụ ${t.title}`}
                                 title="Sửa nhiệm vụ"
                                 onClick={() => {
@@ -1168,38 +1287,38 @@ export default function TaskAndSchedule({
 
       {/* SUB-TAB 2: SCHEDULES */}
       {activeSubTab === "schedules" && (
-        <div className="space-y-4">
-          <div className="bg-white p-3.5 rounded-xl border border-slate-200 flex flex-col xl:flex-row items-stretch xl:items-center justify-between gap-3">
-            <div className="flex flex-col sm:flex-row flex-wrap items-stretch sm:items-center gap-2.5 flex-1">
+        <div className="space-y-3.5">
+          <div className="bg-white p-3 rounded-xl border border-slate-200/80 shadow-2xs flex flex-col xl:flex-row items-stretch xl:items-center justify-between gap-2.5">
+            <div className="flex flex-col sm:flex-row flex-wrap items-stretch sm:items-center gap-2 flex-1">
               <div
                 role="group"
                 aria-label="Chế độ xem lịch công tác"
-                className="inline-flex items-center bg-slate-100 p-1 rounded-xl border border-slate-200 self-start"
+                className="inline-flex items-center bg-slate-100/80 p-0.5 rounded-lg border border-slate-200/80 self-start"
               >
                 <button
                   id="btn-schedule-view-weekly"
                   type="button"
                   onClick={() => setScheduleViewMode("weekly")}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-bold inline-flex items-center gap-1.5 transition-colors cursor-pointer ${
+                  className={`h-8 px-2.5 rounded-md text-xs font-semibold inline-flex items-center gap-1.5 transition-colors cursor-pointer ${
                     scheduleViewMode === "weekly"
-                      ? "bg-white text-indigo-900 border border-slate-200 shadow-2xs"
+                      ? "bg-white text-slate-900 font-bold shadow-2xs"
                       : "text-slate-600 hover:text-slate-900"
                   }`}
                 >
-                  <CalendarIcon size={14} />
+                  <CalendarIcon size={13} className={scheduleViewMode === "weekly" ? "text-emerald-700" : "text-slate-500"} />
                   <span>Lịch Tuần (Sáng / Chiều)</span>
                 </button>
                 <button
                   id="btn-schedule-view-cards"
                   type="button"
                   onClick={() => setScheduleViewMode("cards")}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-bold inline-flex items-center gap-1.5 transition-colors cursor-pointer ${
+                  className={`h-8 px-2.5 rounded-md text-xs font-semibold inline-flex items-center gap-1.5 transition-colors cursor-pointer ${
                     scheduleViewMode === "cards"
-                      ? "bg-white text-indigo-900 border border-slate-200 shadow-2xs"
+                      ? "bg-white text-slate-900 font-bold shadow-2xs"
                       : "text-slate-600 hover:text-slate-900"
                   }`}
                 >
-                  <LayoutGrid size={14} />
+                  <LayoutGrid size={13} className={scheduleViewMode === "cards" ? "text-emerald-700" : "text-slate-500"} />
                   <span>Thẻ Danh Sách ({kp3Schedules.length})</span>
                 </button>
               </div>
@@ -1211,8 +1330,8 @@ export default function TaskAndSchedule({
                       Tìm kiếm lịch họp
                     </label>
                     <Search
-                      size={15}
-                      className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 pointer-events-none"
+                      size={14}
+                      className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none"
                       aria-hidden="true"
                     />
                     <input
@@ -1221,7 +1340,7 @@ export default function TaskAndSchedule({
                       value={scheduleSearchQuery}
                       onChange={(e) => setScheduleSearchQuery(e.target.value)}
                       placeholder="Tìm tên cuộc họp, địa điểm..."
-                      className="w-full h-11 md:h-10 pl-9 pr-3 bg-white border border-slate-300 rounded-lg text-sm text-slate-900 placeholder:text-slate-500 focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-500/20"
+                      className="w-full h-9 pl-9 pr-3 bg-slate-50/70 focus:bg-white border border-slate-200 rounded-lg text-xs text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-emerald-600"
                     />
                   </div>
 
@@ -1240,7 +1359,7 @@ export default function TaskAndSchedule({
                   />
 
                   <div className="flex items-center gap-2">
-                    <label htmlFor="schedule-month-filter" className="text-xs font-semibold text-slate-700">
+                    <label htmlFor="schedule-month-filter" className="text-xs font-semibold text-slate-600">
                       Tháng:
                     </label>
                     <input
@@ -1248,11 +1367,11 @@ export default function TaskAndSchedule({
                       type="month"
                       value={scheduleMonthFilter}
                       onChange={(e) => setScheduleMonthFilter(e.target.value)}
-                      className="h-11 md:h-10 px-3 bg-white border border-slate-300 rounded-lg text-sm text-slate-900 focus:outline-none focus:border-emerald-600"
+                      className="h-9 px-2.5 bg-white border border-slate-200 rounded-lg text-xs font-mono text-slate-900 focus:outline-none focus:border-emerald-600"
                     />
                     {scheduleMonthFilter && (
                       <Button variant="ghost" size="sm" onClick={() => setScheduleMonthFilter("")}>
-                        Tất cả tháng
+                        Tất cả
                       </Button>
                     )}
                   </div>
@@ -1261,22 +1380,14 @@ export default function TaskAndSchedule({
             </div>
 
             <div className="flex flex-wrap items-center gap-2 shrink-0">
-              <Button
-                variant="secondary"
-                size="md"
-                leftIcon={<Sparkles size={15} className="text-indigo-700" />}
-                onClick={() => setShowWardOcrModal(true)}
-              >
-                AI Đọc lịch Phường
-              </Button>
-              <Button variant="secondary" size="md" leftIcon={<Printer size={15} />} onClick={() => window.print()}>
+              <Button variant="secondary" size="sm" leftIcon={<Printer size={13} />} onClick={() => window.print()}>
                 In lịch
               </Button>
               <Button
                 id="btn-add-schedule-modal"
-                variant="primary"
-                size="md"
-                leftIcon={<Plus size={15} />}
+                variant="emerald"
+                size="sm"
+                leftIcon={<Plus size={14} />}
                 onClick={() => {
                   setEditingSchedule(null);
                   setShowAddScheduleModal(true);
@@ -1300,6 +1411,7 @@ export default function TaskAndSchedule({
                 setEditingSchedule(sch);
                 setShowAddScheduleModal(true);
               }}
+              onDraftBroadcast={openBroadcastFromSchedule}
               onNotify={showNotice}
             />
           ) : filteredSchedules.length === 0 ? (
@@ -1364,7 +1476,7 @@ export default function TaskAndSchedule({
                         </span>
                       </div>
 
-                      <h3 className="text-left w-full text-sm font-bold text-slate-900 group-hover:text-indigo-800 leading-snug transition-colors">
+                      <h3 className="text-left w-full text-xs sm:text-[13px] font-bold text-slate-900 group-hover:text-emerald-800 leading-snug transition-colors">
                         {sch.title}
                       </h3>
 
@@ -1416,6 +1528,15 @@ export default function TaskAndSchedule({
                           <UserCheck size={13} />
                           <span className="ml-1 text-xs">Đi thay</span>
                         </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => openBroadcastFromSchedule(sch)}
+                          title="AI soạn Thông báo gửi Người dân / Chi hội từ lịch công tác này"
+                        >
+                          <Megaphone size={13} className="text-emerald-700" />
+                          <span className="ml-1 text-xs text-emerald-800">Thông báo</span>
+                        </Button>
                       </div>
                       <div className="flex items-center gap-1">
                         <Button
@@ -1457,6 +1578,19 @@ export default function TaskAndSchedule({
           onAutoCreateTask={(autoTask) => saveTasks([autoTask, ...tasks])}
           onNotify={showNotice}
           onRequestDelete={(rem) => setConfirmState({ kind: "reminder", id: rem.id, label: rem.title })}
+        />
+      )}
+
+      {/* SUB-TAB 4: AI CITIZEN & ASSOCIATION BROADCAST */}
+      {activeSubTab === "broadcast" && (
+        <CitizenBroadcastTab
+          schedules={schedules}
+          tasks={tasks}
+          associationsList={associationsList}
+          creatorLabel={creatorLabel}
+          seedSource={broadcastSeed}
+          onClearSeedSource={() => setBroadcastSeed(null)}
+          onNotify={showNotice}
         />
       )}
 

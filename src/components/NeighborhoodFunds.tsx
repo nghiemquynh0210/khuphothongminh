@@ -757,7 +757,7 @@ export default function NeighborhoodFunds({
   };
 
   return (
-    <div id="neighborhood-funds-view" className="space-y-6">
+    <div id="neighborhood-funds-view" className="space-y-4">
       {/* Live Status Toast */}
       {toastMessage && (
         <div
@@ -915,19 +915,19 @@ export default function NeighborhoodFunds({
                 role="tab"
                 aria-selected={selected}
                 onClick={(e) => handleSelectTab(tab.id, e.currentTarget)}
-                className={`relative flex-none whitespace-nowrap pb-3 pt-1 text-sm transition-colors cursor-pointer flex items-center gap-2 ${
+                className={`relative flex-none whitespace-nowrap pb-2.5 pt-1 text-xs transition-colors cursor-pointer flex items-center gap-1.5 ${
                   selected
-                    ? "text-[#073B72] font-bold"
-                    : "text-slate-600 hover:text-slate-900 font-medium"
+                    ? "text-emerald-800 font-bold"
+                    : "text-slate-600 hover:text-slate-900 font-semibold"
                 }`}
               >
                 {tab.icon}
                 <span>{tab.label}</span>
                 {tab.badge !== undefined && (
                   <span
-                    className={`px-1.5 py-0.5 rounded-md text-xs font-mono font-bold ${
+                    className={`px-1.5 py-0.5 rounded-md text-[11px] font-mono font-bold ${
                       selected
-                        ? "bg-blue-50 text-[#073B72] border border-blue-200"
+                        ? "bg-emerald-50 text-emerald-800 border border-emerald-200"
                         : "bg-slate-100 text-slate-600 border border-slate-200"
                     }`}
                   >
@@ -937,7 +937,7 @@ export default function NeighborhoodFunds({
                 {selected && (
                   <span
                     aria-hidden="true"
-                    className="absolute inset-x-0 bottom-0 h-[2.5px] bg-[#073B72] rounded-full"
+                    className="absolute inset-x-0 bottom-0 h-0.5 bg-emerald-600 rounded-full"
                   />
                 )}
               </button>

@@ -2538,38 +2538,35 @@ export default function PartyBranch({
   };
 
   return (
-    <div id="association-management-view" className="space-y-6">
-      {/* Top Banner Header */}
-      <div className="bg-white px-4 py-3.5 sm:px-5 sm:py-4 rounded-2xl text-slate-800 shadow-2xs flex flex-col xl:flex-row justify-between items-start xl:items-center gap-3 border border-slate-200/90">
-        <h1 className="text-base sm:text-lg md:text-xl font-bold tracking-tight text-slate-900 text-balance">
-          Quản lý Chi bộ Đảng &amp; Khối Đoàn&nbsp;thể
+    <div id="association-management-view" className="space-y-4">
+      {/* Minimalist Flat Header */}
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2.5 pb-1">
+        <h1 className="text-lg sm:text-xl font-extrabold tracking-tight text-slate-900 text-balance">
+          Quản lý Chi bộ Đảng &amp; Khối Đoàn thể
         </h1>
 
-        <div className="flex flex-wrap items-center gap-2.5 shrink-0 w-full md:w-auto">
+        <div className="flex flex-wrap items-center gap-2 shrink-0 w-full sm:w-auto">
           <button
             type="button"
             id="btn-manage-multi-role"
             onClick={() => handleOpenQuickAssignModal()}
-            className="flex items-center justify-center gap-1.5 bg-amber-700 hover:bg-amber-800 text-white px-3.5 py-2 rounded-xl font-bold text-xs transition-colors shadow-xs cursor-pointer whitespace-nowrap"
+            className="flex items-center justify-center gap-1.5 bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 px-3 h-9 rounded-lg font-semibold text-xs transition-colors cursor-pointer whitespace-nowrap"
             title="Phân công kiêm nhiệm & quản lý đa vai trò cán bộ trong các tổ chức đoàn thể"
           >
-            <Sparkles size={14} className="text-amber-100 shrink-0" />
-            <span>Quản lý Đa vai trò</span>
-            <span className="bg-amber-900 text-amber-50 text-xs font-bold px-1.5 py-0.5 rounded-full font-mono tabular-nums ml-0.5">
-              {multiRoleResidentsCount}
-            </span>
+            <Sparkles size={13} className="text-slate-500 shrink-0" />
+            <span>Đa vai trò ({multiRoleResidentsCount})</span>
           </button>
 
           <button
             type="button"
             onClick={handleExportAllToExcel}
-            className="flex-1 sm:flex-initial flex items-center justify-center gap-1.5 bg-white hover:bg-slate-100 hover:border-slate-300 text-slate-800 px-3.5 py-2 rounded-xl font-semibold text-xs transition-colors border border-slate-200 cursor-pointer shadow-2xs whitespace-nowrap"
+            className="flex items-center justify-center gap-1.5 bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 px-3 h-9 rounded-lg font-semibold text-xs transition-colors cursor-pointer whitespace-nowrap"
             title="Xuất toàn bộ danh sách tổng hợp tất cả chi hội ra file Excel"
           >
-            <FileSpreadsheet size={14} className="text-emerald-700 shrink-0" />
-            <span className="sm:hidden">Xuất Excel</span>
-            <span className="hidden sm:inline">Xuất toàn bộ Excel</span>
+            <FileSpreadsheet size={13} className="text-slate-500 shrink-0" />
+            <span>Xuất Excel</span>
           </button>
+
           <button
             type="button"
             onClick={() => {
@@ -2579,16 +2576,16 @@ export default function PartyBranch({
                 setShowAddAssocModal(true);
               }
             }}
-            className="w-full sm:w-auto flex items-center justify-center gap-2 bg-emerald-700 hover:bg-emerald-800 text-white px-4 py-2 rounded-xl font-semibold text-xs transition-colors shadow-xs cursor-pointer whitespace-nowrap"
+            className="flex items-center justify-center gap-1.5 bg-emerald-700 hover:bg-emerald-800 text-white px-3.5 h-9 rounded-lg font-semibold text-xs transition-colors shadow-2xs cursor-pointer whitespace-nowrap"
           >
-            <FolderPlus size={15} className="shrink-0" />
-            <span>Thêm Chi hội mới</span>
+            <FolderPlus size={14} className="shrink-0" />
+            <span>Thêm Chi hội</span>
           </button>
         </div>
       </div>
 
       {/* 4 Top KPI StatCards */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         <StatCard
           label="Tổ chức & Chi hội"
           value={totalAssocCount}
@@ -2604,7 +2601,7 @@ export default function PartyBranch({
           badge="hội viên"
           highlighted={activeSubTab === "associations" && assocViewMode === "table"}
           icon={Users}
-          color="blue"
+          color="slate"
           onClick={() => {
             setActiveSubTab("associations");
             setAssocViewMode("table");
@@ -2616,7 +2613,7 @@ export default function PartyBranch({
           badge="văn bản"
           highlighted={activeSubTab === "decisions"}
           icon={FileCheck}
-          color="indigo"
+          color="slate"
           onClick={() => setActiveSubTab("decisions")}
         />
         <StatCard
@@ -2625,7 +2622,7 @@ export default function PartyBranch({
           badge="cán bộ"
           highlighted={activeSubTab === "multi_role"}
           icon={Sparkles}
-          color="amber"
+          color="slate"
           onClick={() => setActiveSubTab("multi_role")}
         />
       </div>
@@ -2634,20 +2631,21 @@ export default function PartyBranch({
       <div
         role="tablist"
         aria-label="Phân mục quản lý Chi bộ và Đoàn thể"
-        className="flex items-center gap-1.5 overflow-x-auto whitespace-nowrap p-1.5 bg-slate-100/90 rounded-2xl border border-slate-200 evon-scroll"
+        className="flex items-center gap-1 overflow-x-auto whitespace-nowrap p-1 bg-slate-100/80 rounded-xl border border-slate-200/80 w-fit max-w-full evon-scroll"
       >
         <button
           type="button"
           role="tab"
           aria-selected={activeSubTab === "associations"}
           onClick={() => setActiveSubTab("associations")}
-          className={`px-3 py-2 min-h-10 rounded-xl text-xs font-bold transition-colors cursor-pointer flex items-center justify-start gap-1.5 border whitespace-nowrap shrink-0 ${activeSubTab === "associations"
-              ? "bg-white text-emerald-800 border-emerald-600/25"
-              : "border-transparent text-slate-700 hover:text-slate-950 hover:bg-white"
-            }`}
+          className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors cursor-pointer flex items-center gap-1.5 whitespace-nowrap shrink-0 ${
+            activeSubTab === "associations"
+              ? "bg-white text-slate-900 shadow-2xs"
+              : "text-slate-600 hover:text-slate-900"
+          }`}
         >
-          <Building2 size={14} className={activeSubTab === "associations" ? "text-emerald-700" : "text-slate-600"} />
-          <span>Tổ chức & Chi hội ({coreAssociations.length})</span>
+          <Building2 size={13} className={activeSubTab === "associations" ? "text-emerald-700" : "text-slate-500"} />
+          <span>Tổ chức &amp; Chi hội ({coreAssociations.length})</span>
         </button>
 
         <button
@@ -2655,12 +2653,13 @@ export default function PartyBranch({
           role="tab"
           aria-selected={activeSubTab === "meetings"}
           onClick={() => setActiveSubTab("meetings")}
-          className={`px-3 py-2 min-h-10 rounded-xl text-xs font-bold transition-colors cursor-pointer flex items-center justify-start gap-1.5 border whitespace-nowrap shrink-0 ${activeSubTab === "meetings"
-              ? "bg-white text-rose-800 border-rose-600/25"
-              : "border-transparent text-slate-700 hover:text-slate-950 hover:bg-white"
-            }`}
+          className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors cursor-pointer flex items-center gap-1.5 whitespace-nowrap shrink-0 ${
+            activeSubTab === "meetings"
+              ? "bg-white text-slate-900 shadow-2xs"
+              : "text-slate-600 hover:text-slate-900"
+          }`}
         >
-          <Calendar size={14} className={activeSubTab === "meetings" ? "text-rose-700" : "text-slate-600"} />
+          <Calendar size={13} className={activeSubTab === "meetings" ? "text-emerald-700" : "text-slate-500"} />
           <span>Sinh hoạt Chi bộ ({resolutions.length})</span>
         </button>
 
@@ -2669,12 +2668,13 @@ export default function PartyBranch({
           role="tab"
           aria-selected={activeSubTab === "multi_role"}
           onClick={() => setActiveSubTab("multi_role")}
-          className={`px-3 py-2 min-h-10 rounded-xl text-xs font-bold transition-colors cursor-pointer flex items-center justify-start gap-1.5 border whitespace-nowrap shrink-0 ${activeSubTab === "multi_role"
-              ? "bg-white text-amber-800 border-amber-600/25"
-              : "border-transparent text-slate-700 hover:text-slate-950 hover:bg-white"
-            }`}
+          className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors cursor-pointer flex items-center gap-1.5 whitespace-nowrap shrink-0 ${
+            activeSubTab === "multi_role"
+              ? "bg-white text-slate-900 shadow-2xs"
+              : "text-slate-600 hover:text-slate-900"
+          }`}
         >
-          <Sparkles size={14} className={activeSubTab === "multi_role" ? "text-amber-700" : "text-slate-600"} />
+          <Sparkles size={13} className={activeSubTab === "multi_role" ? "text-emerald-700" : "text-slate-500"} />
           <span>Kiêm nhiệm ({multiRoleResidentsCount})</span>
         </button>
 
@@ -2683,12 +2683,13 @@ export default function PartyBranch({
           role="tab"
           aria-selected={activeSubTab === "decisions"}
           onClick={() => setActiveSubTab("decisions")}
-          className={`px-3 py-2 min-h-10 rounded-xl text-xs font-bold transition-colors cursor-pointer flex items-center justify-start gap-1.5 border whitespace-nowrap shrink-0 ${activeSubTab === "decisions"
-              ? "bg-white text-indigo-800 border-indigo-600/25"
-              : "border-transparent text-slate-700 hover:text-slate-950 hover:bg-white"
-            }`}
+          className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors cursor-pointer flex items-center gap-1.5 whitespace-nowrap shrink-0 ${
+            activeSubTab === "decisions"
+              ? "bg-white text-slate-900 shadow-2xs"
+              : "text-slate-600 hover:text-slate-900"
+          }`}
         >
-          <FileCheck size={14} className={activeSubTab === "decisions" ? "text-indigo-700" : "text-slate-600"} />
+          <FileCheck size={13} className={activeSubTab === "decisions" ? "text-emerald-700" : "text-slate-500"} />
           <span>Quyết định chuẩn y ({totalDecisionsCount})</span>
         </button>
 
@@ -2697,13 +2698,14 @@ export default function PartyBranch({
           role="tab"
           aria-selected={activeSubTab === "org_chart"}
           onClick={() => setActiveSubTab("org_chart")}
-          className={`px-3 py-2 min-h-10 rounded-xl text-xs font-bold transition-colors cursor-pointer flex items-center justify-start gap-1.5 border whitespace-nowrap shrink-0 ${activeSubTab === "org_chart"
-              ? "bg-white text-blue-800 border-blue-600/25"
-              : "border-transparent text-slate-700 hover:text-slate-950 hover:bg-white"
-            }`}
+          className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors cursor-pointer flex items-center gap-1.5 whitespace-nowrap shrink-0 ${
+            activeSubTab === "org_chart"
+              ? "bg-white text-slate-900 shadow-2xs"
+              : "text-slate-600 hover:text-slate-900"
+          }`}
         >
-          <Layers size={14} className={activeSubTab === "org_chart" ? "text-blue-700" : "text-slate-600"} />
-          <span>Sơ đồ Bộ máy (5 Tầng)</span>
+          <Layers size={13} className={activeSubTab === "org_chart" ? "text-emerald-700" : "text-slate-500"} />
+          <span>Sơ đồ Bộ máy</span>
         </button>
       </div>
 

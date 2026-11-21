@@ -1363,7 +1363,7 @@ export default function SocialWelfare({
   };
 
   return (
-    <div id="social-welfare-view" className="space-y-6">
+    <div id="social-welfare-view" className="space-y-4">
       {/* Inline Notification Bar */}
       <InlineNotice
         message={toast?.message ?? null}
@@ -1371,64 +1371,115 @@ export default function SocialWelfare({
         onDismiss={() => setToast(null)}
       />
 
-      {/* Page Header with Clean Dual-Action Controls */}
+      {/* Minimalist Page Header */}
       <PageHeader
-        badgeIcon={<Heart size={13} className="text-rose-600 fill-rose-500/20" />}
-        badgeText="CHÍNH SÁCH & AN SINH CỘNG ĐỒNG • KHU PHỐ 3, PHƯỜNG AN PHÚ"
-        badgeSubtext="NGHỊ ĐỊNH 20/2021/NĐ-CP & ĐỀ ÁN AN SINH"
-        title="An Sinh Xã Hội"
+        title="An sinh Xã hội & Chính sách"
+        description="Quản lý đối tượng người có công, bảo trợ xã hội, mừng thọ người cao tuổi và các đợt chăm lo trên địa bàn"
         actions={
           <div className="flex flex-wrap items-center gap-2 shrink-0">
             <button
-              id="btn-add-welfare-recipient"
+              id="btn-sync-senior-policy-residents"
               type="button"
-              onClick={() => {
-                setShowAddRecipientModal(true);
-                handleCategorySelectChange("Người có công");
-              }}
-              className="flex items-center gap-1.5 bg-emerald-700 hover:bg-emerald-800 text-white px-3 py-2 rounded-xl font-bold text-xs shadow-xs cursor-pointer transition-colors whitespace-nowrap shrink-0"
+              onClick={handleSyncResidentsToWelfare}
+              className="flex items-center gap-1.5 h-9 px-3 rounded-lg bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 text-xs font-semibold cursor-pointer transition-colors"
+              title={`Đối soát tự động CSDL Dân cư (${formatVNNumber(residentWelfareStats.seniors60Total)} người cao tuổi ≥60t, ${formatVNNumber(residentWelfareStats.longevityMilestoneCount)} cụ mừng thọ)`}
             >
-              <Plus size={14} /> Thêm đối tượng thụ hưởng
+              <RefreshCw size={13} className="text-slate-500 shrink-0" />
+              <span>
+                Đồng bộ Dân cư
+                {residentWelfareStats.unsyncedCandidates.length > 0
+                  ? ` (+${residentWelfareStats.unsyncedCandidates.length})`
+                  : ""}
+              </span>
             </button>
 
-            <button
-              id="btn-emergency-support"
-              type="button"
-              onClick={() => {
-                setEmergencyTargetRecipient(null);
-                setEmgRecipientId("");
-                setEmgRecipientName("");
-                setEmgCccd("");
-                setEmgAddress("42/ Lương Định Của, Phường An Phú");
-                setEmgReason("Hỗ trợ khẩn cấp đột xuất cho trường hợp khó khăn cấp bách");
-                setShowEmergencyModal(true);
-              }}
-              className="flex items-center gap-1.5 bg-white hover:bg-amber-50 text-amber-800 border border-amber-300 px-3 py-2 rounded-xl font-bold text-xs shadow-xs cursor-pointer transition-colors whitespace-nowrap shrink-0"
-            >
-              <Zap size={14} className="text-amber-600" /> Hỗ trợ khẩn cấp
-            </button>
+            {activeTab !== "emergency" && (
+              <button
+                id="btn-emergency-support"
+                type="button"
+                onClick={() => {
+                  setEmergencyTargetRecipient(null);
+                  setEmgRecipientId("");
+                  setEmgRecipientName("");
+                  setEmgCccd("");
+                  setEmgAddress("42/ Lương Định Của, Khu phố 3, Phường An Phú, TP. Hồ Chí Minh");
+                  setEmgReason("Hỗ trợ khẩn cấp đột xuất cho trường hợp khó khăn cấp bách");
+                  setShowEmergencyModal(true);
+                }}
+                className="flex items-center gap-1.5 h-9 bg-white hover:bg-amber-50 text-amber-800 border border-amber-200 px-3 rounded-lg font-semibold text-xs cursor-pointer transition-colors whitespace-nowrap shrink-0"
+              >
+                <Zap size={13} className="text-amber-600" /> Hỗ trợ khẩn cấp
+              </button>
+            )}
+
+            {activeTab === "submodules" ? (
+              <button
+                type="button"
+                onClick={() => setShowAddSubCategoryModal(true)}
+                className="flex items-center gap-1.5 h-9 bg-emerald-700 hover:bg-emerald-800 text-white px-3.5 rounded-lg font-semibold text-xs shadow-2xs cursor-pointer transition-colors whitespace-nowrap shrink-0"
+              >
+                <Plus size={14} /> Tạo phân hệ
+              </button>
+            ) : activeTab === "campaigns" ? (
+              <button
+                type="button"
+                onClick={() => setShowAddCampaignModal(true)}
+                className="flex items-center gap-1.5 h-9 bg-emerald-700 hover:bg-emerald-800 text-white px-3.5 rounded-lg font-semibold text-xs shadow-2xs cursor-pointer transition-colors whitespace-nowrap shrink-0"
+              >
+                <Plus size={14} /> Lập đợt trao quà
+              </button>
+            ) : activeTab === "emergency" ? (
+              <button
+                id="btn-emergency-support"
+                type="button"
+                onClick={() => {
+                  setEmergencyTargetRecipient(null);
+                  setEmgRecipientId("");
+                  setEmgRecipientName("");
+                  setEmgCccd("");
+                  setEmgAddress("42/ Lương Định Của, Khu phố 3, Phường An Phú, TP. Hồ Chí Minh");
+                  setEmgReason("Hỗ trợ khẩn cấp đột xuất cho trường hợp khó khăn cấp bách");
+                  setShowEmergencyModal(true);
+                }}
+                className="flex items-center gap-1.5 h-9 bg-emerald-700 hover:bg-emerald-800 text-white px-3.5 rounded-lg font-semibold text-xs shadow-2xs cursor-pointer transition-colors whitespace-nowrap shrink-0"
+              >
+                <Zap size={13} /> Chi trả khẩn cấp
+              </button>
+            ) : (
+              <button
+                id="btn-add-welfare-recipient"
+                type="button"
+                onClick={() => {
+                  setShowAddRecipientModal(true);
+                  handleCategorySelectChange("Người có công");
+                }}
+                className="flex items-center gap-1.5 h-9 bg-emerald-700 hover:bg-emerald-800 text-white px-3.5 rounded-lg font-semibold text-xs shadow-2xs cursor-pointer transition-colors whitespace-nowrap shrink-0"
+              >
+                <Plus size={14} /> Thêm đối tượng
+              </button>
+            )}
           </div>
         }
       />
 
       {/* 4 StatCards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3 sm:gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3.5">
         <StatCard
           label="Đối tượng thụ hưởng"
           value={kpiData.totalRecs}
           badge={`${kpiData.activeRecs} đang hưởng`}
           highlighted={activeTab === "recipients"}
           icon={Heart}
-          color="rose"
+          color="emerald"
           onClick={() => setActiveTab("recipients")}
         />
         <StatCard
-          label="Phân hệ an sinh con"
+          label="Phân hệ chính sách"
           value={subCategories.length}
-          badge="nhóm đối tượng"
+          badge="nhóm"
           highlighted={activeTab === "submodules"}
           icon={Tag}
-          color="indigo"
+          color="slate"
           onClick={() => setActiveTab("submodules")}
         />
         <StatCard
@@ -1437,7 +1488,7 @@ export default function SocialWelfare({
           badge="chương trình"
           highlighted={activeTab === "campaigns"}
           icon={Gift}
-          color="emerald"
+          color="slate"
           onClick={() => setActiveTab("campaigns")}
         />
         <StatCard
@@ -1451,293 +1502,231 @@ export default function SocialWelfare({
         />
       </div>
 
-      {/* Smart Resident DB Reconciliation & 1-Click Sync Banner */}
-      <div className="bg-white rounded-2xl border border-emerald-200 p-4 sm:p-5 shadow-xs flex flex-col xl:flex-row xl:items-center justify-between gap-4">
-        <div className="space-y-2 min-w-0 flex-1">
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="inline-flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200">
-              <Sparkles size={12} className="text-emerald-700" /> Đối soát tự động CSDL Dân cư KP3 ({formatVNNumber(residents.length)} nhân khẩu)
-            </span>
-            {residentWelfareStats.unsyncedCandidates.length > 0 ? (
-              <span className="text-xs font-bold px-2.5 py-0.5 rounded-full bg-amber-50 text-amber-800 border border-amber-200">
-                Phát hiện {formatVNNumber(residentWelfareStats.unsyncedCandidates.length)} hồ sơ đủ tiêu chuẩn chưa lập sổ an sinh
-              </span>
-            ) : residents.length > 0 ? (
-              <span className="text-xs font-bold px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200">
-                ✓ Đã đồng bộ khử trùng CCCD
-              </span>
-            ) : null}
-          </div>
-
-          <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 text-xs text-slate-700">
-            <span>
-              Người cao tuổi (≥60t):{" "}
-              <strong className="font-mono font-bold text-slate-900">
-                {formatVNNumber(residentWelfareStats.seniors60Total)} người
-              </strong>
-            </span>
-            <span className="text-slate-300 hidden sm:inline">•</span>
-            <span>
-              Cao niên / Mừng thọ:{" "}
-              <strong className="font-mono text-indigo-800">
-                ≥70t ({formatVNNumber(residentWelfareStats.seniors70Plus)})
-              </strong>
-              {" | "}
-              <strong className="font-mono text-rose-700">
-                ≥80t ({formatVNNumber(residentWelfareStats.seniors80Plus)})
-              </strong>
-              {" | "}
-              <strong className="font-mono text-emerald-800">
-                ≥90t ({formatVNNumber(residentWelfareStats.seniors90Plus)})
-              </strong>
-              {" • "}
-              Đúng tuổi mừng thọ năm {residentWelfareStats.currentYear}:{" "}
-              <strong className="font-mono text-amber-800">
-                {formatVNNumber(residentWelfareStats.longevityMilestoneCount)} cụ
-              </strong>
-            </span>
-            <span className="text-slate-300 hidden sm:inline">•</span>
-            <span>
-              Trẻ em (&lt;14t):{" "}
-              <strong className="font-mono text-slate-900">
-                {formatVNNumber(residentWelfareStats.childrenUnder14)} em
-              </strong>
-            </span>
-            <span className="text-slate-300 hidden sm:inline">•</span>
-            <span>
-              Hộ chính sách:{" "}
-              <strong className="font-mono text-rose-700">
-                {formatVNNumber(residentWelfareStats.policyTotalCount)} hồ sơ
-              </strong>
-            </span>
-          </div>
-        </div>
-
-        <div className="flex flex-wrap items-center gap-2 shrink-0">
+      {/* Compact Sub-tab Navigation & Senior Summary Strip */}
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-2.5">
+        <div className="flex flex-wrap items-center gap-1 bg-slate-100/80 p-1 rounded-xl border border-slate-200/80 w-fit">
           <button
-            id="btn-sync-senior-policy-residents"
             type="button"
-            onClick={handleSyncResidentsToWelfare}
-            className="px-3.5 py-2.5 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-bold inline-flex items-center gap-1.5 shadow-xs cursor-pointer transition-colors"
+            onClick={() => setActiveTab("recipients")}
+            className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors cursor-pointer flex items-center gap-1.5 whitespace-nowrap ${
+              activeTab === "recipients"
+                ? "bg-white text-slate-900 shadow-2xs"
+                : "text-slate-600 hover:text-slate-900"
+            }`}
           >
-            <RefreshCw size={14} className="shrink-0" />
-            <span>
-              Đồng bộ Người cao tuổi (≥80t / Mừng thọ) &amp; Chính sách từ CSDL Dân cư
-              {residentWelfareStats.unsyncedCandidates.length > 0
-                ? ` (+${residentWelfareStats.unsyncedCandidates.length})`
-                : ""}
-            </span>
+            <Users size={13} className={activeTab === "recipients" ? "text-emerald-700" : "text-slate-500"} />
+            <span>Đối tượng thụ hưởng ({effectiveRecipients.length})</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setActiveTab("submodules")}
+            className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors cursor-pointer flex items-center gap-1.5 whitespace-nowrap ${
+              activeTab === "submodules"
+                ? "bg-white text-slate-900 shadow-2xs"
+                : "text-slate-600 hover:text-slate-900"
+            }`}
+          >
+            <FolderPlus size={13} className={activeTab === "submodules" ? "text-emerald-700" : "text-slate-500"} />
+            <span>Phân hệ ({subCategories.length})</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setActiveTab("campaigns")}
+            className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors cursor-pointer flex items-center gap-1.5 whitespace-nowrap ${
+              activeTab === "campaigns"
+                ? "bg-white text-slate-900 shadow-2xs"
+                : "text-slate-600 hover:text-slate-900"
+            }`}
+          >
+            <Gift size={13} className={activeTab === "campaigns" ? "text-emerald-700" : "text-slate-500"} />
+            <span>Đợt trao quà ({campaigns.length})</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setActiveTab("emergency")}
+            className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors cursor-pointer flex items-center gap-1.5 whitespace-nowrap ${
+              activeTab === "emergency"
+                ? "bg-white text-slate-900 shadow-2xs"
+                : "text-slate-600 hover:text-slate-900"
+            }`}
+          >
+            <Zap size={13} className={activeTab === "emergency" ? "text-amber-600" : "text-slate-500"} />
+            <span>Khẩn cấp ({emergencyRecords.length})</span>
           </button>
         </div>
-      </div>
 
-      {/* Sub-tab Navigation Bar */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-1.5 bg-slate-100/90 p-1.5 rounded-2xl border border-slate-200/80">
-        <button
-          type="button"
-          onClick={() => setActiveTab("recipients")}
-          className={`min-h-[40px] px-3 py-2 rounded-xl text-xs font-bold transition-colors cursor-pointer flex items-center justify-center gap-2 whitespace-nowrap ${activeTab === "recipients"
-            ? "bg-white text-emerald-800 border border-slate-200"
-            : "text-slate-700 hover:text-slate-900 hover:bg-white/60"
-            }`}
-        >
-          <Users size={14} className={activeTab === "recipients" ? "text-emerald-700" : "text-slate-600"} />
-          <span>Đối tượng thụ hưởng ({effectiveRecipients.length})</span>
-        </button>
-
-        <button
-          type="button"
-          onClick={() => setActiveTab("submodules")}
-          className={`min-h-[40px] px-3 py-2 rounded-xl text-xs font-bold transition-colors cursor-pointer flex items-center justify-center gap-2 whitespace-nowrap ${activeTab === "submodules"
-            ? "bg-white text-indigo-800 border border-slate-200"
-            : "text-slate-700 hover:text-slate-900 hover:bg-white/60"
-            }`}
-        >
-          <FolderPlus size={14} className={activeTab === "submodules" ? "text-indigo-700" : "text-slate-600"} />
-          <span>Phân hệ chính sách ({subCategories.length})</span>
-        </button>
-
-        <button
-          type="button"
-          onClick={() => setActiveTab("campaigns")}
-          className={`min-h-[40px] px-3 py-2 rounded-xl text-xs font-bold transition-colors cursor-pointer flex items-center justify-center gap-2 whitespace-nowrap ${activeTab === "campaigns"
-            ? "bg-white text-emerald-800 border border-slate-200"
-            : "text-slate-700 hover:text-slate-900 hover:bg-white/60"
-            }`}
-        >
-          <Gift size={14} className={activeTab === "campaigns" ? "text-emerald-700" : "text-slate-600"} />
-          <span>Đợt hỗ trợ tập trung ({campaigns.length})</span>
-        </button>
-
-        <button
-          type="button"
-          onClick={() => setActiveTab("emergency")}
-          className={`min-h-[40px] px-3 py-2 rounded-xl text-xs font-bold transition-colors cursor-pointer flex items-center justify-center gap-2 whitespace-nowrap ${activeTab === "emergency"
-            ? "bg-white text-amber-800 border border-slate-200"
-            : "text-slate-700 hover:text-slate-900 hover:bg-white/60"
-            }`}
-        >
-          <Zap size={14} className={activeTab === "emergency" ? "text-amber-700" : "text-slate-600"} />
-          <span>Cứu trợ khẩn cấp ({emergencyRecords.length})</span>
-        </button>
+        <div className="text-xs text-slate-500 flex flex-wrap items-center gap-x-3 gap-y-1">
+          <span>Cao tuổi ≥60t: <strong className="text-slate-800 font-mono">{formatVNNumber(residentWelfareStats.seniors60Total)}</strong></span>
+          <span>•</span>
+          <span>Mừng thọ {residentWelfareStats.currentYear}: <strong className="text-slate-800 font-mono">{formatVNNumber(residentWelfareStats.longevityMilestoneCount)} cụ</strong></span>
+          <span>•</span>
+          <span>Trẻ em &lt;14t: <strong className="text-slate-800 font-mono">{formatVNNumber(residentWelfareStats.childrenUnder14)}</strong></span>
+        </div>
       </div>
 
       {/* ========================================================================= */}
       {/* SUB-TAB 1: DANH SÁCH ĐỐI TƯỢNG THỤ HƯỞNG                                 */}
       {/* ========================================================================= */}
       {activeTab === "recipients" && (
-        <div className="space-y-4">
-          {/* Sub-Category Filter Pills */}
-          <div className="flex flex-wrap items-center gap-1.5">
-            <button
-              type="button"
-              onClick={() => { setSelectedCategoryPill("all"); setCurrentPage(1); }}
-              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer border ${selectedCategoryPill === "all"
-                ? "bg-emerald-700 text-white border-emerald-700 shadow-xs"
-                : "bg-white text-slate-700 border-slate-200 hover:bg-slate-50"
-                }`}
-            >
-              Tất cả phân hệ ({effectiveRecipients.length})
-            </button>
-            {subCategories.map(sub => {
-              const count = effectiveRecipients.filter(r => r.category === sub.name).length;
-              return (
-                <button
-                  key={sub.id}
-                  type="button"
-                  onClick={() => { setSelectedCategoryPill(sub.name); setCurrentPage(1); }}
-                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer border flex items-center gap-1.5 ${selectedCategoryPill === sub.name
-                    ? "bg-emerald-700 text-white border-emerald-700 shadow-xs"
-                    : "bg-white text-slate-700 border-slate-200 hover:bg-emerald-50/50"
-                    }`}
-                >
-                  <span>{sub.name}</span>
-                  <span className={`text-xs px-1.5 py-0.5 rounded-full font-mono ${selectedCategoryPill === sub.name ? "bg-white/25 text-white" : "bg-slate-100 text-slate-700"
-                    }`}>
-                    {count}
-                  </span>
-                </button>
-              );
-            })}
-          </div>
+        <div className="space-y-3.5">
+          {/* Unified Minimalist Search, Filter & Export Toolbar */}
+          <div className="bg-white p-3.5 rounded-xl border border-slate-200/80 shadow-2xs space-y-2.5">
+            <div className="flex flex-col xl:flex-row gap-2.5 items-stretch xl:items-center justify-between">
+              <div className="relative flex-1 min-w-0">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={15} />
+                <input
+                  id="social-welfare-search"
+                  type="text"
+                  placeholder="Tìm theo họ tên, số CCCD, địa chỉ, số điện thoại..."
+                  value={searchTerm}
+                  onChange={e => { setSearchTerm(e.target.value); setCurrentPage(1); }}
+                  className="w-full h-9 pl-9 pr-4 border border-slate-200 rounded-lg text-xs focus:outline-none focus:border-emerald-600 bg-slate-50/70 focus:bg-white transition-colors"
+                />
+              </div>
 
-          {/* Search, Status Filter, Tổ 1–14 & View Mode Bar */}
-          <div className="bg-white p-3.5 rounded-2xl border border-slate-200/80 shadow-xs flex flex-col lg:flex-row gap-3 items-stretch lg:items-center justify-between">
-            <div className="relative flex-1 min-w-0">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" size={16} />
-              <input
-                id="social-welfare-search"
-                type="text"
-                placeholder="Tìm theo tên cư dân, số CCCD, địa chỉ, số điện thoại..."
-                value={searchTerm}
-                onChange={e => { setSearchTerm(e.target.value); setCurrentPage(1); }}
-                className="w-full pl-9 pr-4 py-2 border border-slate-200 rounded-xl text-xs sm:text-sm focus:outline-none focus:border-rose-500 bg-slate-50/50"
-              />
+              <div className="flex flex-wrap items-center gap-2 shrink-0">
+                <div className="min-w-[145px] flex-1 sm:flex-none">
+                  <ReportSelect
+                    aria-label="Lọc theo tuyến đường / khu vực KP3"
+                    value={toFilter}
+                    onChange={val => { setToFilter(val); setCurrentPage(1); }}
+                    options={[
+                      { value: "all", label: "Toàn địa bàn KP3" },
+                      ...KP3_AREA_LIST.map(area => ({ value: area, label: area }))
+                    ]}
+                    className="text-xs"
+                  />
+                </div>
+
+                <div className="min-w-[160px] flex-1 sm:flex-none">
+                  <ReportSelect
+                    aria-label="Lọc trạng thái trợ cấp"
+                    value={statusFilter}
+                    onChange={val => { setStatusFilter(val); setCurrentPage(1); }}
+                    options={[
+                      { value: "all", label: "Tất cả trạng thái" },
+                      { value: "Đang nhận trợ cấp", label: "Đang nhận trợ cấp" },
+                      { value: "Chờ duyệt hồ sơ", label: "Chờ duyệt hồ sơ" },
+                      { value: "Đã tạm ngưng", label: "Đã tạm ngưng" }
+                    ]}
+                    className="text-xs"
+                  />
+                </div>
+
+                {/* Compact Sign-sheet Export & A4 Print */}
+                <button
+                  type="button"
+                  onClick={() =>
+                    handleExportSignSheetXlsx(filteredRecipients, {
+                      title: "Danh sách ký nhận tiền / quà an sinh Khu phố 3",
+                      filenamePrefix:
+                        selectedCategoryPill === "all"
+                          ? "DS_KyNhan_AnSinh_KP3"
+                          : `DS_KyNhan_${selectedCategoryPill}`
+                    })
+                  }
+                  className="h-9 px-3 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-xs font-semibold inline-flex items-center gap-1.5 cursor-pointer transition-colors whitespace-nowrap shrink-0"
+                  title="Xuất danh sách ký nhận tiền/quà ra tệp Excel (.xlsx)"
+                >
+                  <FileSpreadsheet size={13} className="text-emerald-700 shrink-0" />
+                  <span>Xuất ký nhận</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() =>
+                    handlePrintSignSheetA4(filteredRecipients, {
+                      title:
+                        selectedCategoryPill === "all"
+                          ? "DANH SÁCH KÝ NHẬN TIỀN / QUÀ HỖ TRỢ AN SINH XÃ HỘI"
+                          : `DANH SÁCH KÝ NHẬN TIỀN / QUÀ — ${selectedCategoryPill.toUpperCase()}`,
+                      subtitle: `Địa bàn: Khu phố 3, Phường An Phú, TP. Hồ Chí Minh • Phân hệ: ${
+                        selectedCategoryPill === "all" ? "Toàn bộ đối tượng" : selectedCategoryPill
+                      }`
+                    })
+                  }
+                  className="h-9 px-3 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-xs font-semibold inline-flex items-center gap-1.5 cursor-pointer transition-colors whitespace-nowrap shrink-0"
+                  title="In danh sách ký nhận tiền/quà khổ A4 chuẩn Quốc hiệu – Tiêu ngữ"
+                >
+                  <Printer size={13} className="text-slate-500 shrink-0" />
+                  <span>In A4</span>
+                </button>
+
+                {/* View mode toggle */}
+                <div className="flex items-center border border-slate-200/80 rounded-lg p-0.5 bg-slate-100/80 gap-0.5 shrink-0">
+                  <button
+                    type="button"
+                    onClick={() => setViewMode("card")}
+                    className={`p-1.5 rounded-md transition-colors cursor-pointer ${viewMode === "card" ? "bg-white text-slate-900 shadow-2xs" : "text-slate-500 hover:text-slate-900"}`}
+                    title="Xem dạng Lưới Thẻ"
+                    aria-label="Xem dạng Lưới Thẻ"
+                  >
+                    <LayoutGrid size={14} />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setViewMode("table")}
+                    className={`p-1.5 rounded-md transition-colors cursor-pointer ${viewMode === "table" ? "bg-white text-slate-900 shadow-2xs" : "text-slate-500 hover:text-slate-900"}`}
+                    title="Xem dạng Bảng Danh sách"
+                    aria-label="Xem dạng Bảng Danh sách"
+                  >
+                    <List size={14} />
+                  </button>
+                </div>
+              </div>
             </div>
 
-            <div className="flex flex-wrap items-center gap-2 shrink-0">
-              <div className="min-w-[145px]">
-                <ReportSelect
-                  aria-label="Lọc theo tuyến đường / khu vực KP3"
-                  value={toFilter}
-                  onChange={val => { setToFilter(val); setCurrentPage(1); }}
-                  options={[
-                    { value: "all", label: "Toàn địa bàn KP3" },
-                    ...KP3_AREA_LIST.map(area => ({ value: area, label: area }))
-                  ]}
-                  className="text-xs"
-                />
-              </div>
-
-              <div className="min-w-[165px]">
-                <ReportSelect
-                  aria-label="Lọc trạng thái trợ cấp"
-                  value={statusFilter}
-                  onChange={val => { setStatusFilter(val); setCurrentPage(1); }}
-                  options={[
-                    { value: "all", label: "Tất cả trạng thái" },
-                    { value: "Đang nhận trợ cấp", label: "Đang nhận trợ cấp" },
-                    { value: "Chờ duyệt hồ sơ", label: "Chờ duyệt hồ sơ" },
-                    { value: "Đã tạm ngưng", label: "Đã tạm ngưng" }
-                  ]}
-                  className="text-xs"
-                />
-              </div>
-
-              {/* Sign-sheet Export & A4 Print */}
+            {/* Integrated Category Filter Pills */}
+            <div className="pt-2 border-t border-slate-100 flex flex-wrap items-center gap-1.5">
+              <span className="text-xs font-semibold text-slate-500 inline-flex items-center gap-1 mr-1">
+                <Tag size={12} /> Nhóm chính sách:
+              </span>
               <button
                 type="button"
-                onClick={() =>
-                  handleExportSignSheetXlsx(filteredRecipients, {
-                    title: "Danh sách ký nhận tiền / quà an sinh Khu phố 3",
-                    filenamePrefix:
-                      selectedCategoryPill === "all"
-                        ? "DS_KyNhan_AnSinh_KP3"
-                        : `DS_KyNhan_${selectedCategoryPill}`
-                  })
-                }
-                className="px-3 py-2 rounded-xl border border-emerald-200 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 text-xs font-bold inline-flex items-center gap-1.5 cursor-pointer transition-colors whitespace-nowrap shrink-0"
-                title="Xuất danh sách ký nhận tiền/quà ra tệp Excel (.xlsx)"
+                onClick={() => { setSelectedCategoryPill("all"); setCurrentPage(1); }}
+                className={`h-7 px-2.5 rounded-lg text-xs font-semibold transition-colors cursor-pointer border ${selectedCategoryPill === "all"
+                  ? "bg-slate-900 text-white border-slate-900"
+                  : "bg-white text-slate-600 border-slate-200 hover:bg-slate-50 hover:text-slate-900"
+                  }`}
               >
-                <FileSpreadsheet size={14} className="text-emerald-700 shrink-0" />
-                <span>Xuất DS Ký nhận (.xlsx)</span>
+                Tất cả ({effectiveRecipients.length})
               </button>
-
-              <button
-                type="button"
-                onClick={() =>
-                  handlePrintSignSheetA4(filteredRecipients, {
-                    title:
-                      selectedCategoryPill === "all"
-                        ? "DANH SÁCH KÝ NHẬN TIỀN / QUÀ HỖ TRỢ AN SINH XÃ HỘI"
-                        : `DANH SÁCH KÝ NHẬN TIỀN / QUÀ — ${selectedCategoryPill.toUpperCase()}`,
-                    subtitle: `Địa bàn: Khu phố 3, Phường An Phú, TP. Hồ Chí Minh • Phân hệ: ${
-                      selectedCategoryPill === "all" ? "Toàn bộ đối tượng" : selectedCategoryPill
-                    }`
-                  })
-                }
-                className="px-3 py-2 rounded-xl border border-slate-300 bg-white hover:bg-slate-50 text-slate-800 text-xs font-bold inline-flex items-center gap-1.5 cursor-pointer transition-colors whitespace-nowrap shrink-0"
-                title="In danh sách ký nhận tiền/quà khổ A4 chuẩn Quốc hiệu – Tiêu ngữ"
-              >
-                <Printer size={14} className="text-slate-700 shrink-0" />
-                <span>In Danh sách Ký nhận A4</span>
-              </button>
-
-              {/* View mode toggle */}
-              <div className="flex items-center border border-slate-200 rounded-xl p-0.5 bg-slate-100 gap-0.5 shrink-0">
-                <button
-                  type="button"
-                  onClick={() => setViewMode("card")}
-                  className={`p-2 rounded-lg transition-all cursor-pointer ${viewMode === "card" ? "bg-white text-rose-700 shadow-xs font-bold" : "text-slate-600 hover:text-slate-900"}`}
-                  title="Xem dạng Lưới Thẻ"
-                  aria-label="Xem dạng Lưới Thẻ"
-                >
-                  <LayoutGrid size={15} />
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setViewMode("table")}
-                  className={`p-2 rounded-lg transition-all cursor-pointer ${viewMode === "table" ? "bg-white text-rose-700 shadow-xs font-bold" : "text-slate-600 hover:text-slate-900"}`}
-                  title="Xem dạng Bảng Danh sách"
-                  aria-label="Xem dạng Bảng Danh sách"
-                >
-                  <List size={15} />
-                </button>
-              </div>
+              {subCategories.map(sub => {
+                const count = effectiveRecipients.filter(r => r.category === sub.name).length;
+                return (
+                  <button
+                    key={sub.id}
+                    type="button"
+                    onClick={() => { setSelectedCategoryPill(sub.name); setCurrentPage(1); }}
+                    className={`h-7 px-2.5 rounded-lg text-xs font-semibold transition-colors cursor-pointer border inline-flex items-center gap-1.5 ${selectedCategoryPill === sub.name
+                      ? "bg-slate-900 text-white border-slate-900"
+                      : "bg-white text-slate-600 border-slate-200 hover:bg-slate-50 hover:text-slate-900"
+                      }`}
+                  >
+                    <span>{sub.name}</span>
+                    <span className={`text-[11px] font-mono ${selectedCategoryPill === sub.name ? "text-slate-300" : "text-slate-400"}`}>
+                      {count}
+                    </span>
+                  </button>
+                );
+              })}
             </div>
           </div>
 
           {/* Cards Grid or Table View */}
           {viewMode === "card" ? (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-3 2xl:grid-cols-4 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4 gap-3.5">
               {paginatedRecipients.length === 0 ? (
-                <div className="col-span-full bg-white rounded-2xl border border-slate-200 p-10 sm:p-12 text-center space-y-3">
-                  <div className="w-12 h-12 rounded-2xl bg-emerald-50 text-emerald-700 border border-emerald-200/80 flex items-center justify-center mx-auto">
-                    <Heart size={22} />
+                <div className="col-span-full bg-white rounded-2xl border border-slate-200 p-10 text-center space-y-2.5">
+                  <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-700 border border-emerald-200/80 flex items-center justify-center mx-auto">
+                    <Heart size={18} />
                   </div>
                   {effectiveRecipients.length === 0 ? (
                     <>
-                      <div className="text-sm font-bold text-slate-900">
+                      <div className="text-xs sm:text-[13px] font-bold text-slate-900">
                         Chưa có hồ sơ đối tượng chính sách nào được khởi tạo
                       </div>
                       <div className="flex flex-wrap items-center justify-center gap-2 pt-1">
@@ -1745,9 +1734,9 @@ export default function SocialWelfare({
                           <button
                             type="button"
                             onClick={handleSyncResidentsToWelfare}
-                            className="inline-flex items-center gap-1.5 bg-emerald-700 hover:bg-emerald-800 text-white px-4 py-2 rounded-xl font-bold text-xs shadow-xs cursor-pointer transition-colors"
+                            className="h-9 inline-flex items-center gap-1.5 bg-emerald-700 hover:bg-emerald-800 text-white px-3.5 rounded-lg font-semibold text-xs cursor-pointer transition-colors"
                           >
-                            <RefreshCw size={14} /> Đồng bộ từ CSDL Dân cư ({residentWelfareStats.unsyncedCandidates.length})
+                            <RefreshCw size={13} /> Đồng bộ từ CSDL Dân cư ({residentWelfareStats.unsyncedCandidates.length})
                           </button>
                         )}
                         <button
@@ -1756,15 +1745,15 @@ export default function SocialWelfare({
                             setShowAddRecipientModal(true);
                             handleCategorySelectChange("Người có công");
                           }}
-                          className="inline-flex items-center gap-1.5 bg-white hover:bg-slate-50 text-slate-800 border border-slate-300 px-4 py-2 rounded-xl font-bold text-xs shadow-xs cursor-pointer transition-colors"
+                          className="h-9 inline-flex items-center gap-1.5 bg-white hover:bg-slate-50 text-slate-800 border border-slate-200 px-3.5 rounded-lg font-semibold text-xs cursor-pointer transition-colors"
                         >
-                          <Plus size={14} /> Thêm đối tượng thủ công
+                          <Plus size={13} /> Thêm đối tượng thủ công
                         </button>
                       </div>
                     </>
                   ) : (
                     <>
-                      <div className="text-sm font-bold text-slate-900">
+                      <div className="text-xs sm:text-[13px] font-bold text-slate-900">
                         Không tìm thấy đối tượng phù hợp bộ lọc
                       </div>
                       <p className="text-xs text-slate-500 max-w-md mx-auto">
@@ -1809,51 +1798,52 @@ export default function SocialWelfare({
                           setSelectedRecipient(rec);
                         }
                       }}
-                      className="bg-white rounded-2xl border border-slate-200/90 hover:border-rose-400 p-4 hover:shadow-md transition-all flex flex-col justify-between space-y-3 group cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-500"
+                      className="bg-white rounded-2xl border border-slate-200/90 shadow-2xs hover:border-emerald-300 p-4 transition-colors flex flex-col justify-between space-y-3 group cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600"
                     >
                       <div className="space-y-2">
                         <div className="flex flex-wrap justify-between items-start gap-1.5">
                           {getSubCategoryBadge(rec.category)}
-                          <span className={`text-xs font-bold px-2 py-0.5 rounded-full border ${statusColors[rec.status] || "bg-slate-100 text-slate-700 border-slate-200"}`}>
+                          <span className={`text-[11px] font-bold px-2 py-0.5 rounded-full border ${statusColors[rec.status] || "bg-slate-100 text-slate-700 border-slate-200"}`}>
                             {rec.status}
                           </span>
                         </div>
 
-                        <h3 className="font-bold text-slate-900 text-sm group-hover:text-rose-700 transition-colors line-clamp-1">
+                        <h3 className="font-bold text-slate-900 text-xs sm:text-[13px] group-hover:text-emerald-700 transition-colors line-clamp-1">
                           {rec.fullName}
                         </h3>
 
                         <div className="text-xs text-slate-600 flex items-center gap-1.5 min-w-0">
-                          <MapPin size={12} className="shrink-0 text-slate-500" />
+                          <MapPin size={12} className="shrink-0 text-slate-400" />
                           <span className="truncate">{rec.address}</span>
                           {areaLabel && (
-                            <span className="shrink-0 px-1.5 py-0.5 rounded bg-slate-100 border border-slate-200 text-slate-700 font-semibold text-xs">
+                            <span className="shrink-0 px-1.5 py-0.5 rounded bg-slate-100 border border-slate-200 text-slate-600 font-semibold text-[11px]">
                               {areaLabel}
                             </span>
                           )}
                         </div>
 
-                        <div className="flex flex-wrap items-center gap-1.5">
+                        <div className="flex flex-wrap items-center justify-between gap-1.5 pt-0.5">
                           <span
-                            className={`text-xs font-semibold px-2 py-0.5 rounded-md border ${bhyt.hasBhyt
-                              ? "bg-emerald-50 text-emerald-800 border-emerald-200"
-                              : "bg-slate-100 text-slate-600 border-slate-200"
+                            className={`text-[11px] font-semibold px-2 py-0.5 rounded-md border ${bhyt.hasBhyt
+                              ? "bg-emerald-50/70 text-emerald-800 border-emerald-200"
+                              : "bg-slate-50 text-slate-600 border-slate-200"
                               }`}
                           >
                             {bhyt.label}
                           </span>
+                          <span className="font-bold text-emerald-700 text-xs">{rec.supportLevel}</span>
                         </div>
 
                         {/* Active Benefits Chips */}
                         {rec.benefits && rec.benefits.length > 0 && (
-                          <div className="pt-1 flex flex-wrap gap-1">
+                          <div className="pt-0.5 flex flex-wrap gap-1">
                             {rec.benefits.slice(0, 2).map((b, idx) => (
-                              <span key={idx} className="text-xs bg-slate-50 text-slate-700 border border-slate-200 px-2 py-0.5 rounded truncate max-w-[180px]" title={b}>
+                              <span key={idx} className="text-[11px] bg-slate-50 text-slate-600 border border-slate-200/80 px-2 py-0.5 rounded truncate max-w-[180px]" title={b}>
                                 ✓ {b}
                               </span>
                             ))}
                             {rec.benefits.length > 2 && (
-                              <span className="text-xs text-slate-600 font-bold self-center">
+                              <span className="text-[11px] text-slate-500 font-semibold self-center">
                                 +{rec.benefits.length - 2} chế độ
                               </span>
                             )}
@@ -1861,51 +1851,39 @@ export default function SocialWelfare({
                         )}
                       </div>
 
-                      <div className="pt-2.5 border-t border-slate-100 space-y-2">
-                        <div className="flex justify-between items-center text-xs">
-                          <span className="font-mono text-slate-600 text-xs">CCCD: {rec.cccd.substring(0, 6)}***</span>
-                          <span className="font-black text-rose-700 text-xs">{rec.supportLevel}</span>
-                        </div>
+                      <div
+                        onClick={(e) => e.stopPropagation()}
+                        className="pt-2.5 border-t border-slate-100 flex items-center justify-between gap-2 text-xs"
+                      >
+                        <span className="font-mono text-slate-500 text-xs">
+                          CCCD: {rec.cccd.substring(0, 6)}***
+                        </span>
 
-                        {/* Card Action Buttons */}
-                        <div
-                          onClick={(e) => e.stopPropagation()}
-                          className="flex items-center justify-between gap-1 pt-1"
-                        >
+                        <div className="flex items-center gap-1">
                           <button
                             type="button"
-                            onClick={() => setSelectedRecipient(rec)}
-                            className="px-2.5 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-700 rounded-lg text-xs font-bold flex items-center gap-1 border border-rose-200 cursor-pointer transition-colors"
+                            onClick={() => handleOpenEmergencyForRecipient(rec)}
+                            className="p-1.5 text-amber-700 hover:bg-amber-50 rounded-lg cursor-pointer transition-colors"
+                            title="Hỗ trợ khẩn cấp ngay cho đối tượng này"
                           >
-                            <Eye size={13} /> Hồ sơ
+                            <Zap size={13} />
                           </button>
-
-                          <div className="flex items-center gap-1">
-                            <button
-                              type="button"
-                              onClick={() => handleOpenEmergencyForRecipient(rec)}
-                              className="p-2 bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200 rounded-lg text-xs font-bold flex items-center gap-1 cursor-pointer"
-                              title="Hỗ trợ khẩn cấp ngay cho đối tượng này"
-                            >
-                              <Zap size={13} className="text-amber-700" />
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => handleOpenEditRecipient(rec)}
-                              className="p-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 rounded-lg text-xs font-bold cursor-pointer"
-                              title="Chỉnh sửa hồ sơ"
-                            >
-                              <Edit2 size={13} />
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => setRecipientToDelete(rec)}
-                              className="p-2 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-lg text-xs font-bold cursor-pointer"
-                              title="Xóa đối tượng"
-                            >
-                              <Trash2 size={13} />
-                            </button>
-                          </div>
+                          <button
+                            type="button"
+                            onClick={() => handleOpenEditRecipient(rec)}
+                            className="p-1.5 text-slate-500 hover:text-slate-900 hover:bg-slate-100 rounded-lg cursor-pointer transition-colors"
+                            title="Chỉnh sửa hồ sơ"
+                          >
+                            <Edit2 size={13} />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setRecipientToDelete(rec)}
+                            className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg cursor-pointer transition-colors"
+                            title="Xóa đối tượng"
+                          >
+                            <Trash2 size={13} />
+                          </button>
                         </div>
                       </div>
                     </div>
@@ -1915,24 +1893,24 @@ export default function SocialWelfare({
             </div>
           ) : (
             /* Table View */
-            <div className="bg-white rounded-2xl border border-slate-200/80 shadow-xs overflow-hidden">
+            <div className="bg-white rounded-2xl border border-slate-200/90 shadow-2xs overflow-hidden">
               <div className="overflow-x-auto">
                 <table className="w-full text-left border-collapse text-xs">
                   <thead>
-                    <tr className="bg-slate-50/80 border-b border-slate-200 text-slate-700 font-bold uppercase text-xs tracking-wider">
-                      <th className="py-3 px-4 min-w-[215px] whitespace-nowrap">Mã & Đối tượng</th>
-                      <th className="py-3 px-4 min-w-[210px] whitespace-nowrap">CCCD & Liên hệ</th>
-                      <th className="py-3 px-4 min-w-[215px] whitespace-nowrap">Phân hệ & BHYT</th>
-                      <th className="py-3 px-4 min-w-[215px] whitespace-nowrap">Địa chỉ cư trú</th>
-                      <th className="py-3 px-4 min-w-[140px] whitespace-nowrap">Trợ cấp</th>
-                      <th className="py-3 px-4 text-center min-w-[150px] whitespace-nowrap">Trạng thái</th>
-                      <th className="py-3 px-4 text-center min-w-[140px] whitespace-nowrap sticky right-0 bg-slate-50 z-10 shadow-[-4px_0_8px_-4px_rgba(15,23,42,0.06)]">Thao tác</th>
+                    <tr className="bg-slate-50 border-b border-slate-200 text-slate-700 font-bold uppercase text-xs tracking-wider">
+                      <th className="py-2.5 px-3.5 min-w-[215px] whitespace-nowrap">Mã &amp; Đối tượng</th>
+                      <th className="py-2.5 px-3.5 min-w-[200px] whitespace-nowrap">CCCD &amp; Liên hệ</th>
+                      <th className="py-2.5 px-3.5 min-w-[210px] whitespace-nowrap">Phân hệ &amp; BHYT</th>
+                      <th className="py-2.5 px-3.5 min-w-[215px] whitespace-nowrap">Địa chỉ cư trú</th>
+                      <th className="py-2.5 px-3.5 min-w-[140px] whitespace-nowrap">Trợ cấp</th>
+                      <th className="py-2.5 px-3.5 text-center min-w-[145px] whitespace-nowrap">Trạng thái</th>
+                      <th className="py-2.5 px-3.5 text-right min-w-[130px] whitespace-nowrap sticky right-0 bg-slate-50 z-10 shadow-[-4px_0_8px_-4px_rgba(15,23,42,0.06)]">Thao tác</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
                     {paginatedRecipients.length === 0 ? (
                       <tr>
-                        <td colSpan={7} className="py-10 text-center text-sm text-slate-600">
+                        <td colSpan={7} className="py-10 text-center text-xs text-slate-600">
                           {effectiveRecipients.length === 0
                             ? "Chưa có hồ sơ đối tượng chính sách nào được khởi tạo trên hệ thống."
                             : "Không tìm thấy đối tượng chính sách phù hợp bộ lọc hiện tại."}
@@ -1960,56 +1938,56 @@ export default function SocialWelfare({
                                 setSelectedRecipient(rec);
                               }
                             }}
-                            className="cursor-pointer hover:bg-rose-50/40 transition-colors group"
+                            className="cursor-pointer hover:bg-slate-50/70 transition-colors group"
                           >
-                            <td className="py-3.5 px-4">
-                              <div className="font-bold text-slate-900 group-hover:text-rose-700 text-xs transition-colors">{rec.fullName}</div>
-                              <span className="font-mono text-xs font-bold text-rose-700 bg-rose-50 px-1.5 py-0.5 rounded border border-rose-200 mt-0.5 inline-block">
+                            <td className="py-2.5 px-3.5">
+                              <div className="font-bold text-slate-900 group-hover:text-emerald-700 text-xs transition-colors">{rec.fullName}</div>
+                              <span className="font-mono text-[11px] font-semibold text-slate-600 bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200 mt-0.5 inline-block">
                                 {rec.id}
                               </span>
                             </td>
-                            <td className="py-3.5 px-4">
-                              <div className="font-mono font-bold text-slate-800">{rec.cccd}</div>
-                              <div className="text-xs text-slate-600 font-mono mt-0.5 flex items-center gap-1">
-                                <Phone size={12} /> {rec.phone || "Chưa có SĐT"}
+                            <td className="py-2.5 px-3.5">
+                              <div className="font-mono font-semibold text-slate-800">{rec.cccd}</div>
+                              <div className="text-xs text-slate-500 font-mono mt-0.5 flex items-center gap-1">
+                                <Phone size={11} /> {rec.phone || "Chưa có SĐT"}
                               </div>
                             </td>
-                            <td className="py-3.5 px-4 space-y-1">
+                            <td className="py-2.5 px-3.5 space-y-1">
                               <div>{getSubCategoryBadge(rec.category)}</div>
                               <div>
                                 <span
-                                  className={`inline-block text-xs font-semibold px-2 py-0.5 rounded border ${bhyt.hasBhyt
+                                  className={`inline-block text-[11px] font-semibold px-2 py-0.5 rounded border ${bhyt.hasBhyt
                                     ? "bg-emerald-50 text-emerald-800 border-emerald-200"
-                                    : "bg-slate-100 text-slate-600 border-slate-200"
+                                    : "bg-slate-50 text-slate-600 border-slate-200"
                                     }`}
                                 >
                                   {bhyt.label}
                                 </span>
                               </div>
                             </td>
-                            <td className="py-3.5 px-4">
+                            <td className="py-2.5 px-3.5">
                               <div className="text-xs text-slate-700 truncate max-w-[210px] flex items-center gap-1">
-                                <MapPin size={12} className="text-slate-500 shrink-0" />
+                                <MapPin size={12} className="text-slate-400 shrink-0" />
                                 <span className="truncate">{rec.address}</span>
                               </div>
                               {areaLabel && (
-                                <span className="text-xs font-semibold text-slate-600">{areaLabel}</span>
+                                <span className="text-[11px] font-medium text-slate-500">{areaLabel}</span>
                               )}
                             </td>
-                            <td className="py-3.5 px-4 whitespace-nowrap">
-                              <span className="font-bold text-rose-700 text-xs">{rec.supportLevel}</span>
+                            <td className="py-2.5 px-3.5 whitespace-nowrap">
+                              <span className="font-bold text-emerald-700 text-xs">{rec.supportLevel}</span>
                             </td>
-                            <td className="py-3.5 px-4 text-center whitespace-nowrap">
-                              <span className={`text-xs font-bold px-2.5 py-0.5 rounded-full border inline-block ${statusClasses}`}>
+                            <td className="py-2.5 px-3.5 text-center whitespace-nowrap">
+                              <span className={`text-[11px] font-bold px-2 py-0.5 rounded-full border inline-block ${statusClasses}`}>
                                 {rec.status}
                               </span>
                             </td>
-                            <td className="py-3.5 px-4 text-center sticky right-0 bg-white group-hover:bg-rose-50 z-10 shadow-[-4px_0_8px_-4px_rgba(15,23,42,0.06)]" onClick={(e) => e.stopPropagation()}>
-                              <div className="flex items-center justify-center gap-1.5">
+                            <td className="py-2.5 px-3.5 text-right sticky right-0 bg-white group-hover:bg-slate-50 z-10 shadow-[-4px_0_8px_-4px_rgba(15,23,42,0.06)]" onClick={(e) => e.stopPropagation()}>
+                              <div className="inline-flex items-center justify-end gap-1">
                                 <button
                                   type="button"
                                   onClick={() => setSelectedRecipient(rec)}
-                                  className="px-2 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-700 rounded-lg text-xs font-semibold border border-rose-200 cursor-pointer"
+                                  className="p-1.5 text-slate-500 hover:text-emerald-700 hover:bg-emerald-50 rounded-lg cursor-pointer"
                                   title="Xem chi tiết hồ sơ"
                                 >
                                   <Eye size={13} />
@@ -2017,7 +1995,7 @@ export default function SocialWelfare({
                                 <button
                                   type="button"
                                   onClick={() => handleOpenEditRecipient(rec)}
-                                  className="p-1.5 text-indigo-700 hover:bg-indigo-50 rounded-lg cursor-pointer"
+                                  className="p-1.5 text-slate-500 hover:text-slate-900 hover:bg-slate-100 rounded-lg cursor-pointer"
                                   title="Chỉnh sửa thông tin đối tượng"
                                 >
                                   <Edit2 size={13} />
@@ -2025,15 +2003,15 @@ export default function SocialWelfare({
                                 <button
                                   type="button"
                                   onClick={() => handleOpenEmergencyForRecipient(rec)}
-                                  className="p-1.5 text-amber-800 hover:bg-amber-50 rounded-lg cursor-pointer"
+                                  className="p-1.5 text-amber-700 hover:bg-amber-50 rounded-lg cursor-pointer"
                                   title="Hỗ trợ ngay"
                                 >
-                                  <Zap size={14} />
+                                  <Zap size={13} />
                                 </button>
                                 <button
                                   type="button"
                                   onClick={() => setRecipientToDelete(rec)}
-                                  className="p-1.5 text-slate-600 hover:text-rose-700 hover:bg-rose-50 rounded-lg cursor-pointer"
+                                  className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg cursor-pointer"
                                   title="Xóa đối tượng"
                                 >
                                   <Trash2 size={13} />
@@ -2065,135 +2043,110 @@ export default function SocialWelfare({
       {/* SUB-TAB 2: PHÂN HỆ & CHẾ ĐỘ CHÍNH SÁCH QUYỀN LỢI                     */}
       {/* ========================================================================= */}
       {activeTab === "submodules" && (
-        <div className="space-y-4">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white p-4 rounded-2xl border border-slate-200 shadow-xs">
-            <div>
-              <h3 className="font-bold text-slate-900 text-sm sm:text-base">
-                Danh Mục Phân Hệ An Sinh Con & Chế Độ Chính Sách
-              </h3>
-            </div>
-            <button
-              type="button"
-              onClick={() => setShowAddSubCategoryModal(true)}
-              className="px-3.5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-xs cursor-pointer transition-colors self-start sm:self-auto shrink-0"
-            >
-              <Plus size={14} /> Tạo phân hệ con mới
-            </button>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {subCategories.map(sub => {
-              const count = effectiveRecipients.filter(r => r.category === sub.name).length;
-              return (
-                <div
-                  key={sub.id}
-                  role="button"
-                  tabIndex={0}
-                  aria-label={`Lọc danh sách đối tượng thuộc nhóm ${sub.name}`}
-                  onClick={() => {
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3.5">
+          {subCategories.map(sub => {
+            const count = effectiveRecipients.filter(r => r.category === sub.name).length;
+            return (
+              <div
+                key={sub.id}
+                role="button"
+                tabIndex={0}
+                aria-label={`Lọc danh sách đối tượng thuộc nhóm ${sub.name}`}
+                onClick={() => {
+                  setSelectedCategoryPill(sub.name);
+                  setActiveTab("recipients");
+                }}
+                onKeyDown={(e) => {
+                  if (e.target !== e.currentTarget) return;
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
                     setSelectedCategoryPill(sub.name);
                     setActiveTab("recipients");
-                  }}
-                  onKeyDown={(e) => {
-                    if (e.target !== e.currentTarget) return;
-                    if (e.key === "Enter" || e.key === " ") {
-                      e.preventDefault();
-                      setSelectedCategoryPill(sub.name);
-                      setActiveTab("recipients");
-                    }
-                  }}
-                  className="bg-white rounded-2xl border border-slate-200/90 hover:border-indigo-400 p-4.5 flex flex-col justify-between space-y-3 shadow-xs hover:shadow-md transition-all cursor-pointer group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500"
-                >
-                  <div className="space-y-2.5">
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="flex items-center gap-2">
-                        <div className="w-9 h-9 rounded-xl bg-indigo-50 text-indigo-700 flex items-center justify-center font-bold text-xs border border-indigo-200">
-                          {sub.code}
-                        </div>
-                        <div>
-                          <h4 className="font-bold text-slate-900 text-sm leading-tight">{sub.name}</h4>
-                          <span className="text-xs text-slate-600 font-mono">
-                            {sub.isCustom ? "Phân hệ tự tạo" : "Phân hệ quy chuẩn"}
-                          </span>
-                        </div>
+                  }
+                }}
+                className="bg-white rounded-2xl border border-slate-200/90 shadow-2xs hover:border-emerald-300 p-4 flex flex-col justify-between space-y-3 transition-colors cursor-pointer group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600"
+              >
+                <div className="space-y-2.5">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <div className="w-8 h-8 rounded-lg bg-slate-100 text-slate-700 flex items-center justify-center font-mono font-bold text-xs border border-slate-200 shrink-0">
+                        {sub.code}
                       </div>
-                      <span className="text-xs font-mono font-bold bg-indigo-50 text-indigo-800 px-2.5 py-1 rounded-lg border border-indigo-200">
-                        {count} đối tượng
-                      </span>
+                      <div className="min-w-0">
+                        <h4 className="font-bold text-slate-900 text-xs sm:text-[13px] group-hover:text-emerald-700 transition-colors truncate">{sub.name}</h4>
+                        <span className="text-[11px] text-slate-500">
+                          {sub.isCustom ? "Phân hệ tự tạo" : "Phân hệ quy chuẩn"}
+                        </span>
+                      </div>
                     </div>
-
-                    <p className="text-xs text-slate-600 leading-relaxed line-clamp-2">
-                      {sub.description}
-                    </p>
-
-                    <div className="p-2.5 bg-slate-50 rounded-xl border border-slate-200/80 text-xs">
-                      <span className="text-xs uppercase font-bold text-slate-600 block mb-1">Tiêu chí xét duyệt:</span>
-                      <p className="text-slate-700 text-xs leading-relaxed line-clamp-2">{sub.criteria}</p>
-                    </div>
-
-                    {/* Standard Benefits */}
-                    <div className="space-y-1.5 pt-1">
-                      <span className="text-xs uppercase font-bold text-slate-600 block">Chế độ & Quyền lợi chuẩn ({sub.standardBenefits?.length || 0}):</span>
-                      <ul className="space-y-1">
-                        {(sub.standardBenefits || []).slice(0, 3).map((ben, i) => (
-                          <li key={i} className="text-xs text-slate-700 flex items-start gap-1.5">
-                            <CheckCircle2 size={13} className="text-emerald-600 shrink-0 mt-0.5" />
-                            <span className="line-clamp-1">{ben}</span>
-                          </li>
-                        ))}
-                        {(sub.standardBenefits?.length || 0) > 3 && (
-                          <li className="text-xs text-indigo-700 font-semibold pl-4">
-                            +{(sub.standardBenefits?.length || 0) - 3} chế độ chính sách khác...
-                          </li>
-                        )}
-                      </ul>
-                    </div>
+                    <span className="text-xs font-mono font-bold bg-slate-100 text-slate-800 px-2 py-0.5 rounded-md border border-slate-200 shrink-0">
+                      {count} người
+                    </span>
                   </div>
 
-                  <div className="pt-3 border-t border-slate-100 flex items-center justify-between gap-2">
+                  <p className="text-xs text-slate-600 leading-relaxed line-clamp-2">
+                    {sub.description}
+                  </p>
+
+                  <div className="p-2.5 bg-slate-50/80 rounded-xl border border-slate-200/70 text-xs">
+                    <span className="text-[11px] uppercase font-bold text-slate-500 block mb-0.5">Tiêu chí xét duyệt</span>
+                    <p className="text-slate-700 text-xs leading-relaxed line-clamp-2">{sub.criteria}</p>
+                  </div>
+
+                  {/* Standard Benefits */}
+                  <div className="space-y-1 pt-0.5">
+                    <span className="text-[11px] uppercase font-bold text-slate-500 block">Chế độ chuẩn ({sub.standardBenefits?.length || 0})</span>
+                    <ul className="space-y-1">
+                      {(sub.standardBenefits || []).slice(0, 3).map((ben, i) => (
+                        <li key={i} className="text-xs text-slate-700 flex items-start gap-1.5">
+                          <CheckCircle2 size={12} className="text-emerald-600 shrink-0 mt-0.5" />
+                          <span className="line-clamp-1">{ben}</span>
+                        </li>
+                      ))}
+                      {(sub.standardBenefits?.length || 0) > 3 && (
+                        <li className="text-[11px] text-emerald-700 font-semibold pl-4">
+                          +{(sub.standardBenefits?.length || 0) - 3} chế độ khác
+                        </li>
+                      )}
+                    </ul>
+                  </div>
+                </div>
+
+                <div className="pt-2.5 border-t border-slate-100 flex items-center justify-between gap-2">
+                  <span className="text-xs font-semibold text-emerald-700 group-hover:underline truncate">
+                    Xem danh sách ({count}) →
+                  </span>
+
+                  <div
+                    onClick={(e) => e.stopPropagation()}
+                    className="flex items-center gap-1 shrink-0"
+                  >
+                    <button
+                      type="button"
+                      onClick={() => handleOpenEditSubCategory(sub)}
+                      className="px-2 py-1 text-slate-600 hover:text-slate-900 hover:bg-slate-100 border border-slate-200 rounded-lg cursor-pointer flex items-center gap-1 text-xs font-semibold transition-colors"
+                      title="Chỉnh sửa phân hệ & tiêu chuẩn chính sách"
+                    >
+                      <Edit2 size={11} />
+                      <span>Sửa</span>
+                    </button>
                     <button
                       type="button"
                       onClick={() => {
-                        setSelectedCategoryPill(sub.name);
-                        setActiveTab("recipients");
+                        setSubCategoryToDelete(sub);
+                        const others = subCategories.filter(s => s.id !== sub.id);
+                        setReassignCategoryTarget(others[0]?.name || "");
                       }}
-                      className="text-xs font-bold text-indigo-700 hover:text-indigo-800 flex items-center gap-1 cursor-pointer truncate"
+                      className="p-1 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg cursor-pointer transition-colors"
+                      title="Xóa phân hệ"
                     >
-                      Xem {count} đối tượng ➜
+                      <Trash2 size={13} />
                     </button>
-
-                    <div
-                      onClick={(e) => e.stopPropagation()}
-                      className="flex items-center gap-1.5 shrink-0"
-                    >
-                      <button
-                        type="button"
-                        onClick={() => handleOpenEditSubCategory(sub)}
-                        className="px-2 py-1 text-indigo-700 hover:bg-indigo-50 border border-indigo-200 rounded-lg cursor-pointer flex items-center gap-1 text-xs font-bold transition-colors"
-                        title="Chỉnh sửa phân hệ & tiêu chuẩn chính sách"
-                      >
-                        <Edit2 size={12} />
-                        <span>Sửa</span>
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setSubCategoryToDelete(sub);
-                          const others = subCategories.filter(s => s.id !== sub.id);
-                          setReassignCategoryTarget(others[0]?.name || "");
-                        }}
-                        className="px-2 py-1 text-slate-500 hover:text-rose-600 hover:bg-rose-50 border border-slate-200 rounded-lg cursor-pointer flex items-center gap-1 text-xs transition-colors"
-                        title="Xóa phân hệ"
-                      >
-                        <Trash2 size={12} />
-                        <span>Xóa</span>
-                      </button>
-                    </div>
                   </div>
                 </div>
-              );
-            })}
-          </div>
+              </div>
+            );
+          })}
         </div>
       )}
 
@@ -2211,41 +2164,30 @@ export default function SocialWelfare({
           cam.targetCategories.some(c => c.toLowerCase().includes(qCam))
         );
         return (
-        <div className="space-y-4">
-          <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 bg-white p-4 rounded-2xl border border-slate-200 shadow-xs">
-            <div>
-              <h3 className="font-bold text-slate-900 text-sm sm:text-base">
-                Kế Hoạch & Các Đợt Trao Quà Hỗ Trợ Định Kỳ
-              </h3>
+        <div className="space-y-3.5">
+          <div className="bg-white p-3.5 rounded-xl border border-slate-200/80 shadow-2xs flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+            <div className="relative flex-1 max-w-md">
+              <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+              <input
+                type="search"
+                value={campaignSearchQuery}
+                onChange={e => setCampaignSearchQuery(e.target.value)}
+                placeholder="Tìm đợt trao quà, nguồn kinh phí, địa điểm..."
+                className="w-full h-9 pl-9 pr-3 bg-slate-50/70 focus:bg-white border border-slate-200 rounded-lg text-xs text-slate-900 focus:outline-none focus:border-emerald-600"
+              />
             </div>
-            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 shrink-0">
-              <div className="relative min-w-[220px]">
-                <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 pointer-events-none" />
-                <input
-                  type="search"
-                  value={campaignSearchQuery}
-                  onChange={e => setCampaignSearchQuery(e.target.value)}
-                  placeholder="Tìm đợt hỗ trợ, nguồn quỹ..."
-                  className="w-full h-9 pl-9 pr-3 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600"
-                />
-              </div>
-              <button
-                type="button"
-                onClick={() => setShowAddCampaignModal(true)}
-                className="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 shadow-xs cursor-pointer transition-colors shrink-0"
-              >
-                <Plus size={14} /> Lập đợt hỗ trợ mới
-              </button>
-            </div>
+            <span className="text-xs text-slate-500 font-medium">
+              Hiển thị <strong className="text-slate-800">{filteredCampaigns.length}</strong> đợt chăm lo
+            </span>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
             {filteredCampaigns.map(cam => {
               const statusBadges: Record<string, string> = {
-                "Đang đề xuất": "bg-amber-100 text-amber-800 border-amber-300",
-                "Đã duyệt chi": "bg-indigo-100 text-indigo-800 border-indigo-300",
-                "Đang trao tặng": "bg-sky-100 text-sky-800 border-sky-300",
-                "Đã hoàn tất": "bg-emerald-100 text-emerald-800 border-emerald-300"
+                "Đang đề xuất": "bg-amber-50 text-amber-800 border-amber-200",
+                "Đã duyệt chi": "bg-indigo-50 text-indigo-800 border-indigo-200",
+                "Đang trao tặng": "bg-sky-50 text-sky-800 border-sky-200",
+                "Đã hoàn tất": "bg-emerald-50 text-emerald-800 border-emerald-200"
               };
 
               return (
@@ -2266,83 +2208,82 @@ export default function SocialWelfare({
                       setSelectedCampaign(cam);
                     }
                   }}
-                  className="bg-white rounded-2xl border border-slate-200/90 hover:border-emerald-400 p-5 shadow-xs hover:shadow-md transition-all flex flex-col justify-between space-y-3.5 cursor-pointer group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600"
+                  className="bg-white rounded-2xl border border-slate-200/90 shadow-2xs hover:border-emerald-300 p-4 transition-colors flex flex-col justify-between space-y-3 cursor-pointer group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600"
                 >
-                  <div className="space-y-3">
+                  <div className="space-y-2.5">
                     <div className="flex items-start justify-between gap-2">
-                      <span className="font-mono text-xs font-bold px-2.5 py-1 rounded-md bg-emerald-50 text-emerald-800 border border-emerald-200">
+                      <span className="font-mono text-xs font-semibold px-2 py-0.5 rounded-md bg-slate-100 text-slate-700 border border-slate-200">
                         {cam.id}
                       </span>
-                      <span className={`text-xs font-bold px-2.5 py-1 rounded-full border ${statusBadges[cam.status] || "bg-slate-100 text-slate-700"}`}>
+                      <span className={`text-[11px] font-bold px-2 py-0.5 rounded-full border ${statusBadges[cam.status] || "bg-slate-100 text-slate-700 border-slate-200"}`}>
                         {cam.status}
                       </span>
                     </div>
 
-                    <h4 className="font-black text-slate-900 text-base leading-snug">
+                    <h4 className="font-bold text-slate-900 text-xs sm:text-[13px] group-hover:text-emerald-700 transition-colors leading-snug">
                       {cam.title}
                     </h4>
 
                     {/* Target Categories */}
-                    <div className="flex flex-wrap items-center gap-1.5">
-                      <span className="text-xs text-slate-600 font-semibold">Đối tượng thụ hưởng:</span>
+                    <div className="flex flex-wrap items-center gap-1">
                       {cam.targetCategories.map((c, i) => (
-                        <span key={i} className="text-xs bg-slate-100 text-slate-700 px-2 py-0.5 rounded-md font-medium">
+                        <span key={i} className="text-[11px] bg-slate-100 text-slate-700 px-2 py-0.5 rounded font-medium">
                           {c}
                         </span>
                       ))}
                     </div>
 
                     {/* Key Metrics */}
-                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5 p-3 rounded-xl bg-slate-50 border border-slate-200/80">
+                    <div className="grid grid-cols-3 gap-2 p-2.5 rounded-xl bg-slate-50/80 border border-slate-200/70 text-xs">
                       <div>
-                        <span className="text-xs uppercase font-bold text-slate-600 block">Số đối tượng:</span>
-                        <span className="font-bold text-slate-900 text-sm">{cam.recipientCount} người</span>
+                        <span className="text-[11px] text-slate-500 block">Đối tượng</span>
+                        <span className="font-bold text-slate-900 font-mono">{cam.recipientCount} người</span>
                       </div>
                       <div>
-                        <span className="text-xs uppercase font-bold text-slate-600 block">Mức tiền mặt:</span>
-                        <span className="font-bold text-rose-700 text-sm">{formatVNNumber(cam.cashAmountPerPerson)} đ</span>
+                        <span className="text-[11px] text-slate-500 block">Mức tiền mặt</span>
+                        <span className="font-bold text-slate-900 font-mono">{formatVNNumber(cam.cashAmountPerPerson)}đ</span>
                       </div>
-                      <div className="col-span-2 sm:col-span-1">
-                        <span className="text-xs uppercase font-bold text-slate-600 block">Tổng ngân sách:</span>
-                        <span className="font-black text-emerald-800 text-sm">{formatVNNumber(cam.totalBudget)} đ</span>
+                      <div>
+                        <span className="text-[11px] text-slate-500 block">Tổng kinh phí</span>
+                        <span className="font-bold text-emerald-700 font-mono">{formatVNNumber(cam.totalBudget)}đ</span>
                       </div>
                     </div>
 
                     {/* Gift Item Description */}
                     {cam.giftDescription && (
-                      <div className="text-xs text-slate-700 flex items-start gap-1.5 bg-amber-50/60 p-2.5 rounded-xl border border-amber-200/80">
-                        <Gift size={14} className="text-amber-600 shrink-0 mt-0.5" />
-                        <span><strong>Hiện vật đính kèm:</strong> {cam.giftDescription}</span>
+                      <div className="text-xs text-slate-700 flex items-start gap-1.5 bg-amber-50/50 p-2 rounded-lg border border-amber-200/70">
+                        <Gift size={13} className="text-amber-600 shrink-0 mt-0.5" />
+                        <span className="line-clamp-2"><strong>Hiện vật:</strong> {cam.giftDescription}</span>
                       </div>
                     )}
 
-                    <div className="text-xs text-slate-500 space-y-1">
-                      <div className="flex items-center gap-1.5">
-                        <Calendar size={13} className="text-slate-400" />
-                        <span>Thời gian: <strong>{cam.disbursementDate}</strong></span>
-                      </div>
-                      <div className="flex items-center gap-1.5">
-                        <MapPin size={13} className="text-slate-400" />
-                        <span>Địa điểm: {cam.location}</span>
-                      </div>
-                      <div className="flex items-center gap-1.5">
-                        <DollarSign size={13} className="text-slate-400" />
-                        <span>Nguồn kinh phí: <strong>{cam.fundingSource}</strong></span>
-                      </div>
+                    <div className="text-xs text-slate-600 flex flex-wrap items-center gap-x-3 gap-y-1">
+                      <span className="inline-flex items-center gap-1">
+                        <Calendar size={12} className="text-slate-400" />
+                        <strong className="font-mono">{cam.disbursementDate}</strong>
+                      </span>
+                      <span className="inline-flex items-center gap-1 truncate">
+                        <MapPin size={12} className="text-slate-400 shrink-0" />
+                        <span className="truncate">{cam.location}</span>
+                      </span>
+                      <span className="inline-flex items-center gap-1">
+                        <DollarSign size={12} className="text-slate-400" />
+                        <span>{cam.fundingSource}</span>
+                      </span>
                     </div>
                   </div>
 
                   {/* Actions */}
                   <div
                     onClick={(e) => e.stopPropagation()}
-                    className="pt-3 border-t border-slate-100 flex flex-wrap items-center justify-between gap-2"
+                    className="pt-2.5 border-t border-slate-100 flex flex-wrap items-center justify-between gap-2"
                   >
                     <div className="flex flex-wrap items-center gap-1.5">
                       {cam.status === "Đang đề xuất" && (
                         <button
                           type="button"
                           onClick={() => handleUpdateCampaignStatus(cam.id, "Đã duyệt chi")}
-                          className="px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs cursor-pointer"
+                          className="h-8 px-2.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-white font-semibold text-xs cursor-pointer"
                         >
                           Phê duyệt chi
                         </button>
@@ -2351,7 +2292,7 @@ export default function SocialWelfare({
                         <button
                           type="button"
                           onClick={() => handleUpdateCampaignStatus(cam.id, "Đang trao tặng")}
-                          className="px-3 py-1.5 rounded-lg bg-sky-600 hover:bg-sky-700 text-white font-bold text-xs cursor-pointer"
+                          className="h-8 px-2.5 rounded-lg bg-emerald-700 hover:bg-emerald-800 text-white font-semibold text-xs cursor-pointer"
                         >
                           Bắt đầu trao tặng
                         </button>
@@ -2360,7 +2301,7 @@ export default function SocialWelfare({
                         <button
                           type="button"
                           onClick={() => handleUpdateCampaignStatus(cam.id, "Đã hoàn tất")}
-                          className="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs cursor-pointer"
+                          className="h-8 px-2.5 rounded-lg bg-emerald-700 hover:bg-emerald-800 text-white font-semibold text-xs cursor-pointer"
                         >
                           Hoàn tất đợt
                         </button>
@@ -2371,9 +2312,9 @@ export default function SocialWelfare({
                           setCampaignModalMemberSearch("");
                           setSelectedCampaign(cam);
                         }}
-                        className="px-3 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs cursor-pointer"
+                        className="h-8 px-2.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs cursor-pointer"
                       >
-                        Chi tiết danh sách
+                        Danh sách
                       </button>
                     </div>
 
@@ -2388,10 +2329,10 @@ export default function SocialWelfare({
                             filenamePrefix: `DS_KyNhan_${cam.id}`
                           });
                         }}
-                        className="px-2.5 py-1.5 text-emerald-800 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 rounded-lg text-xs font-bold inline-flex items-center gap-1 cursor-pointer"
+                        className="h-8 px-2.5 text-slate-700 bg-white hover:bg-slate-50 border border-slate-200 rounded-lg text-xs font-semibold inline-flex items-center gap-1 cursor-pointer"
                         title="Xuất DS Ký nhận (.xlsx)"
                       >
-                        <FileSpreadsheet size={13} />
+                        <FileSpreadsheet size={12} className="text-emerald-700" />
                         <span>.xlsx</span>
                       </button>
                       <button
@@ -2405,10 +2346,10 @@ export default function SocialWelfare({
                             totalSummary: `Tổng kinh phí tiền mặt: ${formatVNNumber(camRecs.length * cam.cashAmountPerPerson)} VNĐ.`
                           });
                         }}
-                        className="px-2.5 py-1.5 text-slate-700 bg-white hover:bg-slate-100 border border-slate-200 rounded-lg text-xs font-bold inline-flex items-center gap-1 cursor-pointer"
+                        className="h-8 px-2.5 text-slate-700 bg-white hover:bg-slate-50 border border-slate-200 rounded-lg text-xs font-semibold inline-flex items-center gap-1 cursor-pointer"
                         title="In Danh sách Ký nhận A4"
                       >
-                        <Printer size={13} />
+                        <Printer size={12} className="text-slate-500" />
                         <span>In A4</span>
                       </button>
                     </div>
@@ -2434,49 +2375,24 @@ export default function SocialWelfare({
           rec.reason.toLowerCase().includes(qEmg)
         );
         return (
-        <div className="space-y-4">
-          <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 bg-amber-50/70 p-4 rounded-2xl border border-amber-200 shadow-xs">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-amber-100 text-amber-800 border border-amber-300 flex items-center justify-center font-bold shrink-0">
-                <Zap size={20} />
-              </div>
-              <div>
-                <h3 className="font-black text-amber-950 text-sm sm:text-base">
-                  Cơ Chế Hỗ Trợ Ngay & Cứu Trợ Khẩn Cấp
-                </h3>
-              </div>
+        <div className="space-y-3.5">
+          <div className="bg-white p-3.5 rounded-xl border border-slate-200/80 shadow-2xs flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+            <div className="relative flex-1 max-w-md">
+              <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+              <input
+                type="search"
+                value={emergencySearchQuery}
+                onChange={e => setEmergencySearchQuery(e.target.value)}
+                placeholder="Tìm người nhận cứu trợ khẩn cấp, số CCCD, lý do..."
+                className="w-full h-9 pl-9 pr-3 bg-slate-50/70 focus:bg-white border border-slate-200 rounded-lg text-xs text-slate-900 focus:outline-none focus:border-emerald-600"
+              />
             </div>
-
-            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 shrink-0">
-              <div className="relative min-w-[210px]">
-                <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-amber-800/70 pointer-events-none" />
-                <input
-                  type="search"
-                  value={emergencySearchQuery}
-                  onChange={e => setEmergencySearchQuery(e.target.value)}
-                  placeholder="Tìm tên người nhận, CCCD, lý do..."
-                  className="w-full h-9 pl-9 pr-3 bg-white border border-amber-300 rounded-xl text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-600"
-                />
-              </div>
-              <button
-                type="button"
-                onClick={() => {
-                  setEmergencyTargetRecipient(null);
-                  setEmgRecipientId("");
-                  setEmgRecipientName("");
-                  setEmgCccd("");
-                  setEmgAddress("42/ Lương Định Của, Phường An Phú");
-                  setEmgReason("Hỗ trợ khẩn cấp đột xuất cho trường hợp khó khăn cấp bách");
-                  setShowEmergencyModal(true);
-                }}
-                className="px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 shadow-xs cursor-pointer transition-colors shrink-0"
-              >
-                <Zap size={14} /> Chi trả hỗ trợ ngay
-              </button>
-            </div>
+            <span className="text-xs text-slate-500 font-medium">
+              Đã chi trả <strong className="text-slate-800">{filteredEmergency.length}</strong> trường hợp đột xuất
+            </span>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3.5">
             {filteredEmergency.map(rec => {
               const matchedRec = effectiveRecipients.find(r => r.id === rec.recipientId || r.cccd === rec.cccd);
               const matchedRes = (residents || []).find(r => r.cccd === rec.cccd || r.fullName === rec.recipientName);
@@ -2505,47 +2421,45 @@ export default function SocialWelfare({
                       }
                     : undefined
                 }
-                className={`bg-white rounded-2xl border border-amber-200/90 hover:border-amber-400 p-4.5 shadow-xs hover:shadow-md transition-all flex flex-col justify-between space-y-3 ${
+                className={`bg-white rounded-2xl border border-slate-200/90 shadow-2xs hover:border-emerald-300 p-4 transition-colors flex flex-col justify-between space-y-3 ${
                   isClickable ? "cursor-pointer group" : ""
                 }`}
               >
                 <div className="space-y-2.5">
                   <div className="flex items-start justify-between gap-2">
-                    <span className="font-mono text-xs font-black px-2.5 py-1 rounded-md bg-amber-100 text-amber-900 border border-amber-300">
+                    <span className="font-mono text-xs font-semibold px-2 py-0.5 rounded-md bg-slate-100 text-slate-700 border border-slate-200">
                       {rec.id}
                     </span>
-                    <span className="text-xs font-bold px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200 flex items-center gap-1">
-                      <CheckCircle2 size={12} /> {rec.status}
+                    <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200 flex items-center gap-1">
+                      <CheckCircle2 size={11} /> {rec.status}
                     </span>
                   </div>
 
-                  <div>
-                    <h4 className="font-bold text-slate-900 text-base leading-snug">{rec.recipientName}</h4>
-                    <span className="text-xs text-slate-600 font-mono">CCCD: {rec.cccd}</span>
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0">
+                      <h4 className="font-bold text-slate-900 text-xs sm:text-[13px] group-hover:text-emerald-700 transition-colors truncate">{rec.recipientName}</h4>
+                      <span className="text-xs text-slate-500 font-mono">CCCD: {rec.cccd}</span>
+                    </div>
+                    <span className="text-xs font-bold font-mono text-amber-800 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-lg shrink-0">
+                      {formatVNNumber(rec.amount)}đ
+                    </span>
                   </div>
 
-                  <div className="p-3 bg-rose-50/70 rounded-xl border border-rose-200 flex items-center justify-between">
-                    <span className="text-xs font-bold text-rose-900">Mức chi khẩn cấp:</span>
-                    <span className="text-base font-black text-rose-700">{formatVNNumber(rec.amount)} VNĐ</span>
-                  </div>
-
-                  <div className="p-2.5 bg-slate-50 rounded-xl border border-slate-200 text-xs text-slate-700 space-y-1">
-                    <span className="font-bold text-slate-900 block">Lý do khẩn cấp:</span>
-                    <p className="text-xs leading-relaxed text-slate-700">{rec.reason}</p>
+                  <div className="p-2.5 bg-slate-50/80 rounded-xl border border-slate-200/70 text-xs text-slate-700 space-y-0.5">
+                    <span className="text-[11px] uppercase font-bold text-slate-500 block">Hoàn cảnh đột xuất</span>
+                    <p className="text-xs leading-relaxed text-slate-700 line-clamp-2">{rec.reason}</p>
                   </div>
 
                   {rec.giftItems && (
-                    <div className="text-xs text-amber-900 bg-amber-50/60 p-2 rounded-lg border border-amber-200 flex items-center gap-1.5">
-                      <Gift size={13} className="text-amber-700 shrink-0" />
-                      <span>Hiện vật: {rec.giftItems}</span>
+                    <div className="text-xs text-slate-700 bg-amber-50/50 p-2 rounded-lg border border-amber-200/70 flex items-center gap-1.5">
+                      <Gift size={12} className="text-amber-600 shrink-0" />
+                      <span className="truncate">Hiện vật: {rec.giftItems}</span>
                     </div>
                   )}
 
-                  <div className="text-xs text-slate-600 space-y-0.5 pt-1 border-t border-slate-100">
-                    <div>Ngày giải ngân: <strong className="text-slate-800">{rec.disbursedDate}</strong></div>
-                    <div>Người duyệt nóng: <strong className="text-slate-800">{rec.approver}</strong></div>
-                    <div>Cán bộ chi trả: {rec.disbursedBy}</div>
-                    <div>Nguồn kinh phí: {rec.fundingSource}</div>
+                  <div className="text-xs text-slate-500 space-y-0.5 pt-1 border-t border-slate-100">
+                    <div>Giải ngân: <strong className="text-slate-800 font-mono">{rec.disbursedDate}</strong> • Duyệt: <strong className="text-slate-800">{rec.approver}</strong></div>
+                    <div className="truncate">Nguồn: {rec.fundingSource}</div>
                   </div>
                 </div>
 
@@ -2553,14 +2467,14 @@ export default function SocialWelfare({
                   onClick={(e) => e.stopPropagation()}
                   className="pt-2 border-t border-slate-100 flex items-center justify-between"
                 >
-                  <span className="text-xs text-emerald-700 font-bold">Đã lưu trữ biên lai</span>
+                  <span className="text-xs text-emerald-700 font-semibold">Đã lưu chứng từ chi</span>
                   <button
                     type="button"
                     onClick={() => window.print()}
-                    className="p-1.5 text-slate-600 hover:text-slate-900 rounded-lg cursor-pointer"
+                    className="p-1.5 text-slate-500 hover:text-slate-900 hover:bg-slate-100 rounded-lg cursor-pointer"
                     title="In phiếu chi cứu trợ khẩn cấp"
                   >
-                    <Printer size={14} />
+                    <Printer size={13} />
                   </button>
                 </div>
               </div>
@@ -2584,35 +2498,35 @@ export default function SocialWelfare({
             className="bg-white w-full max-w-xl rounded-2xl shadow-2xl border border-slate-200 overflow-hidden flex flex-col max-h-[92vh] animate-in zoom-in-95 duration-200"
           >
             {/* Header */}
-            <div className="p-4 bg-slate-50 text-slate-900 flex items-center justify-between shrink-0 border-b border-slate-200">
-              <h3 className="font-black text-sm flex items-center gap-2">
-                <Heart size={16} className="text-rose-600" /> Thêm Đối Tượng Thụ Hưởng Từ Danh Sách Cư Dân
+            <div className="px-5 py-3.5 bg-slate-50/60 text-slate-900 flex items-center justify-between shrink-0 border-b border-slate-200/80">
+              <h3 className="font-extrabold text-sm sm:text-base flex items-center gap-2">
+                <Heart size={15} className="text-emerald-700" /> Thêm đối tượng thụ hưởng an sinh
               </h3>
               <button
                 type="button"
                 onClick={() => setShowAddRecipientModal(false)}
-                className="p-1.5 rounded-full text-slate-600 hover:text-slate-900 hover:bg-slate-200/70 cursor-pointer"
+                className="p-1.5 rounded-lg text-slate-500 hover:text-slate-900 hover:bg-slate-200/70 cursor-pointer"
                 aria-label="Đóng cửa sổ"
               >
-                <X size={18} />
+                <X size={16} />
               </button>
             </div>
 
             {/* Form */}
             <form onSubmit={handleCreateRecipient} className="p-5 space-y-3.5 text-xs overflow-y-auto flex-1">
               {/* Resident Selector */}
-              <div className="p-3 bg-rose-50/50 rounded-xl border border-rose-200 space-y-2">
-                <label className="font-bold text-rose-950 block text-xs">
+              <div className="p-3 bg-slate-50/80 rounded-xl border border-slate-200/90 space-y-2">
+                <label className="font-bold text-slate-800 block text-xs">
                   1. Chọn nhanh từ CSDL Dân cư Khu phố 3 ({residents.length} nhân khẩu):
                 </label>
                 <div className="relative">
-                  <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
+                  <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
                   <input
                     type="text"
                     placeholder="Tìm theo tên cư dân hoặc số CCCD..."
                     value={residentSearchQuery}
                     onChange={e => setResidentSearchQuery(e.target.value)}
-                    className="w-full pl-9 pr-3 py-1.5 rounded-lg border border-slate-300 bg-white text-xs focus:outline-none focus:border-rose-500"
+                    className="w-full h-9 pl-9 pr-3 rounded-lg border border-slate-200 bg-white text-xs focus:outline-none focus:border-emerald-600"
                   />
                 </div>
                 <ReportSelect
@@ -2628,56 +2542,53 @@ export default function SocialWelfare({
                   ]}
                   className="text-xs"
                 />
-                <p className="text-xs text-slate-600">
-                  * Dữ liệu định danh, CCCD, địa chỉ và SĐT sẽ tự động được đồng bộ vào hồ sơ an sinh.
-                </p>
               </div>
 
               {/* Citizen Details */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
-                  <label className="block font-bold text-slate-700 mb-1">Họ và tên đối tượng *</label>
+                  <label className="block font-semibold text-slate-700 mb-1">Họ và tên đối tượng *</label>
                   <input
                     type="text"
                     required
                     value={recFullName}
                     onChange={e => setRecFullName(e.target.value)}
                     placeholder="Nguyễn Văn A"
-                    className="w-full p-2.5 rounded-xl border border-slate-300 bg-white font-bold"
+                    className="w-full h-9 px-3 rounded-lg border border-slate-200 bg-white font-semibold"
                   />
                 </div>
                 <div>
-                  <label className="block font-bold text-slate-700 mb-1">Số CCCD / Định danh *</label>
+                  <label className="block font-semibold text-slate-700 mb-1">Số CCCD / Định danh *</label>
                   <input
                     type="text"
                     required
                     value={recCccd}
                     onChange={e => setRecCccd(e.target.value)}
                     placeholder="079xxxxxxxxxx"
-                    className="w-full p-2.5 rounded-xl border border-slate-300 bg-white font-mono font-bold"
+                    className="w-full h-9 px-3 rounded-lg border border-slate-200 bg-white font-mono font-semibold"
                   />
                 </div>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
-                  <label className="block font-bold text-slate-700 mb-1">Số điện thoại liên hệ</label>
+                  <label className="block font-semibold text-slate-700 mb-1">Số điện thoại liên hệ</label>
                   <input
                     type="text"
                     value={recPhone}
                     onChange={e => setRecPhone(e.target.value)}
                     placeholder="09xxxxxxxx"
-                    className="w-full p-2 rounded-lg border border-slate-300 bg-white"
+                    className="w-full h-9 px-3 rounded-lg border border-slate-200 bg-white"
                   />
                 </div>
                 <div>
-                  <label className="block font-bold text-slate-700 mb-1">Địa chỉ cư trú *</label>
+                  <label className="block font-semibold text-slate-700 mb-1">Địa chỉ cư trú *</label>
                   <input
                     type="text"
                     required
                     value={recAddress}
                     onChange={e => setRecAddress(e.target.value)}
-                    className="w-full p-2 rounded-lg border border-slate-300 bg-white"
+                    className="w-full h-9 px-3 rounded-lg border border-slate-200 bg-white"
                   />
                 </div>
               </div>
@@ -2685,7 +2596,7 @@ export default function SocialWelfare({
               {/* Sub-Category Selection */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
-                  <label className="block font-bold text-slate-700 mb-1">Phân hệ an sinh con *</label>
+                  <label className="block font-semibold text-slate-700 mb-1">Phân hệ an sinh con *</label>
                   <ReportSelect
                     aria-label="Phân hệ an sinh con"
                     value={recCategory}
@@ -2698,22 +2609,22 @@ export default function SocialWelfare({
                   />
                 </div>
                 <div>
-                  <label className="block font-bold text-slate-700 mb-1">Mức hỗ trợ đề xuất *</label>
+                  <label className="block font-semibold text-slate-700 mb-1">Mức hỗ trợ đề xuất *</label>
                   <input
                     type="text"
                     required
                     value={recSupportLevel}
                     onChange={e => setRecSupportLevel(e.target.value)}
                     placeholder="2.500.000đ / tháng"
-                    className="w-full p-2 rounded-xl border border-slate-300 bg-white font-bold text-rose-700"
+                    className="w-full h-9 px-3 rounded-lg border border-slate-200 bg-white font-bold text-emerald-700"
                   />
                 </div>
               </div>
 
               {/* Benefits Checklist */}
-              <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 space-y-2">
+              <div className="p-3 bg-slate-50/80 rounded-xl border border-slate-200/90 space-y-2">
                 <span className="font-bold text-slate-800 block text-xs">
-                  2. Chế độ Chính sách & Quyền lợi được hưởng:
+                  2. Chế độ Chính sách &amp; Quyền lợi được hưởng:
                 </span>
                 <div className="space-y-1.5 max-h-36 overflow-y-auto pr-1">
                   {ALL_STANDARD_BENEFITS.map(ben => {
@@ -2727,7 +2638,7 @@ export default function SocialWelfare({
                             if (e.target.checked) setRecSelectedBenefits(prev => [...prev, ben.name]);
                             else setRecSelectedBenefits(prev => prev.filter(b => b !== ben.name));
                           }}
-                          className="rounded accent-rose-600 mt-0.5"
+                          className="rounded accent-emerald-700 mt-0.5"
                         />
                         <span>{ben.name} <strong className="text-xs text-slate-600">({ben.standardValue})</strong></span>
                       </label>
@@ -2738,13 +2649,13 @@ export default function SocialWelfare({
 
               {/* Notes */}
               <div>
-                <label className="block font-bold text-slate-700 mb-1">Hoàn cảnh thực tế & Đề xuất của cơ sở</label>
+                <label className="block font-semibold text-slate-700 mb-1">Hoàn cảnh thực tế &amp; Đề xuất của cơ sở</label>
                 <textarea
                   rows={2}
                   placeholder="Ghi rõ hoàn cảnh gia đình, thương tật, độ tuổi, kết quả bình xét của Ban Điều hành Khu phố 3..."
                   value={recNotes}
                   onChange={e => setRecNotes(e.target.value)}
-                  className="w-full p-2.5 rounded-xl border border-slate-300 bg-white text-xs focus:outline-none focus:border-rose-500"
+                  className="w-full p-2.5 rounded-lg border border-slate-200 bg-white text-xs focus:outline-none focus:border-emerald-600"
                 />
               </div>
 
@@ -2753,15 +2664,15 @@ export default function SocialWelfare({
                 <button
                   type="button"
                   onClick={() => setShowAddRecipientModal(false)}
-                  className="px-3.5 py-1.5 rounded-lg border border-slate-300 font-bold text-slate-600 hover:bg-slate-100 cursor-pointer"
+                  className="h-9 px-3.5 rounded-lg border border-slate-200 font-semibold text-slate-700 hover:bg-slate-50 cursor-pointer"
                 >
                   Hủy
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-1.5 rounded-lg bg-rose-600 hover:bg-rose-700 font-bold text-white shadow-xs cursor-pointer flex items-center gap-1.5"
+                  className="h-9 px-4 rounded-lg bg-emerald-700 hover:bg-emerald-800 font-semibold text-white cursor-pointer flex items-center gap-1.5"
                 >
-                  <Heart size={14} /> Lưu hồ sơ an sinh
+                  <Check size={14} /> Lưu hồ sơ an sinh
                 </button>
               </div>
             </form>
@@ -3085,78 +2996,78 @@ export default function SocialWelfare({
         >
           <div
             onClick={e => e.stopPropagation()}
-            className="bg-white w-full max-w-lg rounded-2xl shadow-2xl border border-amber-300 overflow-hidden flex flex-col max-h-[92vh] animate-in zoom-in-95 duration-200"
+            className="bg-white w-full max-w-lg rounded-2xl shadow-2xl border border-slate-200 overflow-hidden flex flex-col max-h-[92vh] animate-in zoom-in-95 duration-200"
           >
-            <div className="p-4 bg-amber-50/70 text-slate-900 flex items-center justify-between shrink-0 border-b border-amber-200">
-              <h3 className="font-black text-sm flex items-center gap-2">
-                <Zap size={17} className="text-amber-700" /> Quyết Định Chi Trả Hỗ Trợ Ngay (Cứu Trợ Khẩn)
+            <div className="px-5 py-3.5 bg-slate-50/60 text-slate-900 flex items-center justify-between shrink-0 border-b border-slate-200/80">
+              <h3 className="font-extrabold text-sm sm:text-base flex items-center gap-2">
+                <Zap size={15} className="text-amber-600" /> Quyết định chi trả hỗ trợ khẩn cấp
               </h3>
               <button
                 type="button"
                 onClick={() => setShowEmergencyModal(false)}
-                className="p-1.5 rounded-full text-slate-600 hover:text-slate-900 hover:bg-amber-100 cursor-pointer"
+                className="p-1.5 rounded-lg text-slate-500 hover:text-slate-900 hover:bg-slate-200/70 cursor-pointer"
                 aria-label="Đóng cửa sổ"
               >
-                <X size={18} />
+                <X size={16} />
               </button>
             </div>
 
             <form onSubmit={handleConfirmEmergencySupport} className="p-5 space-y-3.5 text-xs overflow-y-auto flex-1">
-              <div className="p-3 bg-amber-50 rounded-xl border border-amber-200 text-amber-950 space-y-1">
-                <span className="font-black block text-xs">CƠ CHẾ DUYỆT NÓNG CƠ SỞ KHU PHỐ 3:</span>
-                <p className="text-xs leading-relaxed">
-                  Áp dụng cho tai nạn đột xuất, tang tế, hỏa hoạn, bệnh hiểm nghèo cần xuất quỹ hỗ trợ tận tay trong vòng 24h. Khoản chi sẽ tự động ghi nhận vào Quỹ khu phố.
+              <div className="p-3 bg-amber-50/70 rounded-xl border border-amber-200 text-amber-950 space-y-0.5">
+                <span className="font-bold block text-xs">Cơ chế duyệt nóng tại Khu phố 3</span>
+                <p className="text-xs leading-relaxed text-amber-900/90">
+                  Áp dụng cho tai nạn đột xuất, tang tế, hỏa hoạn, bệnh hiểm nghèo cần xuất quỹ hỗ trợ trong 24h. Khoản chi sẽ tự động đồng bộ sang Quỹ khu phố.
                 </p>
               </div>
 
               {/* Recipient Details */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
-                  <label className="block font-bold text-slate-700 mb-1">Đối tượng thụ hưởng *</label>
+                  <label className="block font-semibold text-slate-700 mb-1">Đối tượng thụ hưởng *</label>
                   <input
                     type="text"
                     required
                     value={emgRecipientName}
                     onChange={e => setEmgRecipientName(e.target.value)}
                     placeholder="Họ và tên người nhận..."
-                    className="w-full p-2 rounded-lg border border-slate-300 bg-white font-bold"
+                    className="w-full h-9 px-3 rounded-lg border border-slate-200 bg-white font-semibold"
                   />
                 </div>
                 <div>
-                  <label className="block font-bold text-slate-700 mb-1">Số CCCD</label>
+                  <label className="block font-semibold text-slate-700 mb-1">Số CCCD</label>
                   <input
                     type="text"
                     value={emgCccd}
                     onChange={e => setEmgCccd(e.target.value)}
-                    className="w-full p-2 rounded-lg border border-slate-300 bg-white font-mono"
+                    className="w-full h-9 px-3 rounded-lg border border-slate-200 bg-white font-mono"
                   />
                 </div>
               </div>
 
               <div>
-                <label className="block font-bold text-slate-700 mb-1">Địa chỉ thường trú / tạm trú</label>
+                <label className="block font-semibold text-slate-700 mb-1">Địa chỉ thường trú / tạm trú</label>
                 <input
                   type="text"
                   value={emgAddress}
                   onChange={e => setEmgAddress(e.target.value)}
-                  className="w-full p-2 rounded-lg border border-slate-300 bg-white"
+                  className="w-full h-9 px-3 rounded-lg border border-slate-200 bg-white"
                 />
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
-                  <label className="block font-bold text-rose-800 mb-1">Số tiền hỗ trợ khẩn cấp (VNĐ) *</label>
+                  <label className="block font-semibold text-slate-700 mb-1">Số tiền hỗ trợ khẩn cấp (VNĐ) *</label>
                   <input
                     type="number"
                     step={500000}
                     required
                     value={emgAmount}
                     onChange={e => setEmgAmount(Number(e.target.value))}
-                    className="w-full p-2.5 rounded-xl border border-rose-300 bg-rose-50/40 font-mono font-black text-rose-700 text-sm"
+                    className="w-full h-9 px-3 rounded-lg border border-slate-200 bg-white font-mono font-bold text-emerald-700 text-xs"
                   />
                 </div>
                 <div>
-                  <label className="block font-bold text-slate-700 mb-1">Phân loại diện chính sách</label>
+                  <label className="block font-semibold text-slate-700 mb-1">Phân loại diện chính sách</label>
                   <ReportSelect
                     aria-label="Phân loại diện chính sách"
                     value={emgCategory}
@@ -3171,47 +3082,47 @@ export default function SocialWelfare({
               </div>
 
               <div>
-                <label className="block font-bold text-slate-700 mb-1">Lý do cứu trợ khẩn cấp *</label>
+                <label className="block font-semibold text-slate-700 mb-1">Lý do cứu trợ khẩn cấp *</label>
                 <textarea
                   rows={2}
                   required
                   placeholder="Ghi rõ tình huống khẩn cấp (tai nạn, hỏa hoạn, tang tế, phẫu thuật bệnh viện...)"
                   value={emgReason}
                   onChange={e => setEmgReason(e.target.value)}
-                  className="w-full p-2 rounded-lg border border-slate-300 bg-white text-xs"
+                  className="w-full p-2.5 rounded-lg border border-slate-200 bg-white text-xs"
                 />
               </div>
 
               <div>
-                <label className="block font-bold text-slate-700 mb-1">Hiện vật cấp bách kèm theo (nếu có)</label>
+                <label className="block font-semibold text-slate-700 mb-1">Hiện vật cấp bách kèm theo (nếu có)</label>
                 <input
                   type="text"
                   placeholder="Gạo, thuốc men, sữa dinh dưỡng, quần áo..."
                   value={emgGiftItems}
                   onChange={e => setEmgGiftItems(e.target.value)}
-                  className="w-full p-2 rounded-lg border border-slate-300 bg-white"
+                  className="w-full h-9 px-3 rounded-lg border border-slate-200 bg-white"
                 />
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
-                  <label className="block font-bold text-slate-700 mb-1">Lãnh đạo duyệt nóng *</label>
+                  <label className="block font-semibold text-slate-700 mb-1">Lãnh đạo duyệt nóng *</label>
                   <input
                     type="text"
                     required
                     value={emgApprover}
                     onChange={e => setEmgApprover(e.target.value)}
-                    className="w-full p-2 rounded-lg border border-slate-300 bg-white font-semibold"
+                    className="w-full h-9 px-3 rounded-lg border border-slate-200 bg-white font-semibold"
                   />
                 </div>
                 <div>
-                  <label className="block font-bold text-slate-700 mb-1">Nguồn quỹ chi trả *</label>
+                  <label className="block font-semibold text-slate-700 mb-1">Nguồn quỹ chi trả *</label>
                   <input
                     type="text"
                     required
                     value={emgFundingSource}
                     onChange={e => setEmgFundingSource(e.target.value)}
-                    className="w-full p-2 rounded-lg border border-slate-300 bg-white font-semibold"
+                    className="w-full h-9 px-3 rounded-lg border border-slate-200 bg-white font-semibold"
                   />
                 </div>
               </div>
@@ -3220,15 +3131,15 @@ export default function SocialWelfare({
                 <button
                   type="button"
                   onClick={() => setShowEmergencyModal(false)}
-                  className="px-3.5 py-1.5 rounded-lg border border-slate-300 font-bold text-slate-600 hover:bg-slate-100 cursor-pointer"
+                  className="h-9 px-3.5 rounded-lg border border-slate-200 font-semibold text-slate-700 hover:bg-slate-50 cursor-pointer"
                 >
                   Hủy
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 font-bold text-white shadow-xs cursor-pointer flex items-center gap-1.5"
+                  className="h-9 px-4 rounded-lg bg-emerald-700 hover:bg-emerald-800 font-semibold text-white cursor-pointer flex items-center gap-1.5"
                 >
-                  <Zap size={14} /> Xác nhận chi trả hỗ trợ ngay
+                  <Zap size={13} /> Xác nhận chi trả
                 </button>
               </div>
             </form>

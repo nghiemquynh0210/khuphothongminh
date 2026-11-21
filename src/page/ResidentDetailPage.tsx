@@ -40,6 +40,7 @@ import { recordAuditLog } from "../utils/auditLogger";
 import { DetailGrid, DetailRow } from "../components/common/DetailRow";
 import { LoadingFade } from "../components/common/LoadingFade";
 import { PageHeader } from "../components/common/PageHeader";
+import { RecordDetailShell } from "../components/common/RecordDetailShell";
 import { ConfirmModal } from "../components/ui/ConfirmModal";
 import {
   CT07Modal,
@@ -223,306 +224,176 @@ export default function ResidentDetailPage({
       )
     : undefined;
 
+  const detailTabs = [
+    {
+      id: "identity",
+      label: "Định danh & Nhân thân",
+      icon: <CreditCard size={14} aria-hidden="true" />,
+    },
+    {
+      id: "residence",
+      label: "Hộ tịch & Nơi cư trú",
+      icon: <Home size={14} aria-hidden="true" />,
+    },
+    {
+      id: "social",
+      label: "Đoàn thể & Y tế - Xã hội",
+      icon: <Award size={14} aria-hidden="true" />,
+    },
+    ...(isForeign
+      ? [
+          {
+            id: "foreign",
+            label: "Thị thực & Xuất nhập cảnh",
+            icon: <Globe size={14} aria-hidden="true" />,
+          },
+        ]
+      : []),
+  ];
+
   return (
-    <div className="max-w-5xl mx-auto space-y-4 pb-8 theme-loading-fade">
-      <PageHeader
-        badgeIcon={Shield}
-        badgeText="HỒ SƠ CƯ DÂN CHI TIẾT • CSDL ĐỀ ÁN 06/CP"
-        badgeSubtext={shortId}
-        title={resident.fullName}
-        description={
-          isForeign
-            ? `Công dân nước ngoài (${resident.nationality || "Nước ngoài"}) • ${displayAddress}`
-            : `${resident.status} • ${displayAddress}`
-        }
-        showDate={false}
-        actions={
-          <div className="flex flex-wrap items-center gap-2">
-            <button
-              type="button"
-              id="btn-detail-back"
-              onClick={handleGoBack}
-              className="inline-flex items-center gap-1.5 px-3 py-2 bg-white hover:bg-slate-50 text-slate-700 border border-slate-300 rounded-xl text-xs font-bold transition-colors cursor-pointer"
+    <RecordDetailShell
+      backLabel="Danh bạ cư dân"
+      backButtonId="btn-detail-back"
+      onBack={handleGoBack}
+      navigation={{
+        hasPrev: Boolean(prevResident),
+        hasNext: Boolean(nextResident),
+        onPrev: () => prevResident && handleGoToResident(prevResident.id),
+        onNext: () => nextResident && handleGoToResident(nextResident.id),
+        prevTitle: prevResident ? `Cư dân trước: ${prevResident.fullName}` : "Đầu danh sách",
+        nextTitle: nextResident ? `Cư dân sau: ${nextResident.fullName}` : "Cuối danh sách",
+        positionLabel:
+          residentIndex >= 0 ? `${residentIndex + 1} / ${residents.length}` : undefined,
+      }}
+      avatarSlot={
+        <div className="relative">
+          <img
+            id="detail-resident-avatar"
+            src={
+              resident.avatar ||
+              "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150"
+            }
+            alt={resident.fullName}
+            className="w-14 h-14 sm:w-16 sm:h-16 rounded-xl border border-slate-200 object-cover bg-slate-100"
+            referrerPolicy="no-referrer"
+          />
+          {resident.policyGroup?.includes("Đảng viên") && (
+            <span
+              className="absolute -bottom-1 -right-1 w-5 h-5 rounded-full bg-rose-600 border-2 border-white flex items-center justify-center text-[10px] text-white font-bold"
+              title="Đảng viên ĐCSVN"
             >
-              <ArrowLeft size={14} />
-              <span>Danh bạ cư dân</span>
-            </button>
-
-            <div className="inline-flex items-center rounded-xl border border-slate-300 bg-white overflow-hidden">
-              <button
-                type="button"
-                disabled={!prevResident}
-                onClick={() => prevResident && handleGoToResident(prevResident.id)}
-                className="inline-flex items-center gap-1 px-2.5 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer border-r border-slate-200 transition-colors"
-                title={
-                  prevResident
-                    ? `Cư dân trước: ${prevResident.fullName}`
-                    : "Đang ở đầu danh sách"
-                }
-              >
-                <ChevronLeft size={14} />
-                <span className="hidden sm:inline">Trước</span>
-              </button>
-              <button
-                type="button"
-                disabled={!nextResident}
-                onClick={() => nextResident && handleGoToResident(nextResident.id)}
-                className="inline-flex items-center gap-1 px-2.5 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer transition-colors"
-                title={
-                  nextResident
-                    ? `Cư dân sau: ${nextResident.fullName}`
-                    : "Đang ở cuối danh sách"
-                }
-              >
-                <span className="hidden sm:inline">Sau</span>
-                <ChevronRight size={14} />
-              </button>
-            </div>
-
-            <button
-              type="button"
-              id="btn-detail-edit-top"
-              onClick={() => handleEditResident(resident)}
-              className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl text-xs font-bold transition-colors cursor-pointer shadow-xs"
-            >
-              <Edit2 size={14} />
-              <span>Chỉnh sửa</span>
-            </button>
-          </div>
-        }
-      />
-
-      <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-2xs">
-        {/* Identity Summary Banner */}
-        <div className="p-4 sm:p-6 border-b border-slate-200 bg-slate-50/50 space-y-3">
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <div className="flex flex-wrap items-center gap-1.5 text-xs">
-              <span
-                className="font-mono font-semibold text-slate-700 bg-white px-2.5 py-1 rounded-lg border border-slate-200 inline-flex items-center"
-                title={`Mã hồ sơ gốc: ${resident.id}`}
-              >
-                {shortId}
-              </span>
-              {resident.householdId && (
-                <button
-                  type="button"
-                  onClick={() => handleQuickViewHousehold(resident.householdId!)}
-                  disabled={!linkedHousehold}
-                  className="inline-flex items-center font-mono font-bold px-2.5 py-1 rounded-lg bg-emerald-50 text-emerald-800 border border-emerald-200 hover:bg-emerald-100 disabled:opacity-70 transition-colors cursor-pointer disabled:cursor-default"
-                  title={
-                    linkedHousehold
-                      ? "Xem nhanh Sổ hộ khẩu liên kết"
-                      : "Mã hộ khẩu đã liên kết"
-                  }
-                >
-                  HỘ: {resident.householdId}
-                </button>
-              )}
-              {residentIndex >= 0 && (
-                <span className="text-slate-500 font-medium px-2">
-                  Hồ sơ {residentIndex + 1} / {residents.length}
-                </span>
-              )}
-            </div>
-
-            <div className="flex flex-wrap items-center gap-1.5">
-              {isForeign ? (
-                <span className="px-2.5 py-1 rounded-full text-xs font-bold bg-purple-50 text-purple-800 border border-purple-200 inline-flex items-center gap-1.5">
-                  <span>{getCountryFlag(resident.nationality)}</span>
-                  <span>{resident.nationality}</span>
-                </span>
-              ) : getEffectiveResidencyStatus(resident) === "Tạm vắng" ? (
-                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-amber-50 text-amber-700 border border-amber-200">
-                  <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse"></span>
-                  Thường trú KP3 • Hiện ở ngoài địa bàn (Tạm vắng)
-                </span>
-              ) : (
-                <span
-                  className={`px-2.5 py-1 rounded-full text-xs font-bold border ${
-                    resident.status === "Thường trú"
-                      ? "bg-emerald-50 text-emerald-800 border-emerald-200"
-                      : resident.status === "Tạm trú"
-                        ? "bg-amber-50 text-amber-800 border-amber-200"
-                        : "bg-slate-100 text-slate-700 border-slate-200"
-                  }`}
-                >
-                  {resident.status}
-                </span>
-              )}
-
-              {resident.policyGroup?.includes("Đảng viên") && (
-                <span className="px-2.5 py-1 rounded-full text-xs font-bold bg-rose-50 text-rose-800 border border-rose-200">
-                  ★ Đảng viên ĐCSVN
-                </span>
-              )}
-            </div>
-          </div>
-
-          <div className="flex flex-col sm:flex-row sm:items-center gap-4">
-            <div className="relative shrink-0 self-start">
-              <img
-                id="detail-resident-avatar"
-                src={
-                  resident.avatar ||
-                  "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150"
-                }
-                alt={resident.fullName}
-                className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl border border-slate-200 object-cover bg-slate-100"
-                referrerPolicy="no-referrer"
-              />
-              {resident.policyGroup?.includes("Đảng viên") && (
-                <span
-                  className="absolute -bottom-1 -right-1 w-5 h-5 rounded-full bg-rose-600 border-2 border-white flex items-center justify-center text-[11px] text-white font-bold"
-                  title="Đảng viên ĐCSVN"
-                >
-                  ★
-                </span>
-              )}
-              {isForeign && !resident.policyGroup?.includes("Đảng viên") && (
-                <span
-                  className="absolute -bottom-1 -right-1 px-1.5 py-0.5 rounded-md bg-purple-700 border-2 border-white text-[10px] text-white font-bold"
-                  title={resident.nationality}
-                >
-                  {getCountryFlag(resident.nationality)}
-                </span>
-              )}
-            </div>
-
-            <div className="min-w-0 flex-1 space-y-1.5">
-              <h2
-                id="detail-resident-name"
-                className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight leading-snug"
-              >
-                {resident.fullName}
-              </h2>
-
-              <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs sm:text-sm text-slate-600">
-                <span className="inline-flex items-center gap-1.5 text-slate-700 min-w-0">
-                  <MapPin
-                    size={14}
-                    className="text-emerald-700 shrink-0"
-                    aria-hidden="true"
-                  />
-                  <span className="break-words">{displayAddress}</span>
-                </span>
-              </div>
-
-              <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-slate-600">
-                {resident.birthDate && (
-                  <span>
-                    Ngày sinh:{" "}
-                    <strong className="text-slate-900 font-semibold font-mono">
-                      {resident.birthDate}
-                    </strong>
-                  </span>
-                )}
-                {resident.gender && (
-                  <span>
-                    · Giới tính:{" "}
-                    <strong className="text-slate-900 font-semibold">
-                      {resident.gender}
-                    </strong>
-                  </span>
-                )}
-                {resident.phone && resident.phone !== "N/A" && (
-                  <a
-                    href={`tel:${resident.phone}`}
-                    className="inline-flex items-center gap-1 text-emerald-800 hover:underline font-mono font-semibold"
-                  >
-                    <Phone size={12} />
-                    {resident.phone}
-                  </a>
-                )}
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Navigation Tabs */}
-        <div className="flex px-4 sm:px-6 gap-5 sm:gap-7 text-xs sm:text-sm font-bold border-b border-slate-200 overflow-x-auto bg-white">
-          <button
-            type="button"
-            onClick={() => setActiveTab("identity")}
-            className={`py-3 transition-colors relative cursor-pointer flex items-center gap-1.5 whitespace-nowrap ${
-              activeTab === "identity"
-                ? "text-emerald-800 font-extrabold"
-                : "text-slate-500 hover:text-slate-800"
-            }`}
-          >
-            <CreditCard size={15} aria-hidden="true" />
-            <span>Định danh &amp; Nhân thân</span>
-            {activeTab === "identity" && (
-              <div className="absolute bottom-0 left-0 w-full h-0.5 bg-emerald-700" />
-            )}
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setActiveTab("residence")}
-            className={`py-3 transition-colors relative cursor-pointer flex items-center gap-1.5 whitespace-nowrap ${
-              activeTab === "residence"
-                ? "text-emerald-800 font-extrabold"
-                : "text-slate-500 hover:text-slate-800"
-            }`}
-          >
-            <Home size={15} aria-hidden="true" />
-            <span>Hộ tịch &amp; Nơi cư trú</span>
-            {activeTab === "residence" && (
-              <div className="absolute bottom-0 left-0 w-full h-0.5 bg-emerald-700" />
-            )}
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setActiveTab("social")}
-            className={`py-3 transition-colors relative cursor-pointer flex items-center gap-1.5 whitespace-nowrap ${
-              activeTab === "social"
-                ? "text-emerald-800 font-extrabold"
-                : "text-slate-500 hover:text-slate-800"
-            }`}
-          >
-            <Award size={15} aria-hidden="true" />
-            <span>Đoàn thể &amp; Y tế - Xã hội</span>
-            {activeTab === "social" && (
-              <div className="absolute bottom-0 left-0 w-full h-0.5 bg-emerald-700" />
-            )}
-          </button>
-
-          {isForeign && (
-            <button
-              type="button"
-              onClick={() => setActiveTab("foreign")}
-              className={`py-3 transition-colors relative cursor-pointer flex items-center gap-1.5 whitespace-nowrap ${
-                activeTab === "foreign"
-                  ? "text-purple-800 font-extrabold"
-                  : "text-slate-500 hover:text-slate-800"
-              }`}
-            >
-              <Globe size={15} aria-hidden="true" />
-              <span>Thị thực &amp; Xuất nhập cảnh</span>
-              {activeTab === "foreign" && (
-                <div className="absolute bottom-0 left-0 w-full h-0.5 bg-purple-700" />
-              )}
-            </button>
+              ★
+            </span>
           )}
         </div>
-
-        {/* Tab Panels */}
-        <div className="p-4 sm:p-6 space-y-5">
+      }
+      badgesSlot={
+        <>
+          <span
+            className="font-mono font-semibold text-slate-600 bg-slate-100 px-2 py-0.5 rounded-md border border-slate-200/80"
+            title={`Mã hồ sơ gốc: ${resident.id}`}
+          >
+            {shortId}
+          </span>
+          {isForeign ? (
+            <span className="px-2.5 py-0.5 rounded-full font-semibold bg-slate-100 text-slate-800 border border-slate-200 inline-flex items-center gap-1">
+              <span>{getCountryFlag(resident.nationality)}</span>
+              <span>{resident.nationality}</span>
+            </span>
+          ) : getEffectiveResidencyStatus(resident) === "Tạm vắng" ? (
+            <span className="px-2.5 py-0.5 rounded-full font-semibold bg-amber-50 text-amber-800 border border-amber-200">
+              Thường trú • Tạm vắng
+            </span>
+          ) : (
+            <span
+              className={`px-2.5 py-0.5 rounded-full font-semibold border ${
+                resident.status === "Thường trú"
+                  ? "bg-emerald-50 text-emerald-800 border-emerald-200"
+                  : resident.status === "Tạm trú"
+                  ? "bg-amber-50 text-amber-800 border-amber-200"
+                  : "bg-slate-100 text-slate-700 border-slate-200"
+              }`}
+            >
+              {resident.status}
+            </span>
+          )}
+          {resident.householdId && (
+            <button
+              type="button"
+              onClick={() => handleQuickViewHousehold(resident.householdId!)}
+              disabled={!linkedHousehold}
+              className="inline-flex items-center font-mono font-semibold px-2 py-0.5 rounded-md bg-white text-emerald-800 border border-emerald-200 hover:bg-emerald-50 disabled:opacity-70 transition-colors cursor-pointer disabled:cursor-default"
+              title={linkedHousehold ? "Xem Sổ hộ khẩu liên kết" : "Mã hộ khẩu"}
+            >
+              Hộ: {resident.householdId}
+            </button>
+          )}
+          {resident.policyGroup?.includes("Đảng viên") && (
+            <span className="px-2 py-0.5 rounded-full font-semibold bg-rose-50 text-rose-800 border border-rose-200">
+              Đảng viên
+            </span>
+          )}
+        </>
+      }
+      title={resident.fullName}
+      titleId="detail-resident-name"
+      subtitleSlot={
+        <>
+          <span className="inline-flex items-center gap-1 text-slate-600">
+            <MapPin size={13} className="text-slate-400 shrink-0" aria-hidden="true" />
+            <span className="break-words">{displayAddress}</span>
+          </span>
+          {resident.birthDate && (
+            <span>
+              Sinh: <strong className="text-slate-800 font-mono">{resident.birthDate}</strong>
+            </span>
+          )}
+          {resident.gender && (
+            <span>
+              Giới tính: <strong className="text-slate-800">{resident.gender}</strong>
+            </span>
+          )}
+          {resident.phone && resident.phone !== "N/A" && (
+            <a
+              href={`tel:${resident.phone}`}
+              className="inline-flex items-center gap-1 text-emerald-700 hover:underline font-mono font-semibold"
+            >
+              <Phone size={12} />
+              {resident.phone}
+            </a>
+          )}
+        </>
+      }
+      actionsSlot={
+        <button
+          type="button"
+          id="btn-detail-edit-top"
+          onClick={() => handleEditResident(resident)}
+          className="inline-flex items-center gap-1.5 h-9 px-3.5 bg-emerald-700 hover:bg-emerald-800 text-white rounded-lg text-xs font-semibold transition-colors cursor-pointer shadow-2xs"
+        >
+          <Edit2 size={13} />
+          <span>Chỉnh sửa</span>
+        </button>
+      }
+      tabs={detailTabs}
+      activeTab={activeTab}
+      onTabChange={(id) => setActiveTab(id as any)}
+    >
           {activeTab === "identity" && (
-            <div className="space-y-5">
-              <div className="bg-slate-50/70 rounded-xl border border-slate-200/90 p-4 space-y-2.5">
-                <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-200/70 pb-2.5">
-                  <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wider flex items-center gap-1.5">
-                    <CreditCard
-                      size={14}
-                      className="text-emerald-700"
-                      aria-hidden="true"
-                    />
-                    {isForeign
-                      ? "Hộ chiếu Quốc tế"
-                      : "Căn cước công dân (Định danh)"}
-                  </h3>
+            <div className="space-y-4 animate-in fade-in duration-200">
+              <div className="space-y-2.5">
+                <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-200 pb-2">
+                  <div className="flex items-center gap-2">
+                    <span className="p-1.5 bg-indigo-50 text-indigo-700 rounded-lg">
+                      <CreditCard size={14} aria-hidden="true" />
+                    </span>
+                    <h4 className="text-xs font-bold text-slate-900 uppercase tracking-wider">
+                      {isForeign
+                        ? "Hộ chiếu Quốc tế"
+                        : "Căn cước công dân (Định danh)"}
+                    </h4>
+                  </div>
                   <button
                     type="button"
                     onClick={() => {
@@ -540,19 +411,19 @@ export default function ResidentDetailPage({
                         return next;
                       });
                     }}
-                    className="min-h-7 px-2.5 py-1 text-xs font-bold text-slate-700 hover:text-slate-900 bg-white hover:bg-slate-100 border border-slate-300 rounded-lg inline-flex items-center gap-1 transition-colors cursor-pointer"
+                    className="min-h-7 px-2.5 py-1 text-xs font-bold text-slate-700 hover:text-slate-900 bg-white hover:bg-slate-50 border border-slate-200 rounded-lg inline-flex items-center gap-1 transition-colors cursor-pointer"
                     aria-pressed={showFullCccd}
                   >
                     {showFullCccd ? (
-                      <EyeOff size={13} aria-hidden="true" />
+                      <EyeOff size={12} aria-hidden="true" />
                     ) : (
-                      <Eye size={13} aria-hidden="true" />
+                      <Eye size={12} aria-hidden="true" />
                     )}
                     <span>{showFullCccd ? "Ẩn số" : "Hiện số"}</span>
                   </button>
                 </div>
 
-                <DetailGrid hideEmpty>
+                <DetailGrid hideEmpty compact>
                   <DetailRow
                     label={isForeign ? "Số Hộ chiếu" : "Số CCCD"}
                     value={maskedCccdDisplay}
@@ -568,17 +439,17 @@ export default function ResidentDetailPage({
                 </DetailGrid>
               </div>
 
-              <div className="space-y-2">
-                <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wider flex items-center gap-1.5 border-b border-slate-200 pb-2">
-                  <UserCheck
-                    size={14}
-                    className="text-emerald-700"
-                    aria-hidden="true"
-                  />
-                  Lai lịch &amp; Nhân thân
-                </h3>
+              <div className="space-y-2.5 pt-2">
+                <div className="flex items-center gap-2 border-b border-slate-200 pb-2">
+                  <span className="p-1.5 bg-emerald-50 text-emerald-700 rounded-lg">
+                    <UserCheck size={14} aria-hidden="true" />
+                  </span>
+                  <h4 className="text-xs font-bold text-slate-900 uppercase tracking-wider">
+                    Lai lịch &amp; Nhân thân
+                  </h4>
+                </div>
 
-                <DetailGrid hideEmpty>
+                <DetailGrid hideEmpty compact>
                   <DetailRow label="Ngày sinh" value={resident.birthDate} isMono />
                   <DetailRow label="Giới tính" value={resident.gender} />
                   <DetailRow
@@ -618,16 +489,16 @@ export default function ResidentDetailPage({
           )}
 
           {activeTab === "residence" && (
-            <div className="space-y-4">
+            <div className="space-y-4 animate-in fade-in duration-200">
               <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-200 pb-2">
-                <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wider flex items-center gap-1.5">
-                  <Home
-                    size={14}
-                    className="text-emerald-700"
-                    aria-hidden="true"
-                  />
-                  Hồ sơ Hộ tịch &amp; Nơi cư trú
-                </h3>
+                <div className="flex items-center gap-2">
+                  <span className="p-1.5 bg-emerald-50 text-emerald-700 rounded-lg">
+                    <Home size={14} aria-hidden="true" />
+                  </span>
+                  <h4 className="text-xs font-bold text-slate-900 uppercase tracking-wider">
+                    Hồ sơ Hộ tịch &amp; Nơi cư trú
+                  </h4>
+                </div>
                 {resident.householdId && (
                   <button
                     type="button"
@@ -640,7 +511,7 @@ export default function ResidentDetailPage({
                 )}
               </div>
 
-              <DetailGrid hideEmpty>
+              <DetailGrid hideEmpty compact>
                 <DetailRow label="Diện cư trú" value={resident.status} />
                 <DetailRow
                   label="Quan hệ chủ hộ"
@@ -779,17 +650,17 @@ export default function ResidentDetailPage({
           )}
 
           {activeTab === "social" && (
-            <div className="space-y-4">
-              <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wider flex items-center gap-1.5 border-b border-slate-200 pb-2">
-                <Award
-                  size={14}
-                  className="text-rose-700"
-                  aria-hidden="true"
-                />
-                Chính sách, Đoàn thể &amp; Y tế - Xã hội
-              </h3>
+            <div className="space-y-4 animate-in fade-in duration-200">
+              <div className="flex items-center gap-2 border-b border-slate-200 pb-2">
+                <span className="p-1.5 bg-rose-50 text-rose-700 rounded-lg">
+                  <Award size={14} aria-hidden="true" />
+                </span>
+                <h4 className="text-xs font-bold text-slate-900 uppercase tracking-wider">
+                  Chính sách, Đoàn thể &amp; Y tế - Xã hội
+                </h4>
+              </div>
 
-              <DetailGrid hideEmpty>
+              <DetailGrid hideEmpty compact>
                 <DetailRow
                   label="Diện chính sách"
                   value={resident.policyGroup || "Dân cư phổ thông"}
@@ -929,89 +800,79 @@ export default function ResidentDetailPage({
               </DetailGrid>
             </div>
           )}
-        </div>
 
-        {/* Footer Actions Bar */}
-        <div className="px-4 sm:px-6 py-4 border-t border-slate-200 bg-slate-50/70 flex flex-wrap items-center justify-between gap-3">
-          <div className="flex flex-wrap items-center gap-2">
-            {isForeign ? (
-              <button
-                type="button"
-                id="btn-detail-print-na17"
-                onClick={() => setShowNA17Modal(true)}
-                className="inline-flex items-center gap-1.5 px-3 py-2 bg-white hover:bg-slate-100 text-slate-800 border border-slate-300 rounded-xl text-xs font-bold transition-colors cursor-pointer"
-              >
-                <FileText
-                  size={14}
-                  className="text-purple-700"
-                  aria-hidden="true"
-                />
-                <span>Mẫu NA17</span>
-              </button>
-            ) : (
-              <button
-                type="button"
-                id="btn-detail-print-ct07"
-                onClick={() => setShowCT07Modal(true)}
-                className="inline-flex items-center gap-1.5 px-3 py-2 bg-white hover:bg-slate-100 text-slate-800 border border-slate-300 rounded-xl text-xs font-bold transition-colors cursor-pointer"
-              >
-                <Printer
-                  size={14}
-                  className="text-emerald-700"
-                  aria-hidden="true"
-                />
-                <span>Mẫu CT07</span>
-              </button>
-            )}
+          {/* Footer Actions Bar */}
+          <div className="pt-4 border-t border-slate-100 flex flex-wrap items-center justify-between gap-3">
+            <div className="flex flex-wrap items-center gap-2">
+              {isForeign ? (
+                <button
+                  type="button"
+                  id="btn-detail-print-na17"
+                  onClick={() => setShowNA17Modal(true)}
+                  className="inline-flex items-center gap-1.5 h-9 px-3 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 rounded-lg text-xs font-semibold transition-colors cursor-pointer"
+                >
+                  <FileText
+                    size={14}
+                    className="text-purple-700"
+                    aria-hidden="true"
+                  />
+                  <span>Mẫu NA17</span>
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  id="btn-detail-print-ct07"
+                  onClick={() => setShowCT07Modal(true)}
+                  className="inline-flex items-center gap-1.5 h-9 px-3 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 rounded-lg text-xs font-semibold transition-colors cursor-pointer"
+                >
+                  <Printer
+                    size={14}
+                    className="text-emerald-700"
+                    aria-hidden="true"
+                  />
+                  <span>Mẫu CT07</span>
+                </button>
+              )}
 
-            {onNavigateToGis && (
+              {onNavigateToGis && (
+                <button
+                  type="button"
+                  id="btn-detail-directions"
+                  onClick={() => handleDirections(resident)}
+                  className="inline-flex items-center gap-1.5 h-9 px-3 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 rounded-lg text-xs font-semibold transition-colors cursor-pointer"
+                >
+                  <Navigation
+                    size={14}
+                    className="text-emerald-700"
+                    aria-hidden="true"
+                  />
+                  <span>Chỉ đường GIS</span>
+                </button>
+              )}
+            </div>
+
+            <div className="flex flex-wrap items-center gap-2">
               <button
                 type="button"
-                id="btn-detail-directions"
-                onClick={() => handleDirections(resident)}
-                className="inline-flex items-center gap-1.5 px-3 py-2 bg-white hover:bg-slate-100 text-slate-800 border border-slate-300 rounded-xl text-xs font-bold transition-colors cursor-pointer"
+                id="btn-detail-delete"
+                onClick={() => setShowDeleteConfirm(true)}
+                className="inline-flex items-center gap-1.5 h-9 px-3 bg-white hover:bg-rose-50 text-rose-600 border border-slate-200 hover:border-rose-200 rounded-lg text-xs font-semibold transition-colors cursor-pointer"
               >
-                <Navigation
-                  size={14}
-                  className="text-emerald-700"
-                  aria-hidden="true"
-                />
-                <span>Chỉ đường GIS</span>
+                <Trash2 size={14} aria-hidden="true" />
+                <span>Xóa hồ sơ</span>
               </button>
-            )}
+
+              <button
+                type="button"
+                id="btn-detail-edit-footer"
+                onClick={() => handleEditResident(resident)}
+                className="inline-flex items-center gap-1.5 h-9 px-3.5 bg-emerald-700 hover:bg-emerald-800 text-white rounded-lg text-xs font-semibold transition-colors cursor-pointer shadow-2xs"
+              >
+                <Edit2 size={14} aria-hidden="true" />
+                <span>Chỉnh sửa</span>
+              </button>
+            </div>
           </div>
-
-          <div className="flex flex-wrap items-center gap-2">
-            <button
-              type="button"
-              id="btn-detail-delete"
-              onClick={() => setShowDeleteConfirm(true)}
-              className="inline-flex items-center gap-1.5 px-3 py-2 bg-rose-50 hover:bg-rose-100 text-rose-800 border border-rose-200 rounded-xl text-xs font-bold transition-colors cursor-pointer"
-            >
-              <Trash2 size={14} aria-hidden="true" />
-              <span>Xóa hồ sơ</span>
-            </button>
-
-            <button
-              type="button"
-              onClick={handleGoBack}
-              className="px-3.5 py-2 bg-white hover:bg-slate-100 text-slate-700 border border-slate-300 rounded-xl text-xs font-bold transition-colors cursor-pointer"
-            >
-              Quay lại
-            </button>
-
-            <button
-              type="button"
-              id="btn-detail-edit-footer"
-              onClick={() => handleEditResident(resident)}
-              className="inline-flex items-center gap-1.5 px-4 py-2 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl text-xs font-bold transition-colors cursor-pointer"
-            >
-              <Edit2 size={14} aria-hidden="true" />
-              <span>Chỉnh sửa</span>
-            </button>
-          </div>
-        </div>
-      </div>
 
       {showCT07Modal && (
         <CT07Modal resident={resident} onClose={() => setShowCT07Modal(false)} />
@@ -1048,7 +909,7 @@ export default function ResidentDetailPage({
         confirmLabel="Xóa hồ sơ"
         variant="danger"
       />
-    </div>
+    </RecordDetailShell>
   );
 }
 

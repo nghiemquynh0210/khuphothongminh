@@ -5,6 +5,7 @@ import {
   CheckCircle2,
   Clock,
   FileSpreadsheet,
+  Filter,
   LayoutGrid,
   List,
   MessageSquareWarning,
@@ -204,6 +205,7 @@ export default function FieldReflections({
     statusFilter !== "Tất cả" ||
     priorityFilter !== "Tất cả" ||
     onlySlaRisk;
+  const [showReportFilters, setShowReportFilters] = useState(false);
 
   const resetFilters = () => {
     setSearchTerm("");
@@ -388,16 +390,16 @@ export default function FieldReflections({
         />
       </div>
 
-      {/* Unified Filter & View Bar (2 balanced rows: spacious search + never-orphaned view toggle & 4-cell filter strip) */}
-      <search className="bg-white p-3.5 sm:p-4 rounded-xl border border-slate-200/80 flex flex-col gap-3">
-        <div className="flex items-center gap-2.5 w-full">
-          <div className="relative flex-1 min-w-0">
+      {/* Minimalist Single-Row Filter & View Bar */}
+      <search className="bg-white p-3 rounded-xl border border-slate-200/80 shadow-2xs flex flex-col gap-2.5">
+        <div className="flex flex-wrap items-center gap-2 w-full">
+          <div className="relative flex-1 min-w-[200px]">
             <label htmlFor="reports-search-input" className="sr-only">
               Tìm kiếm phản ánh hiện trường
             </label>
             <Search
-              className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 pointer-events-none"
-              size={16}
+              className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none"
+              size={15}
               aria-hidden="true"
             />
             <input
@@ -406,16 +408,59 @@ export default function FieldReflections({
               type="search"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              placeholder="Tìm mã, nội dung..."
-              className="w-full h-9 pl-9 pr-3 bg-white text-slate-900 text-sm rounded-lg border border-slate-300 placeholder:text-slate-500 focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-500/20"
+              placeholder="Tìm mã hồ sơ, nội dung, địa điểm..."
+              className="w-full h-9 pl-9 pr-3 bg-slate-50/70 focus:bg-white text-slate-900 text-xs rounded-lg border border-slate-200 placeholder:text-slate-400 focus:outline-none focus:border-emerald-600"
             />
           </div>
+
+          {kpi.slaRiskCount > 0 && (
+            <button
+              type="button"
+              onClick={() => setOnlySlaRisk((v) => !v)}
+              aria-pressed={onlySlaRisk}
+              className={`h-9 px-3 rounded-lg border text-xs font-semibold cursor-pointer transition-colors whitespace-nowrap inline-flex items-center gap-1.5 ${
+                onlySlaRisk
+                  ? "bg-rose-600 text-white border-rose-600"
+                  : "bg-rose-50 text-rose-800 border-rose-200 hover:bg-rose-100"
+              }`}
+            >
+              <AlertTriangle size={13} aria-hidden="true" />
+              <span>Gấp ({kpi.slaRiskCount})</span>
+            </button>
+          )}
+
+          <button
+            type="button"
+            onClick={() => setShowReportFilters((v) => !v)}
+            className={`h-9 px-3 rounded-lg border text-xs font-semibold inline-flex items-center gap-1.5 cursor-pointer transition-colors ${
+              showReportFilters ||
+              categoryFilter !== "Tất cả" ||
+              statusFilter !== "Tất cả" ||
+              priorityFilter !== "Tất cả"
+                ? "bg-slate-900 text-white border-slate-900"
+                : "bg-white text-slate-700 border-slate-200 hover:bg-slate-50"
+            }`}
+          >
+            <Filter size={13} />
+            <span>Bộ lọc</span>
+          </button>
+
+          {hasActiveFilters && (
+            <button
+              type="button"
+              onClick={resetFilters}
+              className="h-9 px-2.5 rounded-lg text-xs font-medium text-slate-500 hover:text-slate-900 inline-flex items-center gap-1 cursor-pointer"
+            >
+              <RotateCcw size={12} />
+              <span>Đặt lại</span>
+            </button>
+          )}
 
           {/* Grid / Table Mode Switch anchored beside search */}
           <div
             role="group"
             aria-label="Chế độ hiển thị"
-            className="inline-flex items-center rounded-lg border border-slate-200 bg-slate-100 p-0.5 shrink-0"
+            className="inline-flex items-center rounded-lg border border-slate-200 bg-slate-100/80 p-0.5 shrink-0 ml-auto sm:ml-0"
           >
             <button
               type="button"
@@ -424,12 +469,12 @@ export default function FieldReflections({
               onClick={() => setViewMode("grid")}
               className={`h-8 px-2.5 rounded-md text-xs font-semibold inline-flex items-center gap-1.5 cursor-pointer transition-colors ${
                 viewMode === "grid"
-                  ? "bg-white text-slate-900 shadow-xs"
+                  ? "bg-white text-slate-900 shadow-2xs"
                   : "text-slate-600 hover:text-slate-900"
               }`}
             >
-              <LayoutGrid size={14} aria-hidden="true" />
-              <span className="hidden sm:inline">Thẻ ảnh</span>
+              <LayoutGrid size={13} aria-hidden="true" />
+              <span className="hidden sm:inline">Thẻ</span>
             </button>
             <button
               type="button"
@@ -438,87 +483,62 @@ export default function FieldReflections({
               onClick={() => setViewMode("table")}
               className={`h-8 px-2.5 rounded-md text-xs font-semibold inline-flex items-center gap-1.5 cursor-pointer transition-colors ${
                 viewMode === "table"
-                  ? "bg-white text-slate-900 shadow-xs"
+                  ? "bg-white text-slate-900 shadow-2xs"
                   : "text-slate-600 hover:text-slate-900"
               }`}
             >
-              <List size={14} aria-hidden="true" />
+              <List size={13} aria-hidden="true" />
               <span className="hidden sm:inline">Bảng</span>
             </button>
           </div>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:flex lg:flex-wrap lg:items-center gap-2">
-          <ReportSelect
-            aria-label="Lọc theo danh mục"
-            value={categoryFilter}
-            onChange={setCategoryFilter}
-            className="w-full lg:w-44"
-            options={[
-              { value: "Tất cả", label: "Tất cả nhóm" },
-              ...REPORT_CATEGORIES.map((c) => ({
-                value: c.id,
-                label: c.label,
-              })),
-            ]}
-          />
+        {(showReportFilters ||
+          categoryFilter !== "Tất cả" ||
+          statusFilter !== "Tất cả" ||
+          priorityFilter !== "Tất cả") && (
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 pt-2.5 border-t border-slate-100">
+            <ReportSelect
+              aria-label="Lọc theo danh mục"
+              value={categoryFilter}
+              onChange={setCategoryFilter}
+              className="w-full"
+              options={[
+                { value: "Tất cả", label: "Tất cả nhóm" },
+                ...REPORT_CATEGORIES.map((c) => ({
+                  value: c.id,
+                  label: c.label,
+                })),
+              ]}
+            />
 
-          <ReportSelect
-            aria-label="Lọc theo trạng thái"
-            value={statusFilter}
-            onChange={setStatusFilter}
-            className="w-full lg:w-40"
-            options={[
-              { value: "Tất cả", label: "Mọi trạng thái" },
-              { value: "Đã tiếp nhận", label: "Đã tiếp nhận" },
-              { value: "Đang xử lý", label: "Đang xử lý" },
-              { value: "Đã giải quyết", label: "Đã giải quyết" },
-            ]}
-          />
+            <ReportSelect
+              aria-label="Lọc theo trạng thái"
+              value={statusFilter}
+              onChange={setStatusFilter}
+              className="w-full"
+              options={[
+                { value: "Tất cả", label: "Mọi trạng thái" },
+                { value: "Đã tiếp nhận", label: "Đã tiếp nhận" },
+                { value: "Đang xử lý", label: "Đang xử lý" },
+                { value: "Đã giải quyết", label: "Đã giải quyết" },
+              ]}
+            />
 
-          <ReportSelect
-            aria-label="Lọc theo mức ưu tiên"
-            value={priorityFilter}
-            onChange={setPriorityFilter}
-            className="w-full lg:w-40"
-            options={[
-              { value: "Tất cả", label: "Mọi mức SLA" },
-              { value: "Khẩn cấp", label: "Khẩn cấp (4h)" },
-              { value: "Cao", label: "Ưu tiên cao (24h)" },
-              { value: "Bình thường", label: "Bình thường (72h)" },
-            ]}
-          />
-
-          <div className="flex items-center gap-2 flex-wrap">
-            {kpi.slaRiskCount > 0 && (
-              <button
-                type="button"
-                onClick={() => setOnlySlaRisk((v) => !v)}
-                aria-pressed={onlySlaRisk}
-                className={`h-9 px-3 rounded-lg border text-xs font-semibold cursor-pointer transition-colors whitespace-nowrap inline-flex items-center gap-1.5 ${
-                  onlySlaRisk
-                    ? "bg-rose-700 text-white border-rose-700"
-                    : "bg-rose-50 text-rose-800 border-rose-200 hover:bg-rose-100"
-                }`}
-              >
-                <AlertTriangle size={13} aria-hidden="true" />
-                <span>Gấp / Quá hạn ({kpi.slaRiskCount})</span>
-              </button>
-            )}
-
-            {hasActiveFilters && (
-              <Button
-                type="button"
-                variant="outline"
-                size="md"
-                leftIcon={<RotateCcw size={13} />}
-                onClick={resetFilters}
-              >
-                Xóa lọc
-              </Button>
-            )}
+            <ReportSelect
+              aria-label="Lọc theo mức ưu tiên"
+              value={priorityFilter}
+              onChange={setPriorityFilter}
+              className="w-full"
+              options={[
+                { value: "Tất cả", label: "Mọi mức SLA" },
+                { value: "Khẩn cấp", label: "Khẩn cấp (4h)" },
+                { value: "Cao", label: "Ưu tiên cao (24h)" },
+                { value: "Bình thường", label: "Bình thường (72h)" },
+              ]}
+            />
           </div>
-        </div>
+        )}
       </search>
 
       {/* Main Content: Empty / Cards / Table */}

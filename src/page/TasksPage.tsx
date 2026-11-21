@@ -47,7 +47,7 @@ export default function TasksPage({
   const tasks = externalTasks ?? internalTasks;
 
   const [savedNotice, setSavedNotice] = useState<string | null>(null);
-  const [activeSubTab, setActiveSubTab] = useState<"tasks" | "schedules" | "reminders">("tasks");
+  const [activeSubTab, setActiveSubTab] = useState<"tasks" | "schedules" | "reminders" | "broadcast">("tasks");
   const [taskViewMode, setTaskViewMode] = useState<"kanban" | "list">("kanban");
 
   useEffect(() => {

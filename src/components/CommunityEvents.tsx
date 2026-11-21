@@ -320,49 +320,45 @@ export default function CommunityEvents({
   const paginatedEvents = filteredEvents.slice(startEventsIndex, startEventsIndex + eventsPerPage);
 
   return (
-    <div id="news-and-events-view" className="space-y-6 animate-in fade-in duration-200">
-      
-      {/* Top Banner / Executive Master Header */}
+    <div id="news-and-events-view" className="space-y-4">
+      {/* Minimalist Header */}
       <PageHeader
-        badgeIcon={<Megaphone size={14} className="text-emerald-600" />}
-        badgeText="TRUYỀN THÔNG & BÁO CHÍ CỘNG ĐỒNG • KHU PHỐ 3, PHƯỜNG AN PHÚ"
-        badgeSubtext="CỔNG THÔNG TIN SỐ"
-        title="Kênh Tin Tức & Quản Lý Sự Kiện Khu Phố"
+        title="Tin tức & Sự kiện Khu phố"
         actions={
-          <div className="flex flex-wrap items-center gap-2.5 shrink-0 w-full sm:w-auto">
+          <div className="flex flex-wrap items-center gap-2 shrink-0 w-full sm:w-auto">
             {activeSubTab === "news" ? (
               <>
                 <button
                   type="button"
                   onClick={() => setShowZaloSyncModal(true)}
                   title="Đồng bộ bài viết từ Zalo OA Ban Điều Hành KP3"
-                  className="px-3 py-2 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-xl font-bold text-xs transition-colors flex items-center gap-1.5 cursor-pointer border border-blue-200 shadow-2xs"
+                  className="h-9 px-3 bg-white hover:bg-slate-50 text-slate-700 rounded-lg font-semibold text-xs transition-colors flex items-center gap-1.5 cursor-pointer border border-slate-200"
                 >
-                  <MessageCircle size={14} className="fill-current text-blue-600" /> Đồng bộ Zalo OA
+                  <MessageCircle size={13} className="text-blue-600" /> Đồng bộ Zalo OA
                 </button>
                 <button
                   type="button"
                   onClick={handleResetToSampleNews}
-                  title="Đồng bộ danh sách bản tin mẫu có đầy đủ hình ảnh sinh động"
-                  className="px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl font-semibold text-xs transition-colors flex items-center gap-1.5 cursor-pointer border border-slate-200"
+                  title="Đồng bộ danh sách bản tin mẫu"
+                  className="h-9 px-3 bg-white hover:bg-slate-50 text-slate-600 rounded-lg font-semibold text-xs transition-colors flex items-center gap-1.5 cursor-pointer border border-slate-200"
                 >
                   <RotateCcw size={13} /> Dữ liệu mẫu
                 </button>
                 <button
                   type="button"
                   onClick={handleCreateNews}
-                  className="w-full sm:w-auto flex items-center justify-center gap-2 bg-emerald-700 hover:bg-emerald-800 text-white px-4 py-2 rounded-xl font-bold text-xs sm:text-sm transition-colors cursor-pointer"
+                  className="h-9 flex items-center justify-center gap-1.5 bg-emerald-700 hover:bg-emerald-800 text-white px-3.5 rounded-lg font-semibold text-xs transition-colors cursor-pointer shadow-2xs"
                 >
-                  <Plus size={15} /> Đăng Bản Tin Mới
+                  <Plus size={14} /> Đăng bản tin
                 </button>
               </>
             ) : (
               <button
                 type="button"
                 onClick={() => handleCreateEvent()}
-                className="w-full sm:w-auto flex items-center justify-center gap-2 bg-emerald-700 hover:bg-emerald-800 text-white px-4 py-2 rounded-xl font-bold text-xs sm:text-sm transition-colors cursor-pointer"
+                className="h-9 flex items-center justify-center gap-1.5 bg-emerald-700 hover:bg-emerald-800 text-white px-3.5 rounded-lg font-semibold text-xs transition-colors cursor-pointer shadow-2xs"
               >
-                <Plus size={15} /> Đặt Lịch &amp; Mượn Hội Trường
+                <Plus size={14} /> Đặt lịch hội trường
               </button>
             )}
           </div>
@@ -378,14 +374,14 @@ export default function CommunityEvents({
       )}
 
       {/* Stats Counter Cards - Standardized StatCard Component */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3 sm:gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3.5">
         <StatCard
           label="Tổng bản tin & thông báo"
           value={activeNewsList.length}
           badge="bản tin"
           highlighted={activeSubTab === "news"}
           icon={Newspaper}
-          color="emerald"
+          color="slate"
           onClick={() => setActiveSubTab("news")}
         />
         <StatCard
@@ -402,7 +398,7 @@ export default function CommunityEvents({
           badge="sự kiện"
           highlighted={activeSubTab === "events"}
           icon={CalendarDays}
-          color="blue"
+          color="emerald"
           onClick={() => setActiveSubTab("events")}
         />
         <StatCard
@@ -410,36 +406,36 @@ export default function CommunityEvents({
           value={formatVNNumber(events.reduce((s, e) => s + (e.expectedAttendees || 0), 0))}
           badge="lượt người"
           icon={Users}
-          color="purple"
+          color="slate"
           onClick={() => setActiveSubTab("events")}
         />
       </div>
 
-      {/* Switcher Navigation Tabs */}
-      <div className="flex flex-wrap border-b border-slate-200 gap-4 sm:gap-8">
+      {/* Compact Segmented Sub-Tab Bar */}
+      <div className="flex items-center gap-1 overflow-x-auto whitespace-nowrap p-1 bg-slate-100/80 rounded-xl border border-slate-200/80 w-fit max-w-full evon-scroll">
         <button
           type="button"
           onClick={() => setActiveSubTab("news")}
-          className={`pb-3 text-sm font-semibold transition-colors relative flex items-center gap-2 cursor-pointer
-            ${activeSubTab === "news" ? "text-emerald-700 font-bold" : "text-slate-600 hover:text-slate-900"}
-          `}
+          className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors cursor-pointer flex items-center gap-1.5 shrink-0 ${
+            activeSubTab === "news"
+              ? "bg-white text-slate-900 shadow-2xs"
+              : "text-slate-600 hover:text-slate-900"
+          }`}
         >
-          <Newspaper size={18} /> Bản tin & Báo điện tử Khu phố
-          {activeSubTab === "news" && (
-            <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-emerald-600 rounded-full" />
-          )}
+          <Newspaper size={13} className={activeSubTab === "news" ? "text-emerald-700" : "text-slate-500"} />
+          <span>Bản tin &amp; Báo điện tử Khu phố</span>
         </button>
         <button
           type="button"
           onClick={() => setActiveSubTab("events")}
-          className={`pb-3 text-sm font-semibold transition-colors relative flex items-center gap-2 cursor-pointer
-            ${activeSubTab === "events" ? "text-emerald-700 font-bold" : "text-slate-600 hover:text-slate-900"}
-          `}
+          className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors cursor-pointer flex items-center gap-1.5 shrink-0 ${
+            activeSubTab === "events"
+              ? "bg-white text-slate-900 shadow-2xs"
+              : "text-slate-600 hover:text-slate-900"
+          }`}
         >
-          <CalendarDays size={18} /> Lịch sinh hoạt & Hội trường Nhà Văn hóa
-          {activeSubTab === "events" && (
-            <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-emerald-600 rounded-full" />
-          )}
+          <CalendarDays size={13} className={activeSubTab === "events" ? "text-emerald-700" : "text-slate-500"} />
+          <span>Lịch sinh hoạt &amp; Hội trường Nhà Văn hóa</span>
         </button>
       </div>
 
@@ -462,55 +458,17 @@ export default function CommunityEvents({
           RENDER TAB 2: EVENTS CALENDAR (LỊCH SINH HOẠT & SỰ KIỆN)
           ======================================================== */}
       {activeSubTab === "events" && (
-        <div className="space-y-6">
-          
-          {/* Quick Info Grid for Events */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <div className="bg-white border border-slate-200 border-l-4 border-l-emerald-600 text-slate-900 p-5 rounded-2xl space-y-3">
-              <div className="flex justify-between items-start">
-                <div className="p-2.5 rounded-xl bg-emerald-50 text-emerald-700 border border-emerald-200"><CalendarDays size={20} /></div>
-                <span className="text-xs bg-emerald-50 text-emerald-800 border border-emerald-200 font-bold uppercase tracking-wider px-2.5 py-0.5 rounded-full">Sử dụng trụ sở</span>
-              </div>
-              <div>
-                <span className="text-emerald-700 text-xs font-bold uppercase tracking-wider block">Phòng hội họp Nhà Văn hóa</span>
-                <h3 className="text-base font-bold text-slate-900 mt-0.5">Trụ sở sinh hoạt Khu phố 3</h3>
-                <p className="text-xs text-slate-600 mt-1 leading-relaxed">Luôn mở cửa phục vụ các chi hội đoàn thể họp định kỳ và tổ chức sinh hoạt cộng đồng.</p>
-              </div>
-            </div>
-
-            <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-xs flex flex-col justify-between space-y-4">
-              <div className="flex justify-between items-start">
-                <div className="p-2.5 rounded-xl bg-slate-50 text-slate-700"><Users size={22} /></div>
-                <span className="text-xs text-emerald-600 font-extrabold font-mono bg-emerald-50 px-2.5 py-0.5 rounded">Tích cực</span>
-              </div>
-              <div>
-                <span className="text-slate-600 text-xs font-bold uppercase tracking-wider block">Thống kê Sự kiện Năm nay</span>
-                <h3 className="text-lg font-bold text-slate-800">{events.length} hoạt động phong trào</h3>
-                <p className="text-xs text-slate-500 mt-1">Nỗ lực đạt 100% chỉ tiêu phong trào văn nghệ và phong trào dân vận khéo phường giao phó.</p>
-              </div>
-            </div>
-
-            <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-xs flex flex-col justify-between space-y-4">
-              <div className="flex justify-between items-start">
-                <div className="p-2.5 rounded-xl bg-amber-50 text-amber-600"><Award size={22} /></div>
-                <span className="text-xs text-amber-600 font-extrabold bg-amber-50 px-2 py-0.5 rounded">Văn hóa</span>
-              </div>
-              <div>
-                <span className="text-slate-600 text-xs font-bold uppercase tracking-wider block">Chuẩn mực lối sống</span>
-                <h3 className="text-base font-bold text-slate-800">Gia đình Văn hóa xuất sắc</h3>
-                <p className="text-xs text-slate-500 mt-1">Đạt tỷ lệ cao các hộ dân đăng ký thi đua lối sống văn minh đô thị.</p>
-              </div>
-            </div>
-          </div>
-
+        <div className="space-y-4">
           {/* Cultural Hall Venue Schedule Strip (Lịch đặt chỗ Nhà Văn hóa KP3) */}
-          <div className="bg-white rounded-2xl border border-slate-200 p-4 sm:p-5 space-y-3">
+          <div className="bg-white rounded-2xl border border-slate-200/90 shadow-2xs p-4 sm:p-5 space-y-3">
             <div>
-              <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
-                <MapPin size={15} className="text-emerald-700" />
+              <h3 className="text-xs font-bold uppercase tracking-wider text-slate-900 flex items-center gap-2">
+                <span className="p-1.5 bg-emerald-50 text-emerald-700 rounded-lg border border-emerald-100">
+                  <MapPin size={13} />
+                </span>
                 Lịch sử dụng &amp; Đặt phòng Nhà Văn hóa Khu phố 3
               </h3>
-              <p className="text-xs text-slate-600 mt-0.5">
+              <p className="text-xs text-slate-500 mt-1">
                 Theo dõi tình trạng đăng ký hội trường và chọn phòng để lên lịch mới nhanh chóng
               </p>
             </div>
@@ -531,7 +489,7 @@ export default function CommunityEvents({
                     className={`p-3.5 rounded-xl border flex flex-col justify-between gap-2.5 ${
                       hasDoubleBooking
                         ? "border-amber-300 bg-amber-50/70"
-                        : "border-slate-200 bg-slate-50/70"
+                        : "border-slate-200/90 bg-slate-50/60"
                     }`}
                   >
                     <div className="space-y-1">
@@ -552,7 +510,7 @@ export default function CommunityEvents({
                     <button
                       type="button"
                       onClick={() => handleCreateEvent(venue)}
-                      className="w-full py-1.5 px-2.5 bg-white hover:bg-emerald-50 border border-slate-200 hover:border-emerald-300 text-emerald-800 rounded-lg text-xs font-semibold transition-colors cursor-pointer text-center"
+                      className="w-full h-8 px-2.5 bg-white hover:bg-emerald-50 border border-slate-200 hover:border-emerald-300 text-emerald-800 rounded-lg text-xs font-semibold transition-colors cursor-pointer text-center"
                     >
                       + Đặt phòng này
                     </button>
@@ -563,26 +521,25 @@ export default function CommunityEvents({
           </div>
 
           {/* Event Filters & Quick Search */}
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-slate-200 gap-3 pb-2 sm:pb-0">
-            <div className="flex flex-wrap gap-4 sm:gap-6">
+          <div className="bg-white p-3.5 rounded-xl border border-slate-200/80 shadow-2xs flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+            <div className="flex flex-wrap items-center gap-1.5">
               {(["Tất cả", "Sắp diễn ra", "Đang diễn ra", "Đã kết thúc"] as const).map((tab) => (
                 <button
                   key={tab}
                   type="button"
                   onClick={() => handleEventFilterChange(tab)}
-                  className={`pb-3 text-xs font-semibold transition-colors relative cursor-pointer
-                    ${eventFilter === tab ? "text-emerald-700 font-bold" : "text-slate-600 hover:text-slate-900"}
-                  `}
+                  className={`h-8 px-2.5 rounded-lg text-xs font-semibold transition-colors cursor-pointer border ${
+                    eventFilter === tab
+                      ? "bg-slate-900 text-white border-slate-900"
+                      : "bg-white text-slate-700 border-slate-200 hover:bg-slate-50"
+                  }`}
                 >
                   {tab}
-                  {eventFilter === tab && (
-                    <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-emerald-600 rounded-full" />
-                  )}
                 </button>
               ))}
             </div>
-            <div className="relative w-full sm:w-64 sm:pb-2">
-              <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 sm:-translate-y-[65%] text-slate-500 pointer-events-none" />
+            <div className="relative w-full sm:w-64">
+              <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
               <input
                 type="search"
                 value={eventSearchQuery}
@@ -591,15 +548,15 @@ export default function CommunityEvents({
                   setCurrentEventsPage(1);
                 }}
                 placeholder="Tìm sự kiện, địa điểm, đơn vị..."
-                className="w-full h-9 pl-9 pr-3 bg-white border border-slate-300 rounded-xl text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600"
+                className="w-full h-9 pl-9 pr-3 bg-slate-50/70 focus:bg-white border border-slate-200 rounded-lg text-xs text-slate-900 focus:outline-none focus:border-emerald-600"
               />
             </div>
           </div>
 
-          {/* Event Cards Grid với Ảnh Minh Họa Sống Động */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {/* Event Cards Grid */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {filteredEvents.length === 0 ? (
-              <div className="col-span-full bg-white rounded-2xl border border-slate-200 p-12 text-center text-xs text-slate-600">
+              <div className="col-span-full bg-white rounded-2xl border border-slate-200 p-10 text-center text-xs text-slate-600">
                 Không tìm thấy sự kiện hay hoạt động đoàn thể nào tương ứng bộ lọc.
               </div>
             ) : (
@@ -634,7 +591,7 @@ export default function CommunityEvents({
                         handleSelectEvent(ev);
                       }
                     }}
-                    className="group bg-white rounded-2xl border border-slate-200 hover:border-emerald-400 hover:shadow-md transition-all flex flex-col justify-between overflow-hidden cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600"
+                    className="group bg-white rounded-2xl border border-slate-200/90 shadow-2xs hover:border-emerald-300 transition-colors flex flex-col justify-between overflow-hidden cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600"
                   >
                     <div>
                       {/* Event Cover Image */}
@@ -644,41 +601,41 @@ export default function CommunityEvents({
                           alt={ev.title}
                           className="w-full h-full object-cover"
                         />
-                        <div className="absolute top-3 left-3">
-                          <span className={`text-xs font-bold px-2.5 py-1 rounded-full border bg-white flex items-center gap-1 ${conf.color}`}>
-                            <StatusIcon size={12} /> {conf.text}
+                        <div className="absolute top-2.5 left-2.5">
+                          <span className={`text-[11px] font-bold px-2 py-0.5 rounded-full border bg-white/95 flex items-center gap-1 ${conf.color}`}>
+                            <StatusIcon size={11} /> {conf.text}
                           </span>
                         </div>
-                        <span className="absolute bottom-2 right-2 text-xs text-slate-900 font-mono font-bold bg-white/95 border border-slate-200 px-2 py-0.5 rounded-md">
+                        <span className="absolute bottom-2 right-2 text-[11px] text-slate-900 font-mono font-bold bg-white/95 border border-slate-200 px-2 py-0.5 rounded-md">
                           {ev.id}
                         </span>
                       </div>
 
-                      <div className="p-4 sm:p-5 space-y-3">
-                        <h3 className="text-left font-bold text-slate-900 text-sm leading-snug line-clamp-2 group-hover:text-emerald-700 transition-colors">
+                      <div className="p-4 space-y-2.5">
+                        <h3 className="text-left font-bold text-slate-900 text-xs sm:text-[13px] leading-snug line-clamp-2 group-hover:text-emerald-700 transition-colors">
                           {ev.title}
                         </h3>
                         <p className="text-slate-600 text-xs line-clamp-3 leading-relaxed">
                           {ev.description}
                         </p>
 
-                        <div className="space-y-2 pt-3 border-t border-slate-100 text-xs">
-                          <div className="flex items-center gap-2 text-slate-700">
-                            <CalendarDays size={14} className="text-emerald-700 shrink-0" />
+                        <div className="space-y-1.5 pt-2.5 border-t border-slate-100 text-xs">
+                          <div className="flex items-center gap-1.5 text-slate-700">
+                            <CalendarDays size={13} className="text-emerald-700 shrink-0" />
                             <span className="font-semibold font-mono text-xs">{ev.dateTime}</span>
                           </div>
 
-                          <div className="flex items-center gap-2 text-slate-700">
-                            <MapPin size={14} className="text-rose-600 shrink-0" />
+                          <div className="flex items-center gap-1.5 text-slate-700">
+                            <MapPin size={13} className="text-rose-600 shrink-0" />
                             <span className="truncate">{ev.location}</span>
                           </div>
 
                           <div className="flex items-center justify-between pt-1 gap-2 min-w-0">
-                            <span className="text-xs font-semibold truncate min-w-0 flex-1 text-slate-700" title={ev.organizer}>
+                            <span className="text-xs font-medium truncate min-w-0 flex-1 text-slate-600" title={ev.organizer}>
                               Tổ chức: {ev.organizer}
                             </span>
-                            <span className="text-xs font-bold bg-slate-100 text-slate-800 px-2.5 py-0.5 rounded-full flex items-center gap-1 shrink-0 whitespace-nowrap">
-                              <Users size={12} /> {totalAttendees} người
+                            <span className="text-[11px] font-bold bg-slate-100 text-slate-800 px-2 py-0.5 rounded-full flex items-center gap-1 shrink-0 whitespace-nowrap">
+                              <Users size={11} /> {totalAttendees} người
                             </span>
                           </div>
                         </div>
@@ -688,19 +645,19 @@ export default function CommunityEvents({
                     {/* Operations & RSVP */}
                     <div
                       onClick={(e) => e.stopPropagation()}
-                      className="p-3 bg-slate-50 border-t border-slate-200 space-y-2"
+                      className="p-3 bg-slate-50/70 border-t border-slate-100 space-y-1.5"
                     >
                       {ev.status !== "Đã kết thúc" && ev.status !== "Đã hủy" && (
                         <button
                           type="button"
                           onClick={() => handleToggleRsvp(ev.id, ev.title)}
-                          className={`w-full text-xs font-bold py-1.5 px-3 rounded-lg border transition-colors cursor-pointer flex items-center justify-center gap-1.5 ${
+                          className={`w-full h-8 text-xs font-semibold px-3 rounded-lg border transition-colors cursor-pointer flex items-center justify-center gap-1.5 ${
                             rsvpInfo.registered
                               ? "bg-emerald-700 border-emerald-700 text-white"
                               : "bg-white hover:bg-emerald-50 border-slate-200 text-emerald-800"
                           }`}
                         >
-                          <CheckCircle2 size={13} />
+                          <CheckCircle2 size={12} />
                           {rsvpInfo.registered ? "Đã đăng ký tham dự (Bấm để hủy)" : "Đăng ký tham dự (RSVP)"}
                         </button>
                       )}

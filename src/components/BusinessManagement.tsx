@@ -778,7 +778,7 @@ export default function BusinessManagement({
   };
 
   return (
-    <div id="business-management-view" className="space-y-6 relative">
+    <div id="business-management-view" className="space-y-4 relative">
       {/* Toast thông báo Nhận diện / Đồng bộ Cơ sở trọ */}
       {hostelToast && (
         <div className="fixed top-5 right-5 z-50 max-w-sm animate-in fade-in slide-in-from-top-3 duration-200">
@@ -792,49 +792,46 @@ export default function BusinessManagement({
 
       {/* Upper header */}
       <PageHeader
-        badgeIcon={<Store size={14} className="text-emerald-600" />}
-        badgeText="KINH TẾ CƠ SỞ & HỘ KINH DOANH • KP3 AN PHÚ"
-        badgeSubtext="ĐỀ ÁN 06/CP"
-        title="Quản lý Cơ sở Kinh doanh KP3"
+        title="Quản lý Cơ sở Kinh doanh & Nhà trọ"
         actions={
           <div className="flex flex-wrap items-center gap-2">
             <button 
               type="button"
               onClick={handleAutoDetectHostels}
               disabled={isDetectingHostels}
-              className="flex items-center gap-1.5 min-h-[40px] bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-300 px-3 py-2 rounded-xl font-bold text-xs transition-all cursor-pointer shadow-xs disabled:opacity-50 whitespace-nowrap"
+              className="flex items-center gap-1.5 h-9 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 px-3 rounded-lg font-semibold text-xs transition-colors cursor-pointer disabled:opacity-50 whitespace-nowrap"
               title="Tự động phân tích cư dân để nhận diện và thêm các cơ sở nhà trọ / lưu trú"
             >
-              <Sparkles size={15} className={`text-amber-600 shrink-0 ${isDetectingHostels ? "animate-spin" : ""}`} />
-              <span>Nhận diện Nhà trọ</span>
+              <Sparkles size={14} className={`text-slate-500 shrink-0 ${isDetectingHostels ? "animate-spin" : ""}`} />
+              <span>Nhận diện nhà trọ</span>
             </button>
             <button 
               type="button"
               onClick={handleExportBusinessesExcel}
-              className="flex items-center gap-1.5 min-h-[40px] bg-white hover:bg-slate-50 text-slate-700 px-3 py-2 rounded-xl font-bold text-xs border border-slate-200 transition-all cursor-pointer shadow-xs whitespace-nowrap"
+              className="flex items-center gap-1.5 h-9 bg-white hover:bg-slate-50 text-slate-700 px-3 rounded-lg font-semibold text-xs border border-slate-200 transition-colors cursor-pointer whitespace-nowrap"
               title="Xuất danh sách cơ sở kinh doanh ra tệp Excel (.xlsx) đa sheet"
             >
-              <Download size={15} className="text-slate-600 shrink-0" /> Xuất Excel (.xlsx)
+              <Download size={14} className="text-slate-500 shrink-0" /> Xuất Excel
             </button>
             <button 
               type="button"
               onClick={handleOpenCreateModal}
-              className="flex items-center gap-1.5 min-h-[40px] bg-emerald-700 hover:bg-emerald-800 text-white px-3.5 py-2 rounded-xl font-bold text-xs transition-colors cursor-pointer whitespace-nowrap"
+              className="flex items-center gap-1.5 h-9 bg-emerald-700 hover:bg-emerald-800 text-white px-3.5 rounded-lg font-semibold text-xs transition-colors cursor-pointer whitespace-nowrap shadow-2xs"
             >
-              <Plus size={16} className="shrink-0" /> Đăng ký Cơ sở
+              <Plus size={14} className="shrink-0" /> Đăng ký cơ sở
             </button>
           </div>
         }
       />
 
       {/* KPI Stats Overview Bar */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3.5">
         <StatCard
           label="Tổng cơ sở kinh doanh"
           value={businesses.length}
           badge="cơ sở"
-          icon={<Briefcase size={22} />}
-          color="blue"
+          icon={<Briefcase size={18} />}
+          color="slate"
           highlighted={establishmentFilter === "all"}
           onClick={() => {
             setEstablishmentFilter("all");
@@ -845,8 +842,8 @@ export default function BusinessManagement({
           label="Nhà trọ & Lưu trú"
           value={totalAccomCount}
           badge={`${formatVNNumber(totalRooms)} phòng`}
-          icon={<Building size={22} />}
-          color="amber"
+          icon={<Building size={18} />}
+          color="slate"
           highlighted={establishmentFilter === "accommodation"}
           onClick={() => {
             setEstablishmentFilter(
@@ -859,8 +856,8 @@ export default function BusinessManagement({
           label="Hồ sơ Sổ đỏ đính kèm"
           value={totalSoDoFiles}
           badge={`/ ${formatVNNumber(businesses.length)}`}
-          icon={<FileText size={22} />}
-          color="indigo"
+          icon={<FileText size={18} />}
+          color="slate"
           highlighted={establishmentFilter === "has-sodo"}
           onClick={() => {
             setEstablishmentFilter(
@@ -873,7 +870,7 @@ export default function BusinessManagement({
           label="Đạt chuẩn an toàn PCCC"
           value={totalCertifiedPccc}
           badge="cơ sở"
-          icon={<ShieldCheck size={22} />}
+          icon={<ShieldCheck size={18} />}
           color="emerald"
           highlighted={establishmentFilter === "pccc-pass"}
           onClick={() => {
@@ -885,29 +882,24 @@ export default function BusinessManagement({
         />
       </div>
 
-      {/* Scope & Filters bar - Flat Hairline */}
-      <div className="bg-white p-4 rounded-2xl border border-slate-200 space-y-3">
-        <div className="flex flex-wrap items-center justify-between gap-2 pb-3 border-b border-slate-100">
-          <div className="flex flex-wrap items-center gap-1.5 bg-slate-100 p-1 rounded-xl border border-slate-200">
+      {/* Scope & Filters bar */}
+      <div className="bg-white p-3.5 rounded-xl border border-slate-200/80 shadow-2xs space-y-3">
+        <div className="flex flex-wrap items-center justify-between gap-2 pb-2.5 border-b border-slate-100">
+          <div className="flex flex-wrap items-center gap-1 bg-slate-100/80 p-1 rounded-lg border border-slate-200/80">
             <button
               type="button"
               onClick={() => {
                 setScopeFilter("small");
                 setCurrentPage(1);
               }}
-              className={`px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer ${
+              className={`px-2.5 py-1 rounded-md text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer ${
                 scopeFilter === "small"
-                  ? "bg-white text-indigo-800 border border-slate-200"
+                  ? "bg-white text-slate-900 shadow-2xs"
                   : "text-slate-600 hover:text-slate-900"
               }`}
             >
-              <Store size={14} className={scopeFilter === "small" ? "text-indigo-600" : "text-slate-500"} />
-              <span>Hộ KD & Nhà trọ (Mặc định)</span>
-              <span className={`text-xs px-2 py-0.5 rounded-full font-bold ${
-                scopeFilter === "small" ? "bg-indigo-50 text-indigo-700" : "bg-slate-200 text-slate-700"
-              }`}>
-                {formatVNNumber(smallBusinessCount)}
-              </span>
+              <Store size={13} className={scopeFilter === "small" ? "text-emerald-700" : "text-slate-500"} />
+              <span>Hộ KD &amp; Nhà trọ ({formatVNNumber(smallBusinessCount)})</span>
             </button>
             <button
               type="button"
@@ -915,19 +907,14 @@ export default function BusinessManagement({
                 setScopeFilter("all");
                 setCurrentPage(1);
               }}
-              className={`px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer ${
+              className={`px-2.5 py-1 rounded-md text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer ${
                 scopeFilter === "all"
-                  ? "bg-white text-indigo-800 border border-slate-200"
+                  ? "bg-white text-slate-900 shadow-2xs"
                   : "text-slate-600 hover:text-slate-900"
               }`}
             >
-              <Briefcase size={14} className={scopeFilter === "all" ? "text-indigo-600" : "text-slate-500"} />
-              <span>Tất cả cơ sở địa bàn</span>
-              <span className={`text-xs px-2 py-0.5 rounded-full font-bold ${
-                scopeFilter === "all" ? "bg-indigo-50 text-indigo-700" : "bg-slate-200 text-slate-700"
-              }`}>
-                {formatVNNumber(businesses.length)}
-              </span>
+              <Briefcase size={13} className={scopeFilter === "all" ? "text-emerald-700" : "text-slate-500"} />
+              <span>Tất cả cơ sở ({formatVNNumber(businesses.length)})</span>
             </button>
           </div>
 
@@ -964,7 +951,7 @@ export default function BusinessManagement({
 
         <div className="flex flex-col 2xl:flex-row gap-3 items-stretch 2xl:items-center justify-between">
           <div className="relative flex-1 min-w-0 w-full">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={15} />
             <input 
               id="business-search-input"
               name="businessSearchTerm"
@@ -973,7 +960,7 @@ export default function BusinessManagement({
               placeholder="Tìm tên cơ sở, chủ hộ, số GPKD, địa chỉ, Tờ/Thửa..."
               value={searchTerm}
               onChange={(e) => handleSearchChange(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 border border-slate-200 rounded-xl text-xs sm:text-sm focus:outline-none focus:border-indigo-500 bg-white"
+              className="w-full h-9 pl-9 pr-4 border border-slate-200 rounded-lg text-xs focus:outline-none focus:border-emerald-600 bg-white"
             />
           </div>
 

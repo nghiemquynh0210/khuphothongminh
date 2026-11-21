@@ -402,114 +402,59 @@ export default function EnterpriseManagement({
   };
 
   return (
-    <div id="enterprise-management-view" className="space-y-6">
-      {/* Standard Executive Header */}
+    <div id="enterprise-management-view" className="space-y-4">
+      {/* Minimalist Executive Header */}
       <PageHeader
-        badgeIcon={<Building2 size={13} className="text-emerald-600" />}
-        badgeText="CSDL DOANH NGHIỆP • KP3 AN PHÚ"
-        badgeSubtext="DNNVV"
         title="Quản lý Doanh nghiệp Vừa & Nhỏ"
         actions={
           <div className="flex flex-wrap items-center gap-2 shrink-0">
-            {/* Quick Switch View Pill when tabs are hidden */}
-            {isSubTabsHidden && (
-              <button
-                type="button"
-                onClick={() => setActiveMainTab(activeMainTab === "list" ? "economicReport" : "list")}
-                className="flex items-center gap-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 px-3 py-2 rounded-xl font-bold text-xs border border-indigo-200 transition-all cursor-pointer shadow-2xs hover:shadow-xs"
-                title={`Chuyển sang ${activeMainTab === "list" ? "Báo cáo Kinh tế Địa bàn" : "Danh mục Doanh nghiệp"}`}
-              >
-                {activeMainTab === "list" ? (
-                  <>
-                    <FileText size={14} className="text-indigo-600" />
-                    <span>Báo cáo Kinh tế</span>
-                  </>
-                ) : (
-                  <>
-                    <Building2 size={14} className="text-indigo-600" />
-                    <span>Danh mục DN ({formatVNNumber(enterprises.length)})</span>
-                  </>
-                )}
-              </button>
-            )}
-
-            {/* Toggle show/hide sub-tabs button */}
-            <button
-              type="button"
-              onClick={toggleSubTabs}
-              className="flex items-center gap-1.5 bg-white hover:bg-slate-50 text-slate-600 hover:text-slate-900 px-2.5 py-2 rounded-xl font-bold text-xs border border-slate-200 transition-all cursor-pointer shadow-2xs hover:shadow-xs"
-              title={isSubTabsHidden ? "Hiện thanh chuyển phân hệ (Danh mục / Báo cáo)" : "Ẩn thanh chuyển phân hệ để mở rộng không gian"}
-            >
-              {isSubTabsHidden ? (
-                <>
-                  <Eye size={14} className="text-emerald-600" />
-                  <span className="hidden sm:inline">Hiện thanh tab</span>
-                </>
-              ) : (
-                <>
-                  <EyeOff size={14} className="text-slate-500" />
-                  <span className="hidden sm:inline">Ẩn thanh tab</span>
-                </>
-              )}
-            </button>
-
             <button
               type="button"
               onClick={handleExportExcel}
-              className="flex items-center gap-1.5 min-h-[40px] bg-white hover:bg-slate-50 text-slate-700 px-3.5 py-2 rounded-xl font-bold text-xs border border-slate-200 transition-all cursor-pointer shadow-2xs hover:shadow-xs whitespace-nowrap"
+              className="flex items-center gap-1.5 h-9 bg-white hover:bg-slate-50 text-slate-700 px-3 rounded-lg font-semibold text-xs border border-slate-200 transition-colors cursor-pointer whitespace-nowrap"
               title="Xuất file báo cáo doanh nghiệp định dạng Excel (.xlsx)"
             >
-              <Download size={15} className="shrink-0" /> Xuất Excel (.xlsx)
+              <Download size={14} className="text-slate-500 shrink-0" /> Xuất Excel
             </button>
             <button
               type="button"
               onClick={() => navigate(getEnterpriseCreatePath())}
-              className="flex items-center gap-1.5 min-h-[40px] bg-emerald-700 hover:bg-emerald-800 text-white px-3.5 py-2 rounded-xl font-bold text-xs transition-colors cursor-pointer whitespace-nowrap"
+              className="flex items-center gap-1.5 h-9 bg-emerald-700 hover:bg-emerald-800 text-white px-3.5 rounded-lg font-semibold text-xs transition-colors cursor-pointer whitespace-nowrap shadow-2xs"
             >
-              <Plus size={16} className="shrink-0" /> Đăng ký Doanh nghiệp
+              <Plus size={14} className="shrink-0" /> Đăng ký doanh nghiệp
             </button>
           </div>
         }
       />
 
-      {/* Main Subsystem Tabs - Flat Hairline, responsive wrap */}
-      {!isSubTabsHidden && (
-        <div className="flex flex-wrap items-center justify-between gap-2 bg-slate-100/90 p-1.5 rounded-xl border border-slate-200 transition-all">
-          <div className="flex flex-wrap items-center gap-1.5 min-w-0">
-            <button
-              type="button"
-              onClick={() => setActiveMainTab("list")}
-              className={`px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer ${activeMainTab === "list"
-                  ? "bg-white text-indigo-800 border border-slate-200"
-                  : "text-slate-600 hover:text-slate-900 hover:bg-white/70"
-                }`}
-            >
-              <Building2 size={14} className={activeMainTab === "list" ? "text-indigo-600" : "text-slate-500"} />
-              <span>Danh mục Doanh nghiệp & Hồ sơ DNNVV</span>
-              <span className={`text-xs px-2 py-0.5 rounded-full font-bold ${activeMainTab === "list" ? "bg-indigo-50 text-indigo-700 border border-indigo-200" : "bg-slate-200 text-slate-700"
-                }`}>
-                {formatVNNumber(enterprises.length)}
-              </span>
-            </button>
+      {/* Compact Main Subsystem Tabs */}
+      <div className="flex flex-wrap items-center gap-1 bg-slate-100/80 p-1 rounded-xl border border-slate-200/80 w-fit">
+        <button
+          type="button"
+          onClick={() => setActiveMainTab("list")}
+          className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer ${
+            activeMainTab === "list"
+              ? "bg-white text-slate-900 shadow-2xs"
+              : "text-slate-600 hover:text-slate-900"
+          }`}
+        >
+          <Building2 size={13} className={activeMainTab === "list" ? "text-emerald-700" : "text-slate-500"} />
+          <span>Danh mục Doanh nghiệp ({formatVNNumber(enterprises.length)})</span>
+        </button>
 
-            <button
-              type="button"
-              onClick={() => setActiveMainTab("economicReport")}
-              className={`px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer ${activeMainTab === "economicReport"
-                  ? "bg-white text-indigo-800 border border-indigo-200"
-                  : "text-slate-600 hover:text-slate-900 hover:bg-white/70"
-                }`}
-            >
-              <FileText size={14} className={activeMainTab === "economicReport" ? "text-indigo-600" : "text-slate-500"} />
-              <span>Báo cáo Kinh tế Địa bàn & Biến động</span>
-              <span className={`text-xs px-2 py-0.5 rounded-full font-bold ${activeMainTab === "economicReport" ? "bg-indigo-50 text-indigo-700 border border-indigo-200" : "bg-slate-200 text-slate-700"
-                }`}>
-                Bí thư / Trưởng KP
-              </span>
-            </button>
-          </div>
-        </div>
-      )}
+        <button
+          type="button"
+          onClick={() => setActiveMainTab("economicReport")}
+          className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer ${
+            activeMainTab === "economicReport"
+              ? "bg-white text-slate-900 shadow-2xs"
+              : "text-slate-600 hover:text-slate-900"
+          }`}
+        >
+          <FileText size={13} className={activeMainTab === "economicReport" ? "text-emerald-700" : "text-slate-500"} />
+          <span>Báo cáo Kinh tế Địa bàn</span>
+        </button>
+      </div>
 
       {/* VIEW 1: DANH MỤC DOANH NGHIỆP & HỒ SƠ */}
       {activeMainTab === "list" ? (
@@ -560,10 +505,10 @@ export default function EnterpriseManagement({
           </div>
 
           {/* Search & Filter Toolbar */}
-          <div className="bg-white p-4 rounded-2xl border border-slate-200/90 shadow-2xs space-y-3">
-            <div className="flex flex-col md:flex-row gap-3">
+          <div className="bg-white p-3.5 rounded-xl border border-slate-200/90 shadow-2xs space-y-3">
+            <div className="flex flex-col md:flex-row gap-2.5">
               <div className="relative flex-1">
-                <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+                <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
                 <input
                   id="enterprise-search-input"
                   name="enterpriseSearchTerm"
@@ -572,12 +517,12 @@ export default function EnterpriseManagement({
                   placeholder="Tìm theo tên doanh nghiệp, mã nội bộ, mã số thuế (MST), người đại diện, địa chỉ..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2.5 border border-slate-200 rounded-xl text-xs sm:text-sm focus:outline-none focus:border-indigo-500 bg-slate-50/50 focus:bg-white transition-colors"
+                  className="w-full h-9 pl-9 pr-8 border border-slate-200 rounded-lg text-xs focus:outline-none focus:border-emerald-600 bg-slate-50/70 focus:bg-white transition-colors"
                 />
                 {searchTerm && (
                   <button
                     onClick={() => setSearchTerm("")}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-1 cursor-pointer"
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-1 cursor-pointer"
                   >
                     <X size={14} />
                   </button>
@@ -585,24 +530,24 @@ export default function EnterpriseManagement({
               </div>
 
               {/* View Mode Toggle */}
-              <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-xl shrink-0 self-end md:self-auto">
+              <div className="flex items-center gap-0.5 bg-slate-100/80 border border-slate-200/80 p-0.5 rounded-lg shrink-0 self-end md:self-auto">
                 <button
                   type="button"
                   onClick={() => setViewMode("card")}
-                  className={`p-2 rounded-lg transition-colors cursor-pointer ${viewMode === "card" ? "bg-white text-indigo-700 shadow-2xs" : "text-slate-500 hover:text-slate-800"
+                  className={`p-1.5 rounded-md transition-colors cursor-pointer ${viewMode === "card" ? "bg-white text-slate-900 shadow-2xs" : "text-slate-500 hover:text-slate-800"
                     }`}
                   title="Xem dạng thẻ"
                 >
-                  <LayoutGrid size={16} />
+                  <LayoutGrid size={15} />
                 </button>
                 <button
                   type="button"
                   onClick={() => setViewMode("table")}
-                  className={`p-2 rounded-lg transition-colors cursor-pointer ${viewMode === "table" ? "bg-white text-indigo-700 shadow-2xs" : "text-slate-500 hover:text-slate-800"
+                  className={`p-1.5 rounded-md transition-colors cursor-pointer ${viewMode === "table" ? "bg-white text-slate-900 shadow-2xs" : "text-slate-500 hover:text-slate-800"
                     }`}
                   title="Xem dạng bảng"
                 >
-                  <List size={16} />
+                  <List size={15} />
                 </button>
               </div>
             </div>

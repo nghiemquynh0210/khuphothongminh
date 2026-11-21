@@ -389,12 +389,24 @@ Dự án đã thiết lập 2 MCP Servers hoạt động:
       - Tái cấu trúc Header thẻ hội viên chế độ xem **Thẻ (`Card View`)**: đưa **Ảnh đại diện + Họ tên & CCCD** nằm gọn 2 dòng cân đối ở hàng trên; tách **Nút đổi nhanh Chức danh + Huy hiệu Ghép Zalo** xuống hàng riêng rộng toàn khung thẻ (`w-full min-w-0`, kèm `max-w-full` và `truncate`) để các chức danh dài (*"Đảng viên sinh hoạt nơi cư trú"*, *"Ủy viên Ban Công tác Mặt trận"*) hiển thị trọn vẹn, không bao giờ tràn viền phải của thẻ.
       - Điều chỉnh lưới thẻ sang `grid-cols-1 lg:grid-cols-2 min-[1800px]:grid-cols-3`, nâng `z-30` cho thẻ đang mở menu đổi nhanh chức danh, mở rộng vùng đệm bảng khi danh sách chỉ có 1–2 thành viên và đồng bộ chiều cao `h-9 (36px)` đồng nhất trên toàn bộ thanh công cụ tìm lọc (`PartyBranch.tsx`).
 
+  35. **Tích Hợp Trợ Lý AI Soạn Thông Báo Chính Thức & Chọn Đa Đối Tượng Thụ Hưởng (`CitizenBroadcastTab.tsx` & `api/notifications.ts`, Phiên 21/11/2026):**
+      - Tích hợp tab **Phát thông báo Dân cư** ngay trong phân hệ **Lịch & Nhiệm vụ** (`TaskAndSchedule.tsx`, `TasksPage.tsx`), cho phép cán bộ nhập ý thô để **Gemini 2.5 Flash** tự động biên tập thành văn phong hành chính chuẩn mực của Ban Điều hành Khu phố 3 (tự chèn đầu mối liên hệ thực tế của Bí thư Chi bộ / Trưởng BĐH / Trưởng Ban CTMT / CSKV).
+      - Bổ sung bộ chọn **Đa đối tượng nhận thông báo** (Toàn dân, Đảng viên Chi bộ, Chi hội Cựu chiến binh / Phụ nữ / Người cao tuổi / Chữ thập đỏ, Hộ nghèo – An sinh xã hội, Chủ cơ sở nhà trọ, Hộ tạm trú, Tuyến đường KP3), tự động đối khớp danh sách nhân khẩu + Zalo User ID đã liên kết để gửi đích danh qua Zalo OA v2 (`24/7`), xuất danh sách nhận thông báo `.xlsx` (đã ghi vết `audit_logs`) và ghim đồng thời lên Cổng Cư dân.
+
+  36. **Đồng Bộ Hóa Toàn Bộ 09 Trang Chi Tiết Hồ Sơ Về Chuẩn Thiết Kế Tối Giản Cơ Sở Kinh Doanh (`RecordDetailShell.tsx`, Phiên 21/11/2026):**
+      - Xây dựng khung chuẩn dùng chung `src/components/common/RecordDetailShell.tsx` (`max-w-6xl`, nền trắng viền mảnh `border-slate-200/90 shadow-2xs`, thanh điều hướng trước/sau `Prev/Next` nhẹ nhàng) và chuẩn hóa `DetailRow.tsx` (`compact = true` mặc định, font `Inter`, cỡ chữ chuẩn `text-xs / 12px`, tiêu đề hồ sơ `text-lg sm:text-xl font-extrabold`, tiêu đề phân mục `text-xs font-bold uppercase tracking-wider`).
+      - Áp dụng đồng bộ 100% trên toàn bộ 09 trang chi tiết: `BusinessDetailPage.tsx`, `EnterpriseDetailPage.tsx`, `ResidentDetailPage.tsx`, `HouseholdDetailPage.tsx`, `PartyMemberDetailPage.tsx`, `ReportDetailPage.tsx`, `TaskDetailPage.tsx`, `NewsDetailPage.tsx`, `EventDetailPage.tsx`.
+
+  37. **Tinh Gọn & Chuẩn Hóa Giao Diện Tối Giản Toàn Ứng Dụng (`12px` • `h-9 / 36px` • Segmented Sub-Tabs, Phiên 21/11/2026):**
+      - Đồng bộ các UI primitives nền tảng (`Button.tsx`, `Input.tsx`, `ReportSelect.tsx`, `PageHeader.tsx`, `Modal.tsx`) về chiều cao `h-9` (`36px`), cỡ chữ `text-xs` (`12px`), bo góc `rounded-lg`, viền `border-slate-200` sắc nét.
+      - Tái thiết kế đồng bộ **Lịch & Nhiệm vụ** (`TaskAndSchedule.tsx`, `WeeklyScheduleMatrix.tsx`, `ReminderSection.tsx`), **Tin tức & Sự kiện** (`CommunityEvents.tsx`, `NewsNewspaperFeed.tsx`), **Cấu hình & Phân quyền** (`SettingsAndPermissions.tsx`, tách `ZaloOaNotificationHub.tsx` thành 4 Segmented Sub-Tabs + bảng danh bạ 36 cán bộ 1 dòng gọn nhẹ, tinh gọn `PortalConfigSettings.tsx`), **An sinh Xã hội** (`SocialWelfare.tsx` — gộp thanh tìm lọc & xuất ký nhận vào 1 khung phẳng, chuyển sang bảng màu trung tính `slate` / `emerald`, lược bỏ các banner tiêu đề lặp) và rà soát đồng nhất toàn bộ các phân hệ còn lại.
+
 ---
 
 ## 7. TRẠNG THÁI HỆ THỐNG, BÀN GIAO PHIÊN (21/11/2026) & ĐỊNH HƯỚNG TIẾP THEO
 - **Trạng thái Kiểm thử & Build:**
   - ✅ TypeScript: `npx tsc --noEmit` đạt `exit code 0` (0 lỗi trên toàn dự án Web + Serverless API).
-  - ✅ Unit Tests (Vitest): **27+ bộ test (bao gồm `keepalive.test.ts` & `zaloAndStaffLink.test.ts`) PASS 100%**.
+  - ✅ Unit Tests (Vitest): **28/28 bộ test (`132/132` kịch bản kiểm thử, bao gồm `citizenBroadcast.test.ts`, `moduleInteractiveUx.test.tsx`, `keepalive.test.ts` & `zaloAndStaffLink.test.ts`) PASS 100%**.
   - ✅ Production Build: `npm run build` (`vite build && esbuild server.ts`) thành công sạch 100%.
 - **Trạng thái Hạ tầng Trực tuyến & Các Gói Phát hành:**
   - **Web Portal Production:** 👉 **[https://bdhkp3.vercel.app](https://bdhkp3.vercel.app)** (`dpl_GKMJpj8crxcKR7cKDgc6buGEZvCV` — **READY**).

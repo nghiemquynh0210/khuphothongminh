@@ -64,6 +64,7 @@ import { normalizeEntityLandParcels } from "../utils/landParcelsUtils";
 import { uploadFileToStorageBucket } from "../utils/imageUpload";
 import { DetailGrid, DetailRow } from "../components/common/DetailRow";
 import { MultiParcelDetailView } from "../components/common/MultiParcelDetailView";
+import { RecordDetailShell } from "../components/common/RecordDetailShell";
 import { SharedAddressHubCard } from "../components/common/SharedAddressHubCard";
 import { LoadingFade } from "../components/common/LoadingFade";
 import { ReportSelect } from "../components/reports/ReportSelect";
@@ -741,290 +742,207 @@ export default function BusinessDetailPage({
   );
   const sectorMeta = getSectorMeta(getBusinessIndustryGroup(selectedBusiness));
 
+  const businessTabs = [
+    {
+      id: "general",
+      label: "Thông tin chung & Pháp lý",
+      icon: <Store size={14} />,
+    },
+    {
+      id: "premises",
+      label: "Mặt bằng & Cư dân Lưu trú",
+      icon: <MapPin size={14} />,
+    },
+    {
+      id: "personnel",
+      label: "Người đại diện & Lao động",
+      icon: <Users2 size={14} />,
+    },
+    {
+      id: "history",
+      label: "Biến động & Kiểm tra",
+      icon: <History size={14} />,
+    },
+  ];
+
   return (
-    <div className="max-w-6xl mx-auto space-y-4 pb-10">
-      {/* Top Breadcrumb & Prev/Next Bar */}
-      <div className="flex flex-wrap items-center justify-between gap-2 print:hidden">
+    <RecordDetailShell
+      backLabel="Danh sách cơ sở kinh doanh"
+      onBack={handleGoBack}
+      navigation={
+        totalNav > 1 && currentIdx >= 0
+          ? {
+              hasPrev,
+              hasNext,
+              onPrev: () => hasPrev && handleSelectNav(businesses[currentIdx - 1]),
+              onNext: () => hasNext && handleSelectNav(businesses[currentIdx + 1]),
+              prevTitle: "Cơ sở trước",
+              nextTitle: "Cơ sở tiếp theo",
+              positionLabel: `${currentIdx + 1} / ${totalNav}`,
+            }
+          : undefined
+      }
+      topRightSlot={
         <button
           type="button"
-          onClick={handleGoBack}
-          className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-xs font-bold transition-colors cursor-pointer"
+          onClick={() => window.print()}
+          className="h-8 px-2.5 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200/90 rounded-lg text-xs font-semibold transition-colors cursor-pointer inline-flex items-center gap-1.5"
         >
-          <ArrowLeft size={14} />
-          <span>Quay lại Danh sách Cơ sở Kinh doanh</span>
+          <Printer size={13} className="text-slate-500" />
+          <span>In phiếu</span>
         </button>
-
-        {totalNav > 1 && currentIdx >= 0 && (
-          <div className="inline-flex items-center gap-1.5 bg-white border border-slate-200 rounded-xl px-2 py-1">
-            <button
-              type="button"
-              disabled={!hasPrev}
-              onClick={() => hasPrev && handleSelectNav(businesses[currentIdx - 1])}
-              className="p-1.5 rounded-lg text-slate-600 hover:bg-slate-100 disabled:opacity-35 disabled:cursor-not-allowed cursor-pointer transition-colors"
-              aria-label="Cơ sở trước"
-              title="Cơ sở trước"
-            >
-              <ChevronLeft size={15} />
-            </button>
-            <span className="text-xs font-mono font-semibold text-slate-600 px-1.5">
-              Cơ sở {currentIdx + 1}/{totalNav}
-            </span>
-            <button
-              type="button"
-              disabled={!hasNext}
-              onClick={() => hasNext && handleSelectNav(businesses[currentIdx + 1])}
-              className="p-1.5 rounded-lg text-slate-600 hover:bg-slate-100 disabled:opacity-35 disabled:cursor-not-allowed cursor-pointer transition-colors"
-              aria-label="Cơ sở tiếp theo"
-              title="Cơ sở tiếp theo"
-            >
-              <ChevronRight size={15} />
-            </button>
-          </div>
-        )}
-      </div>
-
-      {/* Main Profile Card */}
-      <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-xs">
-        {/* Header Summary */}
-        <div className="bg-slate-50/80 p-4 sm:p-5 border-b border-slate-200 space-y-4">
-          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-            <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3.5 min-w-0">
-              <div className="relative w-14 h-14 sm:w-16 sm:h-16 rounded-xl border border-slate-200 overflow-hidden shrink-0 group bg-slate-100">
-                <img
-                  src={
-                    selectedBusiness.image ||
-                    "https://images.unsplash.com/photo-1578916171728-46686eac8d58?w=400"
-                  }
-                  alt={selectedBusiness.name}
-                  className="w-full h-full object-cover"
-                  referrerPolicy="no-referrer"
-                />
-                <label className="absolute inset-0 bg-slate-950/65 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center text-white cursor-pointer">
-                  <Camera size={15} className="text-white mb-0.5" />
-                  <span className="text-[11px] font-semibold">Đổi ảnh</span>
-                  <input
-                    type="file"
-                    accept="image/*"
-                    className="hidden"
-                    onChange={(e) => {
-                      if (e.target.files && e.target.files[0]) {
-                        handleProcessFileUpload(e.target.files[0], (fileObj) => {
-                          const updated = {
-                            ...selectedBusiness,
-                            image: fileObj.url,
-                          };
-                          if (onUpdateBusinesses) {
-                            onUpdateBusinesses(
-                              businesses.map((b) =>
-                                b.id === selectedBusiness.id ? updated : b
-                              )
-                            );
-                          }
-                          showToast(
-                            "Đã cập nhật ảnh đại diện cơ sở thành công!",
-                            "success"
-                          );
-                        });
-                      }
-                    }}
-                  />
-                </label>
-              </div>
-
-              <div className="space-y-1.5 flex-1 min-w-0">
-                <div className="flex flex-wrap items-center gap-2">
-                  <span className="font-mono text-xs font-semibold px-2 py-0.5 rounded-md bg-white text-slate-700 border border-slate-200">
-                    MÃ: {shortBizId}
-                  </span>
-                  <span className="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-white text-slate-700 border border-slate-200 inline-flex items-center gap-1">
-                    <span>{sectorMeta.icon}</span>
-                    <span>{sectorMeta.shortName}</span>
-                  </span>
-                  <span
-                    className={`text-xs font-semibold px-2.5 py-0.5 rounded-full border inline-flex items-center gap-1.5 ${
-                      selectedBusiness.status === "Đang hoạt động"
-                        ? "bg-emerald-50 text-emerald-800 border-emerald-200"
-                        : selectedBusiness.status === "Tạm ngưng"
-                          ? "bg-amber-50 text-amber-800 border-amber-200"
-                          : "bg-rose-50 text-rose-800 border-rose-200"
-                    }`}
-                  >
-                    <span
-                      className={`w-1.5 h-1.5 rounded-full ${
-                        selectedBusiness.status === "Đang hoạt động"
-                          ? "bg-emerald-600"
-                          : selectedBusiness.status === "Tạm ngưng"
-                            ? "bg-amber-600"
-                            : "bg-rose-600"
-                      }`}
-                    />
-                    <span>{selectedBusiness.status}</span>
-                  </span>
-
-                  {selectedBusiness.timemarkVerified && (
-                    <span className="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-300 inline-flex items-center gap-1.5 shadow-2xs">
-                      <Camera size={11} className="text-emerald-600" />
-                      <span>Timemark Verified</span>
-                      {selectedBusiness.timemarkHash && (
-                        <span className="font-mono text-[10px] bg-emerald-200/80 text-emerald-950 px-1 rounded">
-                          #{selectedBusiness.timemarkHash}
-                        </span>
-                      )}
-                    </span>
-                  )}
-                </div>
-
-                <h1 className="text-lg sm:text-xl font-extrabold text-slate-900 tracking-tight leading-snug break-words">
-                  {selectedBusiness.name}
-                </h1>
-
-                <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-slate-600">
-                  <span className="flex items-center gap-1 font-medium text-slate-700">
-                    <MapPin size={13} className="text-emerald-700 shrink-0" />
-                    <span>{selectedBusiness.address}</span>
-                  </span>
-
-                  <button
-                    type="button"
-                    onClick={() =>
-                      setViewingImagePreview({
-                        url:
-                          selectedBusiness.image ||
-                          "https://images.unsplash.com/photo-1578916171728-46686eac8d58?w=400",
-                        caption: selectedBusiness.name,
-                      })
+      }
+      avatarSlot={
+        <div className="relative w-14 h-14 sm:w-16 sm:h-16 rounded-xl border border-slate-200 overflow-hidden shrink-0 group bg-slate-100">
+          <img
+            src={
+              selectedBusiness.image ||
+              "https://images.unsplash.com/photo-1578916171728-46686eac8d58?w=400"
+            }
+            alt={selectedBusiness.name}
+            className="w-full h-full object-cover"
+            referrerPolicy="no-referrer"
+          />
+          <label className="absolute inset-0 bg-slate-950/65 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center text-white cursor-pointer">
+            <Camera size={14} className="text-white mb-0.5" />
+            <span className="text-[10px] font-semibold">Đổi ảnh</span>
+            <input
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={(e) => {
+                if (e.target.files && e.target.files[0]) {
+                  handleProcessFileUpload(e.target.files[0], (fileObj) => {
+                    const updated = {
+                      ...selectedBusiness,
+                      image: fileObj.url,
+                    };
+                    if (onUpdateBusinesses) {
+                      onUpdateBusinesses(
+                        businesses.map((b) =>
+                          b.id === selectedBusiness.id ? updated : b
+                        )
+                      );
                     }
-                    className="inline-flex items-center gap-1 text-xs text-slate-700 hover:text-slate-900 font-semibold cursor-pointer"
-                  >
-                    <Maximize2 size={11} /> Xem ảnh lớn
-                  </button>
-
-                  {selectedBusiness.coordinates && (
-                    <a
-                      href={`https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(selectedBusiness.coordinates)}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-flex items-center gap-1 text-xs text-emerald-700 hover:text-emerald-900 font-semibold"
-                    >
-                      <ExternalLink size={11} /> Google Maps
-                    </a>
-                  )}
-                </div>
-              </div>
-            </div>
-
-            {/* Action Buttons */}
-            <div className="flex flex-wrap items-center gap-2 shrink-0 print:hidden">
-              <div className="min-w-[180px]">
-                <ReportSelect
-                  aria-label="Trạng thái cơ sở kinh doanh"
-                  value={selectedBusiness.status}
-                  onChange={(nextVal) =>
-                    onUpdateStatus(selectedBusiness.id, nextVal as any)
-                  }
-                  options={[
-                    { value: "Đang hoạt động", label: "Đang hoạt động" },
-                    { value: "Tạm ngưng", label: "Tạm ngưng" },
-                    { value: "Chuyển địa điểm", label: "Chuyển địa điểm" },
-                    { value: "Chưa xác minh", label: "Chưa xác minh" },
-                  ]}
-                />
-              </div>
-              <button
-                type="button"
-                onClick={() => window.print()}
-                className="min-h-9 text-xs font-semibold py-1.5 px-3 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 rounded-lg transition-colors cursor-pointer inline-flex items-center justify-center gap-1.5"
-              >
-                <Printer size={13} /> In phiếu
-              </button>
-              <button
-                type="button"
-                onClick={() =>
-                  onEdit
-                    ? onEdit(selectedBusiness)
-                    : navigate(getBusinessEditPath(selectedBusiness.id))
+                    showToast("Đã cập nhật ảnh đại diện cơ sở thành công!", "success");
+                  });
                 }
-                className="min-h-9 text-xs font-semibold py-1.5 px-4 bg-emerald-700 hover:bg-emerald-800 text-white rounded-lg transition-colors cursor-pointer inline-flex items-center justify-center gap-1.5"
-              >
-                <Pencil size={13} /> Sửa hồ sơ
-              </button>
-              <button
-                type="button"
-                onClick={() => setShowDeleteConfirm(true)}
-                className="min-h-9 text-xs font-semibold py-1.5 px-3 border border-rose-200 bg-white text-rose-700 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer inline-flex items-center justify-center gap-1.5"
-              >
-                <Trash2 size={13} /> Xóa
-              </button>
-            </div>
+              }}
+            />
+          </label>
+        </div>
+      }
+      badgesSlot={
+        <>
+          <span className="font-mono font-semibold px-2 py-0.5 rounded-md bg-slate-100 text-slate-700 border border-slate-200/80">
+            {shortBizId}
+          </span>
+          <span className="font-semibold px-2.5 py-0.5 rounded-full bg-slate-100 text-slate-700 border border-slate-200/80">
+            {sectorMeta.shortName}
+          </span>
+          <span
+            className={`font-semibold px-2.5 py-0.5 rounded-full border inline-flex items-center gap-1.5 ${
+              selectedBusiness.status === "Đang hoạt động"
+                ? "bg-emerald-50 text-emerald-800 border-emerald-200"
+                : selectedBusiness.status === "Tạm ngưng"
+                ? "bg-amber-50 text-amber-800 border-amber-200"
+                : "bg-rose-50 text-rose-800 border-rose-200"
+            }`}
+          >
+            <span
+              className={`w-1.5 h-1.5 rounded-full ${
+                selectedBusiness.status === "Đang hoạt động"
+                  ? "bg-emerald-600"
+                  : selectedBusiness.status === "Tạm ngưng"
+                  ? "bg-amber-600"
+                  : "bg-rose-600"
+              }`}
+            />
+            <span>{selectedBusiness.status}</span>
+          </span>
+          {selectedBusiness.timemarkVerified && (
+            <span className="font-semibold px-2 py-0.5 rounded-full bg-amber-50 text-amber-800 border border-amber-200 inline-flex items-center gap-1">
+              <Camera size={11} className="text-amber-600" />
+              <span>Timemark GPS</span>
+            </span>
+          )}
+        </>
+      }
+      title={selectedBusiness.name}
+      subtitleSlot={
+        <>
+          <span className="inline-flex items-center gap-1 text-slate-600">
+            <MapPin size={13} className="text-slate-400 shrink-0" />
+            <span>{selectedBusiness.address}</span>
+          </span>
+          <button
+            type="button"
+            onClick={() =>
+              setViewingImagePreview({
+                url:
+                  selectedBusiness.image ||
+                  "https://images.unsplash.com/photo-1578916171728-46686eac8d58?w=400",
+                caption: selectedBusiness.name,
+              })
+            }
+            className="inline-flex items-center gap-1 text-slate-600 hover:text-slate-900 font-semibold cursor-pointer"
+          >
+            <Maximize2 size={11} /> Ảnh lớn
+          </button>
+          {selectedBusiness.coordinates && (
+            <a
+              href={`https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(selectedBusiness.coordinates)}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1 text-emerald-700 hover:underline font-semibold"
+            >
+              <ExternalLink size={11} /> Bản đồ
+            </a>
+          )}
+        </>
+      }
+      actionsSlot={
+        <>
+          <div className="min-w-[165px]">
+            <ReportSelect
+              aria-label="Trạng thái cơ sở kinh doanh"
+              value={selectedBusiness.status}
+              onChange={(nextVal) =>
+                onUpdateStatus(selectedBusiness.id, nextVal as any)
+              }
+              options={[
+                { value: "Đang hoạt động", label: "Đang hoạt động" },
+                { value: "Tạm ngưng", label: "Tạm ngưng" },
+                { value: "Chuyển địa điểm", label: "Chuyển địa điểm" },
+                { value: "Chưa xác minh", label: "Chưa xác minh" },
+              ]}
+            />
           </div>
-        </div>
-
-        {/* Sub-Tabs Bar */}
-        <div className="flex border-b border-slate-200 bg-white px-4 sm:px-5 gap-5 text-xs font-bold overflow-x-auto print:hidden">
           <button
             type="button"
-            onClick={() => setDetailTab("general")}
-            className={`py-3 transition-colors relative cursor-pointer flex items-center gap-1.5 shrink-0 ${
-              detailTab === "general"
-                ? "text-emerald-800"
-                : "text-slate-600 hover:text-slate-900"
-            }`}
+            onClick={() =>
+              onEdit
+                ? onEdit(selectedBusiness)
+                : navigate(getBusinessEditPath(selectedBusiness.id))
+            }
+            className="h-9 text-xs font-semibold px-3.5 bg-emerald-700 hover:bg-emerald-800 text-white rounded-lg transition-colors cursor-pointer inline-flex items-center gap-1.5 shadow-2xs"
           >
-            <Store size={14} />
-            <span>Thông tin chung &amp; Pháp lý</span>
-            {detailTab === "general" && (
-              <div className="absolute bottom-0 left-0 w-full h-0.5 bg-emerald-700" />
-            )}
+            <Pencil size={13} /> Sửa hồ sơ
           </button>
           <button
             type="button"
-            onClick={() => setDetailTab("premises")}
-            className={`py-3 transition-colors relative cursor-pointer flex items-center gap-1.5 shrink-0 ${
-              detailTab === "premises"
-                ? "text-emerald-800"
-                : "text-slate-600 hover:text-slate-900"
-            }`}
+            onClick={() => setShowDeleteConfirm(true)}
+            className="h-9 text-xs font-semibold px-3 border border-slate-200 hover:border-rose-200 bg-white text-rose-600 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer inline-flex items-center gap-1.5"
           >
-            <MapPin size={14} />
-            <span>Mặt bằng &amp; Cư dân Lưu trú</span>
-            {detailTab === "premises" && (
-              <div className="absolute bottom-0 left-0 w-full h-0.5 bg-emerald-700" />
-            )}
+            <Trash2 size={13} /> Xóa
           </button>
-          <button
-            type="button"
-            onClick={() => setDetailTab("personnel")}
-            className={`py-3 transition-colors relative cursor-pointer flex items-center gap-1.5 shrink-0 ${
-              detailTab === "personnel"
-                ? "text-emerald-800"
-                : "text-slate-600 hover:text-slate-900"
-            }`}
-          >
-            <Users2 size={14} />
-            <span>Người đại diện &amp; Lao động</span>
-            {detailTab === "personnel" && (
-              <div className="absolute bottom-0 left-0 w-full h-0.5 bg-emerald-700" />
-            )}
-          </button>
-          <button
-            type="button"
-            onClick={() => setDetailTab("history")}
-            className={`py-3 transition-colors relative cursor-pointer flex items-center gap-1.5 shrink-0 ${
-              detailTab === "history"
-                ? "text-emerald-800"
-                : "text-slate-600 hover:text-slate-900"
-            }`}
-          >
-            <History size={14} />
-            <span>Biến động &amp; Kiểm tra</span>
-            {detailTab === "history" && (
-              <div className="absolute bottom-0 left-0 w-full h-0.5 bg-emerald-700" />
-            )}
-          </button>
-        </div>
-
-        {/* Body Content */}
-        <div className="p-4 sm:p-6 space-y-4 bg-white text-xs sm:text-sm">
+        </>
+      }
+      tabs={businessTabs}
+      activeTab={detailTab}
+      onTabChange={(id) => setDetailTab(id as any)}
+      bodyClassName="p-5 sm:p-6 space-y-4 text-xs"
+    >
           {/* TAB 1: THÔNG TIN CHUNG & PHÁP LÝ */}
           {detailTab === "general" && (
             <div className="space-y-4 animate-in fade-in duration-200">
@@ -2145,8 +2063,6 @@ export default function BusinessDetailPage({
               </div>
             </div>
           )}
-        </div>
-      </div>
 
       {/* Modal Ghi nhận Biến động */}
       {showAddChangeLogModal && (
@@ -2882,7 +2798,7 @@ export default function BusinessDetailPage({
           />
         </div>
       )}
-    </div>
+    </RecordDetailShell>
   );
 }
 

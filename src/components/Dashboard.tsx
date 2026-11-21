@@ -816,28 +816,19 @@ export default function Dashboard({
 
   // ===================== STAFF EXECUTIVE COMMAND DASHBOARD =====================
   return (
-    <div id="dashboard-view" className="space-y-5">
+    <div id="dashboard-view" className="space-y-4">
       <PageHeader
-        badgeIcon={<Activity size={14} className="text-emerald-700" />}
-        badgeText="TRUNG TÂM ĐIỀU HÀNH SỐ • KHU PHỐ 3, PHƯỜNG AN PHÚ"
-        badgeSubtext="ĐỀ ÁN 06/CP"
         title="Tổng quan Điều hành Khu phố 3"
-        description="Nắm bắt nhanh quy mô Hộ thường trú – Hộ tạm trú, các cảnh báo cư trú cần xử lý trong ngày, lịch công tác và phản ánh của dân"
+        description="Quy mô hộ thường trú – tạm trú, các cảnh báo cư trú và đầu việc cần xử lý trong ngày"
         actions={
-          <div className="flex flex-wrap items-center gap-2">
-            <Button
-              variant="emerald"
-              size="sm"
-              leftIcon={<Download size={15} />}
-              onClick={handleExportBriefingReport}
-            >
-              Xuất Báo cáo Giao ban (.xlsx)
-            </Button>
-            <div className="inline-flex items-center gap-2 bg-slate-50 px-3 py-2 rounded-xl border border-slate-200 text-xs font-mono font-semibold text-slate-700 shrink-0">
-              <Clock size={14} className="text-emerald-700" aria-hidden="true" />
-              <span>{new Date().toLocaleDateString("vi-VN")}</span>
-            </div>
-          </div>
+          <Button
+            variant="secondary"
+            size="sm"
+            leftIcon={<Download size={14} />}
+            onClick={handleExportBriefingReport}
+          >
+            Xuất Báo cáo Giao ban (.xlsx)
+          </Button>
         }
       />
 
@@ -933,8 +924,8 @@ export default function Dashboard({
             </div>
           </div>
 
-          {/* 2 Thẻ đối xứng: Hộ Thường Trú vs Hộ Tạm Trú */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+          {/* 2 Thẻ đối xứng: Hộ Thường Trú vs Hộ Tạm Trú (Tối giản, nền sáng dịu mắt) */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             {/* Hộ Thường trú */}
             <div
               role="button"
@@ -946,35 +937,37 @@ export default function Dashboard({
                   navigateHouseholdsWithFilter("type=thuong_tru");
                 }
               }}
-              className="p-4 rounded-xl border border-emerald-200/90 bg-emerald-50/40 hover:bg-emerald-50/80 hover:border-emerald-400 transition-all cursor-pointer flex flex-col justify-between gap-3 group"
+              className="p-3.5 rounded-xl border border-slate-200/90 bg-slate-50/60 hover:bg-white hover:border-slate-300 transition-all cursor-pointer flex flex-col justify-between gap-2.5 group"
             >
-              <div className="space-y-2">
+              <div className="space-y-1.5">
                 <div className="flex items-center justify-between gap-2">
-                  <span className="px-2 py-0.5 rounded-md bg-emerald-100 text-emerald-900 border border-emerald-200 text-[11px] font-bold uppercase tracking-wide">
-                    Sổ Hộ Thường Trú
+                  <span className="text-xs font-semibold text-slate-600">
+                    Sổ hộ thường trú
                   </span>
-                  <span className="text-xs font-mono font-bold text-emerald-800">Mẫu CT01</span>
+                  <span className="px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-800 border border-emerald-200/80 text-[10px] font-mono font-semibold">
+                    CT01
+                  </span>
                 </div>
-                <div className="flex items-baseline gap-2">
-                  <span className="text-2xl font-black text-slate-900 tabular-nums">
+                <div className="flex items-baseline gap-1.5">
+                  <span className="text-xl font-bold text-slate-900 tabular-nums">
                     {formatVNNumber(metrics.permanentHouseholdsCount)}
                   </span>
-                  <span className="text-xs font-semibold text-slate-600">hộ gia đình</span>
+                  <span className="text-xs text-slate-500">hộ gia đình</span>
                 </div>
-                <div className="space-y-1 text-xs text-slate-700 pt-1 border-t border-emerald-200/60">
+                <div className="space-y-1 text-xs text-slate-600 pt-1.5 border-t border-slate-200/60">
                   <div className="flex justify-between">
-                    <span>Nhân khẩu thường trú:</span>
-                    <strong className="font-mono text-slate-900">{formatVNNumber(metrics.thuongTruCount)} người</strong>
+                    <span>Nhân khẩu thường trú</span>
+                    <strong className="font-mono text-slate-900">{formatVNNumber(metrics.thuongTruCount)}</strong>
                   </div>
                   <div className="flex justify-between">
-                    <span>Bình quân quy mô hộ:</span>
+                    <span>Bình quân quy mô</span>
                     <strong className="font-mono text-slate-900">{metrics.popMetrics.avgPerDigitizedHouseholdLabel} người/hộ</strong>
                   </div>
                 </div>
               </div>
-              <span className="text-xs font-bold text-emerald-800 group-hover:underline inline-flex items-center gap-1">
-                <span>Xem {formatVNNumber(metrics.permanentHouseholdsCount)} hộ thường trú</span>
-                <ArrowUpRight size={13} />
+              <span className="text-xs font-semibold text-emerald-700 group-hover:underline inline-flex items-center gap-1">
+                <span>Danh sách hộ thường trú</span>
+                <ArrowUpRight size={12} />
               </span>
             </div>
 
@@ -989,206 +982,199 @@ export default function Dashboard({
                   navigateHouseholdsWithFilter("type=tam_tru");
                 }
               }}
-              className="p-4 rounded-xl border border-amber-200/90 bg-amber-50/45 hover:bg-amber-50/90 hover:border-amber-400 transition-all cursor-pointer flex flex-col justify-between gap-3 group"
+              className="p-3.5 rounded-xl border border-slate-200/90 bg-slate-50/60 hover:bg-white hover:border-slate-300 transition-all cursor-pointer flex flex-col justify-between gap-2.5 group"
             >
-              <div className="space-y-2">
+              <div className="space-y-1.5">
                 <div className="flex items-center justify-between gap-2">
-                  <span className="px-2 py-0.5 rounded-md bg-amber-100 text-amber-950 border border-amber-300 text-[11px] font-bold uppercase tracking-wide">
-                    Hộ Tạm Trú &amp; Lưu Trú
+                  <span className="text-xs font-semibold text-slate-600">
+                    Hộ tạm trú &amp; lưu trú
                   </span>
-                  <span className="text-xs font-mono font-bold text-amber-900">Mẫu CT08</span>
+                  <span className="px-1.5 py-0.5 rounded bg-slate-100 text-slate-700 border border-slate-200 text-[10px] font-mono font-semibold">
+                    CT08
+                  </span>
                 </div>
-                <div className="flex items-baseline gap-2">
-                  <span className="text-2xl font-black text-slate-900 tabular-nums">
+                <div className="flex items-baseline gap-1.5">
+                  <span className="text-xl font-bold text-slate-900 tabular-nums">
                     {formatVNNumber(metrics.temporaryHouseholdsCount)}
                   </span>
-                  <span className="text-xs font-semibold text-slate-600">hộ / điểm tạm trú</span>
+                  <span className="text-xs text-slate-500">hộ / điểm lưu trú</span>
                 </div>
-                <div className="space-y-1 text-xs text-slate-700 pt-1 border-t border-amber-200/70">
+                <div className="space-y-1 text-xs text-slate-600 pt-1.5 border-t border-slate-200/60">
                   <div className="flex justify-between">
-                    <span>Hộ thuê nhà / căn hộ:</span>
-                    <strong className="font-mono text-slate-900">{formatVNNumber(metrics.independentTempHouseholdsCount)} hộ</strong>
-                  </div>
-                  <div className="flex justify-between">
-                    <span>Cụm lưu trú nhà trọ:</span>
-                    <strong className="font-mono text-amber-950">{formatVNNumber(metrics.hostelTempHouseholdsCount)} điểm</strong>
-                  </div>
-                  <div className="flex justify-between">
-                    <span>Đứng tên / Thành viên:</span>
+                    <span>Thuê độc lập / Cụm trọ</span>
                     <strong className="font-mono text-slate-900">
-                      {formatVNNumber(metrics.tempHeadsCount)} / {formatVNNumber(metrics.tempFamilyMembersCount)}
+                      {formatVNNumber(metrics.independentTempHouseholdsCount)} / {formatVNNumber(metrics.hostelTempHouseholdsCount)}
                     </strong>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>Nhân khẩu tạm trú</span>
+                    <strong className="font-mono text-slate-900">{formatVNNumber(metrics.tamTruCount)}</strong>
                   </div>
                 </div>
               </div>
-              <span className="text-xs font-bold text-amber-900 group-hover:underline inline-flex items-center gap-1">
-                <span>Mở danh sách Hộ tạm trú</span>
-                <ArrowUpRight size={13} />
+              <span className="text-xs font-semibold text-emerald-700 group-hover:underline inline-flex items-center gap-1">
+                <span>Danh sách hộ tạm trú</span>
+                <ArrowUpRight size={12} />
               </span>
             </div>
           </div>
 
-          {/* Dải Cơ cấu Độ tuổi & Nhóm đặc thù (5 ô ngang súc tích) */}
-          <div className="grid grid-cols-2 sm:grid-cols-5 gap-2.5 pt-1">
+          {/* Dải Cơ cấu Độ tuổi & Nhóm đặc thù (Trung tính, không tô màu sặc sỡ) */}
+          <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 pt-0.5">
             <button
               type="button"
               onClick={() => navigateToTab("residents")}
-              className="p-2.5 rounded-xl bg-slate-50 hover:bg-slate-100 border border-slate-200/90 text-left transition-colors cursor-pointer"
+              className="p-2.5 rounded-lg bg-slate-50/80 hover:bg-slate-100 border border-slate-200/70 text-left transition-colors cursor-pointer"
             >
-              <span className="text-[11px] text-slate-500 font-semibold block">Trẻ em (&lt; 14 tuổi)</span>
-              <span className="text-sm font-black text-slate-900 font-mono tabular-nums">
+              <span className="text-[11px] text-slate-500 block">Trẻ em (&lt;14t)</span>
+              <span className="text-sm font-bold text-slate-900 font-mono tabular-nums">
                 {formatVNNumber(metrics.childrenCount)}
               </span>
             </button>
             <button
               type="button"
               onClick={() => navigateToTab("residents")}
-              className="p-2.5 rounded-xl bg-slate-50 hover:bg-slate-100 border border-slate-200/90 text-left transition-colors cursor-pointer"
+              className="p-2.5 rounded-lg bg-slate-50/80 hover:bg-slate-100 border border-slate-200/70 text-left transition-colors cursor-pointer"
             >
-              <span className="text-[11px] text-slate-500 font-semibold block">Lao động (14–59t)</span>
-              <span className="text-sm font-black text-slate-900 font-mono tabular-nums">
+              <span className="text-[11px] text-slate-500 block">Lao động (14–59t)</span>
+              <span className="text-sm font-bold text-slate-900 font-mono tabular-nums">
                 {formatVNNumber(metrics.workingAgeCount)}
               </span>
             </button>
             <button
               type="button"
               onClick={() => navigateResidentsWithFilter("age=elderly")}
-              className="p-2.5 rounded-xl bg-amber-50/60 hover:bg-amber-100/70 border border-amber-200 text-left transition-colors cursor-pointer"
-              title="Bấm để lọc danh sách Người cao tuổi từ 60 tuổi trở lên"
+              className="p-2.5 rounded-lg bg-slate-50/80 hover:bg-slate-100 border border-slate-200/70 text-left transition-colors cursor-pointer"
+              title="Lọc danh sách Người cao tuổi từ 60 tuổi trở lên"
             >
-              <span className="text-[11px] text-amber-900 font-bold block">Cao tuổi (≥ 60t) ↗</span>
-              <span className="text-sm font-black text-amber-950 font-mono tabular-nums">
+              <span className="text-[11px] text-slate-500 block">Cao tuổi (≥60t)</span>
+              <span className="text-sm font-bold text-slate-900 font-mono tabular-nums">
                 {formatVNNumber(metrics.elderlyCount)}
               </span>
             </button>
             <button
               type="button"
               onClick={() => navigateToTab("residents")}
-              className="p-2.5 rounded-xl bg-amber-50/50 hover:bg-amber-100/60 border border-amber-200 text-left transition-colors cursor-pointer"
-              title="Nhân khẩu thường trú có nơi ở hiện tại ngoài địa bàn KP3 An Phú (suy luận UI)"
+              className="p-2.5 rounded-lg bg-slate-50/80 hover:bg-slate-100 border border-slate-200/70 text-left transition-colors cursor-pointer"
+              title="Nhân khẩu thường trú tạm vắng"
             >
-              <div className="flex items-center gap-1">
-                <MapPinOff size={12} className="text-amber-700 shrink-0" />
-                <span className="text-[11px] text-amber-800 font-bold block">Tạm vắng</span>
-              </div>
-              <span className="text-sm font-black text-amber-900 font-mono tabular-nums">
+              <span className="text-[11px] text-slate-500 block">Tạm vắng</span>
+              <span className="text-sm font-bold text-slate-900 font-mono tabular-nums">
                 {formatVNNumber(metrics.tamVangCount)}
               </span>
             </button>
             <button
               type="button"
               onClick={() => navigateToTab("welfare")}
-              className="p-2.5 rounded-xl bg-rose-50/50 hover:bg-rose-100/60 border border-rose-200 text-left transition-colors cursor-pointer"
+              className="p-2.5 rounded-lg bg-slate-50/80 hover:bg-slate-100 border border-slate-200/70 text-left transition-colors cursor-pointer"
               title="Mở hồ sơ An sinh xã hội & Chính sách"
             >
-              <span className="text-[11px] text-rose-800 font-bold block">Hồ sơ An sinh ↗</span>
-              <span className="text-sm font-black text-rose-900 font-mono tabular-nums">
+              <span className="text-[11px] text-slate-500 block">Hồ sơ An sinh</span>
+              <span className="text-sm font-bold text-slate-900 font-mono tabular-nums">
                 {formatVNNumber(welfareCount)}
               </span>
             </button>
           </div>
         </section>
 
-        {/* Cột Phải (5 cols): Cảnh báo Điều hành Cần Cán bộ Xử lý Ngay */}
+        {/* Cột Phải (5 cols): Cảnh báo Điều hành (Chỉ giữ màu đỏ/cam cho cảnh báo thực sự) */}
         <section
           aria-labelledby="priority-alerts-heading"
-          className="xl:col-span-5 bg-white rounded-2xl border border-slate-200 p-5 flex flex-col justify-between gap-3.5"
+          className="xl:col-span-5 bg-white rounded-2xl border border-slate-200/90 p-5 flex flex-col justify-between gap-3"
         >
-          <div className="flex items-center justify-between gap-2 border-b border-slate-100 pb-3">
-            <div className="flex items-center gap-2">
-              <ShieldAlert size={18} className="text-rose-600 shrink-0" />
-              <h2 id="priority-alerts-heading" className="text-base font-bold text-slate-900">
-                Cảnh báo &amp; Trọng tâm Hôm nay
-              </h2>
-            </div>
+          <div className="flex items-center justify-between gap-2 border-b border-slate-100 pb-2.5">
+            <h2 id="priority-alerts-heading" className="text-sm sm:text-base font-bold text-slate-900">
+              Cảnh báo &amp; Trọng tâm Hôm nay
+            </h2>
           </div>
 
-          <div className="space-y-2.5 flex-1 flex flex-col justify-between">
+          <div className="divide-y divide-slate-100 border border-slate-200/80 rounded-xl overflow-hidden bg-white">
             {/* Cảnh báo 1: Đã quá hạn tạm trú */}
             <button
               type="button"
               onClick={() => navigateResidentsWithFilter("expiry=expired")}
-              className="w-full p-3.5 rounded-xl border border-rose-200 bg-rose-50/55 hover:bg-rose-100/70 transition-colors text-left flex items-center justify-between gap-3 cursor-pointer group"
+              className="w-full px-3.5 py-3 hover:bg-rose-50/40 transition-colors text-left flex items-center justify-between gap-3 cursor-pointer group"
             >
               <div className="flex items-center gap-3 min-w-0">
-                <span className="w-9 h-9 rounded-lg bg-rose-600 text-white flex items-center justify-center shrink-0">
-                  <AlertCircle size={17} />
+                <span className="w-8 h-8 rounded-lg bg-rose-50 text-rose-700 border border-rose-200/80 flex items-center justify-center shrink-0">
+                  <AlertCircle size={15} />
                 </span>
                 <div className="min-w-0">
-                  <div className="text-xs font-extrabold text-rose-950">
-                    Quá hạn tạm trú: {formatVNNumber(metrics.expiredTamTruCount)} nhân khẩu
+                  <div className="text-xs font-bold text-slate-900">
+                    Quá hạn tạm trú: <span className="text-rose-700">{formatVNNumber(metrics.expiredTamTruCount)} người</span>
                   </div>
+                  <p className="text-[11px] text-slate-500">Cần phối hợp rà soát lưu trú</p>
                 </div>
               </div>
-              <ChevronRight size={16} className="text-rose-700 shrink-0 group-hover:translate-x-0.5 transition-transform" />
+              <ChevronRight size={15} className="text-slate-400 shrink-0 group-hover:translate-x-0.5 transition-transform" />
             </button>
 
             {/* Cảnh báo 2: Sắp hết hạn tạm trú <= 30 ngày */}
             <button
               type="button"
               onClick={() => navigateResidentsWithFilter("expiry=expiring")}
-              className="w-full p-3.5 rounded-xl border border-amber-200 bg-amber-50/55 hover:bg-amber-100/70 transition-colors text-left flex items-center justify-between gap-3 cursor-pointer group"
+              className="w-full px-3.5 py-3 hover:bg-amber-50/40 transition-colors text-left flex items-center justify-between gap-3 cursor-pointer group"
             >
               <div className="flex items-center gap-3 min-w-0">
-                <span className="w-9 h-9 rounded-lg bg-amber-500 text-white flex items-center justify-center shrink-0">
-                  <AlertTriangle size={17} />
+                <span className="w-8 h-8 rounded-lg bg-amber-50 text-amber-700 border border-amber-200/80 flex items-center justify-center shrink-0">
+                  <AlertTriangle size={15} />
                 </span>
                 <div className="min-w-0">
-                  <div className="text-xs font-extrabold text-amber-950">
-                    Sắp hết hạn tạm trú (≤ 30 ngày): {formatVNNumber(metrics.expiringTamTruCount)} người
+                  <div className="text-xs font-bold text-slate-900">
+                    Sắp hết hạn ≤ 30 ngày: <span className="text-amber-700">{formatVNNumber(metrics.expiringTamTruCount)} người</span>
                   </div>
-                  <p className="text-[11.5px] text-amber-900/90 mt-0.5">
-                    Thuộc {formatVNNumber(metrics.alertTempHouseholdsCount)} hộ tạm trú
+                  <p className="text-[11px] text-slate-500">
+                    Thuộc {formatVNNumber(metrics.alertTempHouseholdsCount)} hộ tạm trú cần nhắc hạn
                   </p>
                 </div>
               </div>
-              <ChevronRight size={16} className="text-amber-800 shrink-0 group-hover:translate-x-0.5 transition-transform" />
+              <ChevronRight size={15} className="text-slate-400 shrink-0 group-hover:translate-x-0.5 transition-transform" />
             </button>
 
             {/* Cảnh báo 3: PCCC & Nhà trọ */}
             <button
               type="button"
               onClick={() => navigateToTab("businesses")}
-              className="w-full p-3.5 rounded-xl border border-blue-200/90 bg-blue-50/40 hover:bg-blue-50/90 transition-colors text-left flex items-center justify-between gap-3 cursor-pointer group"
+              className="w-full px-3.5 py-3 hover:bg-slate-50 transition-colors text-left flex items-center justify-between gap-3 cursor-pointer group"
             >
-              <div className="flex items-start gap-3 min-w-0">
-                <span className="w-9 h-9 rounded-lg bg-blue-700 text-white flex items-center justify-center shrink-0 mt-0.5">
-                  <Flame size={17} />
+              <div className="flex items-center gap-3 min-w-0">
+                <span className="w-8 h-8 rounded-lg bg-slate-50 text-slate-600 border border-slate-200/80 flex items-center justify-center shrink-0">
+                  <Flame size={15} />
                 </span>
                 <div className="min-w-0">
-                  <div className="text-xs font-extrabold text-slate-900">
-                    An toàn PCCC &amp; Lưu trú: {formatVNNumber(metrics.hostelsCount)} nhà trọ ({formatVNNumber(metrics.roomsCount)} phòng)
+                  <div className="text-xs font-bold text-slate-900">
+                    Mạng lưới nhà trọ: {formatVNNumber(metrics.hostelsCount)} cơ sở ({formatVNNumber(metrics.roomsCount)} phòng)
                   </div>
-                  <p className="text-[11.5px] text-slate-600 mt-0.5 leading-snug">
+                  <p className="text-[11px] text-slate-500 truncate">
                     {metrics.pcccNeedAttentionCount > 0
-                      ? `Có ${metrics.pcccNeedAttentionCount} cơ sở cần rà soát / bổ sung biên bản PCCC`
-                      : `Đang theo dõi ${metrics.enterprisesCount + metrics.establishmentsCount} cơ sở kinh doanh & doanh nghiệp`}
+                      ? `${metrics.pcccNeedAttentionCount} cơ sở cần rà soát hồ sơ PCCC`
+                      : `Đang quản lý ${metrics.enterprisesCount + metrics.establishmentsCount} cơ sở & doanh nghiệp`}
                   </p>
                 </div>
               </div>
-              <ChevronRight size={16} className="text-blue-700 shrink-0 group-hover:translate-x-0.5 transition-transform" />
+              <ChevronRight size={15} className="text-slate-400 shrink-0 group-hover:translate-x-0.5 transition-transform" />
             </button>
 
             {/* Cảnh báo 4: Tồn Quỹ Khu phố minh bạch */}
             <button
               type="button"
               onClick={() => navigateToTab("finance")}
-              className="w-full p-3.5 rounded-xl border border-emerald-200/90 bg-emerald-50/40 hover:bg-emerald-50/90 transition-colors text-left flex items-center justify-between gap-3 cursor-pointer group"
+              className="w-full px-3.5 py-3 hover:bg-slate-50 transition-colors text-left flex items-center justify-between gap-3 cursor-pointer group"
             >
-              <div className="flex items-start gap-3 min-w-0">
-                <span className="w-9 h-9 rounded-lg bg-emerald-700 text-white flex items-center justify-center shrink-0 mt-0.5">
-                  <Coins size={17} />
+              <div className="flex items-center gap-3 min-w-0">
+                <span className="w-8 h-8 rounded-lg bg-emerald-50/80 text-emerald-700 border border-emerald-200/70 flex items-center justify-center shrink-0">
+                  <Coins size={15} />
                 </span>
                 <div className="min-w-0">
-                  <div className="text-xs font-extrabold text-slate-900">
-                    Tồn Quỹ Khu phố hiện tại: {formatVNNumber(metrics.netFundBalance)}đ
+                  <div className="text-xs font-bold text-slate-900">
+                    Tồn Quỹ Khu phố: {formatVNNumber(metrics.netFundBalance)}đ
                   </div>
-                  <p className="text-[11.5px] text-slate-600 mt-0.5 leading-snug">
-                    Tổng thu: {formatVNNumber(metrics.totalFundCollected)}đ • Đã chi: {formatVNNumber(metrics.totalFundSpent)}đ
+                  <p className="text-[11px] text-slate-500 truncate">
+                    Thu {formatVNNumber(metrics.totalFundCollected)}đ • Chi {formatVNNumber(metrics.totalFundSpent)}đ
                   </p>
                 </div>
               </div>
-              <ChevronRight size={16} className="text-emerald-700 shrink-0 group-hover:translate-x-0.5 transition-transform" />
+              <ChevronRight size={15} className="text-slate-400 shrink-0 group-hover:translate-x-0.5 transition-transform" />
             </button>
           </div>
         </section>

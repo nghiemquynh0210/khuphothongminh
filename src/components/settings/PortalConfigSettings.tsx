@@ -273,33 +273,19 @@ export const PortalConfigSettings: React.FC<PortalConfigSettingsProps> = ({
   };
 
   return (
-    <div className="space-y-6">
-      {/* Header & inner sub-tabs */}
-      <div className="bg-white border border-slate-200 rounded-2xl p-5 space-y-4">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-          <h4 className="text-base font-bold text-slate-900">
-            Cấu hình Trang chủ, Hình ảnh, Giới thiệu KP3 &amp; Cán bộ
-          </h4>
-          <Button
-            variant="outline"
-            size="sm"
-            leftIcon={<RotateCcw size={14} />}
-            onClick={() => setConfirmResetAll(true)}
-          >
-            Khôi phục mặc định
-          </Button>
-        </div>
-
-        <div className="flex flex-wrap gap-2 pt-2 border-t border-slate-100">
+    <div className="space-y-4">
+      {/* Compact Sub-tabs & Reset Action Row */}
+      <div className="flex flex-wrap items-center justify-between gap-2.5">
+        <div className="flex items-center gap-1 overflow-x-auto whitespace-nowrap p-1 bg-slate-100/80 rounded-xl border border-slate-200/80 w-fit max-w-full evon-scroll">
           {[
             { id: "general", label: "Trang chủ & Liên hệ", icon: Globe },
-            { id: "images", label: "Cài đặt & Sửa Hình ảnh", icon: ImageIcon },
+            { id: "images", label: "Hình ảnh & Thư viện", icon: ImageIcon },
             {
               id: "leadership",
-              label: `Quản lý Cán bộ (${leaders.length})`,
+              label: `Danh bạ Lãnh đạo (${leaders.length})`,
               icon: Users,
             },
-            { id: "about", label: "Giới thiệu thông tin KP3", icon: Info },
+            { id: "about", label: "Trang Giới thiệu", icon: Info },
           ].map((tab) => {
             const IconComp = tab.icon;
             const active = section === tab.id;
@@ -308,18 +294,27 @@ export const PortalConfigSettings: React.FC<PortalConfigSettingsProps> = ({
                 key={tab.id}
                 type="button"
                 onClick={() => setSection(tab.id as PortalSubSection)}
-                className={`min-h-10 px-3.5 py-2 rounded-xl text-xs font-bold inline-flex items-center gap-1.5 border transition-colors cursor-pointer ${
+                className={`px-3 py-1.5 rounded-lg text-xs font-semibold inline-flex items-center gap-1.5 transition-colors cursor-pointer shrink-0 ${
                   active
-                    ? "bg-emerald-700 border-emerald-700 text-white"
-                    : "bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100"
+                    ? "bg-white text-slate-900 shadow-2xs"
+                    : "text-slate-600 hover:text-slate-900"
                 }`}
               >
-                <IconComp size={14} />
+                <IconComp size={13} className={active ? "text-emerald-700" : "text-slate-500"} />
                 <span>{tab.label}</span>
               </button>
             );
           })}
         </div>
+
+        <Button
+          variant="outline"
+          size="sm"
+          leftIcon={<RotateCcw size={13} />}
+          onClick={() => setConfirmResetAll(true)}
+        >
+          Khôi phục mặc định
+        </Button>
       </div>
 
       {errorMsg && (
@@ -345,13 +340,13 @@ export const PortalConfigSettings: React.FC<PortalConfigSettingsProps> = ({
             e.preventDefault();
             onNotify?.("Đã lưu cấu hình Trang chủ & Thông tin liên hệ Khu phố 3.");
           }}
-          className="bg-white border border-slate-200 rounded-2xl p-5 sm:p-6 space-y-4"
+          className="bg-white border border-slate-200/90 rounded-2xl p-4 sm:p-5 space-y-3.5 shadow-2xs"
         >
-          <h5 className="text-sm font-bold text-slate-900 border-b border-slate-100 pb-2.5">
+          <h5 className="text-xs font-bold uppercase tracking-wider text-slate-900 border-b border-slate-100 pb-2.5">
             Thông tin chung Cổng cư dân &amp; Liên hệ
           </h5>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
             <Input
               id="portal-site-title"
               label="Tên cổng (Header & Footer)"
@@ -392,7 +387,7 @@ export const PortalConfigSettings: React.FC<PortalConfigSettingsProps> = ({
           <div className="space-y-1.5">
             <label
               htmlFor="portal-banner-notice"
-              className="block text-sm font-medium text-slate-700"
+              className="block text-xs font-semibold text-slate-700"
             >
               Thông báo nổi bật toàn cổng (để trống nếu không hiển thị)
             </label>
@@ -404,7 +399,7 @@ export const PortalConfigSettings: React.FC<PortalConfigSettingsProps> = ({
                 commit({ ...merged, bannerNotice: e.target.value })
               }
               placeholder="VD: Thông báo lịch họp giao ban Ban Điều hành Khu phố 3..."
-              className="w-full px-3.5 py-2 bg-white text-slate-900 text-sm rounded-lg border border-slate-300 focus:outline-none focus:border-emerald-600"
+              className="w-full px-3 py-2 bg-white text-slate-900 text-xs rounded-lg border border-slate-200 hover:border-slate-300 focus:outline-none focus:border-emerald-600"
             />
           </div>
 
@@ -461,15 +456,15 @@ export const PortalConfigSettings: React.FC<PortalConfigSettingsProps> = ({
 
       {/* SECTION 2: CÀI ĐẶT & SỬA HÌNH ẢNH */}
       {section === "images" && (
-        <div className="space-y-6">
+        <div className="space-y-4">
           {/* Logo, Hero Cover & Map Image */}
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
             {/* Logo Portal */}
-            <div className="bg-white border border-slate-200 rounded-2xl p-5 space-y-3">
-              <h5 className="text-sm font-bold text-slate-900">
+            <div className="bg-white border border-slate-200/90 rounded-2xl p-4 space-y-3 shadow-2xs">
+              <h5 className="text-xs font-bold uppercase tracking-wider text-slate-900">
                 Logo Cổng Khu phố 3 (Header)
               </h5>
-              <div className="h-32 rounded-xl border border-slate-200 bg-slate-50 flex items-center justify-center overflow-hidden">
+              <div className="h-28 rounded-xl border border-slate-200 bg-slate-50 flex items-center justify-center overflow-hidden">
                 {merged.logoUrl ? (
                   <img
                     src={merged.logoUrl}
@@ -505,7 +500,7 @@ export const PortalConfigSettings: React.FC<PortalConfigSettingsProps> = ({
                     : merged.logoUrl || ""
                 }
                 onChange={(e) => commit({ ...merged, logoUrl: e.target.value })}
-                className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs font-mono"
+                className="w-full h-9 px-3 border border-slate-200 rounded-lg text-xs font-mono"
               />
               <div className="flex flex-wrap gap-2">
                 <Button
@@ -533,11 +528,11 @@ export const PortalConfigSettings: React.FC<PortalConfigSettingsProps> = ({
             </div>
 
             {/* Ảnh bìa / Banner Khu phố */}
-            <div className="bg-white border border-slate-200 rounded-2xl p-5 space-y-3">
-              <h5 className="text-sm font-bold text-slate-900">
+            <div className="bg-white border border-slate-200/90 rounded-2xl p-4 space-y-3 shadow-2xs">
+              <h5 className="text-xs font-bold uppercase tracking-wider text-slate-900">
                 Ảnh minh họa Chung Khu phố 3
               </h5>
-              <div className="h-32 rounded-xl border border-slate-200 bg-slate-50 overflow-hidden">
+              <div className="h-28 rounded-xl border border-slate-200 bg-slate-50 overflow-hidden">
                 <img
                   src={
                     merged.heroCoverUrl || DEFAULT_LANDING_CONFIG.heroCoverUrl
@@ -571,7 +566,7 @@ export const PortalConfigSettings: React.FC<PortalConfigSettingsProps> = ({
                 onChange={(e) =>
                   commit({ ...merged, heroCoverUrl: e.target.value })
                 }
-                className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs font-mono"
+                className="w-full h-9 px-3 border border-slate-200 rounded-lg text-xs font-mono"
               />
               <Button
                 size="sm"
@@ -585,11 +580,11 @@ export const PortalConfigSettings: React.FC<PortalConfigSettingsProps> = ({
             </div>
 
             {/* Ảnh Bản đồ ranh giới (/about) */}
-            <div className="bg-white border border-slate-200 rounded-2xl p-5 space-y-3">
-              <h5 className="text-sm font-bold text-slate-900">
+            <div className="bg-white border border-slate-200/90 rounded-2xl p-4 space-y-3 shadow-2xs">
+              <h5 className="text-xs font-bold uppercase tracking-wider text-slate-900">
                 Ảnh Bản đồ Số Địa giới (Mục Giới thiệu)
               </h5>
-              <div className="h-32 rounded-xl border border-slate-200 bg-slate-50 overflow-hidden">
+              <div className="h-28 rounded-xl border border-slate-200 bg-slate-50 overflow-hidden">
                 <img
                   src={about.mapImageUrl}
                   alt="Bản đồ Khu phố 3"
@@ -620,7 +615,7 @@ export const PortalConfigSettings: React.FC<PortalConfigSettingsProps> = ({
                     : about.mapImageUrl
                 }
                 onChange={(e) => updateAbout({ mapImageUrl: e.target.value })}
-                className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs font-mono"
+                className="w-full h-9 px-3 border border-slate-200 rounded-lg text-xs font-mono"
               />
               <div className="flex flex-wrap gap-2">
                 <Button
@@ -650,14 +645,14 @@ export const PortalConfigSettings: React.FC<PortalConfigSettingsProps> = ({
           </div>
 
           {/* Thư viện Hình ảnh Hoạt động Khu phố */}
-          <div className="bg-white border border-slate-200 rounded-2xl p-5 sm:p-6 space-y-4">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 pb-3">
+          <div className="bg-white border border-slate-200/90 rounded-2xl p-4 sm:p-5 space-y-3.5 shadow-2xs">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 pb-2.5">
               <div>
-                <h5 className="text-sm font-bold text-slate-900 flex items-center gap-1.5">
-                  <Images size={16} className="text-emerald-700" />
+                <h5 className="text-xs font-bold uppercase tracking-wider text-slate-900 flex items-center gap-1.5">
+                  <Images size={14} className="text-emerald-700" />
                   Thư viện Hình ảnh Hoạt động Khu phố ({gallery.length} ảnh)
                 </h5>
-                <p className="text-xs text-slate-600 mt-0.5">
+                <p className="text-xs text-slate-500 mt-0.5">
                   Thêm mới, sửa ảnh, chỉnh chú thích hoặc xóa ảnh hiển thị tại trang Giới thiệu Khu phố 3.
                 </p>
               </div>
@@ -678,7 +673,7 @@ export const PortalConfigSettings: React.FC<PortalConfigSettingsProps> = ({
                 <Button
                   size="sm"
                   variant="emerald"
-                  leftIcon={<Upload size={14} />}
+                  leftIcon={<Upload size={13} />}
                   disabled={uploadingKey === "new-gallery"}
                   onClick={() => galleryFileRef.current?.click()}
                 >
@@ -690,26 +685,26 @@ export const PortalConfigSettings: React.FC<PortalConfigSettingsProps> = ({
             </div>
 
             {/* Add by URL + Caption */}
-            <div className="grid grid-cols-1 sm:grid-cols-12 gap-2.5 bg-slate-50 p-3.5 rounded-xl border border-slate-200">
+            <div className="grid grid-cols-1 sm:grid-cols-12 gap-2 bg-slate-50/80 p-3 rounded-xl border border-slate-200/80">
               <input
                 type="text"
                 value={newGalleryCaption}
                 onChange={(e) => setNewGalleryCaption(e.target.value)}
                 placeholder="Chú thích hình ảnh mới (VD: Ngày hội Đại đoàn kết KP3)"
-                className="sm:col-span-5 px-3 py-2 bg-white border border-slate-200 rounded-lg text-xs"
+                className="sm:col-span-5 h-9 px-3 bg-white border border-slate-200 rounded-lg text-xs"
               />
               <input
                 type="url"
                 value={newGalleryUrl}
                 onChange={(e) => setNewGalleryUrl(e.target.value)}
                 placeholder="Hoặc dán URL hình ảnh (https://...)"
-                className="sm:col-span-5 px-3 py-2 bg-white border border-slate-200 rounded-lg text-xs font-mono"
+                className="sm:col-span-5 h-9 px-3 bg-white border border-slate-200 rounded-lg text-xs font-mono"
               />
               <Button
-                size="sm"
+                size="default"
                 variant="primary"
                 className="sm:col-span-2"
-                leftIcon={<Plus size={14} />}
+                leftIcon={<Plus size={13} />}
                 disabled={!newGalleryUrl.trim()}
                 onClick={() => handleAddGalleryItem(newGalleryUrl)}
               >
@@ -792,13 +787,13 @@ export const PortalConfigSettings: React.FC<PortalConfigSettingsProps> = ({
 
       {/* SECTION 3: QUẢN LÝ CÁN BỘ (THÊM / SỬA / XÓA) */}
       {section === "leadership" && (
-        <div className="bg-white border border-slate-200 rounded-2xl p-5 sm:p-6 space-y-4">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-3">
+        <div className="bg-white border border-slate-200/90 rounded-2xl p-4 sm:p-5 space-y-3.5 shadow-2xs">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-2.5">
             <div>
-              <h5 className="text-sm font-bold text-slate-900">
+              <h5 className="text-xs font-bold uppercase tracking-wider text-slate-900">
                 Danh sách Cơ cấu tổ chức &amp; Cán bộ Khu phố 3 ({leaders.length})
               </h5>
-              <p className="text-xs text-slate-600 mt-0.5">
+              <p className="text-xs text-slate-500 mt-0.5">
                 Đồng bộ 2 chiều với Quản lý Chi bộ &amp; Đoàn thể — Bí thư Chi bộ luôn cố định ở vị trí #01 (Người đứng đầu Khu phố 3).
               </p>
             </div>
@@ -807,7 +802,7 @@ export const PortalConfigSettings: React.FC<PortalConfigSettingsProps> = ({
                 <Button
                   size="sm"
                   variant="outline"
-                  leftIcon={<RotateCcw size={14} />}
+                  leftIcon={<RotateCcw size={13} />}
                   onClick={onResyncLeadership}
                 >
                   Đồng bộ từ Chi hội
@@ -817,7 +812,7 @@ export const PortalConfigSettings: React.FC<PortalConfigSettingsProps> = ({
                 <Button
                   size="sm"
                   variant="outline"
-                  leftIcon={<Users size={14} />}
+                  leftIcon={<Users size={13} />}
                   onClick={onNavigateToParty}
                 >
                   Mở Quản lý Chi hội
@@ -826,42 +821,42 @@ export const PortalConfigSettings: React.FC<PortalConfigSettingsProps> = ({
               <Button
                 size="sm"
                 variant="emerald"
-                leftIcon={<UserPlus size={15} />}
+                leftIcon={<UserPlus size={14} />}
                 onClick={openAddLeader}
               >
-                Thêm cán bộ mới
+                Thêm cán bộ
               </Button>
             </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3.5">
             {leaders.map((m) => {
               const initial = m.name.trim().split(" ").slice(-1)[0]?.charAt(0) || "C";
               return (
                 <div
                   key={m.id}
-                  className="p-4 rounded-2xl border border-slate-200 bg-white flex flex-col justify-between gap-3"
+                  className="p-3.5 rounded-xl border border-slate-200/90 bg-white hover:border-emerald-300 transition-colors flex flex-col justify-between gap-2.5 shadow-2xs"
                 >
-                  <div className="flex items-start gap-3.5">
+                  <div className="flex items-start gap-3">
                     {m.avatar ? (
                       <img
                         src={m.avatar}
                         alt={m.name}
-                        className="w-16 h-24 rounded-xl object-cover object-top border border-slate-200 bg-white shrink-0"
+                        className="w-11 h-14 rounded-lg object-cover object-top border border-slate-200 bg-white shrink-0"
                       />
                     ) : (
-                      <div className="w-16 h-24 rounded-xl bg-blue-100 text-gov-navy font-black text-lg flex items-center justify-center shrink-0 border border-blue-200/70">
+                      <div className="w-11 h-14 rounded-lg bg-slate-100 text-slate-700 font-bold text-xs flex items-center justify-center shrink-0 border border-slate-200">
                         {initial}
                       </div>
                     )}
                     <div className="min-w-0 flex-1">
-                      <span className="text-[11px] font-bold uppercase tracking-wider text-emerald-700 block">
+                      <span className="text-[11px] font-bold uppercase tracking-wider text-emerald-700 block truncate">
                         {m.group || "Ban Điều hành Khu phố"}
                       </span>
-                      <h6 className="font-bold text-sm text-slate-900 truncate">
+                      <h6 className="font-bold text-xs sm:text-[13px] text-slate-900 truncate mt-0.5">
                         {m.name}
                       </h6>
-                      <p className="text-xs font-semibold text-gov-blue">
+                      <p className="text-xs font-medium text-slate-700 truncate">
                         {m.role}
                         {m.subRole ? ` · ${m.subRole}` : ""}
                       </p>
@@ -871,28 +866,34 @@ export const PortalConfigSettings: React.FC<PortalConfigSettingsProps> = ({
                     </div>
                   </div>
 
-                  {m.phone && (
-                    <div className="text-xs font-mono text-slate-700 flex items-center gap-1.5 bg-slate-50 px-2.5 py-1.5 rounded-lg border border-slate-100">
-                      <Phone size={12} className="text-emerald-700 shrink-0" />
-                      <span>{m.phone}</span>
+                  <div className="pt-2 border-t border-slate-100 flex items-center justify-between gap-2">
+                    <span className="text-xs font-mono text-slate-600 flex items-center gap-1">
+                      {m.phone ? (
+                        <>
+                          <Phone size={11} className="text-slate-400 shrink-0" />
+                          <span>{m.phone}</span>
+                        </>
+                      ) : (
+                        <span className="text-slate-400">Chưa có SĐT</span>
+                      )}
+                    </span>
+                    <div className="flex items-center gap-1.5">
+                      <button
+                        type="button"
+                        onClick={() => openEditLeader(m)}
+                        className="h-7 px-2.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-xs font-semibold text-slate-700 inline-flex items-center gap-1 cursor-pointer"
+                      >
+                        <Edit3 size={11} /> Sửa
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setDeleteLeaderTarget(m)}
+                        className="h-7 px-2 rounded-lg border border-rose-200 bg-rose-50 hover:bg-rose-100 text-xs font-semibold text-rose-700 inline-flex items-center gap-1 cursor-pointer"
+                        title="Xóa cán bộ"
+                      >
+                        <Trash2 size={11} />
+                      </button>
                     </div>
-                  )}
-
-                  <div className="pt-2.5 border-t border-slate-100 flex items-center justify-end gap-2">
-                    <button
-                      type="button"
-                      onClick={() => openEditLeader(m)}
-                      className="min-h-9 px-3 py-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-xs font-semibold text-slate-700 inline-flex items-center gap-1 cursor-pointer"
-                    >
-                      <Edit3 size={12} /> Sửa
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setDeleteLeaderTarget(m)}
-                      className="min-h-9 px-3 py-1.5 rounded-lg border border-rose-200 bg-rose-50 hover:bg-rose-100 text-xs font-semibold text-rose-700 inline-flex items-center gap-1 cursor-pointer"
-                    >
-                      <Trash2 size={12} /> Xóa
-                    </button>
                   </div>
                 </div>
               );
@@ -903,15 +904,15 @@ export const PortalConfigSettings: React.FC<PortalConfigSettingsProps> = ({
 
       {/* SECTION 4: GIỚI THIỆU THÔNG TIN KHU PHỐ 3 (/about) */}
       {section === "about" && (
-        <div className="bg-white border border-slate-200 rounded-2xl p-5 sm:p-6 space-y-5">
-          <h5 className="text-sm font-bold text-slate-900 border-b border-slate-100 pb-2.5">
+        <div className="bg-white border border-slate-200/90 rounded-2xl p-4 sm:p-5 space-y-4 shadow-2xs">
+          <h5 className="text-xs font-bold uppercase tracking-wider text-slate-900 border-b border-slate-100 pb-2.5">
             Nội dung trang Giới thiệu Khu phố 3
           </h5>
 
           <div className="space-y-1.5">
             <label
               htmlFor="about-summary-text"
-              className="block text-sm font-medium text-slate-700"
+              className="block text-xs font-semibold text-slate-700"
             >
               Đoạn giới thiệu tổng quan Khu phố 3 (Header trang Giới thiệu)
             </label>
@@ -920,11 +921,11 @@ export const PortalConfigSettings: React.FC<PortalConfigSettingsProps> = ({
               rows={3}
               value={about.summaryText}
               onChange={(e) => updateAbout({ summaryText: e.target.value })}
-              className="w-full px-3.5 py-2.5 bg-white text-slate-900 text-sm rounded-lg border border-slate-300 focus:outline-none focus:border-emerald-600"
+              className="w-full px-3 py-2 bg-white text-slate-900 text-xs rounded-lg border border-slate-200 hover:border-slate-300 focus:outline-none focus:border-emerald-600"
             />
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
             <Input
               id="about-stat-val"
               label="Chỉ số nổi bật (VD: 100%)"
@@ -944,9 +945,9 @@ export const PortalConfigSettings: React.FC<PortalConfigSettingsProps> = ({
           </div>
 
           {/* Tọa độ & Trục giao thông chính */}
-          <div className="p-4 rounded-xl bg-blue-50/50 border border-blue-200 space-y-3">
-            <span className="text-xs font-bold text-gov-navy flex items-center gap-1.5 uppercase">
-              <MapIcon size={14} /> Khối Tọa độ &amp; Trục giao thông chính
+          <div className="p-3.5 rounded-xl bg-slate-50/80 border border-slate-200/90 space-y-3">
+            <span className="text-xs font-bold text-slate-800 flex items-center gap-1.5 uppercase tracking-wider">
+              <MapIcon size={13} className="text-emerald-700" /> Khối Tọa độ &amp; Trục giao thông chính
             </span>
             <Input
               id="about-transport-title"
@@ -957,7 +958,7 @@ export const PortalConfigSettings: React.FC<PortalConfigSettingsProps> = ({
             <div className="space-y-1">
               <label
                 htmlFor="about-transport-intro"
-                className="block text-sm font-medium text-slate-700"
+                className="block text-xs font-semibold text-slate-700"
               >
                 Mô tả dẫn nhập
               </label>
@@ -966,12 +967,12 @@ export const PortalConfigSettings: React.FC<PortalConfigSettingsProps> = ({
                 rows={2}
                 value={about.transportIntro}
                 onChange={(e) => updateAbout({ transportIntro: e.target.value })}
-                className="w-full px-3 py-2 bg-white text-slate-900 text-sm rounded-lg border border-slate-300"
+                className="w-full px-3 py-2 bg-white text-slate-900 text-xs rounded-lg border border-slate-200"
               />
             </div>
 
-            <div className="space-y-2">
-              <span className="text-xs font-bold text-slate-700 block">
+            <div className="space-y-1.5">
+              <span className="text-xs font-semibold text-slate-700 block">
                 Danh sách các tuyến đường / điểm mốc:
               </span>
               {about.transportRoutes.map((route, idx) => (
@@ -984,7 +985,7 @@ export const PortalConfigSettings: React.FC<PortalConfigSettingsProps> = ({
                       nextRoutes[idx] = e.target.value;
                       updateAbout({ transportRoutes: nextRoutes });
                     }}
-                    className="flex-1 px-3 py-2 bg-white border border-slate-200 rounded-lg text-xs text-slate-800"
+                    className="flex-1 h-9 px-3 bg-white border border-slate-200 rounded-lg text-xs text-slate-800"
                   />
                   <button
                     type="button"
@@ -996,9 +997,9 @@ export const PortalConfigSettings: React.FC<PortalConfigSettingsProps> = ({
                         ),
                       })
                     }
-                    className="p-2 rounded-lg text-rose-600 hover:bg-rose-100 cursor-pointer"
+                    className="h-9 w-9 flex items-center justify-center rounded-lg text-rose-600 hover:bg-rose-50 border border-transparent hover:border-rose-200 cursor-pointer"
                   >
-                    <Trash2 size={14} />
+                    <Trash2 size={13} />
                   </button>
                 </div>
               ))}
@@ -1008,10 +1009,10 @@ export const PortalConfigSettings: React.FC<PortalConfigSettingsProps> = ({
                   value={newRouteText}
                   onChange={(e) => setNewRouteText(e.target.value)}
                   placeholder="Thêm tuyến đường hoặc điểm nhấn mới..."
-                  className="flex-1 px-3 py-2 bg-white border border-slate-200 rounded-lg text-xs"
+                  className="flex-1 h-9 px-3 bg-white border border-slate-200 rounded-lg text-xs"
                 />
                 <Button
-                  size="sm"
+                  size="default"
                   variant="primary"
                   leftIcon={<Plus size={13} />}
                   disabled={!newRouteText.trim()}
@@ -1032,9 +1033,9 @@ export const PortalConfigSettings: React.FC<PortalConfigSettingsProps> = ({
           </div>
 
           {/* Điểm nhấn mô hình tự quản */}
-          <div className="p-4 rounded-xl bg-emerald-50/50 border border-emerald-200 space-y-3">
-            <span className="text-xs font-bold text-emerald-900 flex items-center gap-1.5 uppercase">
-              <CheckCircle2 size={14} /> Khối Điểm nhấn mô hình tự quản
+          <div className="p-3.5 rounded-xl bg-slate-50/80 border border-slate-200/90 space-y-3">
+            <span className="text-xs font-bold text-slate-800 flex items-center gap-1.5 uppercase tracking-wider">
+              <CheckCircle2 size={13} className="text-emerald-700" /> Khối Điểm nhấn mô hình tự quản
             </span>
             <Input
               id="about-selfgov-title"
@@ -1045,7 +1046,7 @@ export const PortalConfigSettings: React.FC<PortalConfigSettingsProps> = ({
             <div className="space-y-1">
               <label
                 htmlFor="about-selfgov-desc"
-                className="block text-sm font-medium text-slate-700"
+                className="block text-xs font-semibold text-slate-700"
               >
                 Nội dung mô hình tự quản
               </label>
@@ -1056,7 +1057,7 @@ export const PortalConfigSettings: React.FC<PortalConfigSettingsProps> = ({
                 onChange={(e) =>
                   updateAbout({ selfGovDescription: e.target.value })
                 }
-                className="w-full px-3 py-2 bg-white text-slate-900 text-sm rounded-lg border border-slate-300"
+                className="w-full px-3 py-2 bg-white text-slate-900 text-xs rounded-lg border border-slate-200"
               />
             </div>
           </div>
@@ -1225,7 +1226,7 @@ export const PortalConfigSettings: React.FC<PortalConfigSettingsProps> = ({
             <div className="space-y-1.5">
               <label
                 htmlFor="ld-group"
-                className="block text-sm font-medium text-slate-700"
+                className="block text-xs font-semibold text-slate-700"
               >
                 Nhóm tổ chức
               </label>
@@ -1237,7 +1238,7 @@ export const PortalConfigSettings: React.FC<PortalConfigSettingsProps> = ({
                     e.target.value as NonNullable<LeadershipMember["group"]>
                   )
                 }
-                className="w-full h-10 px-3 bg-white text-slate-900 text-sm rounded-lg border border-slate-300"
+                className="w-full h-9 px-3 bg-white text-slate-900 text-xs rounded-lg border border-slate-200"
               >
                 {LEADER_GROUPS.map((g) => (
                   <option key={g} value={g}>

@@ -54,7 +54,7 @@ export function DetailRow({
   const [copied, setCopied] = useState(false);
   const ctx = useContext(DetailDensityContext);
   const shouldHideEmpty = hideIfEmpty ?? ctx.hideEmpty ?? false;
-  const isCompact = compact ?? ctx.compact ?? false;
+  const isCompact = compact ?? ctx.compact ?? true;
   const cleanLabel = label.trim().replace(/:+$/, "");
   const empty = isEffectivelyEmpty(value);
 
@@ -99,14 +99,14 @@ export function DetailRow({
     <div
       className={`group grid border-b border-slate-100 last:border-b-0 ${
         isCompact
-          ? "gap-0.5 py-1.5 text-xs @sm:grid-cols-[7.25rem_minmax(0,1fr)] @sm:items-baseline @sm:gap-2.5"
-          : "gap-1 py-2.5 text-xs sm:text-sm @sm:grid-cols-[8.75rem_minmax(0,1fr)] @sm:items-baseline @sm:gap-4"
+          ? "gap-0.5 py-1.5 text-xs @sm:grid-cols-[7.75rem_minmax(0,1fr)] @sm:items-baseline @sm:gap-3"
+          : "gap-1 py-2 text-xs @sm:grid-cols-[8.5rem_minmax(0,1fr)] @sm:items-baseline @sm:gap-4"
       } ${colSpan === 2 ? "md:col-span-2" : ""} ${className}`}
     >
       <dt className={`text-slate-500 font-medium text-xs select-none leading-5 ${labelWidth}`}>
         {cleanLabel}
       </dt>
-      <dd className="min-w-0 flex flex-wrap items-center gap-1.5">
+      <dd className="min-w-0 flex flex-wrap items-center gap-1.5 text-xs">
         <span className="inline-flex items-center gap-1 min-w-0 max-w-full">
           {valueNode}
           {!empty && copyValue && (
@@ -141,7 +141,7 @@ export function DetailGrid({
   children,
   className = "",
   hideEmpty = false,
-  compact = false,
+  compact = true,
 }: {
   children: React.ReactNode;
   className?: string;
@@ -152,8 +152,8 @@ export function DetailGrid({
     <DetailDensityContext.Provider value={{ hideEmpty, compact }}>
       <dl
         className={`@container grid grid-cols-1 md:grid-cols-2 ${
-          compact ? "gap-x-5" : "gap-x-8"
-        } gap-y-0 ${className}`}
+          compact ? "gap-x-6" : "gap-x-8"
+        } gap-y-0 text-xs ${className}`}
       >
         {children}
       </dl>
@@ -168,7 +168,7 @@ export function DetailList({
   children,
   className = "",
   hideEmpty = false,
-  compact = false,
+  compact = true,
 }: {
   children: React.ReactNode;
   className?: string;
@@ -177,7 +177,7 @@ export function DetailList({
 }) {
   return (
     <DetailDensityContext.Provider value={{ hideEmpty, compact }}>
-      <dl className={`@container space-y-0 ${className}`}>{children}</dl>
+      <dl className={`@container space-y-0 text-xs ${className}`}>{children}</dl>
     </DetailDensityContext.Provider>
   );
 }

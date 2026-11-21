@@ -802,7 +802,7 @@ export default function AdministrativeForms({
   };
 
   return (
-    <div id="administrative-forms-view" className="space-y-6">
+    <div id="administrative-forms-view" className="space-y-4">
       {toastMessage && (
         <InlineNotice
           message={toastMessage}
@@ -822,51 +822,49 @@ export default function AdministrativeForms({
         className="hidden"
       />
 
-      {/* Compact Header Bar */}
-      <div className="bg-white px-4 py-3.5 sm:px-5 sm:py-4 rounded-2xl border border-slate-200/90 shadow-2xs flex flex-col md:flex-row md:items-center justify-between gap-3">
-        <div className="flex flex-wrap items-center gap-3">
-          <h1 className="text-base sm:text-lg md:text-xl font-bold text-slate-900 tracking-tight">
-            Kho Biểu Mẫu Hành Chính ({formatVNNumber(currentForms.length)})
-          </h1>
-        </div>
+      {/* Minimalist Flat Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 pb-1">
+        <h1 className="text-lg sm:text-xl font-extrabold text-slate-900 tracking-tight">
+          Kho Biểu mẫu Hành chính ({formatVNNumber(currentForms.length)})
+        </h1>
 
         {currentUser?.role === "canbo" && (
           <div className="flex flex-wrap items-center gap-2 shrink-0">
             <button
               type="button"
               onClick={() => directFileInputRef.current?.click()}
-              className="px-3.5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold transition-colors flex items-center gap-1.5 cursor-pointer"
+              className="h-9 px-3 bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 rounded-lg text-xs font-semibold transition-colors flex items-center gap-1.5 cursor-pointer"
               title="Tải lên tệp biểu mẫu có sẵn từ máy tính"
             >
-              <Upload size={14} />
-              <span>Tải File Mẫu</span>
+              <Upload size={13} className="text-slate-500" />
+              <span>Tải tệp mẫu</span>
             </button>
 
             <button
               type="button"
               onClick={handleOpenCreateModal}
-              className="px-3.5 py-2 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl text-xs font-bold transition-colors flex items-center gap-1.5 cursor-pointer whitespace-nowrap"
+              className="h-9 px-3.5 bg-emerald-700 hover:bg-emerald-800 text-white rounded-lg text-xs font-semibold transition-colors flex items-center gap-1.5 cursor-pointer whitespace-nowrap shadow-2xs"
             >
               <Plus size={14} />
-              <span>Thêm Biểu Mẫu</span>
+              <span>Thêm biểu mẫu</span>
             </button>
           </div>
         )}
       </div>
 
       {/* Search and Filters Bar */}
-      <div className="bg-white p-4 md:p-5 rounded-3xl border border-slate-200 space-y-4">
-        <div className="flex flex-col sm:flex-row gap-3">
+      <div className="bg-white p-3.5 rounded-xl border border-slate-200/80 shadow-2xs space-y-2.5">
+        <div className="flex flex-col sm:flex-row gap-2.5">
           <div className="relative flex-1">
-            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-600" size={17} />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={15} />
             <input
               id="admin-forms-search-input"
               name="adminFormsSearch"
               type="text"
-              placeholder="Tìm theo tên đơn (ví dụ: cấp số nhà, CT01, đăng ký kinh doanh, cư trú, hôn nhân)..."
+              placeholder="Tìm theo tên đơn (cấp số nhà, CT01, đăng ký kinh doanh, cư trú)..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-10 pr-4 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-emerald-500 bg-white"
+              className="w-full h-9 pl-9 pr-4 border border-slate-200 rounded-lg text-xs focus:outline-none focus:border-emerald-600 bg-slate-50/70 focus:bg-white"
             />
           </div>
           <div className="w-full sm:w-56 shrink-0">
@@ -890,7 +888,7 @@ export default function AdministrativeForms({
           {searchTerm && (
             <button
               onClick={() => setSearchTerm("")}
-              className="px-3 py-2 text-xs font-semibold text-slate-600 hover:text-slate-900 bg-slate-100 rounded-xl transition-colors shrink-0"
+              className="h-9 px-3 text-xs font-semibold text-slate-600 hover:text-slate-900 bg-slate-100 rounded-lg transition-colors shrink-0"
             >
               Xóa tìm kiếm
             </button>
@@ -898,37 +896,33 @@ export default function AdministrativeForms({
         </div>
 
         {/* Category Pills */}
-        <div className="space-y-1.5 pt-1 text-xs">
-          <span className="text-slate-600 font-semibold text-xs inline-flex items-center gap-1">
-            <Filter size={13} /> Phân loại thủ tục
+        <div className="pt-2 border-t border-slate-100 flex flex-wrap items-center gap-1.5 text-xs">
+          <span className="text-slate-500 font-semibold text-xs inline-flex items-center gap-1 mr-1">
+            <Filter size={12} /> Phân loại:
           </span>
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:flex lg:flex-wrap items-center gap-2">
-            {filterCategories.map((cat, idx) => (
-              <button
-                key={cat}
-                type="button"
-                onClick={() => setSelectedCategory(cat)}
-                className={`min-h-[38px] px-3 py-1.5 rounded-xl text-xs font-medium transition-colors cursor-pointer text-center ${
-                  idx === 0 && filterCategories.length % 2 === 1 ? "col-span-2 sm:col-span-1" : ""
-                } ${
-                  selectedCategory === cat
-                    ? "bg-emerald-700 text-white font-bold"
-                    : "bg-slate-50 hover:bg-slate-100 text-slate-700 border border-slate-200"
-                }`}
-              >
-                {cat}
-              </button>
-            ))}
-          </div>
+          {filterCategories.map((cat) => (
+            <button
+              key={cat}
+              type="button"
+              onClick={() => setSelectedCategory(cat)}
+              className={`h-8 px-2.5 rounded-lg text-xs font-semibold transition-colors cursor-pointer text-center border ${
+                selectedCategory === cat
+                  ? "bg-slate-900 text-white border-slate-900"
+                  : "bg-white hover:bg-slate-50 text-slate-700 border-slate-200"
+              }`}
+            >
+              {cat}
+            </button>
+          ))}
         </div>
       </div>
 
       {/* Forms Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
         {filteredForms.length === 0 ? (
-          <div className="col-span-full bg-white p-12 rounded-3xl border border-slate-100 text-center space-y-3">
-            <FileText size={36} className="text-slate-300 mx-auto" />
-            <h4 className="font-bold text-slate-700 text-sm">Không tìm thấy biểu mẫu phù hợp</h4>
+          <div className="col-span-full bg-white p-10 rounded-2xl border border-slate-200 text-center space-y-2.5">
+            <FileText size={32} className="text-slate-300 mx-auto" />
+            <h4 className="font-bold text-slate-700 text-xs sm:text-[13px]">Không tìm thấy biểu mẫu phù hợp</h4>
             <p className="text-xs text-slate-600 max-w-md mx-auto">
               Không có biểu mẫu nào khớp với từ khóa "{searchTerm}". Quý cư dân hoặc cán bộ có thể chọn danh mục khác hoặc xóa bộ lọc.
             </p>
@@ -957,13 +951,13 @@ export default function AdministrativeForms({
                   setPreviewForm(form);
                 }
               }}
-              className="bg-white rounded-2xl border border-slate-200/80 p-5 shadow-xs hover:shadow-md hover:border-emerald-400 transition-all flex flex-col justify-between gap-4 group relative cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600"
+              className="bg-white rounded-2xl border border-slate-200/90 p-4 shadow-2xs hover:border-emerald-300 transition-colors flex flex-col justify-between gap-3.5 group relative cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600"
             >
-              <div className="space-y-2.5">
+              <div className="space-y-2">
                 {/* Header tags & Cán Bộ Action Buttons */}
-                <div className="flex flex-wrap items-center justify-between gap-2 gap-y-2">
-                  <div className="flex flex-wrap items-center gap-2 min-w-0">
-                    <span className="px-2.5 py-1 rounded-lg bg-emerald-50 text-emerald-800 border border-emerald-200/60 font-mono font-bold text-xs shrink-0">
+                <div className="flex flex-wrap items-center justify-between gap-2 gap-y-1.5">
+                  <div className="flex flex-wrap items-center gap-1.5 min-w-0">
+                    <span className="px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-800 border border-emerald-200/60 font-mono font-bold text-xs shrink-0">
                       {form.code}
                     </span>
                     <span className="text-xs text-slate-700 font-medium px-2 py-0.5 bg-slate-100 rounded-md">
@@ -990,7 +984,7 @@ export default function AdministrativeForms({
                       >
                         <button
                           onClick={() => handleOpenEditModal(form)}
-                          className="p-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded-lg text-xs font-semibold transition-colors cursor-pointer flex items-center gap-1"
+                          className="px-2 py-1 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded-lg text-xs font-semibold transition-colors cursor-pointer flex items-center gap-1"
                           title="Chỉnh sửa thông tin biểu mẫu"
                         >
                           <Pencil size={12} />
@@ -998,7 +992,7 @@ export default function AdministrativeForms({
                         </button>
                         <button
                           onClick={() => setDeleteConfirmForm(form)}
-                          className="p-1.5 bg-rose-50 hover:bg-rose-100 text-rose-700 rounded-lg text-xs font-semibold transition-colors cursor-pointer flex items-center gap-1"
+                          className="px-2 py-1 bg-rose-50 hover:bg-rose-100 text-rose-700 rounded-lg text-xs font-semibold transition-colors cursor-pointer flex items-center gap-1"
                           title="Xóa biểu mẫu này khỏi hệ thống"
                         >
                           <Trash2 size={12} />
@@ -1011,11 +1005,11 @@ export default function AdministrativeForms({
 
                 {/* Form Title & Issuing Authority */}
                 <div>
-                  <h3 className="font-bold text-slate-900 text-sm group-hover:text-emerald-700 transition-colors leading-snug">
+                  <h3 className="font-bold text-slate-900 text-xs sm:text-[13px] group-hover:text-emerald-700 transition-colors leading-snug">
                     {form.title}
                   </h3>
-                  <p className="text-xs text-slate-600 font-medium mt-0.5 flex items-center gap-1">
-                    <Building2 size={12} className="shrink-0 text-slate-600" />
+                  <p className="text-xs text-slate-500 font-medium mt-0.5 flex items-center gap-1">
+                    <Building2 size={12} className="shrink-0 text-slate-400" />
                     <span>Cơ quan ban hành: {form.issuingBody}</span>
                   </p>
                 </div>

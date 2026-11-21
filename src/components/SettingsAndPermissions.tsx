@@ -50,6 +50,7 @@ import {
 import { Resident, ActiveTab, AdministrativeForm, LandingConfig, LocalNews } from "../types";
 import { getNewsDetailPath, getNewsEditPath, getResidentDetailPath, navigate } from "../routes";
 import AdministrativeForms from "./AdministrativeForms";
+import { PageHeader } from "./common/PageHeader";
 import { ReportSelect } from "./reports/ReportSelect";
 import { InlineNotice } from "./ui/ConfirmModal";
 import { EmptyState } from "./ui/EmptyState";
@@ -830,7 +831,7 @@ export default function SettingsAndPermissions({
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       {newsActionToast && (
         <InlineNotice
           message={newsActionToast}
@@ -839,98 +840,83 @@ export default function SettingsAndPermissions({
         />
       )}
 
-      {/* Top Flat Hairline Header & Tab Navigation */}
-      <div className="bg-white border border-slate-200 rounded-2xl p-5 md:p-6">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-          <div className="flex items-center gap-3">
-            <div className="p-2.5 bg-emerald-50 border border-emerald-200 text-emerald-700 rounded-xl">
-              <Shield size={22} />
-            </div>
-            <h1 className="text-xl md:text-2xl font-bold tracking-tight text-slate-900">
-              Cấu Hình &amp; Phân Quyền Hệ Thống
-            </h1>
-          </div>
-        </div>
+      {/* Minimalist Flat Header & Clean Tab Bar */}
+      <div className="space-y-3">
+        <PageHeader
+          title="Cấu hình & Phân quyền Hệ thống"
+          description="Phê duyệt tài khoản cán bộ, kết nối Zalo OA, quản trị Cổng Cư dân và nhật ký kiểm toán"
+        />
 
-        <div className="flex flex-wrap gap-2 mt-5 border-t border-slate-200 pt-4">
+        <div className="flex items-center gap-1 overflow-x-auto whitespace-nowrap p-1 bg-slate-100/80 rounded-xl border border-slate-200/80 w-fit max-w-full evon-scroll">
           <button
             type="button"
             onClick={() => setActiveSubTab("approvals")}
-            className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-colors cursor-pointer flex items-center gap-1.5 border shrink-0
-              ${activeSubTab === "approvals"
-                ? "bg-emerald-700 border-emerald-700 text-white"
-                : "bg-white border-slate-200 text-slate-700 hover:bg-slate-100"
-              }
-            `}
+            className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors cursor-pointer flex items-center gap-1.5 shrink-0 ${
+              activeSubTab === "approvals"
+                ? "bg-white text-slate-900 shadow-2xs"
+                : "text-slate-600 hover:text-slate-900"
+            }`}
           >
-            <UserCheck size={14} /> Duyệt Hồ sơ &amp; Liên kết Cư dân ({pendingCadres.length + realPendingRegistrations.length})
+            <UserCheck size={13} className={activeSubTab === "approvals" ? "text-emerald-700" : "text-slate-500"} />
+            <span>Duyệt tài khoản ({pendingCadres.length + realPendingRegistrations.length})</span>
           </button>
           <button
             type="button"
             onClick={() => setActiveSubTab("zalo_oa")}
-            className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-colors cursor-pointer flex items-center gap-1.5 border shrink-0
-              ${activeSubTab === "zalo_oa"
-                ? "bg-emerald-700 border-emerald-700 text-white"
-                : "bg-white border-slate-200 text-slate-700 hover:bg-slate-100"
-              }
-            `}
+            className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors cursor-pointer flex items-center gap-1.5 shrink-0 ${
+              activeSubTab === "zalo_oa"
+                ? "bg-white text-slate-900 shadow-2xs"
+                : "text-slate-600 hover:text-slate-900"
+            }`}
           >
-            <BellRing size={14} /> Zalo OA &amp; Nhắc hạn 15 ngày
+            <BellRing size={13} className={activeSubTab === "zalo_oa" ? "text-emerald-700" : "text-slate-500"} />
+            <span>Zalo OA &amp; Tự động</span>
           </button>
           <button
             type="button"
             onClick={() => setActiveSubTab("portal")}
-            className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-colors cursor-pointer flex items-center gap-1.5 border shrink-0
-              ${activeSubTab === "portal"
-                ? "bg-emerald-700 border-emerald-700 text-white"
-                : "bg-white border-slate-200 text-slate-700 hover:bg-slate-100"
-              }
-            `}
+            className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors cursor-pointer flex items-center gap-1.5 shrink-0 ${
+              activeSubTab === "portal"
+                ? "bg-white text-slate-900 shadow-2xs"
+                : "text-slate-600 hover:text-slate-900"
+            }`}
           >
-            <Building2 size={14} /> Trang chủ, Ảnh &amp; Cán bộ
-          </button>
-          <button
-            type="button"
-            onClick={() => setActiveSubTab("forms")}
-            className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-colors cursor-pointer flex items-center gap-1.5 border shrink-0
-              ${activeSubTab === "forms"
-                ? "bg-emerald-700 border-emerald-700 text-white"
-                : "bg-white border-slate-200 text-slate-700 hover:bg-slate-100"
-              }
-            `}
-          >
-            <FileText size={14} /> Biểu mẫu Hành chính ({forms.length})
+            <Building2 size={13} className={activeSubTab === "portal" ? "text-emerald-700" : "text-slate-500"} />
+            <span>Cổng Cư dân</span>
           </button>
           <button
             type="button"
             onClick={() => setActiveSubTab("permissions")}
-            className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-colors cursor-pointer flex items-center gap-1.5 border shrink-0
-              ${activeSubTab === "permissions"
-                ? "bg-emerald-700 border-emerald-700 text-white"
-                : "bg-white border-slate-200 text-slate-700 hover:bg-slate-100"
-              }
-            `}
+            className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors cursor-pointer flex items-center gap-1.5 shrink-0 ${
+              activeSubTab === "permissions"
+                ? "bg-white text-slate-900 shadow-2xs"
+                : "text-slate-600 hover:text-slate-900"
+            }`}
           >
-            <Shield size={14} /> Phân quyền Cán bộ &amp; Địa bàn KP3
+            <Shield size={13} className={activeSubTab === "permissions" ? "text-emerald-700" : "text-slate-500"} />
+            <span>Phân quyền</span>
           </button>
           <button
             type="button"
             onClick={() => setActiveSubTab("audit")}
-            className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-colors cursor-pointer flex items-center gap-1.5 border shrink-0
-              ${activeSubTab === "audit"
-                ? "bg-emerald-700 border-emerald-700 text-white"
-                : "bg-white border-slate-200 text-slate-700 hover:bg-slate-100"
-              }
-            `}
+            className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors cursor-pointer flex items-center gap-1.5 shrink-0 ${
+              activeSubTab === "audit"
+                ? "bg-white text-slate-900 shadow-2xs"
+                : "text-slate-600 hover:text-slate-900"
+            }`}
           >
-            <Fingerprint size={14} /> Nhật ký Kiểm toán
+            <Fingerprint size={13} className={activeSubTab === "audit" ? "text-emerald-700" : "text-slate-500"} />
+            <span>Nhật ký kiểm toán</span>
           </button>
         </div>
       </div>
 
       {/* Zalo OA & 15-Day Expiry Notification Hub */}
       {activeSubTab === "zalo_oa" && (
-        <ZaloOaNotificationHub onNotify={showNewsToast} />
+        <ZaloOaNotificationHub
+          onNotify={showNewsToast}
+          onNavigateToBroadcast={onNavigate ? () => onNavigate("tasks") : undefined}
+        />
       )}
 
       {/* Portal Config Tab (Trang chủ, Hình ảnh, Cán bộ & Giới thiệu KP3) */}
@@ -946,26 +932,30 @@ export default function SettingsAndPermissions({
 
       {/* Approvals tab */}
       {activeSubTab === "approvals" && (
-        <div className="space-y-6">
+        <div className="space-y-4">
           {/* 1. Phê duyệt Cán bộ công tác (Supabase Auth & RLS) */}
-          <div className="bg-white border border-slate-200 border-l-4 border-l-indigo-600 rounded-2xl p-5 text-slate-900 space-y-4">
-            <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
-              <h4 className="font-bold text-sm tracking-tight text-slate-900 flex items-center gap-2">
-                <ShieldCheck size={18} className="text-indigo-700" />
-                Phê duyệt Tài khoản Cán bộ công tác
-              </h4>
+          <div className="bg-white border border-slate-200/90 rounded-2xl p-4 sm:p-5 text-slate-900 space-y-3.5 shadow-2xs">
+            <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 pb-2.5 border-b border-slate-100">
+              <div className="flex items-center gap-2">
+                <span className="p-1.5 bg-indigo-50 text-indigo-700 rounded-lg border border-indigo-100/80">
+                  <ShieldCheck size={14} />
+                </span>
+                <h4 className="font-bold text-xs uppercase tracking-wider text-slate-900">
+                  Phê duyệt Tài khoản Cán bộ công tác
+                </h4>
+              </div>
               <div className="flex items-center gap-2 shrink-0">
-                <span className="bg-indigo-50 text-indigo-800 border border-indigo-200 font-bold px-2.5 py-1 rounded-full text-xs font-mono">
+                <span className="bg-indigo-50 text-indigo-800 border border-indigo-200 font-bold px-2.5 py-0.5 rounded-full text-xs font-mono">
                   {pendingCadres.length} Cán bộ chờ duyệt
                 </span>
                 <button
                   type="button"
                   onClick={() => fetchStaffProfiles(true)}
                   disabled={cadreLoading}
-                  className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-xs font-semibold transition-colors cursor-pointer disabled:opacity-50"
+                  className="h-8 inline-flex items-center gap-1.5 px-2.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-xs font-semibold transition-colors cursor-pointer disabled:opacity-50"
                   title="Tải lại danh sách tài khoản Cán bộ"
                 >
-                  <RefreshCw size={13} className={cadreLoading ? "animate-spin" : ""} />
+                  <RefreshCw size={12} className={cadreLoading ? "animate-spin" : ""} />
                   <span>Làm mới</span>
                 </button>
               </div>
@@ -1005,10 +995,10 @@ export default function SettingsAndPermissions({
                     : null;
 
                   return (
-                    <div key={cadre.id} className="bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-3">
+                    <div key={cadre.id} className="bg-slate-50/70 border border-slate-200 rounded-xl p-3.5 space-y-2.5">
                       <div className="flex items-start justify-between gap-2">
                         <div className="min-w-0">
-                          <h5 className="font-bold text-slate-900 text-sm truncate">{cadre.full_name}</h5>
+                          <h5 className="font-bold text-slate-900 text-xs sm:text-[13px] truncate">{cadre.full_name}</h5>
                           <p className="text-xs text-indigo-700 font-medium">{cadre.position || "Cán bộ Khu phố"}</p>
                           <p className="text-xs text-slate-600 font-mono mt-0.5 break-all">{cadre.email}</p>
                         </div>
@@ -1263,24 +1253,33 @@ export default function SettingsAndPermissions({
           </div>
 
           {/* 2. Yêu cầu Đăng ký Cư dân trực tuyến */}
-          <div className="flex flex-wrap justify-between items-center gap-2 pt-2">
-            <h4 className="font-bold text-slate-900 text-sm">Yêu cầu Đăng ký Cư dân trực tuyến</h4>
-            <span className="bg-indigo-100 text-indigo-800 font-bold px-2.5 py-1 rounded-full text-xs shrink-0">
-              {realPendingRegistrations.length} Hồ sơ chờ duyệt
-            </span>
-          </div>
+          <div className="bg-white border border-slate-200/90 rounded-2xl p-4 sm:p-5 space-y-3 shadow-2xs">
+            <div className="flex flex-wrap justify-between items-center gap-2">
+              <div className="flex items-center gap-2">
+                <span className="p-1.5 bg-emerald-50 text-emerald-700 rounded-lg border border-emerald-100">
+                  <Users size={14} />
+                </span>
+                <h4 className="font-bold text-slate-900 text-xs uppercase tracking-wider">
+                  Hồ sơ Đăng ký Cư dân Trực tuyến
+                </h4>
+              </div>
+              <span className="bg-slate-100 text-slate-700 border border-slate-200 font-bold px-2.5 py-0.5 rounded-full text-xs font-mono shrink-0">
+                {realPendingRegistrations.length} chờ duyệt
+              </span>
+            </div>
 
-          {realPendingRegistrations.length === 0 ? (
-            <EmptyState
-              title="Chưa có hồ sơ đăng ký cư dân trực tuyến chờ duyệt"
-            />
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {realPendingRegistrations.length === 0 ? (
+              <div className="bg-slate-50/80 border border-slate-200/80 rounded-xl px-4 py-3 text-xs text-slate-600 flex items-center gap-2">
+                <CheckCircle2 size={14} className="text-emerald-700 shrink-0" />
+                <span>Chưa có hồ sơ đăng ký cư dân trực tuyến nào đang chờ xét duyệt.</span>
+              </div>
+            ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
               {realPendingRegistrations.map((reg) => (
-                <div key={reg.id} className="bg-white border border-slate-200/80 rounded-2xl p-5 shadow-sm space-y-4 hover:border-slate-300 transition-all">
+                <div key={reg.id} className="bg-white border border-slate-200/90 rounded-2xl p-4 shadow-2xs space-y-3 hover:border-slate-300 transition-colors">
                   <div className="flex flex-wrap items-start justify-between gap-3">
-                    <div className="flex items-center gap-3 min-w-0">
-                      <div className="w-12 h-12 rounded-full bg-indigo-50 border border-indigo-100 flex items-center justify-center font-bold text-indigo-700 text-sm overflow-hidden shrink-0">
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <div className="w-10 h-10 rounded-full bg-indigo-50 border border-indigo-100 flex items-center justify-center font-bold text-indigo-700 text-xs overflow-hidden shrink-0">
                         {reg.avatar ? (
                           <img src={reg.avatar} alt={reg.fullName} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
                         ) : (
@@ -1288,9 +1287,9 @@ export default function SettingsAndPermissions({
                         )}
                       </div>
                       <div className="min-w-0">
-                        <h5 className="font-bold text-slate-800 text-sm flex flex-wrap items-center gap-2">
+                        <h5 className="font-bold text-slate-900 text-xs sm:text-[13px] flex flex-wrap items-center gap-1.5">
                           <span className="truncate">{reg.fullName}</span>
-                          <span className={`text-xs font-bold px-2 py-0.5 rounded shrink-0 ${reg.status === "Thường trú" ? "bg-emerald-100 text-emerald-800" : "bg-amber-100 text-amber-800"}`}>
+                          <span className={`text-[11px] font-bold px-2 py-0.5 rounded shrink-0 ${reg.status === "Thường trú" ? "bg-emerald-100 text-emerald-800" : "bg-amber-100 text-amber-800"}`}>
                             {reg.status}
                           </span>
                         </h5>
@@ -1298,42 +1297,42 @@ export default function SettingsAndPermissions({
                       </div>
                     </div>
                     <div className="flex flex-col items-end gap-1 shrink-0">
-                      <div className="flex items-center gap-1.5 text-amber-800 bg-amber-50 border border-amber-200 px-2 py-1 rounded-lg text-xs font-bold">
+                      <div className="flex items-center gap-1 text-amber-800 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-lg text-[11px] font-bold">
                         <Clock size={11} /> Chờ duyệt
                       </div>
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-2.5 text-xs border-t border-b border-slate-100 py-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-2 text-xs border-t border-b border-slate-100 py-2.5">
                     <div>
-                      <span className="text-xs text-slate-600 uppercase tracking-wider block">Giới tính</span>
-                      <span className="font-bold text-slate-700">{reg.gender}</span>
+                      <span className="text-[11px] text-slate-500 uppercase tracking-wider block">Giới tính</span>
+                      <span className="font-semibold text-slate-800">{reg.gender}</span>
                     </div>
                     <div>
-                      <span className="text-xs text-slate-600 uppercase tracking-wider block">Ngày sinh</span>
-                      <span className="font-bold text-slate-700 font-mono">{reg.birthDate}</span>
+                      <span className="text-[11px] text-slate-500 uppercase tracking-wider block">Ngày sinh</span>
+                      <span className="font-semibold text-slate-800 font-mono">{reg.birthDate}</span>
                     </div>
                     <div>
-                      <span className="text-xs text-slate-600 uppercase tracking-wider block">Điện thoại</span>
-                      <span className="font-bold text-slate-700 font-mono">{reg.phone}</span>
+                      <span className="text-[11px] text-slate-500 uppercase tracking-wider block">Điện thoại</span>
+                      <span className="font-semibold text-slate-800 font-mono">{reg.phone}</span>
                     </div>
                     <div>
-                      <span className="text-xs text-slate-600 uppercase tracking-wider block">Nghề nghiệp</span>
-                      <span className="font-bold text-slate-700">{reg.occupation}</span>
+                      <span className="text-[11px] text-slate-500 uppercase tracking-wider block">Nghề nghiệp</span>
+                      <span className="font-semibold text-slate-800">{reg.occupation}</span>
                     </div>
                     <div>
-                      <span className="text-xs text-slate-600 uppercase tracking-wider block">Mã Hộ khẩu xin nhập</span>
+                      <span className="text-[11px] text-slate-500 uppercase tracking-wider block">Mã Hộ khẩu xin nhập</span>
                       <span className="font-bold text-indigo-600 font-mono">{reg.householdId}</span>
                     </div>
                     <div>
-                      <span className="text-xs text-slate-600 uppercase tracking-wider block">Quan hệ chủ hộ</span>
-                      <span className="font-bold text-slate-700">{reg.relationToOwner}</span>
+                      <span className="text-[11px] text-slate-500 uppercase tracking-wider block">Quan hệ chủ hộ</span>
+                      <span className="font-semibold text-slate-800">{reg.relationToOwner}</span>
                     </div>
                   </div>
 
-                  <div className="space-y-1.5">
+                  <div className="space-y-1">
                     <div className="flex items-start gap-1.5 text-xs text-slate-600">
-                      <MapPin size={12} className="text-slate-600 mt-0.5 shrink-0" />
+                      <MapPin size={12} className="text-slate-400 mt-0.5 shrink-0" />
                       <span className="leading-tight"><b>Địa chỉ:</b> {reg.address}</span>
                     </div>
                     {reg.coordinates && (
@@ -1344,27 +1343,28 @@ export default function SettingsAndPermissions({
                     )}
                   </div>
 
-                  <div className="flex flex-wrap gap-2 pt-1.5">
+                  <div className="flex flex-wrap gap-2 pt-1">
                     <button
                       type="button"
                       onClick={() => handleApproveRealRegistration(reg)}
-                      className="flex-1 min-h-[40px] bg-emerald-700 hover:bg-emerald-800 text-white font-bold py-2 px-3 rounded-lg text-xs transition-colors flex items-center justify-center gap-1 cursor-pointer"
+                      className="flex-1 h-9 bg-emerald-700 hover:bg-emerald-800 text-white font-semibold px-3 rounded-lg text-xs transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
                     >
-                      <UserCheck size={14} /> Phê duyệt nhập khẩu
+                      <UserCheck size={13} /> Phê duyệt nhập khẩu
                     </button>
                     <button
                       type="button"
                       onClick={() => handleRejectRealRegistration(reg.id)}
-                      className="bg-rose-50 hover:bg-rose-100 text-rose-600 font-bold p-2 rounded-lg text-xs transition-colors cursor-pointer shrink-0"
+                      className="h-9 w-9 bg-rose-50 hover:bg-rose-100 border border-rose-200 text-rose-600 font-semibold rounded-lg text-xs transition-colors cursor-pointer shrink-0 flex items-center justify-center"
                       title="Từ chối hồ sơ"
                     >
-                      <UserX size={15} />
+                      <UserX size={14} />
                     </button>
                   </div>
                 </div>
               ))}
             </div>
           )}
+          </div>
         </div>
       )}
 
@@ -1383,13 +1383,13 @@ export default function SettingsAndPermissions({
 
       {/* Canonical News Link tab */}
       {activeSubTab === "news" && (
-        <div className="space-y-5">
-          <div className="bg-white border border-slate-200 border-l-4 border-l-emerald-600 rounded-2xl p-5 md:p-6 flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div className="space-y-4">
+          <div className="bg-white border border-slate-200/90 rounded-2xl p-4 sm:p-5 flex flex-col md:flex-row md:items-center justify-between gap-4 shadow-2xs">
             <div className="space-y-1.5">
-              <span className="inline-flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-emerald-700 bg-emerald-50 border border-emerald-200 px-2.5 py-0.5 rounded-full">
-                <Newspaper size={13} /> Đã hợp nhất về phân hệ Truyền thông KP3
+              <span className="inline-flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider text-emerald-700 bg-emerald-50 border border-emerald-200 px-2.5 py-0.5 rounded-full">
+                <Newspaper size={12} /> Đã hợp nhất về phân hệ Truyền thông KP3
               </span>
-              <h4 className="text-base font-bold text-slate-900">
+              <h4 className="text-sm font-bold text-slate-900">
                 Quản lý Tin tức, Thông báo &amp; Sự kiện Cộng đồng
               </h4>
               <p className="text-xs text-slate-600 max-w-2xl leading-relaxed">
@@ -1405,33 +1405,33 @@ export default function SettingsAndPermissions({
                   showNewsToast("Vui lòng chọn mục Tin tức & Sự kiện trên thanh điều hướng bên trái.");
                 }
               }}
-              className="px-4 py-2.5 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-bold transition-colors cursor-pointer shrink-0 flex items-center gap-2"
+              className="h-9 px-3.5 rounded-lg bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-semibold transition-colors cursor-pointer shrink-0 flex items-center gap-1.5"
             >
-              <Newspaper size={15} />
+              <Newspaper size={14} />
               <span>Mở Kênh Tin tức &amp; Sự kiện KP3 →</span>
             </button>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3.5">
-            <div className="bg-white border border-slate-200 rounded-2xl p-4">
+            <div className="bg-white border border-slate-200/90 rounded-xl p-3.5 shadow-2xs">
               <span className="text-xs font-bold text-slate-600 uppercase tracking-wider block">Tổng số bài viết</span>
-              <span className="text-2xl font-bold text-slate-900 mt-1 block">{(newsList || []).length}</span>
-              <span className="text-xs text-slate-600 mt-0.5 block">Đã lưu &amp; phát hành</span>
+              <span className="text-lg font-bold text-slate-900 mt-1 block font-mono">{(newsList || []).length}</span>
+              <span className="text-[11px] text-slate-500 mt-0.5 block">Đã lưu &amp; phát hành</span>
             </div>
-            <div className="bg-white border border-amber-200 rounded-2xl p-4">
+            <div className="bg-white border border-amber-200 rounded-xl p-3.5 shadow-2xs">
               <span className="text-xs font-bold text-amber-800 uppercase tracking-wider block">Đang ghim trang chủ</span>
-              <span className="text-2xl font-bold text-amber-700 mt-1 block">{(newsList || []).filter(n => n.isPinned).length}</span>
-              <span className="text-xs text-slate-600 mt-0.5 block">Ưu tiên trên Cổng Cư dân</span>
+              <span className="text-lg font-bold text-amber-700 mt-1 block font-mono">{(newsList || []).filter(n => n.isPinned).length}</span>
+              <span className="text-[11px] text-slate-500 mt-0.5 block">Ưu tiên trên Cổng Cư dân</span>
             </div>
-            <div className="bg-white border border-rose-200 rounded-2xl p-4">
+            <div className="bg-white border border-rose-200 rounded-xl p-3.5 shadow-2xs">
               <span className="text-xs font-bold text-rose-800 uppercase tracking-wider block">Thông báo khẩn</span>
-              <span className="text-2xl font-bold text-rose-700 mt-1 block">{(newsList || []).filter(n => n.category === "Thông báo khẩn").length}</span>
-              <span className="text-xs text-slate-600 mt-0.5 block">An ninh &amp; Y tế cấp bách</span>
+              <span className="text-lg font-bold text-rose-700 mt-1 block font-mono">{(newsList || []).filter(n => n.category === "Thông báo khẩn").length}</span>
+              <span className="text-[11px] text-slate-500 mt-0.5 block">An ninh &amp; Y tế cấp bách</span>
             </div>
-            <div className="bg-white border border-blue-200 rounded-2xl p-4">
+            <div className="bg-white border border-blue-200 rounded-xl p-3.5 shadow-2xs">
               <span className="text-xs font-bold text-blue-800 uppercase tracking-wider block">Tin hành chính</span>
-              <span className="text-2xl font-bold text-blue-700 mt-1 block">{(newsList || []).filter(n => n.category === "Hành chính").length}</span>
-              <span className="text-xs text-slate-600 mt-0.5 block">Thủ tục &amp; Lịch tiếp dân</span>
+              <span className="text-lg font-bold text-blue-700 mt-1 block font-mono">{(newsList || []).filter(n => n.category === "Hành chính").length}</span>
+              <span className="text-[11px] text-slate-500 mt-0.5 block">Thủ tục &amp; Lịch tiếp dân</span>
             </div>
           </div>
 
@@ -1449,16 +1449,16 @@ export default function SettingsAndPermissions({
                     navigate(getNewsDetailPath(item.id));
                   }
                 }}
-                className="bg-white border border-slate-200 hover:border-emerald-400 hover:shadow-sm rounded-xl p-4 flex flex-col justify-between gap-3 cursor-pointer transition-all group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600"
+                className="bg-white border border-slate-200/90 hover:border-emerald-300 shadow-2xs rounded-xl p-3.5 flex flex-col justify-between gap-3 cursor-pointer transition-colors group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600"
               >
                 <div className="space-y-1.5">
                   <div className="flex items-center justify-between gap-2 text-xs">
-                    <span className="px-2 py-0.5 rounded-full bg-slate-100 text-slate-700 font-semibold border border-slate-200">
+                    <span className="px-2 py-0.5 rounded-full bg-slate-100 text-slate-700 font-semibold border border-slate-200 text-[11px]">
                       {item.category}
                     </span>
                     <span className="font-mono text-slate-500">{item.date}</span>
                   </div>
-                  <h5 className="font-bold text-sm text-slate-900 group-hover:text-emerald-700 line-clamp-2 leading-snug transition-colors">
+                  <h5 className="font-bold text-xs sm:text-[13px] text-slate-900 group-hover:text-emerald-700 line-clamp-2 leading-snug transition-colors">
                     {item.title}
                   </h5>
                   <p className="text-xs text-slate-600 line-clamp-2">{item.summary || item.content}</p>
@@ -1509,9 +1509,9 @@ export default function SettingsAndPermissions({
       {/* Permissions tab */}
       {activeSubTab === "permissions" && (
         <div className="space-y-4">
-          <div className="bg-white border border-slate-200/80 rounded-2xl overflow-hidden shadow-2xs">
+          <div className="bg-white border border-slate-200/90 rounded-2xl overflow-hidden shadow-2xs">
             <div className="px-4 py-3 border-b border-slate-100 bg-slate-50/50 flex flex-wrap justify-between items-center gap-2">
-              <span className="font-bold text-slate-800 text-sm">Phân quyền truy cập theo phân hệ</span>
+              <span className="font-bold text-slate-900 text-xs uppercase tracking-wider">Phân quyền truy cập theo phân hệ</span>
             </div>
 
             <div className="divide-y divide-slate-100">
@@ -1523,38 +1523,38 @@ export default function SettingsAndPermissions({
                 const isRestrictedBySystem = ["residents", "households"].includes(key);
 
                 return (
-                  <div key={key} className="px-4 py-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:bg-slate-50/40 transition-colors">
-                    <div className="flex items-center gap-3 min-w-0">
-                      <div className="p-2 bg-slate-100 text-slate-600 rounded-xl shrink-0">
-                        <IconComponent size={16} />
+                  <div key={key} className="px-4 py-2.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:bg-slate-50/50 transition-colors">
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <div className="p-1.5 bg-slate-100 text-slate-600 rounded-lg shrink-0">
+                        <IconComponent size={14} />
                       </div>
-                      <h5 className="font-semibold text-slate-900 text-sm flex flex-wrap items-center gap-2">
+                      <h5 className="font-semibold text-slate-900 text-xs flex flex-wrap items-center gap-2">
                         <span>{info.label}</span>
                         {isRestrictedBySystem && (
-                          <span className="text-xs font-bold bg-slate-200 text-slate-600 px-2 py-0.5 rounded flex items-center gap-1 shrink-0">
+                          <span className="text-[11px] font-bold bg-slate-100 text-slate-600 border border-slate-200 px-2 py-0.5 rounded flex items-center gap-1 shrink-0">
                             <Lock size={10} /> Nội bộ cán bộ
                           </span>
                         )}
                       </h5>
                     </div>
 
-                    <div className="flex flex-wrap items-center gap-3 sm:gap-6 self-end sm:self-center shrink-0">
+                    <div className="flex flex-wrap items-center gap-2.5 sm:gap-4 self-end sm:self-center shrink-0">
                       {/* Officer Access Level */}
-                      <div className="flex items-center gap-1.5 bg-indigo-50 border border-indigo-100/50 px-2.5 py-1 rounded-lg text-xs font-bold text-indigo-700 shrink-0">
-                        <Shield size={12} /> Cán bộ: Đầy đủ
+                      <div className="flex items-center gap-1 bg-indigo-50 border border-indigo-100 px-2.5 py-1 rounded-lg text-xs font-semibold text-indigo-700 shrink-0">
+                        <Shield size={11} /> Cán bộ: Đầy đủ
                       </div>
 
                       {/* Resident Access Level Toggle */}
                       <div className="flex items-center gap-2 shrink-0">
                         {isRestrictedBySystem ? (
-                          <div className="flex items-center gap-1 text-slate-600 text-xs font-semibold select-none bg-slate-50 px-2.5 py-1 rounded-lg border border-slate-100">
-                            <Lock size={12} /> Bị khóa ở dân
+                          <div className="flex items-center gap-1 text-slate-600 text-xs font-semibold select-none bg-slate-50 px-2.5 py-1 rounded-lg border border-slate-200">
+                            <Lock size={11} /> Bị khóa ở dân
                           </div>
                         ) : (
                           <button
                             type="button"
                             onClick={() => handleTogglePersistentPermission(key)}
-                            className={`px-3 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 border shrink-0
+                            className={`px-2.5 py-1 rounded-lg text-xs font-semibold transition-colors cursor-pointer flex items-center gap-1.5 border shrink-0
                               ${isResidentAllowed 
                                 ? "bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100" 
                                 : "bg-rose-50 text-rose-700 border-rose-200 hover:bg-rose-100"
@@ -1563,11 +1563,11 @@ export default function SettingsAndPermissions({
                           >
                             {isResidentAllowed ? (
                               <>
-                                <Check size={12} /> Dân: Được xem
+                                <Check size={11} /> Dân: Được xem
                               </>
                             ) : (
                               <>
-                                <X size={12} /> Dân: Đã khóa
+                                <X size={11} /> Dân: Đã khóa
                               </>
                             )}
                           </button>
@@ -1581,10 +1581,10 @@ export default function SettingsAndPermissions({
           </div>
 
           {/* Phạm vi Phân quyền Theo Cụm địa bàn & Tuyến đường KP3 */}
-          <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden">
-            <div className="p-4 border-b border-slate-200 bg-slate-50 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-              <h5 className="font-bold text-slate-900 text-sm flex items-center gap-1.5">
-                <MapPin size={15} className="text-emerald-700" />
+          <div className="bg-white border border-slate-200/90 rounded-2xl overflow-hidden shadow-2xs">
+            <div className="px-4 py-3 border-b border-slate-200/80 bg-slate-50/60 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <h5 className="font-bold text-slate-900 text-xs uppercase tracking-wider flex items-center gap-1.5">
+                <MapPin size={14} className="text-emerald-700" />
                 Phạm vi phụ trách theo tuyến đường KP3
               </h5>
               <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
@@ -1603,7 +1603,7 @@ export default function SettingsAndPermissions({
                 <button
                   type="button"
                   onClick={() => handleSetAllAreaScope(true)}
-                  className="px-3 py-2 rounded-xl border border-slate-200 bg-white hover:bg-emerald-50 text-emerald-800 text-xs font-semibold cursor-pointer shrink-0"
+                  className="h-9 px-3 rounded-lg border border-slate-200 bg-white hover:bg-emerald-50 text-emerald-800 text-xs font-semibold cursor-pointer shrink-0"
                 >
                   Mở toàn địa bàn
                 </button>
@@ -1644,24 +1644,29 @@ export default function SettingsAndPermissions({
 
       {/* Audit Logs Tab */}
       {activeSubTab === "audit" && (
-        <div className="space-y-5">
-          <div className="bg-white border border-slate-200 border-l-4 border-l-emerald-700 rounded-2xl p-5 space-y-3">
+        <div className="space-y-4">
+          <div className="bg-white border border-slate-200/90 rounded-2xl p-4 sm:p-5 space-y-3 shadow-2xs">
             <div className="flex flex-wrap items-center justify-between gap-3">
-              <h4 className="text-base sm:text-lg font-bold text-slate-900">
-                Nhật ký Kiểm toán Hệ thống ({normalizedAuditLogs.length})
-              </h4>
+              <div className="flex items-center gap-2">
+                <span className="p-1.5 bg-emerald-50 text-emerald-700 rounded-lg border border-emerald-100">
+                  <Fingerprint size={14} />
+                </span>
+                <h4 className="text-xs font-bold uppercase tracking-wider text-slate-900">
+                  Nhật ký Kiểm toán Hệ thống ({normalizedAuditLogs.length})
+                </h4>
+              </div>
               <button
                 type="button"
                 onClick={() => fetchAuditLogs(true)}
                 disabled={auditLoading}
-                className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-xs font-bold transition-colors cursor-pointer shrink-0 disabled:opacity-50"
+                className="h-8 inline-flex items-center gap-1.5 px-3 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-xs font-semibold transition-colors cursor-pointer shrink-0 disabled:opacity-50"
               >
-                <RefreshCw size={14} className={auditLoading ? "animate-spin" : ""} />
+                <RefreshCw size={13} className={auditLoading ? "animate-spin" : ""} />
                 <span>Làm mới nhật ký</span>
               </button>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3 pt-2">
+            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3 pt-1">
               {(
                 [
                   { cat: "Xuất Excel", tone: "border-emerald-200 bg-emerald-50/50 text-emerald-800" },
@@ -1676,7 +1681,7 @@ export default function SettingsAndPermissions({
                     <span className="text-xs font-bold uppercase tracking-wider block">
                       {cat}
                     </span>
-                    <span className="text-xl font-black font-mono mt-1 block">
+                    <span className="text-lg font-bold font-mono mt-1 block">
                       {count}
                     </span>
                     <span className="text-[11px] opacity-80 block mt-0.5">
@@ -1688,8 +1693,8 @@ export default function SettingsAndPermissions({
             </div>
           </div>
 
-          <div className="bg-white border border-slate-200/80 rounded-2xl overflow-hidden shadow-sm">
-            <div className="p-4 border-b border-slate-200 bg-slate-50 flex flex-wrap items-center justify-between gap-3">
+          <div className="bg-white border border-slate-200/90 rounded-2xl overflow-hidden shadow-2xs">
+            <div className="p-3.5 border-b border-slate-200/80 bg-slate-50/60 flex flex-wrap items-center justify-between gap-2.5">
               <div className="flex flex-wrap items-center gap-1.5">
                 {["Tất cả", "Xuất Excel", "Truy cập CCCD", "Đổi nhân sự", "CRUD hồ sơ"].map(
                   (cat) => (
@@ -1697,7 +1702,7 @@ export default function SettingsAndPermissions({
                       key={cat}
                       type="button"
                       onClick={() => setAuditCategoryFilter(cat)}
-                      className={`px-3 py-1.5 rounded-lg text-xs font-bold border transition-colors cursor-pointer shrink-0 ${
+                      className={`h-8 px-2.5 rounded-lg text-xs font-semibold border transition-colors cursor-pointer shrink-0 ${
                         auditCategoryFilter === cat
                           ? "bg-slate-900 text-white border-slate-900"
                           : "bg-white text-slate-700 border-slate-200 hover:bg-slate-100"
@@ -1718,7 +1723,7 @@ export default function SettingsAndPermissions({
                   value={auditSearchTerm}
                   onChange={(e) => setAuditSearchTerm(e.target.value)}
                   placeholder="Tìm cán bộ, hành động, đối tượng..."
-                  className="w-full h-9 pl-9 pr-3 rounded-xl border border-slate-200/90 bg-white text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600"
+                  className="w-full h-9 pl-9 pr-3 rounded-lg border border-slate-200 bg-white text-xs text-slate-900 focus:outline-none focus:border-emerald-600"
                 />
               </div>
             </div>
@@ -1740,10 +1745,10 @@ export default function SettingsAndPermissions({
                 <table className="w-full min-w-[760px] text-left border-collapse text-xs">
                   <thead>
                     <tr className="bg-slate-50 border-b border-slate-200 text-slate-600 uppercase tracking-wider font-bold">
-                      <th className="py-3 px-4 whitespace-nowrap">Thời gian</th>
-                      <th className="py-3 px-4 whitespace-nowrap">Người thực hiện</th>
-                      <th className="py-3 px-4 whitespace-nowrap">Phân loại hành động</th>
-                      <th className="py-3 px-4 min-w-[260px]">Đối tượng tác động &amp; Chi tiết</th>
+                      <th className="py-2.5 px-3.5 whitespace-nowrap">Thời gian</th>
+                      <th className="py-2.5 px-3.5 whitespace-nowrap">Người thực hiện</th>
+                      <th className="py-2.5 px-3.5 whitespace-nowrap">Phân loại hành động</th>
+                      <th className="py-2.5 px-3.5 min-w-[260px]">Đối tượng tác động &amp; Chi tiết</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
@@ -1758,18 +1763,18 @@ export default function SettingsAndPermissions({
                           : "bg-blue-50 text-blue-800 border-blue-200";
                       return (
                         <tr key={log.id} className="hover:bg-slate-50/70 transition-colors">
-                          <td className="py-3 px-4 font-mono text-slate-700 whitespace-nowrap">
+                          <td className="py-2.5 px-3.5 font-mono text-slate-700 whitespace-nowrap">
                             {log.formattedTime}
                           </td>
-                          <td className="py-3 px-4">
+                          <td className="py-2.5 px-3.5">
                             <div className="font-bold text-slate-900">{log.actorLabel}</div>
                             {log.actorRole && (
                               <div className="text-[11px] text-slate-500">{log.actorRole}</div>
                             )}
                           </td>
-                          <td className="py-3 px-4 whitespace-nowrap">
+                          <td className="py-2.5 px-3.5 whitespace-nowrap">
                             <span
-                              className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-bold border ${badgeTone}`}
+                              className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-bold border ${badgeTone}`}
                             >
                               {log.category}
                             </span>
@@ -1777,7 +1782,7 @@ export default function SettingsAndPermissions({
                               {log.actionLabel}
                             </div>
                           </td>
-                          <td className="py-3 px-4">
+                          <td className="py-2.5 px-3.5">
                             <div className="font-semibold text-slate-900">{log.targetLabel}</div>
                             {log.detailsLabel && (
                               <div className="text-slate-600 mt-0.5 leading-relaxed">

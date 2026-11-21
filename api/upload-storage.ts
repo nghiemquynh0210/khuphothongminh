@@ -145,10 +145,10 @@ function detectMagicMime(buf: Buffer): string | null {
 
 export default async function uploadStorageHandler(req: any, res: any) {
   const origin = String(req.headers?.origin || "*");
-  res.setHeader("Access-Control-Allow-Origin", origin || "*");
-  res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
-  res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
-  res.setHeader("Vary", "Origin");
+  res.setHeader?.("Access-Control-Allow-Origin", origin || "*");
+  res.setHeader?.("Access-Control-Allow-Methods", "POST, OPTIONS");
+  res.setHeader?.("Access-Control-Allow-Headers", "Content-Type, Authorization");
+  res.setHeader?.("Vary", "Origin");
   if (req.method === "OPTIONS") {
     return res.status(200).end();
   }
