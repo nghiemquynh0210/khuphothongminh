@@ -138,6 +138,7 @@ export interface ZaloChatConversation {
   cccd?: string;
   residentName?: string;
   residentAddress?: string;
+  residentType?: string;
   lastMessage: string;
   lastMessageType: "text" | "image" | "location" | "file" | "sticker";
   lastDirection: "inbound" | "outbound";
@@ -145,6 +146,9 @@ export interface ZaloChatConversation {
   unreadCount: number;
   linkedReportId?: string;
   linkedReportTitle?: string;
+  aiCategory?: string;
+  aiPriority?: "Khẩn cấp" | "Cao" | "Bình thường";
+  urgentAlertSentAt?: string;
   status: "open" | "resolved";
 }
 
@@ -681,6 +685,110 @@ async function uploadRemoteImageToFieldReportsStorage(
   }
 }
 
+function classifyZaloCitizenMessage(text: string): {
+  category: string;
+  priority: "Khẩn cấp" | "Cao" | "Bình thường";
+} {
+  const s = String(text || "").toLowerCase();
+  let category = "Trật tự đô thị";
+  if (/ngập|cống|thoát nước|ứ đọng|triều cường/.test(s)) {
+    category = "Ngập nước";
+  } else if (/rác|vệ sinh|mùi hôi|ô nhiễm|xà bần/.test(s)) {
+    category = "Rác thải";
+  } else if (/lấn chiếm|vỉa hè|lòng đường|bán hàng rong|đậu xe/.test(s)) {
+    category = "Lấn chiếm lòng đường";
+  } else if (/ồn|karaoke|loa kẹo kéo|tiếng ồn|quá giờ/.test(s)) {
+    category = "Tiếng ồn";
+  } else if (/trộm|cướp|đánh nhau|an ninh|tụ tập|cờ bạc|ma túy|gây rối/.test(s)) {
+    category = "An ninh trật tự";
+  } else if (/đèn|điện|chập điện|đường|ổ gà|nắp cống|hạ tầng|chiếu sáng|cây đổ|cây ngã/.test(s)) {
+    category = "Hạ tầng đô thị";
+  } else if (/tạm trú|thường trú|cccd|giấy tờ|biểu mẫu|xác nhận|hộ khẩu|hỏi|thủ tục/.test(s)) {
+    category = "Hỏi đáp hành chính";
+  }
+
+  let priority: "Khẩn cấp" | "Cao" | "Bình thường" = "Bình thường";
+  if (
+    /cháy|nổ|chập điện|đánh nhau|cướp|tai nạn|cấp cứu|nguy hiểm|khẩn cấp|ngập sâu|cây đổ|cây ngã|rò rỉ gas|điện giật/.test(
+      s
+    )
+  ) {
+    priority = "Khẩn cấp";
+  } else if (
+    /mất điện|hư đèn|ngập|cống nghẹt|rác tồn|karaoke|ồn quá|lấn chiếm|báo gấp|xử lý gấp/.test(s)
+  ) {
+    priority = "Cao";
+  }
+
+  return { category, priority };
+}
+
+async function pushUrgentZaloAlertToCadres(params: {
+  supabaseUrl: string;
+  serviceRoleKey: string;
+  activeToken: string;
+  savedCfg: ZaloOaSavedConfig;
+  citizenName: string;
+  citizenPhone?: string;
+  category: string;
+  messageSnippet: string;
+}): Promise<number> {
+  const {
+    supabaseUrl,
+    serviceRoleKey,
+    activeToken,
+    savedCfg,
+    citizenName,
+    citizenPhone,
+    category,
+    messageSnippet,
+  } = params;
+  if (!activeToken) return 0;
+
+  const mappings =
+    (await readPrivateSetting<CadreZaloMappingEntry[]>(
+      supabaseUrl,
+      serviceRoleKey,
+      CADRE_ZALO_MAPPING_KEY
+    )) || [];
+  if (mappings.length === 0) return 0;
+
+  // Ưu tiên Bí thư, Trưởng Khu phố, Công an khu vực (tối đa 3 cán bộ trực tiếp phụ trách)
+  const prioritized = [...mappings]
+    .filter((m) => m.zaloUserId)
+    .sort((a, b) => {
+      const score = (r?: string) => {
+        const s = String(r || "").toLowerCase();
+        if (s.includes("bí thư")) return 1;
+        if (s.includes("trưởng khu phố") || s.includes("trưởng bđh")) return 2;
+        if (s.includes("công an")) return 3;
+        return 4;
+      };
+      return score(a.role) - score(b.role);
+    })
+    .slice(0, 3);
+
+  const alertText = [
+    `🚨 [CẢNH BÁO PHẢN ÁNH KHẨN CẤP — ZALO OA KP3 AN PHÚ]`,
+    `• Người gửi: ${citizenName}${citizenPhone ? ` (${citizenPhone})` : ""}`,
+    `• Phân loại AI: ${category} • Mức: KHẨN CẤP`,
+    `• Nội dung: "${messageSnippet.slice(0, 220)}"`,
+    `Đề nghị đồng chí kiểm tra và phản hồi ngay tại Hộp thư Zalo OA:`,
+    `👉 https://bdhkp3.vercel.app/dashboard/reports`,
+  ].join("\n");
+
+  let sent = 0;
+  for (const cadre of prioritized) {
+    const res = await sendZaloOaCsMessage(activeToken, cadre.zaloUserId, alertText, {
+      cfg: savedCfg,
+      supabaseUrl,
+      serviceRoleKey,
+    });
+    if (res.ok) sent++;
+  }
+  return sent;
+}
+
 async function appendZaloChatMessageToStore(
   supabaseUrl: string,
   serviceRoleKey: string,
@@ -692,6 +800,9 @@ async function appendZaloChatMessageToStore(
     cccd?: string;
     linkedReportId?: string;
     linkedReportTitle?: string;
+    aiCategory?: string;
+    aiPriority?: "Khẩn cấp" | "Cao" | "Bình thường";
+    urgentAlertSentAt?: string;
   }
 ): Promise<ZaloChatConversation> {
   const threadKey = `${ZALO_CHAT_THREAD_PREFIX}${msg.zaloUserId}`;
@@ -703,7 +814,9 @@ async function appendZaloChatMessageToStore(
     : false;
 
   if (!isDup) {
-    const nextThread = [...existingThread, msg].slice(-200);
+    const nextThread = [...existingThread, msg]
+      .sort((a, b) => Date.parse(a.createdAt || "0") - Date.parse(b.createdAt || "0"))
+      .slice(-200);
     await writePrivateSetting(supabaseUrl, serviceRoleKey, threadKey, nextThread);
   }
 
@@ -725,6 +838,19 @@ async function appendZaloChatMessageToStore(
           ? "[Đã gửi tệp đính kèm]"
           : "[Tin nhắn mới]");
 
+  const classified =
+    msg.direction === "inbound" && msg.content
+      ? classifyZaloCitizenMessage(msg.content)
+      : null;
+
+  const nextPriority: "Khẩn cấp" | "Cao" | "Bình thường" =
+    profileMeta?.aiPriority ||
+    (classified?.priority === "Khẩn cấp"
+      ? "Khẩn cấp"
+      : prev?.aiPriority === "Khẩn cấp"
+        ? "Khẩn cấp"
+        : classified?.priority || prev?.aiPriority || "Bình thường");
+
   const updatedConv: ZaloChatConversation = {
     zaloUserId: msg.zaloUserId,
     displayName:
@@ -736,10 +862,14 @@ async function appendZaloChatMessageToStore(
     cccd: profileMeta?.cccd || prev?.cccd,
     residentName: prev?.residentName,
     residentAddress: prev?.residentAddress,
+    residentType: prev?.residentType,
     lastMessage: previewText.slice(0, 180),
     lastMessageType: msg.msgType,
     lastDirection: msg.direction,
-    lastMessageAt: msg.createdAt,
+    lastMessageAt:
+      prev?.lastMessageAt && Date.parse(prev.lastMessageAt) > Date.parse(msg.createdAt)
+        ? prev.lastMessageAt
+        : msg.createdAt,
     unreadCount:
       msg.direction === "inbound" && !isDup
         ? (prev?.unreadCount || 0) + 1
@@ -748,6 +878,9 @@ async function appendZaloChatMessageToStore(
           : prev?.unreadCount || 0,
     linkedReportId: profileMeta?.linkedReportId || msg.reportId || prev?.linkedReportId,
     linkedReportTitle: profileMeta?.linkedReportTitle || prev?.linkedReportTitle,
+    aiCategory: profileMeta?.aiCategory || classified?.category || prev?.aiCategory,
+    aiPriority: nextPriority,
+    urgentAlertSentAt: profileMeta?.urgentAlertSentAt || prev?.urgentAlertSentAt,
     status: prev?.status || "open",
   };
 
@@ -1082,12 +1215,37 @@ export default async function notificationsHandler(req: any, res: any) {
               createdAt: createdAtIso,
             };
 
-            await appendZaloChatMessageToStore(supabaseUrl, serviceRoleKey, chatMsg, {
+            const savedConv = await appendZaloChatMessageToStore(supabaseUrl, serviceRoleKey, chatMsg, {
               displayName: finalDisplayName,
               avatar: resolvedAvatar || undefined,
               phone: phoneHit ? phoneHit[1] : prev?.phone,
               cccd: cccdHit ? cccdHit[1] : prev?.cccd,
             });
+
+            // Cảnh báo đẩy tự động qua Zalo OA cho Cán bộ phụ trách nếu AI phân loại là KHẨN CẤP (chống spam 30 phút)
+            if (!isOutboundEvent && savedConv.aiPriority === "Khẩn cấp" && activeToken && savedCfg) {
+              const lastAlertMs = savedConv.urgentAlertSentAt
+                ? Date.parse(savedConv.urgentAlertSentAt)
+                : 0;
+              const elapsedMin = (Date.now() - lastAlertMs) / 60_000;
+              if (!lastAlertMs || elapsedMin >= 30) {
+                const alertCount = await pushUrgentZaloAlertToCadres({
+                  supabaseUrl,
+                  serviceRoleKey,
+                  activeToken,
+                  savedCfg,
+                  citizenName: finalDisplayName,
+                  citizenPhone: savedConv.phone,
+                  category: savedConv.aiCategory || "Khẩn cấp",
+                  messageSnippet: contentText,
+                });
+                if (alertCount > 0) {
+                  await appendZaloChatMessageToStore(supabaseUrl, serviceRoleKey, chatMsg, {
+                    urgentAlertSentAt: new Date().toISOString(),
+                  });
+                }
+              }
+            }
           }
 
           // Phản hồi tự động qua Zalo OA CS nếu cư dân nhắn SĐT/CCCD đăng ký nhận nhắc hạn tạm trú
@@ -4323,12 +4481,54 @@ ${userPrompt ? `- Ghi chú thêm của cán bộ: ${userPrompt}` : ""}`;
     const conversations = Array.from(byUid.values()).sort(
       (a, b) => Date.parse(b.lastMessageAt || "0") - Date.parse(a.lastMessageAt || "0")
     );
+
+    // Tự động định danh cư dân KP3 từ bảng residents theo SĐT / CCCD
+    const phonesToLookup = Array.from(
+      new Set(conversations.map((c) => c.phone).filter(Boolean) as string[])
+    ).slice(0, 60);
+    if (phonesToLookup.length > 0) {
+      try {
+        const inClause = phonesToLookup.map((p) => `"${p.replace(/"/g, "")}"`).join(",");
+        const rRes = await fetch(
+          `${supabaseUrl}/rest/v1/residents?select=full_name,phone,cccd,current_address,permanent_address,residence_type&phone=in.(${encodeURIComponent(
+            inClause
+          )})&limit=100`,
+          {
+            headers: {
+              apikey: serviceRoleKey,
+              Authorization: `Bearer ${serviceRoleKey}`,
+            },
+          }
+        );
+        const rRows = await rRes.json().catch(() => []);
+        if (Array.isArray(rRows) && rRows.length > 0) {
+          const byPhone = new Map<string, any>();
+          for (const row of rRows) {
+            if (row.phone) byPhone.set(String(row.phone).trim(), row);
+          }
+          for (const conv of conversations) {
+            if (conv.phone && byPhone.has(conv.phone)) {
+              const hit = byPhone.get(conv.phone);
+              conv.residentName = hit.full_name || conv.residentName;
+              conv.residentAddress =
+                hit.current_address || hit.permanent_address || conv.residentAddress;
+              conv.residentType = hit.residence_type || conv.residentType;
+            }
+          }
+        }
+      } catch {
+        // non-blocking enrichment
+      }
+    }
+
     const totalUnread = conversations.reduce((s, c) => s + (c.unreadCount || 0), 0);
+    const urgentCount = conversations.filter((c) => c.aiPriority === "Khẩn cấp").length;
 
     return res.status(200).json({
       ok: true,
       conversations,
       totalUnread,
+      urgentCount,
       followers: followers.slice(0, 300).map((f) => ({
         zaloUserId: f.zaloUserId,
         displayName: f.displayName || `Cư dân Zalo #${f.zaloUserId.slice(-5)}`,
@@ -4376,6 +4576,7 @@ ${userPrompt ? `- Ghi chú thêm của cán bộ: ${userPrompt}` : ""}`;
 
     let syncedMessages = 0;
     const rawItems = Array.isArray(recentJson?.data) ? recentJson.data : [];
+    const seenUsers = new Map<string, { displayName: string; avatar?: string }>();
 
     for (const item of rawItems) {
       const src = Number(item.src); // 1 = user sent, 0 = OA sent
@@ -4402,6 +4603,8 @@ ${userPrompt ? `- Ghi chú thêm của cán bộ: ${userPrompt}` : ""}`;
         (src === 1 ? item.from_avatar : item.to_avatar) || ""
       ).trim();
 
+      seenUsers.set(uid, { displayName, avatar: avatar || undefined });
+
       const tsNum = Number(item.time);
       const createdAt =
         Number.isFinite(tsNum) && tsNum > 1_000_000_000_000
@@ -4427,6 +4630,56 @@ ${userPrompt ? `- Ghi chú thêm của cán bộ: ${userPrompt}` : ""}`;
       syncedMessages++;
     }
 
+    // Giai đoạn 2: Kéo sâu lịch sử từng hội thoại (tối đa 8 cư dân gần nhất, 10 tin/người) qua /v2.0/oa/conversation
+    for (const [uid, meta] of Array.from(seenUsers.entries()).slice(0, 8)) {
+      try {
+        const convUrl = `https://openapi.zalo.me/v2.0/oa/conversation?data=${encodeURIComponent(
+          JSON.stringify({ user_id: uid, offset: 0, count: 10 })
+        )}`;
+        const cRes = await fetch(convUrl, { headers: { access_token: activeToken } });
+        const cJson = await cRes.json().catch(() => ({}));
+        const cItems = Array.isArray(cJson?.data) ? cJson.data : [];
+        for (const it of cItems.reverse()) {
+          const src = Number(it.src);
+          const mTypeRaw = String(it.type || "text").toLowerCase();
+          const mType: ZaloChatMessage["msgType"] =
+            mTypeRaw === "photo" || mTypeRaw === "image"
+              ? "image"
+              : mTypeRaw === "location"
+                ? "location"
+                : mTypeRaw === "file"
+                  ? "file"
+                  : mTypeRaw === "sticker"
+                    ? "sticker"
+                    : "text";
+          const tsNum = Number(it.time);
+          const createdAt =
+            Number.isFinite(tsNum) && tsNum > 1_000_000_000_000
+              ? new Date(tsNum).toISOString()
+              : new Date().toISOString();
+          await appendZaloChatMessageToStore(
+            supabaseUrl,
+            serviceRoleKey,
+            {
+              id: `ZM-HIST-${it.message_id || Date.now()}`,
+              zaloUserId: uid,
+              direction: src === 1 ? "inbound" : "outbound",
+              msgType: mType,
+              content: String(it.message || "").trim() || (mType === "image" ? "[Hình ảnh]" : "[Tin nhắn]"),
+              attachmentUrl: String(it.url || "").trim() || undefined,
+              senderName: src === 1 ? meta.displayName : "Zalo OA Khu phố 3",
+              zaloMsgId: String(it.message_id || "").trim() || undefined,
+              createdAt,
+            },
+            meta
+          );
+          syncedMessages++;
+        }
+      } catch {
+        // continue other users
+      }
+    }
+
     const updatedIndex =
       (await readPrivateSetting<ZaloChatConversation[]>(
         supabaseUrl,
@@ -4444,11 +4697,74 @@ ${userPrompt ? `- Ghi chú thêm của cán bộ: ${userPrompt}` : ""}`;
 
   if (action === "get_zalo_conversation_messages") {
     const zaloUserId = String(body.zaloUserId || "").trim();
+    const pullFromZalo = Boolean(body.pullFromZalo);
     if (!zaloUserId) {
       return res.status(400).json({ ok: false, error: "Thiếu mã zaloUserId." });
     }
     const threadKey = `${ZALO_CHAT_THREAD_PREFIX}${zaloUserId}`;
-    let messages =
+
+    // Nếu cán bộ bấm "Tải lịch sử Zalo" -> kéo 10 tin nhắn gần nhất trực tiếp từ Zalo OA API
+    if (pullFromZalo) {
+      const savedCfg = await readPrivateSetting<ZaloOaSavedConfig>(
+        supabaseUrl,
+        serviceRoleKey,
+        CONFIG_KEY
+      );
+      if (savedCfg) {
+        const activeToken = await refreshZaloAccessTokenIfNeeded(
+          savedCfg,
+          supabaseUrl,
+          serviceRoleKey
+        );
+        if (activeToken) {
+          try {
+            const convUrl = `https://openapi.zalo.me/v2.0/oa/conversation?data=${encodeURIComponent(
+              JSON.stringify({ user_id: zaloUserId, offset: 0, count: 10 })
+            )}`;
+            const cRes = await fetch(convUrl, { headers: { access_token: activeToken } });
+            const cJson = await cRes.json().catch(() => ({}));
+            const cItems = Array.isArray(cJson?.data) ? cJson.data : [];
+            for (const it of cItems.reverse()) {
+              const src = Number(it.src);
+              const mTypeRaw = String(it.type || "text").toLowerCase();
+              const mType: ZaloChatMessage["msgType"] =
+                mTypeRaw === "photo" || mTypeRaw === "image"
+                  ? "image"
+                  : mTypeRaw === "location"
+                    ? "location"
+                    : mTypeRaw === "file"
+                      ? "file"
+                      : mTypeRaw === "sticker"
+                        ? "sticker"
+                        : "text";
+              const tsNum = Number(it.time);
+              const createdAt =
+                Number.isFinite(tsNum) && tsNum > 1_000_000_000_000
+                  ? new Date(tsNum).toISOString()
+                  : new Date().toISOString();
+              await appendZaloChatMessageToStore(supabaseUrl, serviceRoleKey, {
+                id: `ZM-PULL-${it.message_id || Date.now()}`,
+                zaloUserId,
+                direction: src === 1 ? "inbound" : "outbound",
+                msgType: mType,
+                content: String(it.message || "").trim() || (mType === "image" ? "[Hình ảnh]" : "[Tin nhắn]"),
+                attachmentUrl: String(it.url || "").trim() || undefined,
+                senderName:
+                  src === 1
+                    ? String(it.from_display_name || `Cư dân Zalo #${zaloUserId.slice(-5)}`)
+                    : "Zalo OA Khu phố 3",
+                zaloMsgId: String(it.message_id || "").trim() || undefined,
+                createdAt,
+              });
+            }
+          } catch {
+            // fallback to cached thread
+          }
+        }
+      }
+    }
+
+    const messages =
       (await readPrivateSetting<ZaloChatMessage[]>(supabaseUrl, serviceRoleKey, threadKey)) || [];
 
     // Đánh dấu đã đọc trên index

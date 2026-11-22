@@ -46,7 +46,7 @@ import {
   normalizeReport,
   reportToTargetGisItem,
 } from "../data/reportConfig";
-import { uploadReportImages } from "../utils/imageUpload";
+import { getStaffAuthHeaders, uploadReportImages } from "../utils/imageUpload";
 import { formatShortRecordId } from "../utils/kp3Utils";
 import { DetailList, DetailRow } from "../components/common/DetailRow";
 import { LoadingFade } from "../components/common/LoadingFade";
@@ -142,6 +142,7 @@ export default function ReportDetailPage({
   const [chatChannel, setChatChannel] = useState<"public" | "internal">(
     "public"
   );
+  const [alsoSendToZalo, setAlsoSendToZalo] = useState(true);
   const [msgText, setMsgText] = useState("");
   const [msgImages, setMsgImages] = useState<string[]>([]);
   const [isUploadingMsgImg, setIsUploadingMsgImg] = useState(false);
@@ -320,10 +321,19 @@ export default function ReportDetailPage({
     }
   };
 
+  const linkedZaloUid = useMemo(() => {
+    const m = String(report?.description || "").match(
+      /\[Tiếp nhận từ Zalo OA\s*•\s*UID:\s*([a-zA-Z0-9_-]+)\]/
+    );
+    return m?.[1] || "";
+  }, [report?.description]);
+
   const handleSendMessage = (e?: React.FormEvent) => {
     if (e) e.preventDefault();
     if (!msgText.trim() && msgImages.length === 0) return;
     const isInternal = !readOnly && chatChannel === "internal";
+    const textContent = msgText.trim() || "(Đã gửi hình ảnh minh chứng bổ sung)";
+    const firstImg = msgImages[0];
     const newMsg: ReportMessage = {
       id: `MSG-${Date.now()}`,
       senderRole: readOnly ? "citizen" : "canbo",
@@ -331,7 +341,7 @@ export default function ReportDetailPage({
         currentActorName || (readOnly ? "Cư dân KP3" : "Cán bộ KP3"),
       senderTitle:
         currentActorTitle || (readOnly ? "Cư dân" : "Ban Điều hành KP3"),
-      content: msgText.trim() || "(Đã gửi hình ảnh minh chứng bổ sung)",
+      content: textContent,
       images: msgImages.length > 0 ? msgImages : undefined,
       createdAt: formatNowVNString(),
       isInternal,
@@ -339,6 +349,32 @@ export default function ReportDetailPage({
     onAddMessage(report.id, newMsg);
     setMsgText("");
     setMsgImages([]);
+
+    if (!isInternal && !readOnly && linkedZaloUid && alsoSendToZalo) {
+      void (async () => {
+        try {
+          const authHeaders = await getStaffAuthHeaders();
+          await fetch("/api/notifications", {
+            method: "POST",
+            headers: { "Content-Type": "application/json", ...authHeaders },
+            body: JSON.stringify({
+              action: "reply_zalo_chat",
+              zaloUserId: linkedZaloUid,
+              displayName: report.reporterName,
+              text: `[Phản ánh ${report.id}] ${textContent}`,
+              imageUrl: firstImg || undefined,
+              reportId: report.id,
+              reportTitle: report.title,
+            }),
+          });
+        } catch {
+          // non-blocking Zalo push
+        }
+      })();
+      setPageNotice("Đã gửi tin nhắn trao đổi và đẩy trực tiếp về Zalo OA của cư dân!");
+      return;
+    }
+
     setPageNotice(
       isInternal
         ? "Đã lưu ghi chú nội bộ tổ công tác."
@@ -876,6 +912,23 @@ export default function ReportDetailPage({
                 </div>
               )}
             </div>
+
+            {!readOnly && chatChannel === "public" && linkedZaloUid && (
+              <div className="px-4 py-2 bg-blue-50/80 border-b border-blue-200 text-xs text-blue-900 font-medium flex flex-wrap items-center justify-between gap-2">
+                <span>
+                  Hồ sơ liên kết trực tiếp <strong>Zalo OA</strong> của {report.reporterName}.
+                </span>
+                <label className="inline-flex items-center gap-1.5 cursor-pointer select-none font-semibold">
+                  <input
+                    type="checkbox"
+                    checked={alsoSendToZalo}
+                    onChange={(e) => setAlsoSendToZalo(e.target.checked)}
+                    className="rounded border-blue-400 text-blue-600 focus:ring-blue-500"
+                  />
+                  <span>Đồng thời gửi về Zalo cư dân</span>
+                </label>
+              </div>
+            )}
 
             {!readOnly && chatChannel === "internal" && (
               <div className="px-4 py-2 bg-amber-50 border-b border-amber-200 text-xs text-amber-900 font-medium flex items-center gap-2">

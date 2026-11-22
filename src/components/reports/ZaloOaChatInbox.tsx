@@ -1,10 +1,13 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
+  AlertTriangle,
   Check,
   CheckCircle2,
   Copy,
   ExternalLink,
   FilePlus2,
+  History,
+  Home,
   ImagePlus,
   Loader2,
   MapPin,
@@ -18,7 +21,7 @@ import {
   User,
   X,
 } from "lucide-react";
-import { FieldReport, ReportCategory } from "../../types";
+import { FieldReport, ReportCategory, ReportPriority } from "../../types";
 import { formatNowVNString } from "../../data/reportConfig";
 import { getStaffAuthHeaders, uploadReportImages } from "../../utils/imageUpload";
 import { formatShortRecordId } from "../../utils/kp3Utils";
@@ -32,6 +35,7 @@ export interface ZaloChatConversation {
   cccd?: string;
   residentName?: string;
   residentAddress?: string;
+  residentType?: string;
   lastMessage: string;
   lastMessageType: "text" | "image" | "location" | "file" | "sticker";
   lastDirection: "inbound" | "outbound";
@@ -39,6 +43,9 @@ export interface ZaloChatConversation {
   unreadCount: number;
   linkedReportId?: string;
   linkedReportTitle?: string;
+  aiCategory?: string;
+  aiPriority?: ReportPriority;
+  urgentAlertSentAt?: string;
   status: "open" | "resolved";
 }
 
@@ -159,7 +166,8 @@ export function ZaloOaChatInbox({
   const [isCreatingReport, setIsCreatingReport] = useState(false);
 
   const [searchTerm, setSearchTerm] = useState("");
-  const [filterMode, setFilterMode] = useState<"all" | "unread" | "unlinked" | "linked">("all");
+  const [filterMode, setFilterMode] = useState<"all" | "urgent" | "unread" | "unlinked" | "linked">("all");
+  const [isPullingHistory, setIsPullingHistory] = useState(false);
   const [replyText, setReplyText] = useState("");
   const [replyImageUrl, setReplyImageUrl] = useState("");
   const [showNewChatPicker, setShowNewChatPicker] = useState(false);
@@ -282,22 +290,51 @@ export function ZaloOaChatInbox({
     return reports.find((r) => r.id === selectedConversation.linkedReportId) || null;
   }, [reports, selectedConversation?.linkedReportId]);
 
+  const urgentCount = useMemo(
+    () => conversations.filter((c) => c.aiPriority === "Khẩn cấp").length,
+    [conversations]
+  );
+
   const filteredConversations = useMemo(() => {
     const q = searchTerm.trim().toLowerCase();
     return conversations.filter((c) => {
       const matchQ =
         !q ||
         c.displayName.toLowerCase().includes(q) ||
+        (c.residentName || "").toLowerCase().includes(q) ||
         (c.phone || "").toLowerCase().includes(q) ||
         c.lastMessage.toLowerCase().includes(q) ||
+        (c.aiCategory || "").toLowerCase().includes(q) ||
         (c.linkedReportId || "").toLowerCase().includes(q);
       if (!matchQ) return false;
+      if (filterMode === "urgent") return c.aiPriority === "Khẩn cấp";
       if (filterMode === "unread") return c.unreadCount > 0;
       if (filterMode === "unlinked") return !c.linkedReportId;
       if (filterMode === "linked") return Boolean(c.linkedReportId);
       return true;
     });
   }, [conversations, searchTerm, filterMode]);
+
+  const handlePullUserZaloHistory = async () => {
+    if (!selectedConversation) return;
+    setIsPullingHistory(true);
+    try {
+      const data = await callApi({
+        action: "get_zalo_conversation_messages",
+        zaloUserId: selectedConversation.zaloUserId,
+        pullFromZalo: true,
+      });
+      setMessages(Array.isArray(data.messages) ? data.messages : []);
+      setNotice({
+        type: "ok",
+        text: `Đã kéo lại lịch sử hội thoại gần nhất của ${selectedConversation.displayName} từ Zalo OA.`,
+      });
+    } catch (err: any) {
+      setNotice({ type: "err", text: err?.message || "Không tải được lịch sử từ Zalo OA." });
+    } finally {
+      setIsPullingHistory(false);
+    }
+  };
 
   const filteredFollowers = useMemo(() => {
     const q = followerSearch.trim().toLowerCase();
@@ -466,11 +503,26 @@ export function ZaloOaChatInbox({
         `Phản ánh qua Zalo OA từ ${selectedConversation.displayName}`;
       const nowLabel = formatNowVNString();
 
+      const VALID_CATEGORIES: ReportCategory[] = [
+        "Rác thải",
+        "Lấn chiếm lòng đường",
+        "Tiếng ồn",
+        "An ninh trật tự",
+        "Hạ tầng đô thị",
+        "Trật tự đô thị",
+        "Ngập nước",
+      ];
+      const matchedCategory: ReportCategory =
+        selectedConversation.aiCategory &&
+        VALID_CATEGORIES.includes(selectedConversation.aiCategory as ReportCategory)
+          ? (selectedConversation.aiCategory as ReportCategory)
+          : inferCategoryFromText(combinedDesc);
+
       const newReport: FieldReport = {
         id: newId,
         title: titleCandidate,
-        category: inferCategoryFromText(combinedDesc),
-        reporterName: selectedConversation.displayName,
+        category: matchedCategory,
+        reporterName: selectedConversation.residentName || selectedConversation.displayName,
         reporterPhone: selectedConversation.phone || "Liên hệ qua Zalo OA",
         reportedAt: nowLabel,
         createdAt: new Date().toISOString(),
@@ -484,7 +536,7 @@ export function ZaloOaChatInbox({
         lng: locMsg?.lng,
         description: `[Tiếp nhận từ Zalo OA • UID: ${selectedConversation.zaloUserId}]\n${combinedDesc}`,
         status: "Đã tiếp nhận",
-        priority: "Bình thường",
+        priority: selectedConversation.aiPriority || "Bình thường",
         assignedUnit: "Ban Điều hành KP3",
         beforeImage: images[0],
         beforeImages: images,
@@ -664,6 +716,7 @@ export function ZaloOaChatInbox({
               {(
                 [
                   { id: "all", label: "Tất cả" },
+                  { id: "urgent", label: urgentCount > 0 ? `Khẩn (${urgentCount})` : "Khẩn cấp" },
                   { id: "unread", label: "Chưa đọc" },
                   { id: "unlinked", label: "Chưa lập phiếu" },
                   { id: "linked", label: "Đã gắn PA" },
@@ -675,8 +728,12 @@ export function ZaloOaChatInbox({
                   onClick={() => setFilterMode(tab.id)}
                   className={`h-7 px-2.5 rounded-md text-[11px] font-semibold whitespace-nowrap cursor-pointer transition-colors ${
                     filterMode === tab.id
-                      ? "bg-slate-900 text-white"
-                      : "bg-slate-100 text-slate-600 hover:bg-slate-200/70"
+                      ? tab.id === "urgent"
+                        ? "bg-rose-600 text-white"
+                        : "bg-slate-900 text-white"
+                      : tab.id === "urgent" && urgentCount > 0
+                        ? "bg-rose-50 text-rose-700 border border-rose-200 hover:bg-rose-100"
+                        : "bg-slate-100 text-slate-600 hover:bg-slate-200/70"
                   }`}
                 >
                   {tab.label}
@@ -740,16 +797,25 @@ export function ZaloOaChatInbox({
                         {conv.lastDirection === "outbound" ? "Bạn: " : ""}
                         {conv.lastMessage}
                       </p>
-                      <div className="flex items-center justify-between gap-1.5">
-                        {conv.linkedReportId ? (
-                          <span className="inline-flex items-center px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-800 text-[10px] font-semibold">
-                            {formatShortRecordId(conv.linkedReportId, "PA")}
-                          </span>
-                        ) : (
-                          <span className="text-[10px] text-slate-400">
-                            {conv.phone || "Zalo OA"}
-                          </span>
-                        )}
+                      <div className="flex flex-wrap items-center justify-between gap-1">
+                        <div className="flex flex-wrap items-center gap-1">
+                          {conv.aiPriority === "Khẩn cấp" && (
+                            <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-rose-100 text-rose-800 text-[10px] font-bold">
+                              <AlertTriangle size={9} />
+                              Khẩn
+                            </span>
+                          )}
+                          {conv.aiCategory && (
+                            <span className="inline-flex items-center px-1.5 py-0.5 rounded bg-slate-100 text-slate-700 text-[10px] font-medium">
+                              {conv.aiCategory}
+                            </span>
+                          )}
+                          {conv.linkedReportId && (
+                            <span className="inline-flex items-center px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-800 text-[10px] font-semibold">
+                              {formatShortRecordId(conv.linkedReportId, "PA")}
+                            </span>
+                          )}
+                        </div>
                         {conv.unreadCount > 0 && (
                           <span className="min-w-[18px] h-[18px] px-1 rounded-full bg-rose-600 text-white text-[10px] font-bold inline-flex items-center justify-center">
                             {conv.unreadCount}
@@ -798,10 +864,21 @@ export function ZaloOaChatInbox({
                     </div>
                   )}
                   <div className="min-w-0">
-                    <div className="flex items-center gap-2">
+                    <div className="flex flex-wrap items-center gap-1.5">
                       <h3 className="text-xs font-bold text-slate-900 truncate">
                         {selectedConversation.displayName}
                       </h3>
+                      {selectedConversation.aiPriority === "Khẩn cấp" && (
+                        <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-rose-100 text-rose-800 text-[10px] font-bold">
+                          <AlertTriangle size={10} />
+                          AI: Khẩn cấp
+                        </span>
+                      )}
+                      {selectedConversation.aiCategory && (
+                        <span className="inline-flex items-center px-1.5 py-0.5 rounded bg-blue-50 text-blue-800 text-[10px] font-semibold">
+                          {selectedConversation.aiCategory}
+                        </span>
+                      )}
                       {selectedConversation.phone && (
                         <a
                           href={`tel:${selectedConversation.phone}`}
@@ -812,13 +889,34 @@ export function ZaloOaChatInbox({
                         </a>
                       )}
                     </div>
-                    <p className="text-[11px] text-slate-500 truncate">
-                      Zalo UID: {selectedConversation.zaloUserId}
+                    <p className="text-[11px] text-slate-500 truncate flex items-center gap-1.5">
+                      {selectedConversation.residentName ? (
+                        <>
+                          <Home size={11} className="text-emerald-600 shrink-0" />
+                          <span>
+                            Cư dân KP3: <strong>{selectedConversation.residentName}</strong>
+                            {selectedConversation.residentType ? ` (${selectedConversation.residentType})` : ""}
+                            {selectedConversation.residentAddress ? ` • ${selectedConversation.residentAddress}` : ""}
+                          </span>
+                        </>
+                      ) : (
+                        <span>Zalo UID: {selectedConversation.zaloUserId}</span>
+                      )}
                     </p>
                   </div>
                 </div>
 
-                <div className="flex items-center gap-2 shrink-0">
+                <div className="flex items-center gap-1.5 shrink-0">
+                  <button
+                    type="button"
+                    onClick={handlePullUserZaloHistory}
+                    disabled={isPullingHistory}
+                    className="h-8 px-2.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-xs font-semibold inline-flex items-center gap-1 cursor-pointer disabled:opacity-50"
+                    title="Tải lịch sử 10 tin nhắn gần nhất trực tiếp từ Zalo OA"
+                  >
+                    <History size={12} className={isPullingHistory ? "animate-spin" : ""} />
+                    <span className="hidden sm:inline">Lịch sử Zalo</span>
+                  </button>
                   {linkedReport && onOpenReportDetail ? (
                     <button
                       type="button"
