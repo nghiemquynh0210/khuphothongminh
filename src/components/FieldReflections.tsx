@@ -8,6 +8,7 @@ import {
   Filter,
   LayoutGrid,
   List,
+  MessageCircle,
   MessageSquareWarning,
   Plus,
   RotateCcw,
@@ -36,6 +37,7 @@ import { recordAuditLog } from "../utils/auditLogger";
 import { ReportSelect } from "./reports/ReportSelect";
 import { ReportCard } from "./reports/ReportCard";
 import { ReportTable } from "./reports/ReportTable";
+import { ZaloOaChatInbox } from "./reports/ZaloOaChatInbox";
 import {
   ROUTES,
   getReportCreatePath,
@@ -85,6 +87,7 @@ export interface FieldReflectionsProps {
 export default function FieldReflections({
   reports,
   basePath = ROUTES.DASHBOARD_REPORTS,
+  onAddReport,
   onUpdateReportStatus,
   onOpenDetail,
   onOpenCreate,
@@ -125,6 +128,8 @@ export default function FieldReflections({
 
   const REPORTS_PER_PAGE = 12;
   const [currentPage, setCurrentPage] = useState(1);
+  const [activeSubTab, setActiveSubTab] = useState<"reports" | "zalo_inbox">("reports");
+  const [zaloUnreadCount, setZaloUnreadCount] = useState(0);
 
   const [toastMsg, setToastMsg] = useState<string | null>(null);
 
@@ -337,6 +342,62 @@ export default function FieldReflections({
           </span>
         </div>
       )}
+
+      {/* Segmented Sub-Tab for Staff: Phản ánh 1022 vs Hộp thư Zalo OA */}
+      {!readOnly && (
+        <div
+          role="tablist"
+          aria-label="Phân khu Phản ánh hiện trường"
+          className="inline-flex items-center p-1 rounded-xl bg-slate-100/90 border border-slate-200/80 gap-1"
+        >
+          <button
+            type="button"
+            role="tab"
+            aria-selected={activeSubTab === "reports"}
+            onClick={() => setActiveSubTab("reports")}
+            className={`h-8 px-3.5 rounded-lg text-xs font-semibold inline-flex items-center gap-1.5 cursor-pointer transition-colors ${
+              activeSubTab === "reports"
+                ? "bg-white text-slate-900 shadow-2xs"
+                : "text-slate-600 hover:text-slate-900"
+            }`}
+          >
+            <MessageSquareWarning size={13} className="text-emerald-700" />
+            <span>Hồ sơ Phản ánh ({kpi.total})</span>
+          </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={activeSubTab === "zalo_inbox"}
+            onClick={() => setActiveSubTab("zalo_inbox")}
+            className={`h-8 px-3.5 rounded-lg text-xs font-semibold inline-flex items-center gap-1.5 cursor-pointer transition-colors ${
+              activeSubTab === "zalo_inbox"
+                ? "bg-white text-slate-900 shadow-2xs"
+                : "text-slate-600 hover:text-slate-900"
+            }`}
+          >
+            <MessageCircle size={13} className="text-blue-600" />
+            <span>Hộp thư Zalo OA</span>
+            {zaloUnreadCount > 0 && (
+              <span className="min-w-[18px] h-[18px] px-1 rounded-full bg-rose-600 text-white text-[10px] font-bold inline-flex items-center justify-center">
+                {zaloUnreadCount}
+              </span>
+            )}
+          </button>
+        </div>
+      )}
+
+      {!readOnly && activeSubTab === "zalo_inbox" ? (
+        <ZaloOaChatInbox
+          reports={normalizedReports}
+          onAddReport={onAddReport}
+          onUnreadCountChange={setZaloUnreadCount}
+          onOpenReportDetail={(r) =>
+            onOpenDetail ? onOpenDetail(r) : navigate(getReportDetailPath(r.id, basePath))
+          }
+          currentUser={currentUser}
+        />
+      ) : (
+        <>
 
       {/* 4 KPI Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3.5 sm:gap-4">
@@ -614,6 +675,8 @@ export default function FieldReflections({
             itemsPerPage={REPORTS_PER_PAGE}
           />
         </div>
+      )}
+        </>
       )}
     </div>
   );

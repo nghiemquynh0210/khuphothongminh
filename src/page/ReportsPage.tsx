@@ -5,6 +5,7 @@ import ReportFormPage from "./ReportFormPage";
 import ReportResolvePage from "./ReportResolvePage";
 import { LoadingFade } from "../components/common/LoadingFade";
 import { InlineNotice } from "../components/ui/ConfirmModal";
+import { getStaffAuthHeaders } from "../utils/imageUpload";
 import {
   FieldReport,
   Household,
@@ -192,6 +193,42 @@ export default function ReportsPage(props: ReportsPageProps) {
       payload.note,
       payload.afterImages
     );
+
+    // Tự động gửi kết quả & ảnh nghiệm thu về Zalo OA nếu hồ sơ được lập từ Hộp thư Zalo OA
+    const uidMatch = String(report.description || "").match(
+      /\[Tiếp nhận từ Zalo OA\s*•\s*UID:\s*([a-zA-Z0-9_-]+)\]/
+    );
+    if (uidMatch?.[1]) {
+      const zaloUserId = uidMatch[1];
+      const msgText = [
+        `✅ [KẾT QUẢ XỬ LÝ PHẢN ÁNH 1022 — KHU PHỐ 3 PHƯỜNG AN PHÚ]`,
+        `• Mã hồ sơ: ${report.id}`,
+        `• Nội dung: ${report.title}`,
+        `• Kết quả: ${payload.note}`,
+        `• Đơn vị xác nhận: ${payload.actorName}`,
+        `Cảm ơn ông/bà đã đồng hành xây dựng Khu phố 3 văn minh, sạch đẹp!`,
+      ].join("\n");
+      void (async () => {
+        try {
+          const authHeaders = await getStaffAuthHeaders();
+          await fetch("/api/notifications", {
+            method: "POST",
+            headers: { "Content-Type": "application/json", ...authHeaders },
+            body: JSON.stringify({
+              action: "reply_zalo_chat",
+              zaloUserId,
+              displayName: report.reporterName,
+              text: msgText,
+              imageUrl: payload.afterImages?.[0] || undefined,
+              reportId: report.id,
+              reportTitle: report.title,
+            }),
+          });
+        } catch {
+          // non-blocking Zalo push
+        }
+      })();
+    }
   };
 
   const handleReopenReport = (reportId: string, reason: string) => {
