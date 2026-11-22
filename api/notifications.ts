@@ -4529,12 +4529,129 @@ ${userPrompt ? `- Ghi chú thêm của cán bộ: ${userPrompt}` : ""}`;
       conversations,
       totalUnread,
       urgentCount,
-      followers: followers.slice(0, 300).map((f) => ({
+      followers: followers.slice(0, 2000).map((f) => ({
         zaloUserId: f.zaloUserId,
         displayName: f.displayName || `Cư dân Zalo #${f.zaloUserId.slice(-5)}`,
         phone: f.phone,
       })),
       webhookUrl: "https://bdhkp3.vercel.app/api/notifications",
+    });
+  }
+
+  if (action === "get_zalo_browser_sync_token") {
+    const savedCfg = await readPrivateSetting<ZaloOaSavedConfig>(
+      supabaseUrl,
+      serviceRoleKey,
+      CONFIG_KEY
+    );
+    if (!savedCfg) {
+      return res.status(400).json({ ok: false, error: "Chưa cấu hình Zalo OA trong hệ thống." });
+    }
+    const forceRefresh = Boolean(body.forceRefresh);
+    const activeToken = await refreshZaloAccessTokenIfNeeded(
+      savedCfg,
+      supabaseUrl,
+      serviceRoleKey,
+      forceRefresh
+    );
+    if (!activeToken) {
+      return res.status(400).json({ ok: false, error: "Chưa có Access Token Zalo OA hợp lệ." });
+    }
+    return res.status(200).json({
+      ok: true,
+      accessToken: activeToken,
+      oaId: savedCfg.oaId || ZALO_OA_KP3_DEFAULTS.oaId,
+    });
+  }
+
+  if (action === "ingest_zalo_browser_messages") {
+    const rawItems = Array.isArray(body.items) ? body.items.slice(0, 120) : [];
+    const oaId = String(body.oaId || ZALO_OA_KP3_DEFAULTS.oaId).trim();
+    let syncedMessages = 0;
+
+    for (const item of rawItems) {
+      const src = Number(item.src); // 1 = user sent, 0 = OA sent
+      const uid = String(
+        item.zaloUserId || (src === 1 ? item.from_id : item.to_id || item.from_id) || ""
+      ).trim();
+      if (!uid || uid === oaId) continue;
+
+      const msgTypeRaw = String(item.type || "text").toLowerCase();
+      const msgType: ZaloChatMessage["msgType"] =
+        msgTypeRaw === "photo" || msgTypeRaw === "image"
+          ? "image"
+          : msgTypeRaw === "location"
+            ? "location"
+            : msgTypeRaw === "file"
+              ? "file"
+              : msgTypeRaw === "sticker"
+                ? "sticker"
+                : "text";
+
+      const displayName = String(
+        item.peerDisplayName ||
+          (src === 1 ? item.from_display_name : item.to_display_name) ||
+          `Cư dân Zalo #${uid.slice(-5)}`
+      ).trim();
+      const avatar = String(
+        item.peerAvatar || (src === 1 ? item.from_avatar : item.to_avatar) || ""
+      ).trim();
+
+      const tsNum = Number(item.time);
+      const createdAt =
+        Number.isFinite(tsNum) && tsNum > 1_000_000_000_000
+          ? new Date(tsNum).toISOString()
+          : new Date().toISOString();
+
+      let attachmentUrl = String(item.url || item.thumb || "").trim();
+      if (msgType === "image" && attachmentUrl && !attachmentUrl.includes(supabaseUrl)) {
+        attachmentUrl = await uploadRemoteImageToFieldReportsStorage(
+          supabaseUrl,
+          serviceRoleKey,
+          attachmentUrl,
+          uid
+        );
+      }
+
+      await appendZaloChatMessageToStore(
+        supabaseUrl,
+        serviceRoleKey,
+        {
+          id: `ZM-BRW-${item.message_id || Date.now()}-${Math.random().toString(36).slice(2, 5)}`,
+          zaloUserId: uid,
+          direction: src === 1 ? "inbound" : "outbound",
+          msgType,
+          content:
+            String(item.message || "").trim() ||
+            (msgType === "image"
+              ? "[Đã gửi hình ảnh hiện trường]"
+              : msgType === "location"
+                ? "[Đã chia sẻ vị trí GPS]"
+                : "[Tin nhắn Zalo]"),
+          attachmentUrl: attachmentUrl || undefined,
+          senderName: src === 1 ? displayName : "Zalo OA Khu phố 3",
+          zaloMsgId: String(item.message_id || "").trim() || undefined,
+          createdAt,
+        },
+        {
+          displayName: !displayName.startsWith("Cư dân Zalo #") ? displayName : undefined,
+          avatar: avatar || undefined,
+        }
+      );
+      syncedMessages++;
+    }
+
+    const updatedIndex =
+      (await readPrivateSetting<ZaloChatConversation[]>(
+        supabaseUrl,
+        serviceRoleKey,
+        ZALO_CHAT_INDEX_KEY
+      )) || [];
+
+    return res.status(200).json({
+      ok: true,
+      syncedMessages,
+      conversations: updatedIndex,
     });
   }
 

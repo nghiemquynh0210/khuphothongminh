@@ -315,27 +315,6 @@ export function ZaloOaChatInbox({
     });
   }, [conversations, searchTerm, filterMode]);
 
-  const handlePullUserZaloHistory = async () => {
-    if (!selectedConversation) return;
-    setIsPullingHistory(true);
-    try {
-      const data = await callApi({
-        action: "get_zalo_conversation_messages",
-        zaloUserId: selectedConversation.zaloUserId,
-        pullFromZalo: true,
-      });
-      setMessages(Array.isArray(data.messages) ? data.messages : []);
-      setNotice({
-        type: "ok",
-        text: `Đã kéo lại lịch sử hội thoại gần nhất của ${selectedConversation.displayName} từ Zalo OA.`,
-      });
-    } catch (err: any) {
-      setNotice({ type: "err", text: err?.message || "Không tải được lịch sử từ Zalo OA." });
-    } finally {
-      setIsPullingHistory(false);
-    }
-  };
-
   const filteredFollowers = useMemo(() => {
     const q = followerSearch.trim().toLowerCase();
     return followers
@@ -346,12 +325,150 @@ export function ZaloOaChatInbox({
           (f.phone || "").includes(q) ||
           f.zaloUserId.includes(q)
       )
-      .slice(0, 30);
+      .slice(0, 80);
   }, [followers, followerSearch]);
+
+  const fetchZaloOpenApiWithRefresh = useCallback(
+    async (buildUrl: string) => {
+      let tokRes = await callApi({ action: "get_zalo_browser_sync_token", forceRefresh: false });
+      let accessToken = String(tokRes.accessToken || "");
+      const oaId = String(tokRes.oaId || "");
+      const callOnce = async (token: string) => {
+        const r = await fetch(buildUrl, { headers: { access_token: token } });
+        return await r.json().catch(() => ({}));
+      };
+      let json = await callOnce(accessToken);
+      if (json?.error === -216) {
+        tokRes = await callApi({ action: "get_zalo_browser_sync_token", forceRefresh: true });
+        accessToken = String(tokRes.accessToken || "");
+        json = await callOnce(accessToken);
+      }
+      return { json, accessToken, oaId };
+    },
+    [callApi]
+  );
+
+  const handlePullUserZaloHistory = async () => {
+    if (!selectedConversation) return;
+    setIsPullingHistory(true);
+    try {
+      const convUrl = `https://openapi.zalo.me/v2.0/oa/conversation?data=${encodeURIComponent(
+        JSON.stringify({ user_id: selectedConversation.zaloUserId, offset: 0, count: 10 })
+      )}`;
+      const { json, oaId } = await fetchZaloOpenApiWithRefresh(convUrl);
+      if (json?.error === 0 && Array.isArray(json.data) && json.data.length > 0) {
+        const enriched = [...json.data].reverse().map((it: any) => ({
+          ...it,
+          zaloUserId: selectedConversation.zaloUserId,
+          peerDisplayName: selectedConversation.displayName,
+          peerAvatar: selectedConversation.avatar,
+        }));
+        await callApi({
+          action: "ingest_zalo_browser_messages",
+          oaId,
+          items: enriched,
+        });
+        await loadMessages(selectedConversation.zaloUserId, true);
+        await loadConversations(true);
+        setNotice({
+          type: "ok",
+          text: `Đã tải ${enriched.length} tin nhắn lịch sử của ${selectedConversation.displayName} từ Zalo OA!`,
+        });
+        return;
+      }
+
+      const data = await callApi({
+        action: "get_zalo_conversation_messages",
+        zaloUserId: selectedConversation.zaloUserId,
+        pullFromZalo: true,
+      });
+      setMessages(Array.isArray(data.messages) ? data.messages : []);
+      setNotice({
+        type: "ok",
+        text:
+          json?.error && json?.error !== 0
+            ? `Chưa phát sinh tin nhắn mới trên Zalo OA (${json?.message || `mã ${json.error}`}).`
+            : `Đã làm mới hội thoại của ${selectedConversation.displayName}.`,
+      });
+    } catch (err: any) {
+      setNotice({ type: "err", text: err?.message || "Không tải được lịch sử từ Zalo OA." });
+    } finally {
+      setIsPullingHistory(false);
+    }
+  };
 
   const handleSyncRecent = async () => {
     setIsSyncing(true);
     try {
+      // Ưu tiên gọi trực tiếp từ trình duyệt Cán bộ tại Việt Nam (tránh chặn IP nước ngoài của máy chủ Vercel US)
+      const listUrl = `https://openapi.zalo.me/v2.0/oa/listrecentchat?data=${encodeURIComponent(
+        JSON.stringify({ offset: 0, count: 10 })
+      )}`;
+      const { json: recentJson, accessToken, oaId } = await fetchZaloOpenApiWithRefresh(listUrl);
+
+      if (recentJson?.error === 0 && Array.isArray(recentJson.data)) {
+        const collected: any[] = [...recentJson.data];
+        const peerMap = new Map<string, { displayName: string; avatar?: string }>();
+        for (const item of recentJson.data) {
+          const src = Number(item.src);
+          const uid = String(src === 1 ? item.from_id : item.to_id || item.from_id || "").trim();
+          if (!uid || uid === oaId) continue;
+          const displayName = String(
+            (src === 1 ? item.from_display_name : item.to_display_name) || ""
+          ).trim();
+          const avatar = String(
+            (src === 1 ? item.from_avatar : item.to_avatar) || ""
+          ).trim();
+          peerMap.set(uid, { displayName, avatar: avatar || undefined });
+        }
+
+        // Kéo sâu 10 tin/người cho tối đa 6 hội thoại gần nhất
+        for (const [uid, meta] of Array.from(peerMap.entries()).slice(0, 6)) {
+          try {
+            const cUrl = `https://openapi.zalo.me/v2.0/oa/conversation?data=${encodeURIComponent(
+              JSON.stringify({ user_id: uid, offset: 0, count: 10 })
+            )}`;
+            const cRes = await fetch(cUrl, { headers: { access_token: accessToken } });
+            const cJson = await cRes.json().catch(() => ({}));
+            if (cJson?.error === 0 && Array.isArray(cJson.data)) {
+              for (const it of [...cJson.data].reverse()) {
+                collected.push({
+                  ...it,
+                  zaloUserId: uid,
+                  peerDisplayName: meta.displayName,
+                  peerAvatar: meta.avatar,
+                });
+              }
+            }
+          } catch {
+            // continue
+          }
+        }
+
+        if (collected.length > 0) {
+          const ingestRes = await callApi({
+            action: "ingest_zalo_browser_messages",
+            oaId,
+            items: collected,
+          });
+          await loadConversations(true);
+          if (selectedUid) await loadMessages(selectedUid, true);
+          setNotice({
+            type: "ok",
+            text: `Đã đồng bộ thành công ${ingestRes.syncedMessages || collected.length} tin nhắn từ Zalo OA Khu phố 3!`,
+          });
+          return;
+        }
+
+        await loadConversations(true);
+        setNotice({
+          type: "ok",
+          text: "Kết nối Zalo OA thông suốt — hiện chưa có hội thoại mới phát sinh.",
+        });
+        return;
+      }
+
+      // Fallback sang đồng bộ phía server
       const data = await callApi({ action: "sync_zalo_recent_chats" });
       await loadConversations(true);
       if (selectedUid) await loadMessages(selectedUid, true);
@@ -360,13 +477,11 @@ export function ZaloOaChatInbox({
           type: "ok",
           text: `Đã đồng bộ ${data.syncedMessages} tin nhắn gần đây từ Zalo OA Khu phố 3.`,
         });
-      } else if (data.zaloApiError) {
+      } else {
         setNotice({
           type: "ok",
-          text: `Đã kiểm tra Zalo OA. Tin nhắn mới sẽ đổ tự động qua Webhook (${data.zaloApiError}).`,
+          text: "Hộp thư Zalo OA đã sẵn sàng — mọi tin nhắn cư dân gửi tới sẽ tự động hiển thị qua Webhook.",
         });
-      } else {
-        setNotice({ type: "ok", text: "Hộp thư Zalo OA đã được cập nhật mới nhất." });
       }
     } catch (err: any) {
       setNotice({ type: "err", text: err?.message || "Đồng bộ Zalo OA thất bại." });
@@ -666,6 +781,8 @@ export function ZaloOaChatInbox({
                   </button>
                 </div>
                 <input
+                  id="zalo-follower-search-input"
+                  name="zaloFollowerSearch"
                   type="search"
                   value={followerSearch}
                   onChange={(e) => setFollowerSearch(e.target.value)}
@@ -704,6 +821,8 @@ export function ZaloOaChatInbox({
                 className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none"
               />
               <input
+                id="zalo-inbox-search-input"
+                name="zaloInboxSearch"
                 type="search"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
@@ -1070,6 +1189,8 @@ export function ZaloOaChatInbox({
                       <ImagePlus size={15} />
                     )}
                     <input
+                      id="zalo-reply-image-input"
+                      name="zaloReplyImage"
                       type="file"
                       accept="image/*"
                       className="sr-only"
@@ -1080,6 +1201,8 @@ export function ZaloOaChatInbox({
                     />
                   </label>
                   <textarea
+                    id="zalo-reply-textarea"
+                    name="zaloReplyText"
                     rows={2}
                     value={replyText}
                     onChange={(e) => setReplyText(e.target.value)}
