@@ -21,3 +21,6 @@ __pycache__/
 # Android release binaries
 *.apk
 *.aab
+
+# Local promo video workspace & heavy media outputs
+video-promo/

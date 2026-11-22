@@ -401,23 +401,39 @@ Dự án đã thiết lập 2 MCP Servers hoạt động:
       - Đồng bộ các UI primitives nền tảng (`Button.tsx`, `Input.tsx`, `ReportSelect.tsx`, `PageHeader.tsx`, `Modal.tsx`) về chiều cao `h-9` (`36px`), cỡ chữ `text-xs` (`12px`), bo góc `rounded-lg`, viền `border-slate-200` sắc nét.
       - Tái thiết kế đồng bộ **Lịch & Nhiệm vụ** (`TaskAndSchedule.tsx`, `WeeklyScheduleMatrix.tsx`, `ReminderSection.tsx`), **Tin tức & Sự kiện** (`CommunityEvents.tsx`, `NewsNewspaperFeed.tsx`), **Cấu hình & Phân quyền** (`SettingsAndPermissions.tsx`, tách `ZaloOaNotificationHub.tsx` thành 4 Segmented Sub-Tabs + bảng danh bạ 36 cán bộ 1 dòng gọn nhẹ, tinh gọn `PortalConfigSettings.tsx`), **An sinh Xã hội** (`SocialWelfare.tsx` — gộp thanh tìm lọc & xuất ký nhận vào 1 khung phẳng, chuyển sang bảng màu trung tính `slate` / `emerald`, lược bỏ các banner tiêu đề lặp) và rà soát đồng nhất toàn bộ các phân hệ còn lại.
 
+  38. **Sản Xuất Bộ Video Giới Thiệu Toàn Diện Hệ Thống Khu Phố 3 Theo Nghị Quyết 57-NQ/TW (`video-promo/`, Phiên 21–22/11/2026):**
+      - Xây dựng pipeline Motion Graphics độc lập tại thư mục cục bộ `video-promo/` (GSAP + Playwright Chrome Headless chụp trực tiếp 12 màn hình thực tế từ `bdhkp3.vercel.app` + Microsoft Neural TTS tiếng Việt `vi-VN-HoaiMyNeural` chuẩn `48kHz Stereo AAC-LC 192kbps`, âm lượng `-13.4 dB` + nhạc nền và phụ đề đồng bộ):
+        + `video-promo/KP3-AnPhu-Promo-9x16.mp4` (`1080×1920`, `65.62s`, `29.24 MB` — bản ngắn 60s viral).
+        + `video-promo/KP3-AnPhu-Full-9x16.mp4` (`1080×1920`, `139.12s`, `61.38 MB` — bản dọc 10 phân cảnh đầy đủ tính năng cho TikTok / Reels / Zalo Video).
+        + `video-promo/KP3-AnPhu-Full-16x9.mp4` (`1920×1080`, `139.12s`, `70.09 MB` — bản ngang Keynote 2 cột trình chiếu Hội nghị / Báo cáo Đảng ủy – UBND Phường / YouTube).
+
+  39. **Tích Hợp Hộp Thư Chat & Trả Lời Trực Tiếp Zalo OA 2 Chiều Trong Phân Hệ Phản Ánh Hiện Trường — Giai Đoạn 1 & 2 (`ZaloOaChatInbox.tsx`, `FieldReflections.tsx`, `ReportsPage.tsx`, `ReportDetailPage.tsx`, `api/notifications.ts`, Phiên 22/11/2026):**
+      - **Lưu trữ phân mảnh O(1) bảo mật RLS (`is_public = false` trên `portal_settings`):**
+        + Chỉ mục hội thoại `zalo_oa_chat_inbox_index_v1` + luồng tin nhắn tách riêng từng cư dân `zalo_oa_chat_thread_<zaloUserId>`, tự động tải và lưu bền vững hình ảnh cư dân gửi qua Zalo vào Supabase Storage (`field-reports/zalo-chat/...`) để không bao giờ bị hết hạn link ảnh Zalo.
+      - **Cơ chế Đồng bộ Trực tiếp từ Trình duyệt Cán bộ tại Việt Nam (Vượt giới hạn chặn IP nước ngoài của Zalo OpenAPI):**
+        + Máy chủ Serverless Vercel chạy tại Mỹ (`iad1`) bị Zalo chặn đọc `listrecentchat` / `conversation` (`error -232: IP address not inside Vietnam`). Hệ thống đã tích hợp luồng đồng bộ lai thông minh (`get_zalo_browser_sync_token` + gọi CORS chính thức `https://openapi.zalo.me/v2.0/oa/listrecentchat` & `/v2.0/oa/conversation` trực tiếp từ trình duyệt Cán bộ có IP Việt Nam + lưu bền vững qua `ingest_zalo_browser_messages`), đồng thời nhận tin nhắn thời gian thực qua Webhook `POST https://bdhkp3.vercel.app/api/notifications`.
+      - **Chu trình Điều hành Khép kín Giai đoạn 1 & 2:**
+        + **Sub-Tab `Hộp thư Zalo OA`** ngay trong `FieldReflections.tsx`: hiển thị 2 cột trực quan, lọc nhanh (`Tất cả`, `Khẩn cấp`, `Chưa đọc`, `Chưa lập phiếu`, `Đã gắn PA`), chủ động **+ Nhắn mới** tới toàn bộ **347+ người dân đang Quan tâm OA**, tự động đối khớp định danh cư dân KP3 từ bảng `residents`.
+        + **AI Tự Phân Loại & Cảnh Báo Khẩn Cấp:** Tự động gắn nhãn danh mục (`Rác thải`, `Ngập nước`, `Hạ tầng đô thị`, `An ninh trật tự`...) & mức `Khẩn cấp`, tự động đẩy cảnh báo qua Zalo OA tới Bí thư / Trưởng BĐH / CSKV (chống lặp 30 phút); tích hợp **✨ AI Gợi ý trả lời (Gemini 2.5 Flash)** đọc đúng ngữ cảnh hội thoại để soạn câu trả lời lịch sự chuẩn hành chính.
+        + **Chuyển đổi 1 chạm `Lập Phản ánh 1022` & Phản hồi tự động khi Hoàn tất:** Bấm 1 chạm chuyển tin nhắn + ảnh + tọa độ GPS thành hồ sơ `PA-...` kèm tin xác nhận tự động về Zalo cư dân; khi cán bộ trao đổi trong `ReportDetailPage.tsx` hoặc bấm Hoàn tất xử lý tại `ReportsPage.tsx`, kết quả và ảnh nghiệm thu tự động gửi ngược về Zalo của đúng người dân.
+
 ---
 
-## 7. TRẠNG THÁI HỆ THỐNG, BÀN GIAO PHIÊN (21/11/2026) & ĐỊNH HƯỚNG TIẾP THEO
+## 7. TRẠNG THÁI HỆ THỐNG, BÀN GIAO PHIÊN (22/11/2026) & ĐỊNH HƯỚNG TIẾP THEO
 - **Trạng thái Kiểm thử & Build:**
   - ✅ TypeScript: `npx tsc --noEmit` đạt `exit code 0` (0 lỗi trên toàn dự án Web + Serverless API).
-  - ✅ Unit Tests (Vitest): **28/28 bộ test (`132/132` kịch bản kiểm thử, bao gồm `citizenBroadcast.test.ts`, `moduleInteractiveUx.test.tsx`, `keepalive.test.ts` & `zaloAndStaffLink.test.ts`) PASS 100%**.
-  - ✅ Production Build: `npm run build` (`vite build && esbuild server.ts`) thành công sạch 100%.
+  - ✅ Unit Tests (Vitest): **28/28 bộ test (`132/132` kịch bản kiểm thử) PASS 100%**.
+  - ✅ Production Build & Chrome DevTools MCP Live E2E: Kiểm thử thực tế tại `https://bdhkp3.vercel.app/dashboard/reports` đạt **0 lỗi Console**, kéo thành công 59 tin nhắn lịch sử thật (9 hội thoại Zalo OA) và gửi/nhận tin nhắn 2 chiều thông suốt.
 - **Trạng thái Hạ tầng Trực tuyến & Các Gói Phát hành:**
-  - **Web Portal Production:** 👉 **[https://bdhkp3.vercel.app](https://bdhkp3.vercel.app)** (`dpl_GKMJpj8crxcKR7cKDgc6buGEZvCV` — **READY**).
-  - **GitHub Repository (`main`):** 👉 **[https://github.com/nghiemquynh0210/khuphothongminh](https://github.com/nghiemquynh0210/khuphothongminh)** (đã làm sạch lịch sử commit không chứa bất kỳ secret/token plaintext nào).
-  - **Ứng dụng Android Chính thức (`v1.1.1`, `versionCode: 3`, Signed V1+V2+V3):** 👉 **[https://github.com/nghiemquynh0210/khuphothongminh/releases/latest/download/KP3-AnPhu.apk](https://github.com/nghiemquynh0210/khuphothongminh/releases/latest/download/KP3-AnPhu.apk)** (bản lưu cục bộ tại `KP3-AnPhu.apk`, tương thích Samsung Galaxy S25 / Android 16).
-  - **Zalo Mini App (`30172911027069915`):** **Version 6** đang hoạt động ở chế độ **Testing** trên Zalo Developer Portal (gồm đầy đủ Tin tức, Tra cứu cư trú PII-safe, Phản ánh 1022, Biểu mẫu và Tab Điều hành Cán bộ).
-  - **Tự động hóa Zalo OA 24/7 (`pg_cron` Job #1 `kp3-auto-zalo-reminders-15m`):** Đang chạy ổn định mỗi 15 phút (`06:00 – 21:45` ICT) trên Supabase Cloud `wjdgaobhipkgzveidtra`, tự động nhắc lịch họp trước 60 phút và nhắc nộp báo cáo định kỳ.
+  - **Web Portal Production:** 👉 **[https://bdhkp3.vercel.app](https://bdhkp3.vercel.app)** (`dpl_7jEZ5DXyrRRaehGGkyvqg8znMiu8` — commit `fe42d19` — **READY**).
+  - **GitHub Repository (`main`):** 👉 **[https://github.com/nghiemquynh0210/khuphothongminh](https://github.com/nghiemquynh0210/khuphothongminh)** (không chứa bất kỳ secret/token plaintext nào; thư mục render video cục bộ `video-promo/` được tách biệt khỏi kho Git).
+  - **Ứng dụng Android Chính thức (`v1.1.1`, `versionCode: 3`, Signed V1+V2+V3):** 👉 **[https://github.com/nghiemquynh0210/khuphothongminh/releases/latest/download/KP3-AnPhu.apk](https://github.com/nghiemquynh0210/khuphothongminh/releases/latest/download/KP3-AnPhu.apk)** (tương thích Samsung Galaxy S25 / Android 16).
+  - **Zalo Mini App (`30172911027069915`):** **Version 6** đang hoạt động ở chế độ **Testing** trên Zalo Developer Portal.
+  - **Tự động hóa Zalo OA 24/7 (`pg_cron` Job #1 `kp3-auto-zalo-reminders-15m` & Webhook Chat 2 chiều):** Hoạt động ổn định trên Supabase Cloud `wjdgaobhipkgzveidtra` & `https://bdhkp3.vercel.app/api/notifications`.
 - **Gợi ý Định hướng cho Phiên Làm Việc Tiếp Theo:**
-  1. Gửi xét duyệt chính thức (**Submit for Review**) phiên bản **Version 6** của Zalo Mini App `30172911027069915` lên Zalo Mini App Store sau khi hoàn tất trải nghiệm thực tế.
-  2. Theo dõi nhật ký gửi tự động Zalo OA (`notification_dispatch_logs_v1`) cho các lịch họp tuần mới (**23/11** và **25/11/2026**) và ghép nối bổ sung cho các cán bộ chi hội còn lại chưa bấm Quan tâm Zalo OA.
-  3. Tối ưu hóa thêm trải nghiệm trên ứng dụng Android (`KP3-AnPhu.apk`) nếu cần bổ sung thông báo đẩy gốc (FCM Push Notifications) hoặc xuất bản `.aab` lên Google Play Console.
+  1. Kiểm tra trên trang quản trị Zalo Developer (`developers.zalo.me` -> Ứng dụng `432932322782886593` -> **Webhook**) để đảm bảo đã bật đủ các sự kiện `user_send_text`, `user_send_image`, `user_send_location`, `oa_send_text`, `oa_send_image` trỏ về `https://bdhkp3.vercel.app/api/notifications` giúp tin nhắn mới đẩy về tức thì không cần bấm Đồng bộ.
+  2. Xử lý thực tế phản ánh vệ sinh môi trường tại đường X4 (gửi sáng `22/11` bởi cư dân `Dohuuhiep` trong **Hộp thư Zalo OA**) bằng nút **Lập Phản ánh 1022** và phản hồi nghiệm thu trực tiếp qua Zalo OA.
+  3. Gửi xét duyệt chính thức (**Submit for Review**) phiên bản **Version 6** của Zalo Mini App `30172911027069915` lên Zalo Mini App Store và sử dụng 2 video `KP3-AnPhu-Full-9x16.mp4` / `16x9.mp4` phục vụ truyền thông & báo cáo mô hình điểm Nghị quyết 57-NQ/TW.
 
 <!-- ASTRYX:START -->
 Astryx v0.7.11 · 174 components
