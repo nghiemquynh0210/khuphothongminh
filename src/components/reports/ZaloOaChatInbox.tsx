@@ -260,6 +260,8 @@ export function ZaloOaChatInbox({
   }, [loadConversations]);
 
   useEffect(() => {
+    setReplyText("");
+    setReplyImageUrl("");
     if (selectedUid) {
       loadMessages(selectedUid, false);
     }

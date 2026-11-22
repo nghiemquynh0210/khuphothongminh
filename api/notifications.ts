@@ -686,11 +686,11 @@ async function uploadRemoteImageToFieldReportsStorage(
 }
 
 function classifyZaloCitizenMessage(text: string): {
-  category: string;
+  category: string | null;
   priority: "Khẩn cấp" | "Cao" | "Bình thường";
 } {
   const s = String(text || "").toLowerCase();
-  let category = "Trật tự đô thị";
+  let category: string | null = null;
   if (/ngập|cống|thoát nước|ứ đọng|triều cường/.test(s)) {
     category = "Ngập nước";
   } else if (/rác|vệ sinh|mùi hôi|ô nhiễm|xà bần/.test(s)) {
