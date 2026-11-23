@@ -417,12 +417,20 @@ Dự án đã thiết lập 2 MCP Servers hoạt động:
         + **AI Tự Phân Loại & Cảnh Báo Khẩn Cấp:** Tự động gắn nhãn danh mục (`Rác thải`, `Ngập nước`, `Hạ tầng đô thị`, `An ninh trật tự`...) & mức `Khẩn cấp`, tự động đẩy cảnh báo qua Zalo OA tới Bí thư / Trưởng BĐH / CSKV (chống lặp 30 phút); tích hợp **✨ AI Gợi ý trả lời (Gemini 2.5 Flash)** đọc đúng ngữ cảnh hội thoại để soạn câu trả lời lịch sự chuẩn hành chính.
         + **Chuyển đổi 1 chạm `Lập Phản ánh 1022` & Phản hồi tự động khi Hoàn tất:** Bấm 1 chạm chuyển tin nhắn + ảnh + tọa độ GPS thành hồ sơ `PA-...` kèm tin xác nhận tự động về Zalo cư dân; khi cán bộ trao đổi trong `ReportDetailPage.tsx` hoặc bấm Hoàn tất xử lý tại `ReportsPage.tsx`, kết quả và ảnh nghiệm thu tự động gửi ngược về Zalo của đúng người dân.
 
+  40. **Triển Khai Đồng Bộ 06 Tính Năng Nghiệp Vụ Chuyên Sâu Mới Cho Khu Phố 3 (Phiên 22–24/11/2026):**
+      - **Rà soát Tự động Theo Độ tuổi (`AgeCohortScannerModal.tsx` trong `CitizenManagement.tsx`):** Tự động rà soát theo Năm kế hoạch (`2026–2028`) trên toàn bộ 11.229 nhân khẩu cho 9 chuyên đề: **NVQS** (Nam 17 tuổi, 18–25t, 18–27t CĐ/ĐH), **Mừng thọ Người cao tuổi** (tròn 70, 75, 80, 85, 90, 95, 100+ tuổi theo Điều 21 Luật NCT), **Trẻ em đầu cấp & Y tế** (0–2t Vitamin A/Tiêm chủng, 5t Mầm non, 6t Lớp 1, 11t Lớp 6) và **Căn cước 14 tuổi**; xuất Excel chuẩn mẫu nộp Phường 1 chạm.
+      - **Xuất Báo cáo Định kỳ Tháng / Quý / Năm 1-chạm ra File Word (`.docx`) (`PeriodicWordReportModal.tsx` trên `Dashboard.tsx`):** Tự động tổng hợp số liệu thực tế toàn hệ thống vào biểu mẫu chuẩn **Nghị định 30/2020/NĐ-CP** (Quốc hiệu – Tiêu ngữ 2 cột ẩn viền, Times New Roman, lề trái 3cm, bảng số liệu có khung, chọn cơ quan ký Chi bộ / BĐH KP3), tích hợp nút **✨ AI Biên tập Văn phong**.
+      - **An toàn PCCC Cơ sở & Tổ Liên gia PCCC (`FireSafetyAndHostelQrHub.tsx` — Sub-tab trong `BusinessManagement.tsx`):** Hậu kiểm PCCC 118+ cơ sở & 108 nhà trọ (`safetyCertified`), quản lý mạng lưới Tổ Liên gia An toàn PCCC, Điểm chữa cháy công cộng, Trụ nước cứu hỏa (`portal_settings("kp3_pccc_points_v1")`) và xuất báo cáo PCCC `.xlsx`.
+      - **Mã QR Khai báo Lưu trú Tạm thời riêng cho 108 Nhà trọ (`FireSafetyAndHostelQrHub.tsx` + `PublicHostelCheckinModal.tsx` + `api/notifications.ts`):** Tạo & in bảng QR dán cổng từng nhà trọ (`?hostel_checkin=...`), khách thuê mới quét QR gửi tờ khai trực tuyến (`public_submit_hostel_checkin`), Cán bộ / CSKV duyệt 1 chạm bổ sung vào danh sách Nhân khẩu Tạm trú.
+      - **Phát hành Mã VietQR Động Hàng Loạt theo Hộ (`BatchHouseholdVietQrModal.tsx` trong `NeighborhoodFunds.tsx`):** Tạo hàng loạt phiếu thu gắn cú pháp chuẩn `KP3 <MaHo> <MaQuy>` và in tờ 12 phiếu QR/trang phát tới hộ dân.
+      - **Sổ Trực & Tuần tra Tổ Bảo vệ ANTT Cơ sở (`SecurityPatrolLogTab.tsx` — Sub-tab thứ 3 trong `FieldReflections.tsx`):** Ghi nhận ca tuần tra kèm ảnh xác thực Timemark + tọa độ GPS, chuyển 1 chạm sang Hồ sơ 1022, đẩy báo cáo nhanh qua Zalo OA tới CSKV & Thường trực (`send_patrol_urgent_alert`) và xuất Sổ trực `.xlsx`.
+
 ---
 
-## 7. TRẠNG THÁI HỆ THỐNG, BÀN GIAO PHIÊN (22/11/2026) & ĐỊNH HƯỚNG TIẾP THEO
+## 7. TRẠNG THÁI HỆ THỐNG, BÀN GIAO PHIÊN (24/11/2026) & ĐỊNH HƯỚNG TIẾP THEO
 - **Trạng thái Kiểm thử & Build:**
   - ✅ TypeScript: `npx tsc --noEmit` đạt `exit code 0` (0 lỗi trên toàn dự án Web + Serverless API).
-  - ✅ Unit Tests (Vitest): **28/28 bộ test (`132/132` kịch bản kiểm thử) PASS 100%**.
+  - ✅ Unit Tests (Vitest): **29/29 bộ test (`136/136` kịch bản kiểm thử, bao gồm `ageCohortScanner.test.ts`) PASS 100%**.
   - ✅ Production Build & Chrome DevTools MCP Live E2E: Kiểm thử thực tế tại `https://bdhkp3.vercel.app/dashboard/reports` đạt **0 lỗi Console**, kéo thành công 59 tin nhắn lịch sử thật (9 hội thoại Zalo OA) và gửi/nhận tin nhắn 2 chiều thông suốt.
 - **Trạng thái Hạ tầng Trực tuyến & Các Gói Phát hành:**
   - **Web Portal Production:** 👉 **[https://bdhkp3.vercel.app](https://bdhkp3.vercel.app)** (`dpl_7jEZ5DXyrRRaehGGkyvqg8znMiu8` — commit `fe42d19` — **READY**).

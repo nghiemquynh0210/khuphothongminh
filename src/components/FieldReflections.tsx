@@ -13,6 +13,7 @@ import {
   Plus,
   RotateCcw,
   Search,
+  Shield,
   ShieldCheck,
 } from "lucide-react";
 import {
@@ -38,6 +39,7 @@ import { ReportSelect } from "./reports/ReportSelect";
 import { ReportCard } from "./reports/ReportCard";
 import { ReportTable } from "./reports/ReportTable";
 import { ZaloOaChatInbox } from "./reports/ZaloOaChatInbox";
+import { SecurityPatrolLogTab } from "./reports/SecurityPatrolLogTab";
 import {
   ROUTES,
   getReportCreatePath,
@@ -128,7 +130,7 @@ export default function FieldReflections({
 
   const REPORTS_PER_PAGE = 12;
   const [currentPage, setCurrentPage] = useState(1);
-  const [activeSubTab, setActiveSubTab] = useState<"reports" | "zalo_inbox">("reports");
+  const [activeSubTab, setActiveSubTab] = useState<"reports" | "zalo_inbox" | "patrol_logs">("reports");
   const [zaloUnreadCount, setZaloUnreadCount] = useState(0);
 
   const [toastMsg, setToastMsg] = useState<string | null>(null);
@@ -383,10 +385,26 @@ export default function FieldReflections({
               </span>
             )}
           </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={activeSubTab === "patrol_logs"}
+            onClick={() => setActiveSubTab("patrol_logs")}
+            className={`h-8 px-3.5 rounded-lg text-xs font-semibold inline-flex items-center gap-1.5 cursor-pointer transition-colors ${
+              activeSubTab === "patrol_logs"
+                ? "bg-white text-slate-900 shadow-2xs"
+                : "text-slate-600 hover:text-slate-900"
+            }`}
+          >
+            <Shield size={13} className="text-amber-700" />
+            <span>Tuần tra ANTT</span>
+          </button>
         </div>
       )}
 
-      {!readOnly && activeSubTab === "zalo_inbox" ? (
+      {!readOnly && activeSubTab === "patrol_logs" ? (
+        <SecurityPatrolLogTab onAddReport={onAddReport} currentUser={currentUser} />
+      ) : !readOnly && activeSubTab === "zalo_inbox" ? (
         <ZaloOaChatInbox
           reports={normalizedReports}
           onAddReport={onAddReport}

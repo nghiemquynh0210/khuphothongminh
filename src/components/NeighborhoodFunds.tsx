@@ -53,6 +53,7 @@ import {
 import { getStoredAssociations } from "../data/associationsData";
 import { extractKeyLeadersSummary } from "../utils/leadershipSync";
 import VietQrModal from "./funds/VietQrModal";
+import { BatchHouseholdVietQrModal } from "./funds/BatchHouseholdVietQrModal";
 import HouseholdFundLookup from "./funds/HouseholdFundLookup";
 import FundCatalogManager from "./funds/FundCatalogManager";
 import {
@@ -123,6 +124,7 @@ export default function NeighborhoodFunds({
   );
   const [activeVietQrContribution, setActiveVietQrContribution] =
     useState<FundContribution | null>(null);
+  const [showBatchVietQrModal, setShowBatchVietQrModal] = useState(false);
 
   // Stored dynamic Fund Categories
   const [storedCategories, setStoredCategories] = useState<FundCategory[]>(() => {
@@ -783,6 +785,17 @@ export default function NeighborhoodFunds({
         }
         actions={
           <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto shrink-0">
+            {!readOnly && (
+              <Button
+                variant="outline"
+                size="md"
+                className="hover:bg-emerald-50 border-emerald-200 text-emerald-900"
+                leftIcon={<QrCode size={15} className="text-emerald-700" />}
+                onClick={() => setShowBatchVietQrModal(true)}
+              >
+                VietQR theo Hộ
+              </Button>
+            )}
             <Button
               variant="outline"
               size="md"
@@ -1952,6 +1965,15 @@ export default function NeighborhoodFunds({
       <ReceiptPrintModal
         receipt={selectedReceipt}
         onClose={() => setSelectedReceipt(null)}
+      />
+
+      <BatchHouseholdVietQrModal
+        isOpen={showBatchVietQrModal}
+        onClose={() => setShowBatchVietQrModal(false)}
+        households={households}
+        categories={categories}
+        existingContributions={contributions}
+        onBatchCreateContributions={onBatchAddContributions}
       />
 
       {activeVietQrContribution && (

@@ -67,7 +67,9 @@ import {
   DollarSign,
   AlertCircle,
   Navigation,
-  Compass
+  Compass,
+  Flame,
+  QrCode
 } from "lucide-react";
 import { Business, BusinessFile, InspectionLog, ForeignWorker, BusinessChangeLog, Resident, Household, TargetGisItem } from "../types";
 import { 
@@ -99,6 +101,8 @@ import { recordAuditLog } from "../utils/auditLogger";
 import { getBusinessCreatePath, getBusinessDetailPath, getBusinessEditPath, navigate } from "../routes";
 import { normalizeEntityLandParcels } from "../utils/landParcelsUtils";
 import { getNormalizedLinkedHouseholdCodes } from "../utils/addressCoLocationUtils";
+import { FireSafetyAndHostelQrHub } from "./businesses/FireSafetyAndHostelQrHub";
+import { upsertResidentToDb } from "../utils/supabaseSync";
 
 export interface IndustrySectorDef {
   id: string;
@@ -308,6 +312,7 @@ export default function BusinessManagement({
   // GIS Coordinate Pinning & Navigation Modal States
   const [gisPinModalBusiness, setGisPinModalBusiness] = useState<Business | null>(null);
   const [gisPinInput, setGisPinInput] = useState("");
+  const [activeBizSubTab, setActiveBizSubTab] = useState<"directory" | "pccc" | "hostel_qr">("directory");
 
   const handleDirections = (b: Business) => {
     let coords = b.coordinates;
@@ -823,6 +828,75 @@ export default function BusinessManagement({
           </div>
         }
       />
+
+      {/* Segmented Sub-Tabs: Danh bạ Cơ sở • An toàn PCCC • Mã QR Nhà trọ */}
+      <div
+        role="tablist"
+        aria-label="Phân khu Cơ sở kinh doanh & PCCC"
+        className="inline-flex flex-wrap items-center p-1 rounded-xl bg-slate-100/90 border border-slate-200/80 gap-1"
+      >
+        <button
+          type="button"
+          role="tab"
+          aria-selected={activeBizSubTab === "directory"}
+          onClick={() => setActiveBizSubTab("directory")}
+          className={`h-8 px-3.5 rounded-lg text-xs font-semibold inline-flex items-center gap-1.5 cursor-pointer transition-colors ${
+            activeBizSubTab === "directory"
+              ? "bg-white text-slate-900 shadow-2xs"
+              : "text-slate-600 hover:text-slate-900"
+          }`}
+        >
+          <Store size={13} className="text-emerald-700" />
+          <span>Cơ sở &amp; Nhà trọ ({businesses.length})</span>
+        </button>
+        <button
+          type="button"
+          role="tab"
+          aria-selected={activeBizSubTab === "pccc"}
+          onClick={() => setActiveBizSubTab("pccc")}
+          className={`h-8 px-3.5 rounded-lg text-xs font-semibold inline-flex items-center gap-1.5 cursor-pointer transition-colors ${
+            activeBizSubTab === "pccc"
+              ? "bg-white text-slate-900 shadow-2xs"
+              : "text-slate-600 hover:text-slate-900"
+          }`}
+        >
+          <Flame size={13} className="text-rose-600" />
+          <span>An toàn PCCC &amp; Tổ Liên gia</span>
+        </button>
+        <button
+          type="button"
+          role="tab"
+          aria-selected={activeBizSubTab === "hostel_qr"}
+          onClick={() => setActiveBizSubTab("hostel_qr")}
+          className={`h-8 px-3.5 rounded-lg text-xs font-semibold inline-flex items-center gap-1.5 cursor-pointer transition-colors ${
+            activeBizSubTab === "hostel_qr"
+              ? "bg-white text-slate-900 shadow-2xs"
+              : "text-slate-600 hover:text-slate-900"
+          }`}
+        >
+          <QrCode size={13} className="text-blue-600" />
+          <span>Mã QR Khai báo Lưu trú</span>
+        </button>
+      </div>
+
+      {activeBizSubTab !== "directory" ? (
+        <FireSafetyAndHostelQrHub
+          mode={activeBizSubTab}
+          businesses={businesses}
+          onUpdateBusiness={
+            onUpdateBusinesses
+              ? (updated) =>
+                  onUpdateBusinesses(
+                    businesses.map((item) => (item.id === updated.id ? updated : item))
+                  )
+              : undefined
+          }
+          onAddApprovedResident={(newRes) => {
+            void upsertResidentToDb(newRes);
+          }}
+        />
+      ) : (
+        <>
 
       {/* KPI Stats Overview Bar */}
       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3.5">
@@ -1730,6 +1804,8 @@ export default function BusinessManagement({
         confirmLabel="Xác nhận xóa"
         variant="danger"
       />
+        </>
+      )}
 
       {/* Toast Notification */}
       {toast && (

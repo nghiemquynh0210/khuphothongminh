@@ -40,6 +40,7 @@ import CitizenHeader from "./landing/CitizenHeader";
 import CitizenLeadershipSection from "./landing/CitizenLeadershipSection";
 import CitizenAboutKP3Section from "./landing/CitizenAboutKP3Section";
 import CitizenModals from "./landing/CitizenModals";
+import { PublicHostelCheckinModal } from "./landing/PublicHostelCheckinModal";
 import CitizenNewsSection from "./landing/CitizenNewsSection";
 import CitizenQuickServices from "./landing/CitizenQuickServices";
 import CitizenReflectionSection from "./landing/CitizenReflectionSection";
@@ -993,6 +994,7 @@ export default function CitizenLandingPage({
           setDeleteTarget(null);
         }}
       />
+      <PublicHostelCheckinModal />
     </div>
   );
 }

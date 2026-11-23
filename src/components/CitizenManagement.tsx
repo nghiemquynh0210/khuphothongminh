@@ -65,6 +65,7 @@ import { PageHeader } from "./common/PageHeader";
 import { ReportSelect } from "./reports/ReportSelect";
 import { ConfirmModal, InlineNotice } from "./ui/ConfirmModal";
 import { CT07Modal, NA17Modal, QuickHouseholdModal } from "./residents/ResidentModals";
+import { AgeCohortScannerModal } from "./residents/AgeCohortScannerModal";
 import { formatVNNumber } from "../utils/numberFormat";
 import { KP3_AREA_LIST, extractKp3Area, maskCccd } from "../utils/kp3Utils";
 import { recordAuditLog } from "../utils/auditLogger";
@@ -315,6 +316,7 @@ export default function CitizenManagement({
 
   // Excel & Paste Import States
   const [showImportModal, setShowImportModal] = useState(false);
+  const [showCohortScanner, setShowCohortScanner] = useState(false);
   const [importTab, setImportTab] = useState<"file" | "paste">("file");
   const [isDragging, setIsDragging] = useState(false);
   const [parsedData, setParsedData] = useState<any[]>([]);
@@ -1473,6 +1475,14 @@ export default function CitizenManagement({
         title="Quản lý Dân cư Khu phố"
         actions={
           <div className="flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setShowCohortScanner(true)}
+              className="flex items-center gap-1.5 h-9 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 text-emerald-900 px-3 rounded-lg font-semibold text-xs transition-colors cursor-pointer whitespace-nowrap"
+              title="Rà soát tự động Nghĩa vụ Quân sự, Mừng thọ Người cao tuổi, Trẻ em đầu cấp & Căn cước"
+            >
+              <Shield size={14} className="text-emerald-700 shrink-0" /> Rà soát NVQS • Độ tuổi
+            </button>
             <button
               type="button"
               onClick={() => navigate("/dashboard/settings?subtab=zalo_oa")}
@@ -3268,6 +3278,13 @@ export default function CitizenManagement({
           onClose={() => setConfirmDialog(null)}
         />
       )}
+
+      <AgeCohortScannerModal
+        isOpen={showCohortScanner}
+        onClose={() => setShowCohortScanner(false)}
+        residents={residents}
+        onOpenResidentDetail={(r) => navigate(getResidentDetailPath(r.id))}
+      />
     </div>
   );
 }

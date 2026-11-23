@@ -74,6 +74,7 @@ import {
 import { PageHeader } from "./common/PageHeader";
 import { StatCard } from "./common/StatCard";
 import { Button, InlineNotice, Modal } from "./ui";
+import { PeriodicWordReportModal } from "./dashboard/PeriodicWordReportModal";
 
 interface DashboardProps {
   residents: Resident[];
@@ -112,6 +113,7 @@ export default function Dashboard({
   currentUser,
 }: DashboardProps) {
   const isStaff = currentUser?.role === "canbo";
+  const [showWordReportModal, setShowWordReportModal] = useState(false);
 
   const metrics = useMemo(() => {
     const totalRes = (residents || []).length;
@@ -821,14 +823,24 @@ export default function Dashboard({
         title="Tổng quan Điều hành Khu phố 3"
         description="Quy mô hộ thường trú – tạm trú, các cảnh báo cư trú và đầu việc cần xử lý trong ngày"
         actions={
-          <Button
-            variant="secondary"
-            size="sm"
-            leftIcon={<Download size={14} />}
-            onClick={handleExportBriefingReport}
-          >
-            Xuất Báo cáo Giao ban (.xlsx)
-          </Button>
+          <div className="flex flex-wrap items-center gap-2">
+            <Button
+              variant="emerald"
+              size="sm"
+              leftIcon={<FileText size={14} />}
+              onClick={() => setShowWordReportModal(true)}
+            >
+              Xuất Báo cáo Word (.docx)
+            </Button>
+            <Button
+              variant="secondary"
+              size="sm"
+              leftIcon={<Download size={14} />}
+              onClick={handleExportBriefingReport}
+            >
+              Xuất Báo cáo Giao ban (.xlsx)
+            </Button>
+          </div>
         }
       />
 
@@ -1508,6 +1520,21 @@ export default function Dashboard({
           </div>
         )}
       </section>
+
+      <PeriodicWordReportModal
+        isOpen={showWordReportModal}
+        onClose={() => setShowWordReportModal(false)}
+        residents={residents}
+        households={households}
+        businesses={businesses}
+        reports={reports}
+        tasks={tasks}
+        schedules={schedules}
+        fundContributions={fundContributions}
+        fundExpenditures={fundExpenditures}
+        welfareCount={welfareCount}
+        actorName={currentUser?.fullName}
+      />
     </div>
   );
 }

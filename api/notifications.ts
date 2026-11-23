@@ -129,6 +129,7 @@ const LOGS_KEY = "notification_dispatch_logs_v1";
 const CADRE_ZALO_MAPPING_KEY = "cadre_zalo_mapping_v1";
 const ZALO_CHAT_INDEX_KEY = "zalo_oa_chat_inbox_index_v1";
 const ZALO_CHAT_THREAD_PREFIX = "zalo_oa_chat_thread_";
+const HOSTEL_CHECKINS_KEY = "kp3_hostel_qr_checkins_v1";
 
 export interface ZaloChatConversation {
   zaloUserId: string;
@@ -1273,6 +1274,46 @@ export default async function notificationsHandler(req: any, res: any) {
     const action = String(body.action || "get_config");
 
     // --- 3.1. ZALO MINI APP: TIẾP NHẬN PHẢN ÁNH 1022 TỪ CƯ DÂN ---
+    if (action === "public_submit_hostel_checkin") {
+      if (!supabaseUrl || !serviceRoleKey) {
+        return res.status(500).json({ ok: false, error: "Chưa cấu hình máy chủ dữ liệu." });
+      }
+      const fullName = String(body.fullName || "").trim();
+      const cccd = String(body.cccd || "").replace(/\D/g, "").trim();
+      const phone = String(body.phone || "").trim();
+      const hostelName = String(body.hostelName || "").trim();
+      if (!fullName || cccd.length < 9 || !hostelName) {
+        return res.status(400).json({
+          ok: false,
+          error: "Vui lòng điền đầy đủ Họ tên, Số CCCD hợp lệ và Tên nhà trọ.",
+        });
+      }
+      const existing =
+        (await readPrivateSetting<any[]>(supabaseUrl, serviceRoleKey, HOSTEL_CHECKINS_KEY)) || [];
+      const newEntry = {
+        id: `CHK-${Date.now()}-${Math.random().toString(36).slice(2, 5).toUpperCase()}`,
+        hostelId: String(body.hostelId || "").trim(),
+        hostelName,
+        hostelAddress: String(body.hostelAddress || "").trim(),
+        roomNumber: String(body.roomNumber || "").trim(),
+        fullName,
+        gender: body.gender === "Nữ" ? "Nữ" : "Nam",
+        birthDate: String(body.birthDate || "").trim(),
+        cccd,
+        phone,
+        permanentAddress: String(body.permanentAddress || "").trim(),
+        moveInDate: String(body.moveInDate || new Date().toLocaleDateString("vi-VN")).trim(),
+        status: "pending",
+        submittedAt: new Date().toISOString(),
+      };
+      await writePrivateSetting(
+        supabaseUrl,
+        serviceRoleKey,
+        HOSTEL_CHECKINS_KEY,
+        [newEntry, ...existing].slice(0, 300)
+      );
+      return res.status(200).json({ ok: true, id: newEntry.id });
+    }
     if (action === "mini_app_submit_report") {
       const { title, category, location, description, reporter_name, reporter_phone } = body;
       if (!title || !location || !description) {
@@ -5102,6 +5143,52 @@ Chỉ trả về đúng nội dung tin nhắn thuần văn bản (không dùng m
     } catch {
       return res.status(200).json({ ok: true, suggestion: fallbackDraft, source: "template" });
     }
+  }
+
+  if (action === "list_hostel_checkins") {
+    const items =
+      (await readPrivateSetting<any[]>(supabaseUrl, serviceRoleKey, HOSTEL_CHECKINS_KEY)) || [];
+    return res.status(200).json({ ok: true, items });
+  }
+
+  if (action === "update_hostel_checkin_status") {
+    const id = String(body.id || "").trim();
+    const status = body.status === "approved" ? "approved" : "rejected";
+    const items =
+      (await readPrivateSetting<any[]>(supabaseUrl, serviceRoleKey, HOSTEL_CHECKINS_KEY)) || [];
+    const next = items.map((c) =>
+      c.id === id ? { ...c, status, reviewedBy: caller.actorName } : c
+    );
+    await writePrivateSetting(supabaseUrl, serviceRoleKey, HOSTEL_CHECKINS_KEY, next);
+    return res.status(200).json({ ok: true });
+  }
+
+  if (action === "send_patrol_urgent_alert") {
+    const savedCfg = await readPrivateSetting<ZaloOaSavedConfig>(
+      supabaseUrl,
+      serviceRoleKey,
+      CONFIG_KEY
+    );
+    if (!savedCfg) {
+      return res.status(200).json({ ok: true, sentCount: 0 });
+    }
+    const activeToken = await refreshZaloAccessTokenIfNeeded(
+      savedCfg,
+      supabaseUrl,
+      serviceRoleKey
+    );
+    const sentCount = activeToken
+      ? await pushUrgentZaloAlertToCadres({
+          supabaseUrl,
+          serviceRoleKey,
+          activeToken,
+          savedCfg,
+          citizenName: String(body.teamMembers || "Tổ ANTT Cơ sở KP3"),
+          category: `Tuần tra ANTT (${body.result || "Báo cáo"})`,
+          messageSnippet: `[${body.shiftLabel || "Ca tuần tra"}] Tại ${body.routeArea}: ${body.note}`,
+        })
+      : 0;
+    return res.status(200).json({ ok: true, sentCount });
   }
 
   return res.status(400).json({ ok: false, error: `Hành động không hợp lệ: ${action}` });
