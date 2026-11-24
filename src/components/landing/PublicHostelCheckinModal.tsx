@@ -144,6 +144,7 @@ export function PublicHostelCheckinModal() {
                 id="chk-fullname"
                 name="fullName"
                 type="text"
+                autoComplete="name"
                 required
                 value={fullName}
                 onChange={(e) => setFullName(e.target.value)}
@@ -223,6 +224,7 @@ export function PublicHostelCheckinModal() {
               id="chk-phone"
               name="phone"
               type="tel"
+              autoComplete="tel"
               required
               value={phone}
               onChange={(e) => setPhone(e.target.value)}

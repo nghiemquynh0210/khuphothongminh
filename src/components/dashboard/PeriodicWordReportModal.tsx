@@ -623,7 +623,7 @@ Hãy viết trả về JSON thuần (không bọc markdown) gồm 2 trường:
     <Modal
       isOpen={isOpen}
       onClose={onClose}
-      size="lg"
+      size="3xl"
       title="Xuất Báo Cáo Định Kỳ Chuẩn Hành Chính (.docx)"
       description="Tự động tổng hợp số liệu thực tế trên toàn hệ thống Khu phố 3 theo thể thức Nghị định 30/2020/NĐ-CP"
       footer={
@@ -699,7 +699,7 @@ Hãy viết trả về JSON thuần (không bọc markdown) gồm 2 trường:
 
           <div className="space-y-1.5">
             <label className="font-semibold text-slate-700 block">Loại kỳ báo cáo</label>
-            <div className="flex items-center gap-1.5">
+            <div className="flex flex-wrap items-center gap-1.5">
               {(
                 [
                   { id: "month", label: "Tháng" },

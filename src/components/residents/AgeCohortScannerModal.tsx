@@ -376,7 +376,7 @@ export function AgeCohortScannerModal({
     <Modal
       isOpen={isOpen}
       onClose={onClose}
-      size="xl"
+      size="4xl"
       title="Rà soát Tự động Theo Độ tuổi: NVQS • Mừng thọ • Tuyển sinh & Căn cước"
       description={`Tự động trích xuất từ ${formatVNNumber(residents.length)} nhân khẩu Khu phố 3, Phường An Phú, TP. Hồ Chí Minh`}
       footer={

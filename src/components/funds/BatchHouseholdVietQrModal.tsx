@@ -143,7 +143,7 @@ export function BatchHouseholdVietQrModal({
     <Modal
       isOpen={isOpen}
       onClose={onClose}
-      size="lg"
+      size="3xl"
       title="Phát Hành Mã VietQR Động Theo Từng Hộ Gia Đình"
       description="Tự động gắn Mã hộ khẩu vào nội dung chuyển khoản NAPAS 247 giúp đối soát minh bạch 100%"
       footer={
