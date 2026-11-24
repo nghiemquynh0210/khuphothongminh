@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
 import { Resident } from "../../types";
-import { scanResidentsByCohort } from "../../components/residents/AgeCohortScannerModal";
+import {
+  NVQS_1827_STATUS_OPTIONS,
+  getNvqsResidentKey,
+  getNvqsStatusMeta,
+  scanResidentsByCohort,
+} from "../../components/residents/AgeCohortScannerModal";
 
 function makeRes(overrides: Partial<Resident>): Resident {
   return {
@@ -59,5 +64,13 @@ describe("scanResidentsByCohort (NVQS, Mừng thọ, Tuyển sinh & Căn cước
   it("detects Grade 1 (6yo) and Citizen ID (14yo) cohorts accurately", () => {
     expect(scanResidentsByCohort(sample, "school_6", 2026).map((x) => x.resident.id)).toEqual(["8"]);
     expect(scanResidentsByCohort(sample, "cccd_14", 2026).map((x) => x.resident.id)).toEqual(["9"]);
+  });
+
+  it("provides full NVQS 18-27 legal statuses and stable resident keys", () => {
+    expect(NVQS_1827_STATUS_OPTIONS.length).toBeGreaterThanOrEqual(12);
+    expect(getNvqsStatusMeta("deferred_student").group).toBe("deferred");
+    expect(getNvqsStatusMeta("exempt_policy").group).toBe("exempt");
+    expect(getNvqsStatusMeta("serving").group).toBe("active_done");
+    expect(getNvqsResidentKey(makeRes({ id: "R99", cccd: "079-200-001-234" }))).toBe("079200001234");
   });
 });

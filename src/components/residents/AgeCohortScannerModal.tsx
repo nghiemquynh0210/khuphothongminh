@@ -1,8 +1,9 @@
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import * as XLSX from "xlsx";
 import {
   Award,
   Baby,
+  Check,
   CheckCircle2,
   CreditCard,
   Download,
@@ -10,6 +11,8 @@ import {
   Heart,
   Search,
   Shield,
+  Square,
+  CheckSquare,
   Users,
 } from "lucide-react";
 import { Resident } from "../../types";
@@ -20,6 +23,7 @@ import { formatCompactKp3Address } from "../../utils/householdRecognitionUtils";
 import { getEffectiveResidencyStatus } from "../../utils/residencyClassifier";
 import { maskCccd } from "../../utils/kp3Utils";
 import { recordAuditLog } from "../../utils/auditLogger";
+import { loadPortalSetting, savePortalSetting } from "../../utils/supabaseSync";
 
 export type CohortPresetId =
   | "nvqs_17"
@@ -31,6 +35,152 @@ export type CohortPresetId =
   | "school_6"
   | "school_11"
   | "cccd_14";
+
+export type Nvqs1827Status =
+  | "unreviewed"
+  | "eligible"
+  | "serving"
+  | "completed"
+  | "militia"
+  | "deferred_health"
+  | "deferred_student"
+  | "deferred_highschool"
+  | "deferred_policy_family"
+  | "deferred_other"
+  | "exempt_policy"
+  | "ineligible";
+
+export interface NvqsStatusOption {
+  value: Nvqs1827Status;
+  label: string;
+  shortLabel: string;
+  group: "ready" | "active_done" | "deferred" | "exempt";
+  legalHint: string;
+  badgeClass: string;
+}
+
+export const NVQS_1827_STATUS_OPTIONS: NvqsStatusOption[] = [
+  {
+    value: "unreviewed",
+    label: "Chưa rà soát",
+    shortLabel: "Chưa rà soát",
+    group: "ready",
+    legalHint: "Chưa phân loại nguồn",
+    badgeClass: "bg-slate-100 text-slate-700 border-slate-200",
+  },
+  {
+    value: "eligible",
+    label: "Đủ ĐK sơ tuyển / khám tuyển",
+    shortLabel: "Đủ ĐK sơ tuyển",
+    group: "ready",
+    legalHint: "Điều 30 Luật NVQS — Sẵn sàng gọi khám sức khỏe",
+    badgeClass: "bg-blue-50 text-blue-800 border-blue-200",
+  },
+  {
+    value: "serving",
+    label: "Đang thực hiện NVQS / CAND",
+    shortLabel: "Đang tại ngũ",
+    group: "active_done",
+    legalHint: "Đang tại ngũ Quân đội hoặc nghĩa vụ Công an nhân dân",
+    badgeClass: "bg-emerald-50 text-emerald-800 border-emerald-200",
+  },
+  {
+    value: "completed",
+    label: "Đã hoàn thành NVQS / Xuất ngũ",
+    shortLabel: "Đã hoàn thành",
+    group: "active_done",
+    legalHint: "Đã hoàn thành nghĩa vụ tại ngũ, chuyển ngạch dự bị",
+    badgeClass: "bg-teal-50 text-teal-800 border-teal-200",
+  },
+  {
+    value: "militia",
+    label: "Đang là Dân quân thường trực",
+    shortLabel: "Dân quân TT",
+    group: "active_done",
+    legalHint: "Khoản 1 Điều 41 (bổ sung theo Luật Dân quân tự vệ 2019)",
+    badgeClass: "bg-emerald-50 text-emerald-900 border-emerald-300",
+  },
+  {
+    value: "deferred_health",
+    label: "Tạm hoãn — Chưa đủ sức khỏe (TT 105/2023)",
+    shortLabel: "Hoãn: Sức khỏe",
+    group: "deferred",
+    legalHint: "Điểm a K1 Đ41 • TT 105/2023/TT-BQP (Loại 4–5, cận >1,5 độ...)",
+    badgeClass: "bg-amber-50 text-amber-900 border-amber-200",
+  },
+  {
+    value: "deferred_student",
+    label: "Tạm hoãn — Sinh viên ĐH / CĐ chính quy",
+    shortLabel: "Hoãn: Sinh viên",
+    group: "deferred",
+    legalHint: "Điểm g K1 Đ41 — 01 khóa đào tạo chính quy (gọi lại đến hết 27t)",
+    badgeClass: "bg-amber-50 text-amber-900 border-amber-200",
+  },
+  {
+    value: "deferred_highschool",
+    label: "Tạm hoãn — Học sinh phổ thông (THPT)",
+    shortLabel: "Hoãn: Học sinh",
+    group: "deferred",
+    legalHint: "Điểm g K1 Đ41 — Đang học tại cơ sở giáo dục phổ thông",
+    badgeClass: "bg-amber-50 text-amber-900 border-amber-200",
+  },
+  {
+    value: "deferred_policy_family",
+    label: "Tạm hoãn — Gia đình chính sách / Hoàn cảnh ĐB",
+    shortLabel: "Hoãn: GĐ Chính sách",
+    group: "deferred",
+    legalHint: "Lao động duy nhất; thiên tai; 1 con bệnh binh/da cam 61-80%; anh/em tại ngũ",
+    badgeClass: "bg-orange-50 text-orange-900 border-orange-200",
+  },
+  {
+    value: "deferred_other",
+    label: "Tạm hoãn — Lý do khác (Di dân, vùng ĐBKK...)",
+    shortLabel: "Hoãn: Lý do khác",
+    group: "deferred",
+    legalHint: "Di dân 3 năm đầu, công tác vùng ĐBKK hoặc lý do hợp lệ khác",
+    badgeClass: "bg-yellow-50 text-yellow-900 border-yellow-200",
+  },
+  {
+    value: "exempt_policy",
+    label: "Miễn gọi nhập ngũ (Chính sách / Cơ yếu)",
+    shortLabel: "Miễn gọi nhập ngũ",
+    group: "exempt",
+    legalHint: "Khoản 2 Điều 41 — Con liệt sĩ/TB hạng 1, 1 anh/em liệt sĩ, cơ yếu...",
+    badgeClass: "bg-purple-50 text-purple-900 border-purple-200",
+  },
+  {
+    value: "ineligible",
+    label: "Không đủ tiêu chuẩn / Tạm dừng theo quy định",
+    shortLabel: "Không đủ TC",
+    group: "exempt",
+    legalHint: "Không đủ tiêu chuẩn chính trị, đạo đức hoặc đang bị truy cứu",
+    badgeClass: "bg-rose-50 text-rose-800 border-rose-200",
+  },
+];
+
+export interface NvqsRecordEntry {
+  residentKey: string;
+  age17Registered?: boolean;
+  age17RegDate?: string;
+  age17CertNumber?: string;
+  status1827?: Nvqs1827Status;
+  detailNote?: string;
+  updatedAt?: string;
+  updatedBy?: string;
+}
+
+export const NVQS_RECORDS_STORAGE_KEY = "kp3_nvqs_records_v1";
+
+export function getNvqsResidentKey(r: Resident): string {
+  const cleanCccd = String(r.cccd || "").replace(/\D/g, "");
+  return cleanCccd.length >= 9 ? cleanCccd : r.id;
+}
+
+export function getNvqsStatusMeta(status?: Nvqs1827Status): NvqsStatusOption {
+  return (
+    NVQS_1827_STATUS_OPTIONS.find((o) => o.value === status) || NVQS_1827_STATUS_OPTIONS[0]
+  );
+}
 
 export interface CohortPresetDef {
   id: CohortPresetId;
@@ -47,7 +197,7 @@ export const COHORT_PRESETS: CohortPresetDef[] = [
     group: "Nghĩa vụ Quân sự",
     label: "Nam đủ 17 tuổi (Đăng ký NVQS lần đầu)",
     shortBadge: "17 tuổi • Nam",
-    legalBasis: "Điều 12 Luật Nghĩa vụ quân sự 2015",
+    legalBasis: "Điều 12 Luật NVQS 2015 — Đăng ký trực tiếp tại Ban CHQS Phường hoặc trực tuyến",
     icon: Shield,
   },
   {
@@ -55,7 +205,7 @@ export const COHORT_PRESETS: CohortPresetDef[] = [
     group: "Nghĩa vụ Quân sự",
     label: "Nam 18 – 25 tuổi (Gọi nhập ngũ phổ thông)",
     shortBadge: "18–25t • Nam",
-    legalBasis: "Điều 30 Luật Nghĩa vụ quân sự 2015",
+    legalBasis: "Điều 30, Điều 41 Luật NVQS 2015 & Thông tư 105/2023/TT-BQP",
     icon: Shield,
   },
   {
@@ -63,7 +213,7 @@ export const COHORT_PRESETS: CohortPresetDef[] = [
     group: "Nghĩa vụ Quân sự",
     label: "Nam 18 – 27 tuổi (Gồm diện CĐ / Đại học)",
     shortBadge: "18–27t • Nam",
-    legalBasis: "Điều 30 Luật NVQS (kéo dài đến hết 27 tuổi)",
+    legalBasis: "Điều 30, Điều 41 Luật NVQS (độ tuổi kéo dài đến hết 27 tuổi)",
     icon: Shield,
   },
   {
@@ -166,13 +316,13 @@ export function scanResidentsByCohort(
       case "nvqs_17":
         if (r.gender === "Nam" && age === 17) {
           matched = true;
-          cohortNote = `Sinh năm ${birthYear} — Đăng ký NVQS tuổi 17 (${r.militaryServiceStatus || "Chưa rà soát"})`;
+          cohortNote = `Sinh năm ${birthYear} — Đăng ký NVQS tuổi 17`;
         }
         break;
       case "nvqs_18_25":
         if (r.gender === "Nam" && age >= 18 && age <= 25) {
           matched = true;
-          cohortNote = `Sinh năm ${birthYear} (${age} tuổi) — ${r.militaryServiceStatus || "Trong diện rà soát NVQS"}`;
+          cohortNote = `Sinh năm ${birthYear} (${age} tuổi) — Độ tuổi gọi nhập ngũ phổ thông`;
         }
         break;
       case "nvqs_18_27":
@@ -180,8 +330,8 @@ export function scanResidentsByCohort(
           matched = true;
           cohortNote =
             age > 25
-              ? `Sinh năm ${birthYear} (${age} tuổi • Diện CĐ/ĐH) — ${r.militaryServiceStatus || "Cần đối chiếu trình độ"}`
-              : `Sinh năm ${birthYear} (${age} tuổi) — ${r.militaryServiceStatus || "Trong diện rà soát NVQS"}`;
+              ? `Sinh năm ${birthYear} (${age} tuổi • Diện tốt nghiệp CĐ/ĐH)`
+              : `Sinh năm ${birthYear} (${age} tuổi)`;
         }
         break;
       case "longevity_all": {
@@ -283,16 +433,72 @@ export function AgeCohortScannerModal({
     "Thường trú"
   );
   const [longevityMilestone, setLongevityMilestone] = useState<number | "all">("all");
+  const [nvqs17Filter, setNvqs17Filter] = useState<"all" | "unregistered" | "registered">("all");
+  const [nvqs1827Filter, setNvqs1827Filter] = useState<
+    "all" | "unreviewed" | "eligible" | "serving_done" | "deferred" | "exempt"
+  >("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [revealCccd, setRevealCccd] = useState(false);
   const [exportedToast, setExportedToast] = useState<string | null>(null);
+
+  // Persistent NVQS tracking map keyed by residentKey (CCCD || id)
+  const [nvqsRecords, setNvqsRecords] = useState<Record<string, NvqsRecordEntry>>(() => {
+    try {
+      const raw = localStorage.getItem(NVQS_RECORDS_STORAGE_KEY);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (parsed && typeof parsed === "object") return parsed;
+      }
+    } catch {}
+    return {};
+  });
+
+  useEffect(() => {
+    if (!isOpen) return;
+    let active = true;
+    (async () => {
+      const cloud = await loadPortalSetting<Record<string, NvqsRecordEntry>>(
+        NVQS_RECORDS_STORAGE_KEY
+      );
+      if (active && cloud && typeof cloud === "object") {
+        setNvqsRecords((prev) => {
+          const merged = { ...prev, ...cloud };
+          try {
+            localStorage.setItem(NVQS_RECORDS_STORAGE_KEY, JSON.stringify(merged));
+          } catch {}
+          return merged;
+        });
+      }
+    })();
+    return () => {
+      active = false;
+    };
+  }, [isOpen]);
+
+  const updateNvqsRecord = (resident: Resident, patch: Partial<NvqsRecordEntry>) => {
+    const key = getNvqsResidentKey(resident);
+    setNvqsRecords((prev) => {
+      const nextEntry: NvqsRecordEntry = {
+        ...prev[key],
+        residentKey: key,
+        ...patch,
+        updatedAt: new Date().toISOString(),
+        updatedBy: actorName,
+      };
+      const nextMap = { ...prev, [key]: nextEntry };
+      try {
+        localStorage.setItem(NVQS_RECORDS_STORAGE_KEY, JSON.stringify(nextMap));
+      } catch {}
+      void savePortalSetting(NVQS_RECORDS_STORAGE_KEY, nextMap, false);
+      return nextMap;
+    });
+  };
 
   const activePreset = useMemo(
     () => COHORT_PRESETS.find((p) => p.id === presetId) || COHORT_PRESETS[0],
     [presetId]
   );
 
-  // Quick summary counts across all presets for the selected targetYear & residencyFilter
   const presetCounts = useMemo(() => {
     const map: Record<string, number> = {};
     for (const p of COHORT_PRESETS) {
@@ -303,7 +509,7 @@ export function AgeCohortScannerModal({
     return map;
   }, [residents, targetYear, residencyFilter]);
 
-  const matchedList = useMemo(
+  const baseMatchedList = useMemo(
     () =>
       scanResidentsByCohort(residents, presetId, targetYear, {
         residencyFilter,
@@ -313,10 +519,76 @@ export function AgeCohortScannerModal({
     [residents, presetId, targetYear, residencyFilter, longevityMilestone, searchQuery]
   );
 
+  // Derived NVQS summary stats for active list
+  const nvqs17Stats = useMemo(() => {
+    if (presetId !== "nvqs_17") return null;
+    let registered = 0;
+    for (const item of baseMatchedList) {
+      const rec = nvqsRecords[getNvqsResidentKey(item.resident)];
+      if (rec?.age17Registered) registered++;
+    }
+    const total = baseMatchedList.length;
+    const unregistered = total - registered;
+    const pct = total > 0 ? Math.round((registered / total) * 100) : 0;
+    return { total, registered, unregistered, pct };
+  }, [presetId, baseMatchedList, nvqsRecords]);
+
+  const nvqs1827Stats = useMemo(() => {
+    if (presetId !== "nvqs_18_25" && presetId !== "nvqs_18_27") return null;
+    const counts = {
+      total: baseMatchedList.length,
+      unreviewed: 0,
+      eligible: 0,
+      serving_done: 0,
+      deferred: 0,
+      exempt: 0,
+      byStatus: {} as Record<string, number>,
+    };
+    for (const item of baseMatchedList) {
+      const rec = nvqsRecords[getNvqsResidentKey(item.resident)];
+      const st: Nvqs1827Status = rec?.status1827 || "unreviewed";
+      counts.byStatus[st] = (counts.byStatus[st] || 0) + 1;
+      const meta = getNvqsStatusMeta(st);
+      if (st === "unreviewed") counts.unreviewed++;
+      else if (st === "eligible") counts.eligible++;
+      else if (meta.group === "active_done") counts.serving_done++;
+      else if (meta.group === "deferred") counts.deferred++;
+      else if (meta.group === "exempt") counts.exempt++;
+    }
+    return counts;
+  }, [presetId, baseMatchedList, nvqsRecords]);
+
+  const matchedList = useMemo(() => {
+    if (presetId === "nvqs_17" && nvqs17Filter !== "all") {
+      return baseMatchedList.filter((item) => {
+        const isReg = Boolean(nvqsRecords[getNvqsResidentKey(item.resident)]?.age17Registered);
+        return nvqs17Filter === "registered" ? isReg : !isReg;
+      });
+    }
+    if ((presetId === "nvqs_18_25" || presetId === "nvqs_18_27") && nvqs1827Filter !== "all") {
+      return baseMatchedList.filter((item) => {
+        const st: Nvqs1827Status =
+          nvqsRecords[getNvqsResidentKey(item.resident)]?.status1827 || "unreviewed";
+        const meta = getNvqsStatusMeta(st);
+        if (nvqs1827Filter === "unreviewed") return st === "unreviewed";
+        if (nvqs1827Filter === "eligible") return st === "eligible";
+        if (nvqs1827Filter === "serving_done") return meta.group === "active_done";
+        if (nvqs1827Filter === "deferred") return meta.group === "deferred";
+        if (nvqs1827Filter === "exempt") return meta.group === "exempt";
+        return true;
+      });
+    }
+    return baseMatchedList;
+  }, [presetId, baseMatchedList, nvqs17Filter, nvqs1827Filter, nvqsRecords]);
+
+  const isNvqs17 = presetId === "nvqs_17";
+  const isNvqs1827 = presetId === "nvqs_18_25" || presetId === "nvqs_18_27";
+
   const handleExportExcel = () => {
     const rows = matchedList.map((item, idx) => {
       const r = item.resident;
-      return {
+      const rec = nvqsRecords[getNvqsResidentKey(r)];
+      const baseRow: Record<string, any> = {
         STT: idx + 1,
         "Họ và tên": r.fullName,
         "Ngày sinh": r.birthDate || String(item.birthYear),
@@ -331,10 +603,27 @@ export function AgeCohortScannerModal({
         "Địa chỉ tại Khu phố 3": r.currentAddress || r.address || "",
         "Họ tên Cha": r.fatherName || "",
         "Họ tên Mẹ": r.motherName || "",
-        "Ghi chú chuyên đề": item.cohortNote,
       };
+
+      if (isNvqs17) {
+        baseRow["Đăng ký NVQS tuổi 17"] = rec?.age17Registered
+          ? "Đã đăng ký NVQS lần đầu"
+          : "Chưa đăng ký";
+        baseRow["Ngày ĐK"] = rec?.age17RegDate || "";
+        baseRow["Số GCN ĐK NVQS / Ghi chú"] = rec?.age17CertNumber || rec?.detailNote || "";
+      } else if (isNvqs1827) {
+        const meta = getNvqsStatusMeta(rec?.status1827);
+        baseRow["Phân loại NVQS (Luật NVQS)"] = meta.label;
+        baseRow["Chi tiết (Tên trường / Sức khỏe / Lý do)"] = rec?.detailNote || "";
+        baseRow["Cập nhật bởi"] = rec?.updatedBy || "";
+      } else {
+        baseRow["Ghi chú chuyên đề"] = item.cohortNote;
+      }
+
+      return baseRow;
     });
 
+    const wb = XLSX.utils.book_new();
     const ws = XLSX.utils.json_to_sheet(rows);
     ws["!cols"] = [
       { wch: 6 },
@@ -348,14 +637,43 @@ export function AgeCohortScannerModal({
       { wch: 14 },
       { wch: 15 },
       { wch: 24 },
-      { wch: 42 },
+      { wch: 40 },
       { wch: 22 },
       { wch: 22 },
-      { wch: 38 },
+      { wch: 36 },
+      { wch: 36 },
     ];
-    const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, `RaSoat_${targetYear}`);
-    const fileName = `KP3_RaSoat_${presetId}_${targetYear}_${residencyFilter === "all" ? "ToanKP" : residencyFilter === "Thường trú" ? "ThuongTru" : "TamTru"}.xlsx`;
+
+    // Sheet 2: Bảng Tổng hợp Thực lực NVQS nộp Ban CHQS Phường An Phú
+    if (isNvqs17 && nvqs17Stats) {
+      const sumRows = [
+        { "Chỉ tiêu đăng ký NVQS tuổi 17": `Tổng nguồn nam đủ 17 tuổi năm ${targetYear}`, "Số lượng": nvqs17Stats.total, "Tỷ lệ": "100%" },
+        { "Chỉ tiêu đăng ký NVQS tuổi 17": "Đã đăng ký NVQS lần đầu", "Số lượng": nvqs17Stats.registered, "Tỷ lệ": `${nvqs17Stats.pct}%` },
+        { "Chỉ tiêu đăng ký NVQS tuổi 17": "Chưa đăng ký (cần vận động nhắc)", "Số lượng": nvqs17Stats.unregistered, "Tỷ lệ": `${100 - nvqs17Stats.pct}%` },
+      ];
+      XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(sumRows), "TongHop_Tuoi17");
+    } else if (isNvqs1827 && nvqs1827Stats) {
+      const sumRows = NVQS_1827_STATUS_OPTIONS.map((opt) => ({
+        "Phân loại thực lực NVQS (Điều 30 & 41 Luật NVQS)": opt.label,
+        "Số lượng": nvqs1827Stats.byStatus[opt.value] || 0,
+        "Căn cứ pháp lý": opt.legalHint,
+      }));
+      sumRows.unshift({
+        "Phân loại thực lực NVQS (Điều 30 & 41 Luật NVQS)": `TỔNG NGUỒN NAM TRONG ĐỘ TUỔI (${targetYear})`,
+        "Số lượng": nvqs1827Stats.total,
+        "Căn cứ pháp lý": activePreset.legalBasis,
+      });
+      XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(sumRows), "TongHop_ThucLuc_NVQS");
+    }
+
+    const fileName = `KP3_RaSoat_${presetId}_${targetYear}_${
+      residencyFilter === "all"
+        ? "ToanKP"
+        : residencyFilter === "Thường trú"
+          ? "ThuongTru"
+          : "TamTru"
+    }.xlsx`;
     XLSX.writeFile(wb, fileName);
 
     recordAuditLog({
@@ -400,7 +718,7 @@ export function AgeCohortScannerModal({
         </div>
       }
     >
-      <div className="space-y-4">
+      <div className="space-y-3.5">
         {exportedToast && (
           <div className="px-3.5 py-2.5 rounded-lg bg-emerald-50 border border-emerald-200 text-xs font-medium text-emerald-900 flex items-center gap-2">
             <CheckCircle2 size={14} className="text-emerald-600 shrink-0" />
@@ -453,7 +771,7 @@ export function AgeCohortScannerModal({
           </div>
         </div>
 
-        {/* 9 Preset Cards grouped cleanly */}
+        {/* 9 Preset Cards */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
           {COHORT_PRESETS.map((preset) => {
             const Icon = preset.icon;
@@ -463,7 +781,11 @@ export function AgeCohortScannerModal({
               <button
                 key={preset.id}
                 type="button"
-                onClick={() => setPresetId(preset.id)}
+                onClick={() => {
+                  setPresetId(preset.id);
+                  setNvqs17Filter("all");
+                  setNvqs1827Filter("all");
+                }}
                 className={`p-2.5 rounded-xl border text-left transition-all cursor-pointer flex items-start justify-between gap-2 ${
                   active
                     ? "bg-emerald-50/90 border-emerald-600 ring-1 ring-emerald-600/30"
@@ -495,6 +817,75 @@ export function AgeCohortScannerModal({
             );
           })}
         </div>
+
+        {/* NVQS 17-year-old Registration Progress & Filter Strip */}
+        {isNvqs17 && nvqs17Stats && (
+          <div className="p-3 rounded-xl bg-emerald-50/70 border border-emerald-200 flex flex-wrap items-center justify-between gap-2.5 text-xs">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="font-bold text-emerald-950">
+                Tiến độ ĐK NVQS tuổi 17 ({targetYear}):
+              </span>
+              <span className="px-2 py-0.5 rounded bg-emerald-700 text-white font-bold">
+                Đã ĐK: {nvqs17Stats.registered}/{nvqs17Stats.total} ({nvqs17Stats.pct}%)
+              </span>
+              <span className="px-2 py-0.5 rounded bg-amber-100 text-amber-900 font-semibold">
+                Chưa ĐK: {nvqs17Stats.unregistered}
+              </span>
+            </div>
+            <div className="flex items-center gap-1">
+              {(
+                [
+                  { id: "all", label: `Tất cả (${nvqs17Stats.total})` },
+                  { id: "unregistered", label: `Chưa ĐK (${nvqs17Stats.unregistered})` },
+                  { id: "registered", label: `Đã ĐK (${nvqs17Stats.registered})` },
+                ] as const
+              ).map((f) => (
+                <button
+                  key={f.id}
+                  type="button"
+                  onClick={() => setNvqs17Filter(f.id)}
+                  className={`h-7 px-2.5 rounded-md text-[11px] font-semibold cursor-pointer ${
+                    nvqs17Filter === f.id
+                      ? "bg-slate-900 text-white"
+                      : "bg-white border border-emerald-200 text-slate-700 hover:bg-emerald-100"
+                  }`}
+                >
+                  {f.label}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* NVQS 18-27 Status Distribution & Filter Strip */}
+        {isNvqs1827 && nvqs1827Stats && (
+          <div className="p-2.5 rounded-xl bg-blue-50/60 border border-blue-200 flex flex-wrap items-center gap-1.5 text-xs">
+            <span className="font-bold text-slate-800 mr-1">Lọc thực lực NVQS:</span>
+            {(
+              [
+                { id: "all", label: `Tất cả (${nvqs1827Stats.total})` },
+                { id: "unreviewed", label: `Chưa rà soát (${nvqs1827Stats.unreviewed})` },
+                { id: "eligible", label: `Đủ ĐK sơ tuyển (${nvqs1827Stats.eligible})` },
+                { id: "serving_done", label: `Tại ngũ / Hoàn thành (${nvqs1827Stats.serving_done})` },
+                { id: "deferred", label: `Đang tạm hoãn (${nvqs1827Stats.deferred})` },
+                { id: "exempt", label: `Miễn gọi / Loại trừ (${nvqs1827Stats.exempt})` },
+              ] as const
+            ).map((f) => (
+              <button
+                key={f.id}
+                type="button"
+                onClick={() => setNvqs1827Filter(f.id)}
+                className={`h-7 px-2.5 rounded-md text-[11px] font-semibold cursor-pointer transition-colors ${
+                  nvqs1827Filter === f.id
+                    ? "bg-slate-900 text-white"
+                    : "bg-white border border-blue-200 text-slate-700 hover:bg-blue-100"
+                }`}
+              >
+                {f.label}
+              </button>
+            ))}
+          </div>
+        )}
 
         {/* Longevity Milestone Sub-filter */}
         {presetId === "longevity_all" && (
@@ -556,37 +947,57 @@ export function AgeCohortScannerModal({
               <span>Hiện đủ 12 số CCCD</span>
             </label>
             <span className="font-semibold text-slate-900">
-              Kết quả: {formatVNNumber(matchedList.length)} người
+              Hiển thị: {formatVNNumber(matchedList.length)} người
             </span>
           </div>
         </div>
 
         {/* Results Table */}
         <div className="border border-slate-200 rounded-xl overflow-hidden bg-white">
-          <div className="max-h-[340px] overflow-y-auto">
+          <div className="max-h-[360px] overflow-y-auto">
             {matchedList.length === 0 ? (
               <div className="p-8 text-center text-xs text-slate-500 space-y-1">
                 <Users size={22} className="mx-auto text-slate-300" />
                 <p className="font-semibold text-slate-700">
                   Không có nhân khẩu thuộc diện này trong phạm vi đang chọn
                 </p>
-                <p>Thử chuyển phạm vi sang "Toàn bộ KP3" hoặc đổi Năm kế hoạch rà soát.</p>
+                <p>Thử chuyển bộ lọc hoặc đổi Năm kế hoạch rà soát.</p>
               </div>
             ) : (
               <table className="w-full text-left border-collapse text-xs">
                 <thead className="bg-slate-50 sticky top-0 z-10 border-b border-slate-200 text-slate-600 font-semibold">
                   <tr>
-                    <th className="py-2.5 px-3 w-12">#</th>
-                    <th className="py-2.5 px-3">Họ và tên</th>
-                    <th className="py-2.5 px-3">Ngày sinh • Tuổi</th>
-                    <th className="py-2.5 px-3">CCCD / SĐT</th>
-                    <th className="py-2.5 px-3">Cư trú & Địa chỉ KP3</th>
-                    <th className="py-2.5 px-3">Ghi chú chuyên đề</th>
+                    <th className="py-2.5 px-3 w-10">#</th>
+                    <th className="py-2.5 px-3">Họ và tên • Địa chỉ</th>
+                    <th className="py-2.5 px-3 whitespace-nowrap">Ngày sinh</th>
+                    <th className="py-2.5 px-3 whitespace-nowrap">CCCD / SĐT</th>
+                    {isNvqs17 ? (
+                      <>
+                        <th className="py-2.5 px-3">Trạng thái ĐK tuổi 17</th>
+                        <th className="py-2.5 px-3">Số GCN / Ghi chú</th>
+                      </>
+                    ) : isNvqs1827 ? (
+                      <>
+                        <th className="py-2.5 px-3">Phân loại NVQS (Điều 41)</th>
+                        <th className="py-2.5 px-3">Chi tiết (Trường / Bệnh lý / Lý do)</th>
+                      </>
+                    ) : (
+                      <>
+                        <th className="py-2.5 px-3">Cư trú</th>
+                        <th className="py-2.5 px-3">Ghi chú chuyên đề</th>
+                      </>
+                    )}
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
                   {matchedList.slice(0, 250).map((item, idx) => {
                     const r = item.resident;
+                    const recKey = getNvqsResidentKey(r);
+                    const rec = nvqsRecords[recKey];
+                    const isReg17 = Boolean(rec?.age17Registered);
+                    const status1827: Nvqs1827Status = rec?.status1827 || "unreviewed";
+                    const stMeta = getNvqsStatusMeta(status1827);
+
                     return (
                       <tr
                         key={r.id}
@@ -596,42 +1007,148 @@ export function AgeCohortScannerModal({
                             onOpenResidentDetail(r);
                           }
                         }}
-                        className="hover:bg-emerald-50/50 cursor-pointer transition-colors"
+                        className="hover:bg-emerald-50/40 cursor-pointer transition-colors"
                       >
                         <td className="py-2 px-3 text-slate-400 font-mono">{idx + 1}</td>
-                        <td className="py-2 px-3">
-                          <div className="font-bold text-slate-900">{r.fullName}</div>
-                          <div className="text-[11px] text-slate-500">
-                            {r.gender} {r.ownerName ? `• Chủ hộ: ${r.ownerName}` : ""}
+                        <td className="py-2 px-3 max-w-[230px]">
+                          <div className="font-bold text-slate-900 truncate">{r.fullName}</div>
+                          <div className="text-[11px] text-slate-500 truncate">
+                            {formatCompactKp3Address(r.currentAddress || r.address)}
                           </div>
                         </td>
                         <td className="py-2 px-3 whitespace-nowrap">
                           <div className="font-medium text-slate-800">{r.birthDate}</div>
                           <div className="text-[11px] font-semibold text-emerald-700">
-                            {item.ageInTargetYear} tuổi (năm {targetYear})
+                            {item.ageInTargetYear} tuổi
                           </div>
                         </td>
-                        <td className="py-2 px-3 font-mono text-[11px]">
+                        <td className="py-2 px-3 font-mono text-[11px] whitespace-nowrap">
                           <div>{revealCccd ? r.cccd : maskCccd(r.cccd)}</div>
                           {r.phone && <div className="text-slate-500">{r.phone}</div>}
                         </td>
-                        <td className="py-2 px-3 max-w-[240px]">
-                          <span
-                            className={`inline-block px-1.5 py-0.5 rounded text-[10px] font-semibold mb-0.5 ${
-                              item.residencyLabel === "Thường trú"
-                                ? "bg-emerald-50 text-emerald-800"
-                                : "bg-amber-50 text-amber-800"
-                            }`}
-                          >
-                            {item.residencyLabel}
-                          </span>
-                          <div className="text-[11px] text-slate-600 truncate">
-                            {formatCompactKp3Address(r.currentAddress || r.address)}
-                          </div>
-                        </td>
-                        <td className="py-2 px-3 text-[11px] text-slate-700">
-                          {item.cohortNote}
-                        </td>
+
+                        {isNvqs17 ? (
+                          <>
+                            <td
+                              className="py-2 px-3 whitespace-nowrap"
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  updateNvqsRecord(r, {
+                                    age17Registered: !isReg17,
+                                    age17RegDate: !isReg17
+                                      ? new Date().toLocaleDateString("vi-VN")
+                                      : "",
+                                  })
+                                }
+                                className={`h-8 px-2.5 rounded-lg border text-xs font-semibold inline-flex items-center gap-1.5 cursor-pointer transition-colors ${
+                                  isReg17
+                                    ? "bg-emerald-50 border-emerald-300 text-emerald-800 hover:bg-emerald-100"
+                                    : "bg-amber-50 border-amber-200 text-amber-900 hover:bg-amber-100"
+                                }`}
+                              >
+                                {isReg17 ? (
+                                  <CheckSquare size={14} className="text-emerald-700" />
+                                ) : (
+                                  <Square size={14} className="text-amber-600" />
+                                )}
+                                <span>{isReg17 ? "Đã đăng ký" : "Chưa đăng ký"}</span>
+                              </button>
+                              {isReg17 && rec?.age17RegDate && (
+                                <div className="text-[10px] text-slate-400 mt-0.5">
+                                  Ngày ĐK: {rec.age17RegDate}
+                                </div>
+                              )}
+                            </td>
+                            <td
+                              className="py-2 px-3 min-w-[190px]"
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              <input
+                                type="text"
+                                defaultValue={rec?.age17CertNumber || rec?.detailNote || ""}
+                                onBlur={(e) => {
+                                  const v = e.target.value.trim();
+                                  if (v !== (rec?.age17CertNumber || "")) {
+                                    updateNvqsRecord(r, { age17CertNumber: v });
+                                  }
+                                }}
+                                placeholder="Số GCN ĐK / Trực tuyến..."
+                                className="w-full h-8 px-2.5 rounded-md border border-slate-200 bg-white text-[11px] focus:outline-none focus:border-emerald-600"
+                              />
+                            </td>
+                          </>
+                        ) : isNvqs1827 ? (
+                          <>
+                            <td
+                              className="py-2 px-3 min-w-[235px]"
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              <select
+                                aria-label={`Trạng thái NVQS của ${r.fullName}`}
+                                value={status1827}
+                                onChange={(e) =>
+                                  updateNvqsRecord(r, {
+                                    status1827: e.target.value as Nvqs1827Status,
+                                  })
+                                }
+                                className={`w-full h-8 px-2 rounded-lg border text-[11px] font-semibold cursor-pointer focus:outline-none focus:border-emerald-600 ${stMeta.badgeClass}`}
+                              >
+                                {NVQS_1827_STATUS_OPTIONS.map((opt) => (
+                                  <option
+                                    key={opt.value}
+                                    value={opt.value}
+                                    className="bg-white text-slate-900"
+                                  >
+                                    {opt.label}
+                                  </option>
+                                ))}
+                              </select>
+                            </td>
+                            <td
+                              className="py-2 px-3 min-w-[200px]"
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              <input
+                                type="text"
+                                defaultValue={rec?.detailNote || ""}
+                                onBlur={(e) => {
+                                  const v = e.target.value.trim();
+                                  if (v !== (rec?.detailNote || "")) {
+                                    updateNvqsRecord(r, { detailNote: v });
+                                  }
+                                }}
+                                placeholder={
+                                  status1827 === "deferred_student"
+                                    ? "Tên trường ĐH/CĐ & niên khóa..."
+                                    : status1827 === "deferred_health"
+                                      ? "VD: Cận 2.5 độ, Loại 4..."
+                                      : "Ghi chú chi tiết lý do..."
+                                }
+                                className="w-full h-8 px-2.5 rounded-md border border-slate-200 bg-white text-[11px] focus:outline-none focus:border-emerald-600"
+                              />
+                            </td>
+                          </>
+                        ) : (
+                          <>
+                            <td className="py-2 px-3 whitespace-nowrap">
+                              <span
+                                className={`inline-block px-1.5 py-0.5 rounded text-[10px] font-semibold ${
+                                  item.residencyLabel === "Thường trú"
+                                    ? "bg-emerald-50 text-emerald-800"
+                                    : "bg-amber-50 text-amber-800"
+                                }`}
+                              >
+                                {item.residencyLabel}
+                              </span>
+                            </td>
+                            <td className="py-2 px-3 text-[11px] text-slate-700">
+                              {item.cohortNote}
+                            </td>
+                          </>
+                        )}
                       </tr>
                     );
                   })}
@@ -641,7 +1158,9 @@ export function AgeCohortScannerModal({
           </div>
           {matchedList.length > 250 && (
             <div className="px-3 py-2 bg-slate-50 border-t border-slate-200 text-[11px] text-slate-500 text-center">
-              Đang hiển thị 250 dòng đầu tiên trên màn hình. Bấm <strong>Xuất Danh sách Phường (.xlsx)</strong> để tải đầy đủ 100% ({formatVNNumber(matchedList.length)} nhân khẩu).
+              Đang hiển thị 250 dòng đầu tiên trên màn hình. Bấm{" "}
+              <strong>Xuất Danh sách Phường (.xlsx)</strong> để tải đầy đủ 100% (
+              {formatVNNumber(matchedList.length)} nhân khẩu).
             </div>
           )}
         </div>
