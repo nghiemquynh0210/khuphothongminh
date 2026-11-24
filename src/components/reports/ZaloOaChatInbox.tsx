@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   AlertTriangle,
+  Bot,
   Check,
   CheckCircle2,
   Copy,
@@ -175,6 +176,9 @@ export function ZaloOaChatInbox({
   const [copiedWebhook, setCopiedWebhook] = useState(false);
   const [notice, setNotice] = useState<{ type: "ok" | "err"; text: string } | null>(null);
   const [previewImgUrl, setPreviewImgUrl] = useState<string | null>(null);
+  const [aiAutoReplyEnabled, setAiAutoReplyEnabled] = useState(false);
+  const [aiSuggestReplyEnabled, setAiSuggestReplyEnabled] = useState(true);
+  const [isSavingAiMode, setIsSavingAiMode] = useState(false);
 
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
   const actorName = currentUser?.fullName || "Cán bộ Ban Điều hành KP3";
@@ -210,6 +214,14 @@ export function ZaloOaChatInbox({
         setConversations(list);
         if (Array.isArray(data.followers)) setFollowers(data.followers);
         if (data.webhookUrl) setWebhookUrl(data.webhookUrl);
+        if (data.aiSettings) {
+          setAiAutoReplyEnabled(Boolean(data.aiSettings.aiAutoReplyEnabled));
+          setAiSuggestReplyEnabled(
+            typeof data.aiSettings.aiSuggestReplyEnabled === "boolean"
+              ? data.aiSettings.aiSuggestReplyEnabled
+              : true
+          );
+        }
         onUnreadCountChange?.(Number(data.totalUnread || 0));
         setSelectedUid((prev) => prev || list[0]?.zaloUserId || "");
       } catch (err: any) {
@@ -698,6 +710,49 @@ export function ZaloOaChatInbox({
     }
   };
 
+  const handleToggleAiMode = async (
+    field: "aiAutoReplyEnabled" | "aiSuggestReplyEnabled",
+    nextVal: boolean
+  ) => {
+    const prevAuto = aiAutoReplyEnabled;
+    const prevSuggest = aiSuggestReplyEnabled;
+    if (field === "aiAutoReplyEnabled") setAiAutoReplyEnabled(nextVal);
+    else setAiSuggestReplyEnabled(nextVal);
+    setIsSavingAiMode(true);
+    try {
+      const data = await callApi({
+        action: "save_zalo_chat_ai_settings",
+        aiAutoReplyEnabled: field === "aiAutoReplyEnabled" ? nextVal : aiAutoReplyEnabled,
+        aiSuggestReplyEnabled:
+          field === "aiSuggestReplyEnabled" ? nextVal : aiSuggestReplyEnabled,
+      });
+      if (data?.aiSettings) {
+        setAiAutoReplyEnabled(Boolean(data.aiSettings.aiAutoReplyEnabled));
+        setAiSuggestReplyEnabled(Boolean(data.aiSettings.aiSuggestReplyEnabled));
+      }
+      setNotice({
+        type: "ok",
+        text:
+          field === "aiAutoReplyEnabled"
+            ? nextVal
+              ? "Đã BẬT chế độ AI Tự động trả lời 24/7 cho tin nhắn mới từ cư dân qua Zalo OA."
+              : "Đã TẮT chế độ AI Tự động trả lời — cán bộ chủ động duyệt và trả lời trực tiếp."
+            : nextVal
+              ? "Đã BẬT chế độ AI Gợi ý trả lời trong khung soạn tin."
+              : "Đã TẮT chế độ AI Gợi ý trả lời.",
+      });
+    } catch (err: any) {
+      setAiAutoReplyEnabled(prevAuto);
+      setAiSuggestReplyEnabled(prevSuggest);
+      setNotice({
+        type: "err",
+        text: err?.message || "Không lưu được cấu hình chế độ AI.",
+      });
+    } finally {
+      setIsSavingAiMode(false);
+    }
+  };
+
   const handleCopyWebhook = async () => {
     try {
       await navigator.clipboard.writeText(webhookUrl);
@@ -732,6 +787,95 @@ export function ZaloOaChatInbox({
           </button>
         </div>
       )}
+
+      {/* Thanh công tắc 2 chế độ AI: Tự động trả lời 24/7 & Gợi ý trả lời */}
+      <div className="bg-white rounded-xl border border-slate-200/80 shadow-2xs px-3.5 py-2.5 flex flex-wrap items-center justify-between gap-3 text-xs">
+        <div className="flex items-center gap-2 text-slate-700 font-semibold">
+          <Bot size={15} className="text-emerald-700 shrink-0" />
+          <span>Chế độ Trợ lý AI Zalo OA</span>
+          {isSavingAiMode && <Loader2 size={12} className="animate-spin text-slate-400" />}
+        </div>
+
+        <div className="flex flex-wrap items-center gap-3">
+          {/* Switch 1: AI Tự động trả lời 24/7 */}
+          <button
+            type="button"
+            role="switch"
+            aria-checked={aiAutoReplyEnabled}
+            disabled={isSavingAiMode}
+            onClick={() => handleToggleAiMode("aiAutoReplyEnabled", !aiAutoReplyEnabled)}
+            className={`h-8 px-3 rounded-lg border inline-flex items-center gap-2 cursor-pointer transition-colors disabled:opacity-60 ${
+              aiAutoReplyEnabled
+                ? "bg-emerald-50 border-emerald-300 text-emerald-900"
+                : "bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100"
+            }`}
+            title="Khi bật, hệ thống tự động dùng Gemini 2.5 Flash phản hồi tin nhắn mới của cư dân trên Zalo OA 24/7"
+          >
+            <span
+              className={`w-7 h-4 rounded-full relative transition-colors inline-flex items-center ${
+                aiAutoReplyEnabled ? "bg-emerald-600" : "bg-slate-300"
+              }`}
+            >
+              <span
+                className={`w-3 h-3 rounded-full bg-white shadow-xs transition-transform ${
+                  aiAutoReplyEnabled ? "translate-x-3.5" : "translate-x-0.5"
+                }`}
+              />
+            </span>
+            <span className="font-semibold">AI Tự động trả lời</span>
+            <span
+              className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${
+                aiAutoReplyEnabled
+                  ? "bg-emerald-700 text-white"
+                  : "bg-slate-200 text-slate-600"
+              }`}
+            >
+              {aiAutoReplyEnabled ? "BẬT" : "TẮT"}
+            </span>
+          </button>
+
+          {/* Switch 2: AI Gợi ý trả lời */}
+          <button
+            type="button"
+            role="switch"
+            aria-checked={aiSuggestReplyEnabled}
+            disabled={isSavingAiMode}
+            onClick={() => handleToggleAiMode("aiSuggestReplyEnabled", !aiSuggestReplyEnabled)}
+            className={`h-8 px-3 rounded-lg border inline-flex items-center gap-2 cursor-pointer transition-colors disabled:opacity-60 ${
+              aiSuggestReplyEnabled
+                ? "bg-amber-50 border-amber-300 text-amber-950"
+                : "bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100"
+            }`}
+            title="Bật/tắt nút AI Gợi ý câu trả lời trong khung soạn tin để cán bộ duyệt trước khi gửi"
+          >
+            <span
+              className={`w-7 h-4 rounded-full relative transition-colors inline-flex items-center ${
+                aiSuggestReplyEnabled ? "bg-amber-500" : "bg-slate-300"
+              }`}
+            >
+              <span
+                className={`w-3 h-3 rounded-full bg-white shadow-xs transition-transform ${
+                  aiSuggestReplyEnabled ? "translate-x-3.5" : "translate-x-0.5"
+                }`}
+              />
+            </span>
+            <Sparkles
+              size={12}
+              className={aiSuggestReplyEnabled ? "text-amber-600" : "text-slate-400"}
+            />
+            <span className="font-semibold">AI Gợi ý trả lời</span>
+            <span
+              className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${
+                aiSuggestReplyEnabled
+                  ? "bg-amber-600 text-white"
+                  : "bg-slate-200 text-slate-600"
+              }`}
+            >
+              {aiSuggestReplyEnabled ? "BẬT" : "TẮT"}
+            </span>
+          </button>
+        </div>
+      </div>
 
       {/* Main 2-Column Minimalist Chat Split */}
       <div className="bg-white rounded-xl border border-slate-200/80 shadow-2xs overflow-hidden grid grid-cols-1 lg:grid-cols-12 min-h-[580px]">
@@ -1148,19 +1292,21 @@ export function ZaloOaChatInbox({
                       {qr.label}
                     </button>
                   ))}
-                  <button
-                    type="button"
-                    onClick={handleAiSuggest}
-                    disabled={isAiDrafting}
-                    className="h-7 px-2.5 rounded-md bg-amber-50 hover:bg-amber-100 border border-amber-200 text-amber-900 text-[11px] font-semibold inline-flex items-center gap-1 cursor-pointer ml-auto disabled:opacity-50"
-                  >
-                    {isAiDrafting ? (
-                      <Loader2 size={11} className="animate-spin" />
-                    ) : (
-                      <Sparkles size={11} />
-                    )}
-                    <span>AI Gợi ý trả lời</span>
-                  </button>
+                  {aiSuggestReplyEnabled && (
+                    <button
+                      type="button"
+                      onClick={handleAiSuggest}
+                      disabled={isAiDrafting}
+                      className="h-7 px-2.5 rounded-md bg-amber-50 hover:bg-amber-100 border border-amber-200 text-amber-900 text-[11px] font-semibold inline-flex items-center gap-1 cursor-pointer ml-auto disabled:opacity-50"
+                    >
+                      {isAiDrafting ? (
+                        <Loader2 size={11} className="animate-spin" />
+                      ) : (
+                        <Sparkles size={11} />
+                      )}
+                      <span>AI Gợi ý trả lời</span>
+                    </button>
+                  )}
                 </div>
 
                 {replyImageUrl && (

@@ -129,7 +129,20 @@ const LOGS_KEY = "notification_dispatch_logs_v1";
 const CADRE_ZALO_MAPPING_KEY = "cadre_zalo_mapping_v1";
 const ZALO_CHAT_INDEX_KEY = "zalo_oa_chat_inbox_index_v1";
 const ZALO_CHAT_THREAD_PREFIX = "zalo_oa_chat_thread_";
+const ZALO_CHAT_AI_SETTINGS_KEY = "zalo_oa_chat_ai_settings_v1";
 const HOSTEL_CHECKINS_KEY = "kp3_hostel_qr_checkins_v1";
+
+export interface ZaloChatAiSettings {
+  aiAutoReplyEnabled: boolean;
+  aiSuggestReplyEnabled: boolean;
+  updatedAt?: string;
+  updatedBy?: string;
+}
+
+const DEFAULT_ZALO_CHAT_AI_SETTINGS: ZaloChatAiSettings = {
+  aiAutoReplyEnabled: false,
+  aiSuggestReplyEnabled: true,
+};
 
 export interface ZaloChatConversation {
   zaloUserId: string;
@@ -150,6 +163,7 @@ export interface ZaloChatConversation {
   aiCategory?: string;
   aiPriority?: "Khẩn cấp" | "Cao" | "Bình thường";
   urgentAlertSentAt?: string;
+  aiAutoReplySentAt?: string;
   status: "open" | "resolved";
 }
 
@@ -804,6 +818,7 @@ async function appendZaloChatMessageToStore(
     aiCategory?: string;
     aiPriority?: "Khẩn cấp" | "Cao" | "Bình thường";
     urgentAlertSentAt?: string;
+    aiAutoReplySentAt?: string;
   }
 ): Promise<ZaloChatConversation> {
   const threadKey = `${ZALO_CHAT_THREAD_PREFIX}${msg.zaloUserId}`;
@@ -882,6 +897,7 @@ async function appendZaloChatMessageToStore(
     aiCategory: profileMeta?.aiCategory || classified?.category || prev?.aiCategory,
     aiPriority: nextPriority,
     urgentAlertSentAt: profileMeta?.urgentAlertSentAt || prev?.urgentAlertSentAt,
+    aiAutoReplySentAt: profileMeta?.aiAutoReplySentAt || prev?.aiAutoReplySentAt,
     status: prev?.status || "open",
   };
 
@@ -1244,6 +1260,90 @@ export default async function notificationsHandler(req: any, res: any) {
                   await appendZaloChatMessageToStore(supabaseUrl, serviceRoleKey, chatMsg, {
                     urgentAlertSentAt: new Date().toISOString(),
                   });
+                }
+              }
+            }
+
+            // AI Tự động trả lời 24/7 nếu cán bộ đang BẬT chế độ aiAutoReplyEnabled (chống lặp 45 giây/cư dân)
+            if (
+              !isOutboundEvent &&
+              !(phoneHit || cccdHit) &&
+              activeToken &&
+              savedCfg &&
+              (eventName === "user_send_text" ||
+                eventName === "user_send_image" ||
+                eventName === "user_send_location")
+            ) {
+              const aiSettings =
+                (await readPrivateSetting<ZaloChatAiSettings>(
+                  supabaseUrl,
+                  serviceRoleKey,
+                  ZALO_CHAT_AI_SETTINGS_KEY
+                )) || DEFAULT_ZALO_CHAT_AI_SETTINGS;
+
+              if (aiSettings.aiAutoReplyEnabled) {
+                const lastAutoMs = savedConv.aiAutoReplySentAt
+                  ? Date.parse(savedConv.aiAutoReplySentAt)
+                  : 0;
+                const elapsedSec = (Date.now() - lastAutoMs) / 1000;
+                if (!lastAutoMs || elapsedSec >= 45) {
+                  const fallbackAutoText = `Kính chào ${finalDisplayName}, Ban Điều hành Khu phố 3, Phường An Phú đã tiếp nhận thông tin của ông/bà${
+                    savedConv.aiCategory ? ` (${savedConv.aiCategory})` : ""
+                  }. Cán bộ phụ trách sẽ nhanh chóng kiểm tra hiện trường và phản hồi cụ thể đến ông/bà trong thời gian sớm nhất. Trân trọng!\n(Phản hồi tự động từ Trợ lý AI Khu phố 3)`;
+
+                  let replyBody = fallbackAutoText;
+                  const geminiKey = (process.env.GEMINI_API_KEY || "").trim();
+                  if (geminiKey) {
+                    try {
+                      const threadMsgs = (
+                        (await readPrivateSetting<ZaloChatMessage[]>(
+                          supabaseUrl,
+                          serviceRoleKey,
+                          `${ZALO_CHAT_THREAD_PREFIX}${targetUid}`
+                        )) || []
+                      ).slice(-6);
+                      const transcript = threadMsgs
+                        .map((m) => `${m.direction === "inbound" ? "Cư dân" : "Cán bộ KP3"}: ${m.content}`)
+                        .join("\n");
+                      const ai = new GoogleGenAI({ apiKey: geminiKey });
+                      const aiRes = await ai.models.generateContent({
+                        model: "gemini-2.5-flash",
+                        contents: `Bạn là Trợ lý AI của Ban Điều hành Khu phố 3, Phường An Phú, TP. Hồ Chí Minh (tuyệt đối KHÔNG nhắc TP. Thủ Đức).
+Hãy soạn 01 tin nhắn tự động trả lời ngắn gọn (2-3 câu), lịch sự, chân thành gửi tới cư dân "${finalDisplayName}" trên Zalo OA xác nhận đã tiếp nhận thông tin và cán bộ sẽ kiểm tra xử lý.
+Lịch sử tin nhắn gần nhất:
+${transcript}
+
+Chỉ trả về đúng nội dung tin nhắn thuần văn bản (không markdown).`,
+                      });
+                      const generated = String(aiRes.text || "").trim();
+                      if (generated) {
+                        replyBody = `${generated}\n(Phản hồi tự động từ Trợ lý AI Khu phố 3)`;
+                      }
+                    } catch {
+                      // fallback cleanly
+                    }
+                  }
+
+                  const sendAutoRes = await sendZaloOaCsMessage(
+                    activeToken,
+                    targetUid,
+                    replyBody,
+                    { cfg: savedCfg, supabaseUrl, serviceRoleKey }
+                  );
+                  if (sendAutoRes.ok) {
+                    const outAutoMsg: ZaloChatMessage = {
+                      id: `ZM-AI-AUTO-${Date.now()}`,
+                      zaloUserId: targetUid,
+                      direction: "outbound",
+                      msgType: "text",
+                      content: replyBody,
+                      senderName: "Trợ lý AI Zalo OA KP3",
+                      createdAt: new Date().toISOString(),
+                    };
+                    await appendZaloChatMessageToStore(supabaseUrl, serviceRoleKey, outAutoMsg, {
+                      aiAutoReplySentAt: new Date().toISOString(),
+                    });
+                  }
                 }
               }
             }
@@ -4564,18 +4664,59 @@ ${userPrompt ? `- Ghi chú thêm của cán bộ: ${userPrompt}` : ""}`;
 
     const totalUnread = conversations.reduce((s, c) => s + (c.unreadCount || 0), 0);
     const urgentCount = conversations.filter((c) => c.aiPriority === "Khẩn cấp").length;
+    const aiSettings =
+      (await readPrivateSetting<ZaloChatAiSettings>(
+        supabaseUrl,
+        serviceRoleKey,
+        ZALO_CHAT_AI_SETTINGS_KEY
+      )) || DEFAULT_ZALO_CHAT_AI_SETTINGS;
 
     return res.status(200).json({
       ok: true,
       conversations,
       totalUnread,
       urgentCount,
+      aiSettings,
       followers: followers.slice(0, 2000).map((f) => ({
         zaloUserId: f.zaloUserId,
         displayName: f.displayName || `Cư dân Zalo #${f.zaloUserId.slice(-5)}`,
         phone: f.phone,
       })),
       webhookUrl: "https://bdhkp3.vercel.app/api/notifications",
+    });
+  }
+
+  if (action === "save_zalo_chat_ai_settings") {
+    const prev =
+      (await readPrivateSetting<ZaloChatAiSettings>(
+        supabaseUrl,
+        serviceRoleKey,
+        ZALO_CHAT_AI_SETTINGS_KEY
+      )) || DEFAULT_ZALO_CHAT_AI_SETTINGS;
+
+    const nextSettings: ZaloChatAiSettings = {
+      aiAutoReplyEnabled:
+        typeof body.aiAutoReplyEnabled === "boolean"
+          ? body.aiAutoReplyEnabled
+          : prev.aiAutoReplyEnabled,
+      aiSuggestReplyEnabled:
+        typeof body.aiSuggestReplyEnabled === "boolean"
+          ? body.aiSuggestReplyEnabled
+          : prev.aiSuggestReplyEnabled,
+      updatedAt: new Date().toISOString(),
+      updatedBy: caller.actorName,
+    };
+
+    await writePrivateSetting(
+      supabaseUrl,
+      serviceRoleKey,
+      ZALO_CHAT_AI_SETTINGS_KEY,
+      nextSettings
+    );
+
+    return res.status(200).json({
+      ok: true,
+      aiSettings: nextSettings,
     });
   }
 
