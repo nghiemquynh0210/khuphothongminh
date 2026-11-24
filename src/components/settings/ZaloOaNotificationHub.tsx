@@ -32,6 +32,7 @@ import CadreZaloLinkModal, {
   CadreZaloItem,
   ZaloFollowerItem,
 } from "./CadreZaloLinkModal";
+import { ZaloZbsTab } from "./ZaloZbsTab";
 
 interface ZaloOaNotificationHubProps {
   onNotify?: (msg: string, type?: "success" | "error" | "info" | "warning") => void;
@@ -119,7 +120,7 @@ export function ZaloOaNotificationHub({
   onNavigateToBroadcast,
 }: ZaloOaNotificationHubProps) {
   const [activeHubTab, setActiveHubTab] = useState<
-    "meetings" | "cadres" | "residency" | "logs"
+    "meetings" | "cadres" | "residency" | "zbs" | "logs"
   >("meetings");
   const [loading, setLoading] = useState(true);
   const [scanning, setScanning] = useState(false);
@@ -815,6 +816,19 @@ export function ZaloOaNotificationHub({
 
           <button
             type="button"
+            onClick={() => setActiveHubTab("zbs")}
+            className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors cursor-pointer flex items-center gap-1.5 shrink-0 ${
+              activeHubTab === "zbs"
+                ? "bg-white text-blue-900 shadow-2xs"
+                : "text-slate-600 hover:text-slate-900"
+            }`}
+          >
+            <Sparkles size={13} className={activeHubTab === "zbs" ? "text-blue-700" : "text-slate-500"} />
+            <span>ZBS / ZNS (Gửi theo SĐT)</span>
+          </button>
+
+          <button
+            type="button"
             onClick={() => setActiveHubTab("logs")}
             className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors cursor-pointer flex items-center gap-1.5 shrink-0 ${
               activeHubTab === "logs"
@@ -1494,6 +1508,9 @@ export function ZaloOaNotificationHub({
           )}
         </div>
       )}
+
+      {/* TAB 2D: ZBS / ZNS TEMPLATE MESSAGE (GỬI THEO SĐT 2 TẦNG) */}
+      {activeHubTab === "zbs" && <ZaloZbsTab onNotify={notify} />}
 
       {/* Modal Liên kết Zalo OA cho Cán bộ */}
       <CadreZaloLinkModal

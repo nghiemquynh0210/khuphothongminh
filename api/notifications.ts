@@ -131,6 +131,123 @@ const ZALO_CHAT_INDEX_KEY = "zalo_oa_chat_inbox_index_v1";
 const ZALO_CHAT_THREAD_PREFIX = "zalo_oa_chat_thread_";
 const ZALO_CHAT_AI_SETTINGS_KEY = "zalo_oa_chat_ai_settings_v1";
 const HOSTEL_CHECKINS_KEY = "kp3_hostel_qr_checkins_v1";
+const ZBS_CONFIG_KEY = "zalo_zbs_config_v1";
+const ZBS_LOGS_KEY = "zalo_zbs_logs_v1";
+
+export interface ZaloZbsTemplateSummary {
+  templateId: string;
+  templateName: string;
+  status: string;
+  templateQuality?: string;
+}
+
+export interface ZaloZbsConfig {
+  enabled: boolean;
+  mode: "development" | "production";
+  preferFreeOaFirst: boolean;
+  unitPriceVnd: number;
+  templates: {
+    tempResidenceReminder: string;
+    nvqsNotice: string;
+    report1022Result: string;
+    generalCivicNotice: string;
+  };
+  syncedTemplates?: ZaloZbsTemplateSummary[];
+  updatedAt?: string;
+  updatedBy?: string;
+}
+
+export interface ZaloZbsLogItem {
+  id: string;
+  timestamp: string;
+  tier: "tier1_oa_free" | "tier2_zbs_dev" | "tier2_zbs_prod";
+  recipientName: string;
+  phone: string;
+  templateId?: string;
+  templateKey?: string;
+  status: "sent" | "failed";
+  msgId?: string;
+  estimatedCostVnd: number;
+  detail: string;
+  actorName: string;
+}
+
+const DEFAULT_ZBS_CONFIG: ZaloZbsConfig = {
+  enabled: false,
+  mode: "development",
+  preferFreeOaFirst: true,
+  unitPriceVnd: 120,
+  templates: {
+    tempResidenceReminder: "",
+    nvqsNotice: "",
+    report1022Result: "",
+    generalCivicNotice: "",
+  },
+  syncedTemplates: [],
+};
+
+function normalizeVnPhoneToZbs84(raw: string): string | null {
+  const digits = String(raw || "").replace(/\D/g, "");
+  if (!digits) return null;
+  let normalized = digits;
+  if (normalized.startsWith("0") && normalized.length === 10) {
+    normalized = `84${normalized.slice(1)}`;
+  } else if (normalized.startsWith("840") && normalized.length === 12) {
+    normalized = `84${normalized.slice(3)}`;
+  } else if (!normalized.startsWith("84") && normalized.length === 9) {
+    normalized = `84${normalized}`;
+  }
+  if (!/^84[35789]\d{8}$/.test(normalized)) return null;
+  return normalized;
+}
+
+async function sendZbsTemplateApi(params: {
+  accessToken: string;
+  phone84: string;
+  templateId: string;
+  templateData: Record<string, string | number>;
+  trackingId: string;
+  mode: "development" | "production";
+}): Promise<{
+  ok: boolean;
+  msgId?: string;
+  sentTime?: string;
+  errorCode?: number;
+  errorMessage?: string;
+}> {
+  const payload: Record<string, any> = {
+    phone: params.phone84,
+    template_id: params.templateId,
+    template_data: params.templateData,
+    tracking_id: params.trackingId,
+  };
+  if (params.mode === "development") {
+    payload.mode = "development";
+  }
+  const resp = await fetch("https://business.openapi.zalo.me/message/template", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      access_token: params.accessToken,
+    },
+    body: JSON.stringify(payload),
+  });
+  const json: any = await resp.json().catch(() => ({}));
+  if (resp.ok && json?.error === 0) {
+    return {
+      ok: true,
+      msgId: String(json?.data?.msg_id || ""),
+      sentTime: String(json?.data?.sent_time || ""),
+    };
+  }
+  return {
+    ok: false,
+    errorCode: typeof json?.error === "number" ? json.error : resp.status,
+    errorMessage:
+      String(json?.message || "").trim() ||
+      `ZBS API trả về mã lỗi ${json?.error ?? resp.status}`,
+  };
+}
 
 export interface ZaloChatAiSettings {
   aiAutoReplyEnabled: boolean;
@@ -5323,6 +5440,281 @@ Chỉ trả về đúng nội dung tin nhắn thuần văn bản (không dùng m
         })
       : 0;
     return res.status(200).json({ ok: true, sentCount });
+  }
+
+  // ==================== ZBS / ZNS TEMPLATE MESSAGING (2-TIER SMART ROUTER) ====================
+  if (action === "get_zbs_state") {
+    const saved =
+      (await readPrivateSetting<ZaloZbsConfig>(supabaseUrl, serviceRoleKey, ZBS_CONFIG_KEY)) ||
+      DEFAULT_ZBS_CONFIG;
+    const config: ZaloZbsConfig = {
+      ...DEFAULT_ZBS_CONFIG,
+      ...saved,
+      templates: {
+        ...DEFAULT_ZBS_CONFIG.templates,
+        ...(saved.templates || {}),
+      },
+    };
+    const logs =
+      (await readPrivateSetting<ZaloZbsLogItem[]>(supabaseUrl, serviceRoleKey, ZBS_LOGS_KEY)) || [];
+    const totalFreeOaSaved = logs.filter(
+      (l) => l.status === "sent" && l.tier === "tier1_oa_free"
+    ).length;
+    const totalZbsSent = logs.filter(
+      (l) => l.status === "sent" && (l.tier === "tier2_zbs_prod" || l.tier === "tier2_zbs_dev")
+    ).length;
+    const estimatedCostVnd = logs.reduce(
+      (sum, l) => sum + (l.status === "sent" ? Number(l.estimatedCostVnd || 0) : 0),
+      0
+    );
+    return res.status(200).json({
+      ok: true,
+      config,
+      logs: logs.slice(0, 100),
+      stats: {
+        totalSent: totalFreeOaSaved + totalZbsSent,
+        totalFreeOaSaved,
+        totalZbsSent,
+        estimatedCostVnd,
+      },
+    });
+  }
+
+  if (action === "save_zbs_config") {
+    const existing =
+      (await readPrivateSetting<ZaloZbsConfig>(supabaseUrl, serviceRoleKey, ZBS_CONFIG_KEY)) ||
+      DEFAULT_ZBS_CONFIG;
+    const nextConfig: ZaloZbsConfig = {
+      enabled: Boolean(body.enabled),
+      mode: body.mode === "production" ? "production" : "development",
+      preferFreeOaFirst: body.preferFreeOaFirst !== false,
+      unitPriceVnd: Math.max(0, Math.min(2000, Number(body.unitPriceVnd ?? existing.unitPriceVnd ?? 120))),
+      templates: {
+        tempResidenceReminder: String(body.templates?.tempResidenceReminder ?? existing.templates?.tempResidenceReminder ?? "").trim(),
+        nvqsNotice: String(body.templates?.nvqsNotice ?? existing.templates?.nvqsNotice ?? "").trim(),
+        report1022Result: String(body.templates?.report1022Result ?? existing.templates?.report1022Result ?? "").trim(),
+        generalCivicNotice: String(body.templates?.generalCivicNotice ?? existing.templates?.generalCivicNotice ?? "").trim(),
+      },
+      syncedTemplates: existing.syncedTemplates || [],
+      updatedAt: new Date().toISOString(),
+      updatedBy: caller.actorName,
+    };
+    await writePrivateSetting(supabaseUrl, serviceRoleKey, ZBS_CONFIG_KEY, nextConfig);
+    return res.status(200).json({ ok: true, config: nextConfig });
+  }
+
+  if (action === "sync_zbs_templates") {
+    const savedCfg = await readPrivateSetting<ZaloOaSavedConfig>(
+      supabaseUrl,
+      serviceRoleKey,
+      CONFIG_KEY
+    );
+    const activeToken = savedCfg
+      ? await refreshZaloAccessTokenIfNeeded(savedCfg, supabaseUrl, serviceRoleKey)
+      : "";
+    if (!activeToken) {
+      return res.status(400).json({
+        ok: false,
+        error: "Chưa có Access Token Zalo OA hợp lệ. Vui lòng kiểm tra mục Cấu hình API & Webhook.",
+      });
+    }
+    const resp = await fetch("https://business.openapi.zalo.me/template/all?offset=0&limit=50", {
+      method: "GET",
+      headers: { access_token: activeToken },
+    });
+    const json: any = await resp.json().catch(() => ({}));
+    if (!resp.ok || json?.error !== 0) {
+      return res.status(200).json({
+        ok: false,
+        errorCode: json?.error ?? resp.status,
+        error:
+          json?.message ||
+          `Không thể đồng bộ danh sách mẫu ZBS (mã ${json?.error ?? resp.status}). Hãy đảm bảo OA đã liên kết ZBS Account (ZCA) trên account.zalo.solutions.`,
+      });
+    }
+    const list: ZaloZbsTemplateSummary[] = Array.isArray(json?.data)
+      ? json.data.map((t: any) => ({
+          templateId: String(t.templateId ?? t.template_id ?? ""),
+          templateName: String(t.templateName ?? t.template_name ?? "Mẫu ZBS"),
+          status: String(t.status || "UNKNOWN"),
+          templateQuality: t.templateQuality ? String(t.templateQuality) : undefined,
+        }))
+      : [];
+    const existing =
+      (await readPrivateSetting<ZaloZbsConfig>(supabaseUrl, serviceRoleKey, ZBS_CONFIG_KEY)) ||
+      DEFAULT_ZBS_CONFIG;
+    const nextConfig: ZaloZbsConfig = {
+      ...DEFAULT_ZBS_CONFIG,
+      ...existing,
+      syncedTemplates: list,
+      updatedAt: new Date().toISOString(),
+      updatedBy: caller.actorName,
+    };
+    await writePrivateSetting(supabaseUrl, serviceRoleKey, ZBS_CONFIG_KEY, nextConfig);
+    return res.status(200).json({ ok: true, templates: list, config: nextConfig });
+  }
+
+  if (action === "send_zbs_smart_message") {
+    const recipientName = String(body.recipientName || "Cư dân Khu phố 3").trim();
+    const rawPhone = String(body.phone || "").trim();
+    const phone84 = normalizeVnPhoneToZbs84(rawPhone);
+    const forceZbs = Boolean(body.forceZbs);
+    const fallbackFreeText = String(body.fallbackFreeText || "").trim();
+    const templateKey = String(body.templateKey || "generalCivicNotice").trim();
+    const customTemplateId = String(body.templateId || "").trim();
+    const templateData: Record<string, string | number> =
+      body.templateData && typeof body.templateData === "object" ? body.templateData : {};
+
+    const savedZbs =
+      (await readPrivateSetting<ZaloZbsConfig>(supabaseUrl, serviceRoleKey, ZBS_CONFIG_KEY)) ||
+      DEFAULT_ZBS_CONFIG;
+    const savedOa = await readPrivateSetting<ZaloOaSavedConfig>(
+      supabaseUrl,
+      serviceRoleKey,
+      CONFIG_KEY
+    );
+    const activeToken = savedOa
+      ? await refreshZaloAccessTokenIfNeeded(savedOa, supabaseUrl, serviceRoleKey)
+      : "";
+    if (!activeToken) {
+      return res.status(400).json({
+        ok: false,
+        error: "Chưa có Access Token Zalo OA hợp lệ để gửi tin.",
+      });
+    }
+
+    const existingLogs =
+      (await readPrivateSetting<ZaloZbsLogItem[]>(supabaseUrl, serviceRoleKey, ZBS_LOGS_KEY)) || [];
+
+    // TIER 1: Prefer FREE Zalo OA v2.0 message if recipient already follows OA
+    if (savedZbs.preferFreeOaFirst && !forceZbs && fallbackFreeText) {
+      const mapping =
+        (await readPrivateSetting<Record<string, any>>(
+          supabaseUrl,
+          serviceRoleKey,
+          CADRE_ZALO_MAPPING_KEY
+        )) || {};
+      const digitsClean = rawPhone.replace(/\D/g, "");
+      const matchedEntry = Object.values(mapping).find((m: any) => {
+        const mPhone = String(m?.phone || "").replace(/\D/g, "");
+        return m?.zaloUserId && mPhone && digitsClean && mPhone.endsWith(digitsClean.slice(-9));
+      });
+      const matchedUid = String(body.zaloUserId || matchedEntry?.zaloUserId || "").trim();
+      if (matchedUid) {
+        const oaResp = await fetch("https://openapi.zalo.me/v2.0/oa/message", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            access_token: activeToken,
+          },
+          body: JSON.stringify({
+            recipient: { user_id: matchedUid },
+            message: { text: fallbackFreeText },
+          }),
+        });
+        const oaJson: any = await oaResp.json().catch(() => ({}));
+        if (oaResp.ok && oaJson?.error === 0) {
+          const logRow: ZaloZbsLogItem = {
+            id: `zbs_${Date.now()}`,
+            timestamp: new Date().toISOString(),
+            tier: "tier1_oa_free",
+            recipientName,
+            phone: rawPhone || phone84 || "",
+            templateKey,
+            status: "sent",
+            msgId: String(oaJson?.data?.message_id || ""),
+            estimatedCostVnd: 0,
+            detail: "Đã gửi miễn phí (0 VNĐ) qua Tầng 1 Zalo OA (Cư dân đã Quan tâm OA).",
+            actorName: caller.actorName,
+          };
+          await writePrivateSetting(
+            supabaseUrl,
+            serviceRoleKey,
+            ZBS_LOGS_KEY,
+            [logRow, ...existingLogs].slice(0, 200)
+          );
+          return res.status(200).json({
+            ok: true,
+            tier: "tier1_oa_free",
+            estimatedCostVnd: 0,
+            message: logRow.detail,
+            log: logRow,
+          });
+        }
+      }
+    }
+
+    // TIER 2: Send via ZBS Template Message (ZNS) by phone number
+    if (!phone84) {
+      return res.status(400).json({
+        ok: false,
+        error: "Số điện thoại không hợp lệ (cần SĐT di động Việt Nam 10 số, ví dụ 0901234567).",
+      });
+    }
+    const resolvedTemplateId =
+      customTemplateId ||
+      (savedZbs.templates as Record<string, string>)?.[templateKey] ||
+      "";
+    if (!resolvedTemplateId) {
+      return res.status(400).json({
+        ok: false,
+        error:
+          "Chưa cấu hình Template ID ZBS cho nghiệp vụ này. Vui lòng nhập Template ID đã duyệt trên account.zalo.solutions.",
+      });
+    }
+
+    const effectiveMode: "development" | "production" =
+      body.modeOverride === "production" || body.modeOverride === "development"
+        ? body.modeOverride
+        : savedZbs.mode;
+
+    const trackingId = `kp3_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
+    const zbsRes = await sendZbsTemplateApi({
+      accessToken: activeToken,
+      phone84,
+      templateId: resolvedTemplateId,
+      templateData,
+      trackingId,
+      mode: effectiveMode,
+    });
+
+    const cost =
+      zbsRes.ok && effectiveMode === "production" ? Number(savedZbs.unitPriceVnd || 120) : 0;
+    const logRow: ZaloZbsLogItem = {
+      id: trackingId,
+      timestamp: new Date().toISOString(),
+      tier: effectiveMode === "production" ? "tier2_zbs_prod" : "tier2_zbs_dev",
+      recipientName,
+      phone: phone84,
+      templateId: resolvedTemplateId,
+      templateKey,
+      status: zbsRes.ok ? "sent" : "failed",
+      msgId: zbsRes.msgId,
+      estimatedCostVnd: cost,
+      detail: zbsRes.ok
+        ? effectiveMode === "development"
+          ? `Gửi thử ZBS thành công (chế độ development — 0 VNĐ, msg_id: ${zbsRes.msgId || "OK"}).`
+          : `Đã gửi tin ZBS thành công tới ${phone84} (ước tính ${cost} VNĐ, msg_id: ${zbsRes.msgId || "OK"}).`
+        : `Lỗi ZBS (${zbsRes.errorCode ?? "?"}): ${zbsRes.errorMessage}`,
+      actorName: caller.actorName,
+    };
+
+    await writePrivateSetting(
+      supabaseUrl,
+      serviceRoleKey,
+      ZBS_LOGS_KEY,
+      [logRow, ...existingLogs].slice(0, 200)
+    );
+
+    return res.status(200).json({
+      ok: zbsRes.ok,
+      tier: logRow.tier,
+      estimatedCostVnd: cost,
+      errorCode: zbsRes.errorCode,
+      error: zbsRes.ok ? undefined : logRow.detail,
+      message: logRow.detail,
+      log: logRow,
+    });
   }
 
   return res.status(400).json({ ok: false, error: `Hành động không hợp lệ: ${action}` });
