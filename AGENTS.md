@@ -417,31 +417,49 @@ Dự án đã thiết lập 2 MCP Servers hoạt động:
         + **AI Tự Phân Loại & Cảnh Báo Khẩn Cấp:** Tự động gắn nhãn danh mục (`Rác thải`, `Ngập nước`, `Hạ tầng đô thị`, `An ninh trật tự`...) & mức `Khẩn cấp`, tự động đẩy cảnh báo qua Zalo OA tới Bí thư / Trưởng BĐH / CSKV (chống lặp 30 phút); tích hợp **✨ AI Gợi ý trả lời (Gemini 2.5 Flash)** đọc đúng ngữ cảnh hội thoại để soạn câu trả lời lịch sự chuẩn hành chính.
         + **Chuyển đổi 1 chạm `Lập Phản ánh 1022` & Phản hồi tự động khi Hoàn tất:** Bấm 1 chạm chuyển tin nhắn + ảnh + tọa độ GPS thành hồ sơ `PA-...` kèm tin xác nhận tự động về Zalo cư dân; khi cán bộ trao đổi trong `ReportDetailPage.tsx` hoặc bấm Hoàn tất xử lý tại `ReportsPage.tsx`, kết quả và ảnh nghiệm thu tự động gửi ngược về Zalo của đúng người dân.
 
-  40. **Triển Khai Đồng Bộ 06 Tính Năng Nghiệp Vụ Chuyên Sâu Mới Cho Khu Phố 3 (Phiên 22–24/11/2026):**
+  40. **Triển Khai Đồng Bộ 06 Tính Năng Nghiệp Vụ Chuyên Sâu Mới Cho Khu Phố 3 (Phiên 22–24/11/2026 — commits `5580a0e`, `e86c79b`):**
       - **Rà soát Tự động Theo Độ tuổi (`AgeCohortScannerModal.tsx` trong `CitizenManagement.tsx`):** Tự động rà soát theo Năm kế hoạch (`2026–2028`) trên toàn bộ 11.229 nhân khẩu cho 9 chuyên đề: **NVQS** (Nam 17 tuổi, 18–25t, 18–27t CĐ/ĐH), **Mừng thọ Người cao tuổi** (tròn 70, 75, 80, 85, 90, 95, 100+ tuổi theo Điều 21 Luật NCT), **Trẻ em đầu cấp & Y tế** (0–2t Vitamin A/Tiêm chủng, 5t Mầm non, 6t Lớp 1, 11t Lớp 6) và **Căn cước 14 tuổi**; xuất Excel chuẩn mẫu nộp Phường 1 chạm.
       - **Xuất Báo cáo Định kỳ Tháng / Quý / Năm 1-chạm ra File Word (`.docx`) (`PeriodicWordReportModal.tsx` trên `Dashboard.tsx`):** Tự động tổng hợp số liệu thực tế toàn hệ thống vào biểu mẫu chuẩn **Nghị định 30/2020/NĐ-CP** (Quốc hiệu – Tiêu ngữ 2 cột ẩn viền, Times New Roman, lề trái 3cm, bảng số liệu có khung, chọn cơ quan ký Chi bộ / BĐH KP3), tích hợp nút **✨ AI Biên tập Văn phong**.
-      - **An toàn PCCC Cơ sở & Tổ Liên gia PCCC (`FireSafetyAndHostelQrHub.tsx` — Sub-tab trong `BusinessManagement.tsx`):** Hậu kiểm PCCC 118+ cơ sở & 108 nhà trọ (`safetyCertified`), quản lý mạng lưới Tổ Liên gia An toàn PCCC, Điểm chữa cháy công cộng, Trụ nước cứu hỏa (`portal_settings("kp3_pccc_points_v1")`) và xuất báo cáo PCCC `.xlsx`.
-      - **Mã QR Khai báo Lưu trú Tạm thời riêng cho 108 Nhà trọ (`FireSafetyAndHostelQrHub.tsx` + `PublicHostelCheckinModal.tsx` + `api/notifications.ts`):** Tạo & in bảng QR dán cổng từng nhà trọ (`?hostel_checkin=...`), khách thuê mới quét QR gửi tờ khai trực tuyến (`public_submit_hostel_checkin`), Cán bộ / CSKV duyệt 1 chạm bổ sung vào danh sách Nhân khẩu Tạm trú.
+      - **An toàn PCCC Cơ sở & Tổ Liên gia PCCC (`FireSafetyAndHostelQrHub.tsx` — Sub-tab trong `BusinessManagement.tsx`):** Hậu kiểm PCCC 240 cơ sở & 230 nhà trọ (`safetyCertified`), quản lý mạng lưới Tổ Liên gia An toàn PCCC, Điểm chữa cháy công cộng, Trụ nước cứu hỏa (`portal_settings("kp3_pccc_points_v1")`) và xuất báo cáo PCCC `.xlsx`.
+      - **Mã QR Khai báo Lưu trú Tạm thời riêng cho 230 Nhà trọ (`FireSafetyAndHostelQrHub.tsx` + `PublicHostelCheckinModal.tsx` + `api/notifications.ts`):** Tạo & in bảng QR dán cổng từng nhà trọ (`?hostel_checkin=...`), khách thuê mới quét QR gửi tờ khai trực tuyến (`public_submit_hostel_checkin`), Cán bộ / CSKV duyệt 1 chạm bổ sung vào danh sách Nhân khẩu Tạm trú.
       - **Phát hành Mã VietQR Động Hàng Loạt theo Hộ (`BatchHouseholdVietQrModal.tsx` trong `NeighborhoodFunds.tsx`):** Tạo hàng loạt phiếu thu gắn cú pháp chuẩn `KP3 <MaHo> <MaQuy>` và in tờ 12 phiếu QR/trang phát tới hộ dân.
       - **Sổ Trực & Tuần tra Tổ Bảo vệ ANTT Cơ sở (`SecurityPatrolLogTab.tsx` — Sub-tab thứ 3 trong `FieldReflections.tsx`):** Ghi nhận ca tuần tra kèm ảnh xác thực Timemark + tọa độ GPS, chuyển 1 chạm sang Hồ sơ 1022, đẩy báo cáo nhanh qua Zalo OA tới CSKV & Thường trực (`send_patrol_urgent_alert`) và xuất Sổ trực `.xlsx`.
+      - **Chuẩn hóa kích thước Modal (`e86c79b`):** Mở rộng các hộp thoại nghiệp vụ lên `size="3xl"` / `size="4xl"` thoáng mắt trên màn hình desktop và bổ sung thuộc tính `autoComplete` cho form QR công khai.
+
+  41. **Tích Hợp 02 Nút Công Tắc AI Trong Hộp Thư Zalo OA & Tối Ưu Siêu Tốc Webhook Zalo OA (Phiên 24/11/2026 — commits `ead1516`, `af4e6ba`):**
+      - **02 công tắc AI độc lập lưu Cloud (`ZaloOaChatInbox.tsx` & `api/notifications.ts`):**
+        + `AI Tự động trả lời 24/7` (`autoReplyEnabled`): Khi bật, Webhook nhận tin nhắn cư dân (`user_send_text`) sẽ tự động gọi Gemini 2.5 Flash soạn và phản hồi trực tiếp qua Zalo OA `v2.0/oa/message` (có chống spam cooldown `45 giây/cư dân`).
+        + `AI Gợi ý trả lời` (`aiSuggestEnabled`): Bật/tắt thanh gợi ý và nút **✨ AI Soạn trả lời** trong khung soạn thảo cho Cán bộ duyệt trước khi gửi.
+        + Trạng thái 2 công tắc lưu bền vững tại `portal_settings("zalo_oa_chat_ai_settings_v1", is_public = false)` qua action `get_zalo_chat_ai_settings` / `update_zalo_chat_ai_settings`.
+      - **Khắc phục triệt để lỗi Zalo Webhook `HTTP 408` khi bấm "Kiểm tra" (`af4e6ba`):**
+        + Bổ sung fast-path phản hồi `200 OK` trong `< 5ms` cho mọi ping xác thực của Zalo Developer Portal (`POST {}`, `event_name: "test"`, payload không có `event_name`).
+        + Loại bỏ lời gọi `getprofile` gây nghẽn bên trong luồng webhook và chuyển vùng triển khai Vercel Functions sang **Singapore (`"regions": ["sin1"]` trong `vercel.json`)** giúp độ trễ phản hồi thực tế từ Việt Nam chỉ còn `~450–660ms`.
+
+  42. **Nâng Cấp Phân Hệ Rà Soát Tự Động NVQS Tuổi 17 & 18–27 Chuẩn Pháp Lý Hiện Hành (Phiên 24/11/2026 — commit `29c56bb`):**
+      - **Nam đủ 17 tuổi — Đăng ký NVQS lần đầu (Điều 12 Luật NVQS 2015):** Nút tích chọn 1-chạm `Chưa đăng ký` ↔ `Đã đăng ký` (tự động ghi nhận ngày đăng ký), ô nhập **Số GCN ĐK NVQS / hình thức trực tuyến**, thanh tiến độ `Đã ĐK / Tổng (%)` và bộ lọc nhanh `Tất cả | Chưa ĐK | Đã ĐK`.
+      - **Nam 18 – 25 tuổi & Nam 18 – 27 tuổi (Điều 30, Điều 41 Luật NVQS 2015 & Thông tư 105/2023/TT-BQP):**
+        + Dropdown **12 trạng thái phân loại NVQS chuẩn pháp lý** trên từng dòng công dân (`Chưa rà soát`, `Đủ ĐK sơ tuyển / khám tuyển`, `Đang thực hiện NVQS / CAND`, `Đã hoàn thành NVQS / Xuất ngũ`, `Đang là Dân quân thường trực`, `Tạm hoãn — Chưa đủ sức khỏe (TT 105/2023)`, `Tạm hoãn — Sinh viên ĐH / CĐ chính quy`, `Tạm hoãn — Học sinh phổ thông (THPT)`, `Tạm hoãn — Gia đình chính sách / Hoàn cảnh ĐB`, `Tạm hoãn — Lý do khác`, `Miễn gọi nhập ngũ (Chính sách / Cơ yếu)`, `Không đủ tiêu chuẩn / Tạm dừng theo quy định`).
+        + Ô ghi chú chi tiết trực tiếp trên dòng (tên trường/năm học, độ cận/phân loại sức khỏe, mã đơn vị, lý do) và dải lọc thực lực 6 nhóm.
+      - **Lưu trữ Cloud & Xuất Excel 2 sheet nộp Ban CHQS Phường An Phú:** Tự động đồng bộ vào `portal_settings("kp3_nvqs_records_v1", is_public = false)` và xuất Excel gồm sheet danh sách chi tiết (`RaSoat_<Năm>`) + sheet bảng tổng hợp thực lực (`TongHop_Tuoi17` / `TongHop_ThucLuc_NVQS`).
 
 ---
 
 ## 7. TRẠNG THÁI HỆ THỐNG, BÀN GIAO PHIÊN (24/11/2026) & ĐỊNH HƯỚNG TIẾP THEO
 - **Trạng thái Kiểm thử & Build:**
   - ✅ TypeScript: `npx tsc --noEmit` đạt `exit code 0` (0 lỗi trên toàn dự án Web + Serverless API).
-  - ✅ Unit Tests (Vitest): **29/29 bộ test (`136/136` kịch bản kiểm thử, bao gồm `ageCohortScanner.test.ts`) PASS 100%**.
-  - ✅ Production Build & Chrome DevTools MCP Live E2E: Kiểm thử thực tế tại `https://bdhkp3.vercel.app/dashboard/reports` đạt **0 lỗi Console**, kéo thành công 59 tin nhắn lịch sử thật (9 hội thoại Zalo OA) và gửi/nhận tin nhắn 2 chiều thông suốt.
+  - ✅ Unit Tests (Vitest): **29/29 bộ test (`136/136` kịch bản kiểm thử, bao gồm `ageCohortScanner.test.ts` đã nâng cấp NVQS 17t & 18–27t) PASS 100%**.
+  - ✅ Production Build & Chrome DevTools MCP Live E2E: Đã kiểm thử trực tiếp trên `https://bdhkp3.vercel.app` toàn bộ 6 tính năng mới, 2 công tắc AI Hộp thư Zalo OA, Webhook `POST {}` (`200 OK` ~456ms từ `sin1`) và phân hệ Rà soát NVQS tuổi 17 (15 công dân CT01) & 18–27 (146 công dân CT01) đạt **0 lỗi Console**.
 - **Trạng thái Hạ tầng Trực tuyến & Các Gói Phát hành:**
-  - **Web Portal Production:** 👉 **[https://bdhkp3.vercel.app](https://bdhkp3.vercel.app)** (`dpl_7jEZ5DXyrRRaehGGkyvqg8znMiu8` — commit `fe42d19` — **READY**).
+  - **Web Portal Production (Region `sin1` Singapore):** 👉 **[https://bdhkp3.vercel.app](https://bdhkp3.vercel.app)** (`dpl_HjjDidvuErL5re1JnMqvND4iFA9M` — commit `29c56bb` — **READY**).
   - **GitHub Repository (`main`):** 👉 **[https://github.com/nghiemquynh0210/khuphothongminh](https://github.com/nghiemquynh0210/khuphothongminh)** (không chứa bất kỳ secret/token plaintext nào; thư mục render video cục bộ `video-promo/` được tách biệt khỏi kho Git).
   - **Ứng dụng Android Chính thức (`v1.1.1`, `versionCode: 3`, Signed V1+V2+V3):** 👉 **[https://github.com/nghiemquynh0210/khuphothongminh/releases/latest/download/KP3-AnPhu.apk](https://github.com/nghiemquynh0210/khuphothongminh/releases/latest/download/KP3-AnPhu.apk)** (tương thích Samsung Galaxy S25 / Android 16).
   - **Zalo Mini App (`30172911027069915`):** **Version 6** đang hoạt động ở chế độ **Testing** trên Zalo Developer Portal.
-  - **Tự động hóa Zalo OA 24/7 (`pg_cron` Job #1 `kp3-auto-zalo-reminders-15m` & Webhook Chat 2 chiều):** Hoạt động ổn định trên Supabase Cloud `wjdgaobhipkgzveidtra` & `https://bdhkp3.vercel.app/api/notifications`.
+  - **Tự động hóa Zalo OA 24/7 (`pg_cron` Job #1 `kp3-auto-zalo-reminders-15m` & Webhook Chat 2 chiều + AI Auto-Reply):** Hoạt động ổn định trên Supabase Cloud `wjdgaobhipkgzveidtra` & `https://bdhkp3.vercel.app/api/notifications`.
 - **Gợi ý Định hướng cho Phiên Làm Việc Tiếp Theo:**
-  1. Kiểm tra trên trang quản trị Zalo Developer (`developers.zalo.me` -> Ứng dụng `432932322782886593` -> **Webhook**) để đảm bảo đã bật đủ các sự kiện `user_send_text`, `user_send_image`, `user_send_location`, `oa_send_text`, `oa_send_image` trỏ về `https://bdhkp3.vercel.app/api/notifications` giúp tin nhắn mới đẩy về tức thì không cần bấm Đồng bộ.
-  2. Xử lý thực tế phản ánh vệ sinh môi trường tại đường X4 (gửi sáng `22/11` bởi cư dân `Dohuuhiep` trong **Hộp thư Zalo OA**) bằng nút **Lập Phản ánh 1022** và phản hồi nghiệm thu trực tiếp qua Zalo OA.
-  3. Gửi xét duyệt chính thức (**Submit for Review**) phiên bản **Version 6** của Zalo Mini App `30172911027069915` lên Zalo Mini App Store và sử dụng 2 video `KP3-AnPhu-Full-9x16.mp4` / `16x9.mp4` phục vụ truyền thông & báo cáo mô hình điểm Nghị quyết 57-NQ/TW.
+  1. Xác nhận trên Zalo Developer Portal (`developers.zalo.me` -> Ứng dụng `432932322782886593` -> **Webhook**) rằng URL `https://bdhkp3.vercel.app/api/notifications` đã bấm **Kiểm tra (`200 OK`) → Cập nhật** thành công và bật đủ sự kiện `user_send_text`, `user_send_image`, `user_send_location`, `oa_send_text`, `oa_send_image` để AI Tự động trả lời 24/7 vận hành tức thì.
+  2. Nhập liệu thực tế tiến độ đăng ký NVQS tuổi 17 và phân loại thực lực 18–27 tuổi Khu phố 3 trong **Quản lý Dân cư → Rà soát NVQS • Độ tuổi**, xuất bảng Excel 2 sheet phục vụ báo cáo Ban CHQS Phường An Phú.
+  3. Gửi xét duyệt chính thức (**Submit for Review**) phiên bản **Version 6** của Zalo Mini App `30172911027069915` lên Zalo Mini App Store và sử dụng 2 video `KP3-AnPhu-Full-9x16.mp4` / `16x9.mp4` phục vụ truyền thông Nghị quyết 57-NQ/TW.
+  4. **Định hướng mở rộng 14 Khu phố Phường An Phú (Khi anh yêu cầu sau này):** Tách thành **Phiên bản 2 (Multi-Tenant)** độc lập về mã nguồn/CSDL, tuyệt đối không làm ảnh hưởng đến hệ thống vận hành chính thức của **Khu phố 3**.
 
 <!-- ASTRYX:START -->
 Astryx v0.7.11 · 174 components
