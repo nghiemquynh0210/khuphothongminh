@@ -1079,6 +1079,20 @@ export default async function notificationsHandler(req: any, res: any) {
         })()
       : req.body || {};
 
+  // 1.5. Phản hồi siêu tốc (<5ms, HTTP 200 OK) cho gói tin POST kiểm tra Webhook URL từ Zalo Developer Portal
+  const hasAuthHeader = Boolean(
+    req?.headers?.authorization || req?.headers?.Authorization
+  );
+  if (
+    !body.action &&
+    !hasAuthHeader &&
+    (!body.event_name ||
+      String(body.event_name).toLowerCase() === "test" ||
+      (!body.oa_id && !body.sender?.id && !body.follower?.id))
+  ) {
+    return res.status(200).json({ ok: true, received: true, webhookReady: true });
+  }
+
   // 2. Xử lý Webhook sự kiện thật gửi từ Zalo Official Account (event_name: follow, user_send_text...)
   if (body.event_name && (body.oa_id || body.sender?.id || body.follower?.id)) {
     if (!supabaseUrl || !serviceRoleKey) {
@@ -1108,7 +1122,7 @@ export default async function notificationsHandler(req: any, res: any) {
             ? String(body.recipient?.id || zaloUid).trim()
             : zaloUid;
 
-          // Lấy tên hiển thị & avatar thực tế từ Zalo OA Profile nếu chưa có
+          // Ưu tiên tên đã lưu trong danh bạ 347+ followers để tránh độ trễ mạng/chặn IP khi gọi getprofile từ serverless
           let resolvedDisplayName = prev?.displayName || "";
           let resolvedAvatar = "";
           const savedCfg = await readPrivateSetting<ZaloOaSavedConfig>(
@@ -1123,27 +1137,6 @@ export default async function notificationsHandler(req: any, res: any) {
               supabaseUrl,
               serviceRoleKey
             );
-          }
-
-          if (
-            activeToken &&
-            (!resolvedDisplayName || resolvedDisplayName.startsWith("Cư dân Zalo #"))
-          ) {
-            try {
-              const pRes = await fetch(
-                `https://openapi.zalo.me/v2.0/oa/getprofile?data=${encodeURIComponent(
-                  JSON.stringify({ user_id: targetUid })
-                )}`,
-                { headers: { access_token: activeToken } }
-              );
-              const pJson = await pRes.json().catch(() => ({}));
-              if (pJson?.error === 0 && pJson?.data) {
-                resolvedDisplayName = String(pJson.data.display_name || resolvedDisplayName).trim();
-                resolvedAvatar = String(pJson.data.avatar || "").trim();
-              }
-            } catch {
-              // fallback to placeholder
-            }
           }
 
           const finalDisplayName =
