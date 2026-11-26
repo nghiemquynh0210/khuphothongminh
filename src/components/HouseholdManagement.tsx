@@ -439,8 +439,8 @@ export default function HouseholdManagement({
         }
       />
 
-      {/* Main Module Tab Bar */}
-      <div className="flex flex-wrap items-center gap-1 border border-slate-200/80 rounded-xl p-1 bg-slate-100/80 text-xs text-slate-600 w-fit">
+      {/* Main Module Tab Bar (Horizontal scrollable on Mobile) */}
+      <div className="flex items-center gap-1 overflow-x-auto whitespace-nowrap border border-slate-200/80 rounded-xl p-1 bg-slate-100/80 text-xs text-slate-600 w-fit max-w-full no-scrollbar">
         <button
           type="button"
           onClick={() => setActiveTab("list")}
@@ -531,7 +531,7 @@ export default function HouseholdManagement({
 
               return (
                 <div className="space-y-3">
-                  <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3 sm:gap-4 animate-in fade-in duration-200">
+                  <div className="grid grid-cols-2 xl:grid-cols-4 gap-2.5 sm:gap-4 animate-in fade-in duration-200">
                     <StatCard
                       label="Tổng số hộ quản lý"
                       value={formatVNNumber(totalH)}

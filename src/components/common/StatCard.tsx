@@ -77,7 +77,7 @@ export function StatCard({
     return null;
   }, [icon]);
 
-  const baseClasses = `w-full text-left bg-white px-4 py-3 rounded-xl border transition-colors duration-150 group flex flex-col justify-between shadow-2xs ${
+  const baseClasses = `w-full text-left bg-white px-3 py-2.5 sm:px-4 sm:py-3 rounded-xl border transition-colors duration-150 group flex flex-col justify-between shadow-2xs ${
     highlighted
       ? "border-slate-900 ring-1 ring-slate-900/10"
       : "border-slate-200/80 hover:border-slate-300"
@@ -89,17 +89,17 @@ export function StatCard({
 
   const content = (
     <>
-      <div className="flex justify-between items-start gap-2">
-        <div className="space-y-1 min-w-0 flex-1">
-          <span className="text-xs font-medium text-slate-500 block leading-snug truncate">
+      <div className="flex justify-between items-start gap-1.5 sm:gap-2">
+        <div className="space-y-0.5 sm:space-y-1 min-w-0 flex-1">
+          <span className="text-[11px] sm:text-xs font-medium text-slate-500 block leading-snug truncate">
             {label}
           </span>
-          <div className="flex items-baseline flex-wrap gap-x-1.5 gap-y-0.5 min-w-0">
-            <span className="text-lg sm:text-xl font-bold text-slate-900 tracking-tight leading-tight tabular-nums whitespace-nowrap">
+          <div className="flex items-baseline flex-wrap gap-x-1 sm:gap-x-1.5 gap-y-0.5 min-w-0">
+            <span className="text-base sm:text-xl font-bold text-slate-900 tracking-tight leading-tight tabular-nums whitespace-nowrap">
               {formattedValue}
             </span>
             {badge && (
-              <span className="text-[11px] font-medium text-slate-500 shrink-0">
+              <span className="text-[10px] sm:text-[11px] font-medium text-slate-500 shrink-0">
                 {badge}
               </span>
             )}
@@ -107,7 +107,7 @@ export function StatCard({
         </div>
 
         <div
-          className={`w-8 h-8 rounded-lg border shrink-0 flex items-center justify-center ${iconColorStyles[color]}`}
+          className={`w-7 h-7 sm:w-8 sm:h-8 rounded-lg border shrink-0 flex items-center justify-center ${iconColorStyles[color]}`}
           aria-hidden="true"
         >
           {renderedIcon}

@@ -877,10 +877,14 @@ export function ZaloOaChatInbox({
         </div>
       </div>
 
-      {/* Main 2-Column Minimalist Chat Split */}
-      <div className="bg-white rounded-xl border border-slate-200/80 shadow-2xs overflow-hidden grid grid-cols-1 lg:grid-cols-12 min-h-[580px]">
+      {/* Main 2-Column Minimalist Chat Split — trên Mobile (< lg) tự động chuyển 2 bước Master → Detail */}
+      <div className="bg-white rounded-xl border border-slate-200/80 shadow-2xs overflow-hidden grid grid-cols-1 lg:grid-cols-12 min-h-[540px]">
         {/* LEFT COLUMN: Conversations List */}
-        <div className="lg:col-span-4 border-b lg:border-b-0 lg:border-r border-slate-200/80 flex flex-col bg-slate-50/40">
+        <div
+          className={`lg:col-span-4 border-b lg:border-b-0 lg:border-r border-slate-200/80 flex-col bg-slate-50/40 ${
+            selectedUid ? "hidden lg:flex" : "flex"
+          }`}
+        >
           <div className="p-3 border-b border-slate-200/80 bg-white space-y-2.5">
             <div className="flex items-center justify-between gap-2">
               <div className="flex items-center gap-1.5">
@@ -1096,7 +1100,11 @@ export function ZaloOaChatInbox({
         </div>
 
         {/* RIGHT COLUMN: Active Conversation & Reply Composer */}
-        <div className="lg:col-span-8 flex flex-col bg-white">
+        <div
+          className={`lg:col-span-8 flex-col bg-white ${
+            selectedUid ? "flex" : "hidden lg:flex"
+          }`}
+        >
           {!selectedConversation ? (
             <div className="flex-1 flex flex-col items-center justify-center p-8 text-center space-y-3">
               <div className="w-12 h-12 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center">
@@ -1115,8 +1123,16 @@ export function ZaloOaChatInbox({
           ) : (
             <>
               {/* Chat Header */}
-              <div className="px-4 py-3 border-b border-slate-200/80 flex flex-wrap items-center justify-between gap-2 bg-white">
-                <div className="flex items-center gap-2.5 min-w-0">
+              <div className="px-3 sm:px-4 py-3 border-b border-slate-200/80 flex flex-wrap items-center justify-between gap-2 bg-white">
+                <div className="flex items-center gap-2 min-w-0">
+                  <button
+                    type="button"
+                    onClick={() => setSelectedUid("")}
+                    aria-label="Quay lại danh sách hội thoại"
+                    className="lg:hidden inline-flex h-8 w-8 items-center justify-center rounded-xl bg-slate-100 active:bg-slate-200 text-slate-800 font-bold text-sm shrink-0 cursor-pointer"
+                  >
+                    ←
+                  </button>
                   {selectedConversation.avatar ? (
                     <img
                       src={selectedConversation.avatar}

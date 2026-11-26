@@ -1,7 +1,8 @@
 import React, { useState } from "react";
 import { Home, LayoutGrid, Megaphone, MessageCircle, Newspaper } from "lucide-react";
-import { ActiveTab } from "../../types";
+import { ActiveTab, Association, FieldReport, ScheduleEvent, TaskItem } from "../../types";
 import { MobileUtilitiesHub } from "./MobileUtilitiesHub";
+import { MobileMessagesHub } from "./MobileMessagesHub";
 import { triggerLightHaptic } from "../../utils/mobileHaptics";
 
 interface MobileSuperAppBarProps {
@@ -16,6 +17,11 @@ interface MobileSuperAppBarProps {
   } | null;
   residentsCount: number;
   householdsCount: number;
+  reports?: FieldReport[];
+  schedules?: ScheduleEvent[];
+  tasks?: TaskItem[];
+  associations?: Association[];
+  onAddReport?: (report: FieldReport) => void;
   onNavigateHome: () => void;
   onSelectTab: (tab: ActiveTab) => void;
   onOpenStaffLogin: () => void;
@@ -28,16 +34,24 @@ export const MobileSuperAppBar: React.FC<MobileSuperAppBarProps> = ({
   currentUser,
   residentsCount,
   householdsCount,
+  reports = [],
+  schedules = [],
+  tasks = [],
+  associations = [],
+  onAddReport,
   onNavigateHome,
   onSelectTab,
   onOpenStaffLogin,
 }) => {
   const [utilitiesOpen, setUtilitiesOpen] = useState(false);
+  const [messagesOpen, setMessagesOpen] = useState(false);
+  const [unreadMessagesCount, setUnreadMessagesCount] = useState(0);
 
   const navItems: Array<{
     id: "home" | "news" | "reports" | "messages" | "utilities";
     label: string;
     icon: React.ReactNode;
+    badge?: number;
     active: boolean;
     onClick: () => void;
   }> = [
@@ -45,9 +59,10 @@ export const MobileSuperAppBar: React.FC<MobileSuperAppBarProps> = ({
       id: "home",
       label: "Trang chủ",
       icon: <Home size={20} />,
-      active: !utilitiesOpen && (isPublicHome || activeTab === "dashboard"),
+      active: !utilitiesOpen && !messagesOpen && (isPublicHome || activeTab === "dashboard"),
       onClick: () => {
         setUtilitiesOpen(false);
+        setMessagesOpen(false);
         onNavigateHome();
       },
     },
@@ -55,9 +70,10 @@ export const MobileSuperAppBar: React.FC<MobileSuperAppBarProps> = ({
       id: "news",
       label: "Tin tức",
       icon: <Newspaper size={20} />,
-      active: !utilitiesOpen && !isPublicHome && activeTab === "cultural",
+      active: !utilitiesOpen && !messagesOpen && !isPublicHome && activeTab === "cultural",
       onClick: () => {
         setUtilitiesOpen(false);
+        setMessagesOpen(false);
         onSelectTab("cultural");
       },
     },
@@ -65,9 +81,10 @@ export const MobileSuperAppBar: React.FC<MobileSuperAppBarProps> = ({
       id: "reports",
       label: "Phản ánh",
       icon: <Megaphone size={20} />,
-      active: !utilitiesOpen && !isPublicHome && activeTab === "reports",
+      active: !utilitiesOpen && !messagesOpen && !isPublicHome && activeTab === "reports",
       onClick: () => {
         setUtilitiesOpen(false);
+        setMessagesOpen(false);
         onSelectTab("reports");
       },
     },
@@ -75,10 +92,11 @@ export const MobileSuperAppBar: React.FC<MobileSuperAppBarProps> = ({
       id: "messages",
       label: "Tin nhắn",
       icon: <MessageCircle size={20} />,
-      active: !utilitiesOpen && !isPublicHome && activeTab === "ai",
+      badge: unreadMessagesCount,
+      active: messagesOpen,
       onClick: () => {
         setUtilitiesOpen(false);
-        onSelectTab(isStaff ? "reports" : "ai");
+        setMessagesOpen((prev) => !prev);
       },
     },
     {
@@ -86,7 +104,10 @@ export const MobileSuperAppBar: React.FC<MobileSuperAppBarProps> = ({
       label: "Tiện ích",
       icon: <LayoutGrid size={20} />,
       active: utilitiesOpen,
-      onClick: () => setUtilitiesOpen((prev) => !prev),
+      onClick: () => {
+        setMessagesOpen(false);
+        setUtilitiesOpen((prev) => !prev);
+      },
     },
   ];
 
@@ -101,6 +122,20 @@ export const MobileSuperAppBar: React.FC<MobileSuperAppBarProps> = ({
           onSelectTab={onSelectTab}
           onOpenStaffLogin={onOpenStaffLogin}
           onClose={() => setUtilitiesOpen(false)}
+        />
+      )}
+
+      {messagesOpen && (
+        <MobileMessagesHub
+          isStaff={isStaff}
+          currentUser={currentUser}
+          reports={reports}
+          schedules={schedules}
+          tasks={tasks}
+          associations={associations}
+          onAddReport={onAddReport || (() => {})}
+          onUnreadCountChange={setUnreadMessagesCount}
+          onClose={() => setMessagesOpen(false)}
         />
       )}
 
@@ -126,8 +161,13 @@ export const MobileSuperAppBar: React.FC<MobileSuperAppBarProps> = ({
                   : "text-slate-500 hover:text-slate-800 font-semibold"
               }`}
             >
-              <span className={item.active ? "scale-105 transition-transform" : ""}>
+              <span className={`relative ${item.active ? "scale-105 transition-transform" : ""}`}>
                 {item.icon}
+                {item.badge && item.badge > 0 ? (
+                  <span className="absolute -top-1.5 -right-2 min-w-[16px] h-[16px] px-1 rounded-full bg-rose-600 text-white text-[9px] font-extrabold inline-flex items-center justify-center border border-white">
+                    {item.badge > 99 ? "99+" : item.badge}
+                  </span>
+                ) : null}
               </span>
               <span className="text-[10.5px] leading-none">{item.label}</span>
             </button>

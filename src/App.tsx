@@ -2462,6 +2462,11 @@ export default function App() {
           currentUser={displayCurrentUser || currentUser}
           residentsCount={residents.length || KP3_OFFICIAL_BASELINE.population}
           householdsCount={households.length || KP3_OFFICIAL_BASELINE.households}
+          reports={reports}
+          schedules={allSchedules}
+          tasks={tasks}
+          associations={associations}
+          onAddReport={handleAddReport}
           onNavigateHome={() => {
             setCitizenSubView(null);
             setActiveTab("dashboard");
@@ -2679,6 +2684,11 @@ export default function App() {
           currentUser={displayCurrentUser || currentUser}
           residentsCount={residents.length || KP3_OFFICIAL_BASELINE.population}
           householdsCount={households.length || KP3_OFFICIAL_BASELINE.households}
+          reports={reports}
+          schedules={allSchedules}
+          tasks={tasks}
+          associations={associations}
+          onAddReport={handleAddReport}
           onNavigateHome={() => {
             setCitizenSubView(null);
             setActiveTab("dashboard");
@@ -3322,6 +3332,11 @@ export default function App() {
           currentUser={displayCurrentUser || currentUser}
           residentsCount={residents.length || KP3_OFFICIAL_BASELINE.population}
           householdsCount={households.length || KP3_OFFICIAL_BASELINE.households}
+          reports={reports}
+          schedules={allSchedules}
+          tasks={tasks}
+          associations={associations}
+          onAddReport={handleAddReport}
           onNavigateHome={() => {
             setActiveTab("dashboard");
             navigate(ROUTES.DASHBOARD);

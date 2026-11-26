@@ -373,8 +373,8 @@ export default function CommunityEvents({
         />
       )}
 
-      {/* Stats Counter Cards - Standardized StatCard Component */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3.5">
+      {/* Stats Counter Cards - Standardized StatCard Component (2x2 on Mobile) */}
+      <div className="grid grid-cols-2 xl:grid-cols-4 gap-2.5 sm:gap-3.5">
         <StatCard
           label="Tổng bản tin & thông báo"
           value={activeNewsList.length}

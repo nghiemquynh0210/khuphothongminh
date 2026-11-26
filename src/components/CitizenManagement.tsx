@@ -1643,8 +1643,8 @@ export default function CitizenManagement({
       ) : (
         <>
 
-      {/* 4 Standardized StatCard KPI blocks */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+      {/* 4 Standardized StatCard KPI blocks (2x2 on Mobile) */}
+      <div className="grid grid-cols-2 xl:grid-cols-4 gap-2.5 sm:gap-4">
         <StatCard
           label="Tổng số Dân cư"
           value={residents.length}

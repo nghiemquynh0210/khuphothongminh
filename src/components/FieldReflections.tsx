@@ -352,7 +352,7 @@ export default function FieldReflections({
         <div
           role="tablist"
           aria-label="Phân khu Phản ánh hiện trường"
-          className="inline-flex items-center p-1 rounded-xl bg-slate-100/90 border border-slate-200/80 gap-1"
+          className="flex items-center overflow-x-auto whitespace-nowrap max-w-full p-1 rounded-xl bg-slate-100/90 border border-slate-200/80 gap-1 w-fit no-scrollbar"
         >
           <button
             type="button"
@@ -419,8 +419,8 @@ export default function FieldReflections({
       ) : (
         <>
 
-      {/* 4 KPI Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3.5 sm:gap-4">
+      {/* 4 KPI Cards (2x2 on Mobile) */}
+      <div className="grid grid-cols-2 xl:grid-cols-4 gap-2.5 sm:gap-4">
         <StatCard
           label="Tổng hồ sơ"
           value={kpi.total}
