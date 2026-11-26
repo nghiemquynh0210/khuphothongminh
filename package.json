@@ -34,6 +34,7 @@
     "@capacitor/android": "^8.6.2",
     "@capacitor/app": "^8.1.2",
     "@capacitor/core": "^8.6.2",
+    "@capacitor/haptics": "^8.0.2",
     "@capacitor/status-bar": "^8.0.4",
     "@google/genai": "^2.4.0",
     "@stylexjs/stylex": "^0.19.1",
@@ -54,6 +55,7 @@
     "react-dom": "^19.0.1",
     "react-is": "^19.3.1",
     "recharts": "^3.9.2",
+    "vaul": "^1.1.2",
     "vite": "^6.2.3",
     "xlsx": "^0.18.5"
   },

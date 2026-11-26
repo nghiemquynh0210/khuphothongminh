@@ -169,7 +169,7 @@ export default function Sidebar({
         type="button"
         onClick={() => setMobileOpen((prev) => !prev)}
         className={`fixed top-2.5 left-3 z-50 h-11 w-11 items-center justify-center bg-emerald-700 text-white rounded-xl border border-emerald-600 lg:hidden ${
-          mobileOpen ? "hidden" : "flex"
+          mobileOpen ? "hidden" : "hidden md:flex"
         } hover:bg-emerald-800 transition-colors cursor-pointer shadow-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400`}
         aria-label={mobileOpen ? "Đóng menu điều hướng" : "Mở menu điều hướng"}
       >

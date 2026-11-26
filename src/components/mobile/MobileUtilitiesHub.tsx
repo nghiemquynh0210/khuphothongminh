@@ -28,6 +28,7 @@ import {
 } from "lucide-react";
 import { ActiveTab } from "../../types";
 import { canAccessSpecialSupervision } from "../../utils/specialSupervisionUtils";
+import { triggerLightHaptic } from "../../utils/mobileHaptics";
 
 export interface MobileUtilityAction {
   id: string;
@@ -68,6 +69,7 @@ export const MobileUtilitiesHub: React.FC<MobileUtilitiesHubProps> = ({
   const canViewAnTT = isStaff && canAccessSpecialSupervision(currentUser);
 
   const handleTileClick = (item: MobileUtilityAction) => {
+    void triggerLightHaptic();
     if (item.externalUrl) {
       window.open(item.externalUrl, "_blank", "noopener,noreferrer");
       return;

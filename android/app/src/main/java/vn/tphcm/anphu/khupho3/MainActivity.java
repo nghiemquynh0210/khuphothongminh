@@ -10,8 +10,9 @@ public class MainActivity extends BridgeActivity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        // Super-App v2.0: Red Bronze-Drum status bar (#B91C1C) with crisp white icons
-        // and crisp dark navigation bar icons on white 5-tab bottom bar
+        // Super-App v3.0: Android 15/16 Edge-to-Edge fix — paint DecorView #B91C1C so
+        // transparent status bar band renders crisp white icons over Vietnamese Civic Red
+        getWindow().getDecorView().setBackgroundColor(Color.parseColor("#B91C1C"));
         getWindow().setStatusBarColor(Color.parseColor("#B91C1C"));
         WindowInsetsControllerCompat controller =
                 WindowCompat.getInsetsController(getWindow(), getWindow().getDecorView());

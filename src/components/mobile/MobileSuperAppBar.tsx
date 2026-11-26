@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { Home, LayoutGrid, Megaphone, MessageCircle, Newspaper } from "lucide-react";
 import { ActiveTab } from "../../types";
 import { MobileUtilitiesHub } from "./MobileUtilitiesHub";
+import { triggerLightHaptic } from "../../utils/mobileHaptics";
 
 interface MobileSuperAppBarProps {
   activeTab: ActiveTab;
@@ -114,7 +115,10 @@ export const MobileSuperAppBar: React.FC<MobileSuperAppBarProps> = ({
             <button
               key={item.id}
               type="button"
-              onClick={item.onClick}
+              onClick={() => {
+                void triggerLightHaptic();
+                item.onClick();
+              }}
               aria-current={item.active ? "page" : undefined}
               className={`flex flex-col items-center justify-center gap-1 transition-colors cursor-pointer ${
                 item.active

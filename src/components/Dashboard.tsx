@@ -75,6 +75,7 @@ import { PageHeader } from "./common/PageHeader";
 import { StatCard } from "./common/StatCard";
 import { Button, InlineNotice, Modal } from "./ui";
 import { PeriodicWordReportModal } from "./dashboard/PeriodicWordReportModal";
+import { MobileStaffHome } from "./mobile/MobileStaffHome";
 
 interface DashboardProps {
   residents: Resident[];
@@ -96,6 +97,7 @@ interface DashboardProps {
     householdCode?: string;
     phone?: string;
   } | null;
+  onOpenQuickCommand?: () => void;
 }
 
 export default function Dashboard({
@@ -111,6 +113,7 @@ export default function Dashboard({
   welfareCount = 0,
   setActiveTab,
   currentUser,
+  onOpenQuickCommand,
 }: DashboardProps) {
   const isStaff = currentUser?.role === "canbo";
   const [showWordReportModal, setShowWordReportModal] = useState(false);
@@ -819,6 +822,34 @@ export default function Dashboard({
   // ===================== STAFF EXECUTIVE COMMAND DASHBOARD =====================
   return (
     <div id="dashboard-view" className="space-y-4">
+      <MobileStaffHome
+        currentUserName={currentUser?.fullName || "Ban Điều hành KP3"}
+        population={metrics.popMetrics.officialPopulation}
+        thuongTruCount={metrics.thuongTruCount}
+        tamTruCount={metrics.tamTruCount}
+        totalHouseholds={metrics.totalManagedHouseholdsCount}
+        permanentHouseholds={metrics.permanentHouseholdsCount}
+        temporaryHouseholds={metrics.temporaryHouseholdsCount}
+        totalBusinesses={metrics.enterprisesCount + metrics.establishmentsCount}
+        hostelsCount={metrics.hostelsCount}
+        roomsCount={metrics.roomsCount}
+        openActionCount={metrics.pendingReportsCount + metrics.openTasksCount}
+        urgentCount={metrics.urgentTasksCount + metrics.urgentReportsCount}
+        pendingReportsCount={metrics.pendingReportsCount}
+        openTasksCount={metrics.openTasksCount}
+        expiredTempCount={metrics.expiredCount}
+        expiringTempCount={metrics.expiringCount}
+        pcccWarningCount={metrics.pcccAlertCount}
+        fundBalance={metrics.fundBalance}
+        topTasks={metrics.topTasks}
+        openReports={metrics.openReports}
+        onNavigateTab={(tab) => navigateToTab(tab)}
+        onOpenWordReport={() => setShowWordReportModal(true)}
+        onExportExcelReport={handleExportBriefingReport}
+        onOpenQuickCommand={onOpenQuickCommand}
+      />
+
+      <div className="hidden md:block space-y-4">
       <PageHeader
         title="Tổng quan Điều hành Khu phố 3"
         description="Quy mô hộ thường trú – tạm trú, các cảnh báo cư trú và đầu việc cần xử lý trong ngày"
@@ -1520,6 +1551,7 @@ export default function Dashboard({
           </div>
         )}
       </section>
+      </div>
 
       <PeriodicWordReportModal
         isOpen={showWordReportModal}
