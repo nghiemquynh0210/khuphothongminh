@@ -31,6 +31,9 @@ describe("specialSupervisionUtils (10 diện pháp lý & bảo mật NĐ 13/2023
       canAccessSpecialSupervision({ role: "canbo", title: "Tổ trưởng Tổ ANTT cơ sở" })
     ).toBe(true);
     expect(
+      canAccessSpecialSupervision({ role: "canbo", fullName: "Bí thư Nghiêm Xuân Quỳnh" })
+    ).toBe(true);
+    expect(
       canAccessSpecialSupervision({ role: "canbo", title: "Chi hội Phụ nữ" })
     ).toBe(false);
     expect(canAccessSpecialSupervision({ role: "citizen" })).toBe(false);

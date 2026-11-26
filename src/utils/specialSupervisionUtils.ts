@@ -186,23 +186,22 @@ export function canAccessSpecialSupervision(user?: {
 } | null): boolean {
   if (!user) return false;
   const role = String(user.role || "").toLowerCase();
-  const title = String(user.title || "").toLowerCase();
-  const username = String(user.username || "").toLowerCase();
+  const combined = `${user.title || ""} ${user.fullName || ""} ${user.username || ""}`.toLowerCase();
 
-  if (role === "admin" || username === "bdhkhupho3.ap@gmail.com") return true;
+  if (role === "admin" || combined.includes("bdhkhupho3.ap@gmail.com")) return true;
   if (role === "canbo") {
     if (
-      title.includes("bí thư") ||
-      title.includes("bi thu") ||
-      title.includes("quản trị") ||
-      title.includes("quan tri") ||
-      title.includes("trưởng khu phố") ||
-      title.includes("truong khu pho") ||
-      title.includes("công an") ||
-      title.includes("cong an") ||
-      title.includes("cskv") ||
-      title.includes("antt") ||
-      title.includes("an ninh")
+      combined.includes("bí thư") ||
+      combined.includes("bi thu") ||
+      combined.includes("quản trị") ||
+      combined.includes("quan tri") ||
+      combined.includes("trưởng khu phố") ||
+      combined.includes("truong khu pho") ||
+      combined.includes("công an") ||
+      combined.includes("cong an") ||
+      combined.includes("cskv") ||
+      combined.includes("antt") ||
+      combined.includes("an ninh")
     ) {
       return true;
     }
