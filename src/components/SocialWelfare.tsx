@@ -53,6 +53,7 @@ import {
 } from "../types";
 import Pagination from "./Pagination";
 import { DetailRow, DetailGrid } from "./common/DetailRow";
+import { MobileSubpageShell } from "./mobile/MobileSubpageShell";
 import { StatCard } from "./common/StatCard";
 import { PageHeader } from "./common/PageHeader";
 import { ReportSelect } from "./reports/ReportSelect";
@@ -1371,7 +1372,51 @@ export default function SocialWelfare({
         onDismiss={() => setToast(null)}
       />
 
-      {/* Minimalist Page Header */}
+      {/* MOBILE NATIVE RED BRONZE-DRUM APP BAR & SUB-TABS */}
+      <MobileSubpageShell
+        title="An sinh & Chính sách"
+        subtitle={`${kpiData.totalRecs} đối tượng • ${kpiData.totalCampaigns} đợt chăm lo`}
+        primaryActionLabel="Thêm"
+        onPrimaryAction={() => {
+          if (activeTab === "submodules") setShowAddSubCategoryModal(true);
+          else if (activeTab === "campaigns") setShowAddCampaignModal(true);
+          else if (activeTab === "emergency") setShowEmergencyModal(true);
+          else {
+            setShowAddRecipientModal(true);
+            handleCategorySelectChange("Người có công");
+          }
+        }}
+        subTabs={[
+          { id: "recipients", label: `Đối tượng (${effectiveRecipients.length})` },
+          { id: "submodules", label: `Nhóm (${subCategories.length})` },
+          { id: "campaigns", label: `Trao quà (${kpiData.totalCampaigns})` },
+          { id: "emergency", label: "Khẩn cấp" },
+        ]}
+        activeSubTab={activeTab}
+        onSubTabChange={(t) => setActiveTab(t as any)}
+        sheetTitle="Công cụ An sinh Xã hội"
+        sheetActions={[
+          {
+            id: "sync_seniors",
+            label: "Đối soát tự động Người cao tuổi từ CSDL Dân cư",
+            description: `${formatVNNumber(residentWelfareStats.seniors60Total)} cụ ≥60t • ${formatVNNumber(residentWelfareStats.longevityMilestoneCount)} cụ mừng thọ`,
+            icon: <RefreshCw size={18} className="text-emerald-700" />,
+            tone: "emerald",
+            onClick: handleSyncResidentsToWelfare,
+          },
+          {
+            id: "emergency_pay",
+            label: "Chi hỗ trợ khẩn cấp đột xuất",
+            description: "Ghi nhận hồ sơ chăm lo trường hợp khó khăn cấp bách",
+            icon: <Zap size={18} className="text-amber-600" />,
+            tone: "amber",
+            onClick: () => setShowEmergencyModal(true),
+          },
+        ]}
+      />
+
+      {/* Desktop Minimalist Page Header */}
+      <div className="hidden md:block">
       <PageHeader
         title="An sinh Xã hội & Chính sách"
         description="Quản lý đối tượng người có công, bảo trợ xã hội, mừng thọ người cao tuổi và các đợt chăm lo trên địa bàn"
@@ -1461,9 +1506,10 @@ export default function SocialWelfare({
           </div>
         }
       />
+      </div>
 
-      {/* 4 StatCards (2x2 on Mobile) */}
-      <div className="grid grid-cols-2 xl:grid-cols-4 gap-2.5 sm:gap-3.5">
+      {/* 4 StatCards (Desktop only) */}
+      <div className="hidden md:grid grid-cols-2 xl:grid-cols-4 gap-2.5 sm:gap-3.5">
         <StatCard
           label="Đối tượng thụ hưởng"
           value={kpiData.totalRecs}
@@ -1504,7 +1550,7 @@ export default function SocialWelfare({
 
       {/* Compact Sub-tab Navigation & Senior Summary Strip */}
       <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-2.5">
-        <div className="flex items-center overflow-x-auto whitespace-nowrap max-w-full gap-1 bg-slate-100/80 p-1 rounded-xl border border-slate-200/80 w-fit no-scrollbar">
+        <div className="hidden md:flex items-center overflow-x-auto whitespace-nowrap max-w-full gap-1 bg-slate-100/80 p-1 rounded-xl border border-slate-200/80 w-fit no-scrollbar">
           <button
             type="button"
             onClick={() => setActiveTab("recipients")}

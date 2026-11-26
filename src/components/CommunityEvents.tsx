@@ -43,6 +43,7 @@ import { CommunityEvent, LocalNews } from "../types";
 import Pagination from "./Pagination";
 import { StatCard } from "./common/StatCard";
 import { PageHeader } from "./common/PageHeader";
+import { MobileSubpageShell } from "./mobile/MobileSubpageShell";
 import { ConfirmModal, InlineNotice } from "./ui/ConfirmModal";
 import { formatVNNumber } from "../utils/numberFormat";
 import { loadPortalSetting, savePortalSetting } from "../utils/supabaseSync";
@@ -99,6 +100,7 @@ export interface CommunityEventsProps {
   activeSubTab?: "news" | "events";
   onActiveSubTabChange?: (tab: "news" | "events") => void;
   onRefreshNews?: () => void;
+  readOnly?: boolean;
 }
 
 export default function CommunityEvents({ 
@@ -121,6 +123,7 @@ export default function CommunityEvents({
   onOpenDetailEvent,
   activeSubTab: activeSubTabProp,
   onActiveSubTabChange,
+  readOnly = false,
 }: CommunityEventsProps) {
   const [internalSubTab, setInternalSubTab] = useState<"news" | "events">("news");
   const activeSubTab = activeSubTabProp ?? internalSubTab;
@@ -320,8 +323,49 @@ export default function CommunityEvents({
   const paginatedEvents = filteredEvents.slice(startEventsIndex, startEventsIndex + eventsPerPage);
 
   return (
-    <div id="news-and-events-view" className="space-y-4">
-      {/* Minimalist Header */}
+    <div id="news-and-events-view" className="space-y-3 md:space-y-4">
+      {/* MOBILE NATIVE RED BRONZE-DRUM APP BAR & SUB-TABS */}
+      <MobileSubpageShell
+        title="Tin tức & Sự kiện"
+        subtitle={`${activeNewsList.length} bản tin • ${events.length} sự kiện Khu phố 3`}
+        primaryActionLabel={!readOnly ? (activeSubTab === "news" ? "Đăng tin" : "Đặt lịch") : undefined}
+        onPrimaryAction={
+          !readOnly
+            ? () => (activeSubTab === "news" ? handleCreateNews() : handleCreateEvent())
+            : undefined
+        }
+        subTabs={[
+          { id: "news", label: `Bản tin KP3 (${activeNewsList.length})` },
+          { id: "events", label: `Sự kiện (${events.length})` },
+        ]}
+        activeSubTab={activeSubTab}
+        onSubTabChange={(t) => setActiveSubTab(t as any)}
+        sheetTitle="Công cụ Truyền thông Khu phố 3"
+        sheetActions={
+          !readOnly
+            ? [
+                {
+                  id: "zalo_sync",
+                  label: "Đồng bộ bài viết từ Zalo OA BĐH KP3",
+                  description: "Lấy bài mới từ Zalo OA đăng lên Cổng Cư dân",
+                  icon: <MessageCircle size={18} className="text-blue-600" />,
+                  tone: "emerald",
+                  onClick: () => setShowZaloSyncModal(true),
+                },
+                {
+                  id: "sample_news",
+                  label: "Khôi phục dữ liệu bản tin mẫu",
+                  description: "Nạp lại các thông báo hành chính mẫu",
+                  icon: <RotateCcw size={18} className="text-slate-600" />,
+                  onClick: handleResetToSampleNews,
+                },
+              ]
+            : []
+        }
+      />
+
+      {/* Desktop Minimalist Header */}
+      <div className="hidden md:block">
       <PageHeader
         title="Tin tức & Sự kiện Khu phố"
         actions={
@@ -364,6 +408,7 @@ export default function CommunityEvents({
           </div>
         }
       />
+      </div>
 
       {notice && (
         <InlineNotice
@@ -373,8 +418,8 @@ export default function CommunityEvents({
         />
       )}
 
-      {/* Stats Counter Cards - Standardized StatCard Component (2x2 on Mobile) */}
-      <div className="grid grid-cols-2 xl:grid-cols-4 gap-2.5 sm:gap-3.5">
+      {/* Stats Counter Cards (Desktop only — Mobile shows immediate News Feed) */}
+      <div className="hidden md:grid grid-cols-2 xl:grid-cols-4 gap-2.5 sm:gap-3.5">
         <StatCard
           label="Tổng bản tin & thông báo"
           value={activeNewsList.length}
@@ -411,8 +456,8 @@ export default function CommunityEvents({
         />
       </div>
 
-      {/* Compact Segmented Sub-Tab Bar */}
-      <div className="flex items-center gap-1 overflow-x-auto whitespace-nowrap p-1 bg-slate-100/80 rounded-xl border border-slate-200/80 w-fit max-w-full evon-scroll">
+      {/* Compact Segmented Sub-Tab Bar (Desktop only) */}
+      <div className="hidden md:flex items-center gap-1 overflow-x-auto whitespace-nowrap p-1 bg-slate-100/80 rounded-xl border border-slate-200/80 w-fit max-w-full evon-scroll">
         <button
           type="button"
           onClick={() => setActiveSubTab("news")}

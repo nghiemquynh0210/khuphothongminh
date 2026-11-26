@@ -85,6 +85,7 @@ import { DetailRow, DetailGrid } from "./common/DetailRow";
 import { formatVNNumber } from "../utils/numberFormat";
 import { StatCard } from "./common/StatCard";
 import { PageHeader } from "./common/PageHeader";
+import { MobileSubpageShell } from "./mobile/MobileSubpageShell";
 import { 
   isResidentInAccommodation, 
   parseAccommodationInfo, 
@@ -795,7 +796,41 @@ export default function BusinessManagement({
         </div>
       )}
 
-      {/* Upper header */}
+      {/* MOBILE NATIVE RED BRONZE-DRUM APP BAR & SUB-TABS */}
+      <MobileSubpageShell
+        title="Cơ sở KD & Nhà trọ"
+        subtitle={`${formatVNNumber(businesses.length)} cơ sở đang quản lý tại KP3`}
+        primaryActionLabel="Đăng ký"
+        onPrimaryAction={handleOpenCreateModal}
+        subTabs={[
+          { id: "directory", label: `Nhà trọ & KD (${businesses.length})` },
+          { id: "pccc", label: "An toàn PCCC" },
+          { id: "hostel_qr", label: "Mã QR Trọ" },
+        ]}
+        activeSubTab={activeBizSubTab}
+        onSubTabChange={(t) => setActiveBizSubTab(t as any)}
+        sheetTitle="Công cụ Kinh tế & Nhà trọ"
+        sheetActions={[
+          {
+            id: "auto_hostel",
+            label: "Tự động nhận diện Nhà trọ từ Dân cư",
+            description: "Đối khớp dữ liệu tạm trú để cập nhật số khách lưu trú thực tế",
+            icon: <Sparkles size={18} className="text-emerald-700" />,
+            tone: "emerald",
+            onClick: handleAutoDetectHostels,
+          },
+          {
+            id: "export_biz",
+            label: "Xuất báo cáo Cơ sở & Nhà trọ (.xlsx)",
+            description: "Xuất file Excel đa sheet phục vụ kiểm tra PCCC & ANTT",
+            icon: <Download size={18} className="text-blue-600" />,
+            onClick: handleExportBusinessesExcel,
+          },
+        ]}
+      />
+
+      {/* Desktop Upper header */}
+      <div className="hidden md:block">
       <PageHeader
         title="Quản lý Cơ sở Kinh doanh & Nhà trọ"
         actions={
@@ -828,12 +863,13 @@ export default function BusinessManagement({
           </div>
         }
       />
+      </div>
 
-      {/* Segmented Sub-Tabs: Danh bạ Cơ sở • An toàn PCCC • Mã QR Nhà trọ */}
+      {/* Segmented Sub-Tabs (Desktop only — Mobile uses Red AppBar Sub-Tabs) */}
       <div
         role="tablist"
         aria-label="Phân khu Cơ sở kinh doanh & PCCC"
-        className="flex items-center overflow-x-auto whitespace-nowrap max-w-full p-1 rounded-xl bg-slate-100/90 border border-slate-200/80 gap-1 w-fit no-scrollbar"
+        className="hidden md:flex items-center overflow-x-auto whitespace-nowrap max-w-full p-1 rounded-xl bg-slate-100/90 border border-slate-200/80 gap-1 w-fit no-scrollbar"
       >
         <button
           type="button"
@@ -898,8 +934,8 @@ export default function BusinessManagement({
       ) : (
         <>
 
-      {/* KPI Stats Overview Bar (2x2 on Mobile) */}
-      <div className="grid grid-cols-2 xl:grid-cols-4 gap-2.5 sm:gap-3.5">
+      {/* KPI Stats Overview Bar (Desktop only — Mobile shows immediate Business/Hostel Cards) */}
+      <div className="hidden md:grid grid-cols-2 xl:grid-cols-4 gap-2.5 sm:gap-3.5">
         <StatCard
           label="Tổng cơ sở kinh doanh"
           value={businesses.length}

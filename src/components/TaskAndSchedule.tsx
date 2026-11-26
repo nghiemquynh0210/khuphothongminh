@@ -42,6 +42,7 @@ import {
 } from "../utils/taskScheduleRoleSync";
 import { StatCard } from "./common/StatCard";
 import { PageHeader } from "./common/PageHeader";
+import { MobileSubpageShell } from "./mobile/MobileSubpageShell";
 import { Button, ConfirmModal, EmptyState, InlineNotice, ReportSelect } from "./ui";
 import {
   INITIAL_REMINDERS,
@@ -289,7 +290,9 @@ export default function TaskAndSchedule({
   }, [associationsList]);
 
   // Task filters & modals
-  const [internalTaskViewMode, setInternalTaskViewMode] = useState<"kanban" | "list">("kanban");
+  const [internalTaskViewMode, setInternalTaskViewMode] = useState<"kanban" | "list">(() =>
+    typeof window !== "undefined" && window.innerWidth < 768 ? "list" : "kanban"
+  );
   const taskViewMode = taskViewModeProp ?? internalTaskViewMode;
   const setTaskViewMode = (mode: "kanban" | "list") => {
     setInternalTaskViewMode(mode);
@@ -306,7 +309,9 @@ export default function TaskAndSchedule({
   const [selectedTask, setSelectedTask] = useState<TaskItem | null>(null);
 
   // Schedule filters, view mode, AI OCR & Reschedule modals
-  const [scheduleViewMode, setScheduleViewMode] = useState<"weekly" | "cards">("weekly");
+  const [scheduleViewMode, setScheduleViewMode] = useState<"weekly" | "cards">(() =>
+    typeof window !== "undefined" && window.innerWidth < 768 ? "cards" : "weekly"
+  );
   const [scheduleSearchQuery, setScheduleSearchQuery] = useState("");
   const [scheduleStatusFilter, setScheduleStatusFilter] = useState<string>("all");
   const [scheduleTypeFilter, setScheduleTypeFilter] = useState("all");
@@ -602,7 +607,52 @@ export default function TaskAndSchedule({
   };
 
   return (
-    <div id="task-and-schedule-module" className="space-y-4 text-xs">
+    <div id="task-and-schedule-module" className="space-y-3 md:space-y-4 text-xs">
+      {/* MOBILE NATIVE RED BRONZE-DRUM APP BAR & SUB-TABS */}
+      <MobileSubpageShell
+        title="Lịch & Nhiệm vụ KP3"
+        subtitle={`${tasks.length} nhiệm vụ • ${kp3Schedules.length} lịch công tác`}
+        primaryActionLabel={activeSubTab === "schedules" ? "Thêm lịch" : "Giao việc"}
+        onPrimaryAction={() => {
+          if (activeSubTab === "schedules") {
+            setEditingSchedule(null);
+            setShowAddScheduleModal(true);
+          } else if (onOpenCreate) {
+            onOpenCreate();
+          } else {
+            setEditingTask(null);
+            setShowAddTaskModal(true);
+          }
+        }}
+        subTabs={[
+          { id: "tasks", label: `Nhiệm vụ (${tasks.length})` },
+          { id: "schedules", label: `Lịch họp (${kp3Schedules.length})` },
+          { id: "reminders", label: "Định kỳ" },
+          { id: "broadcast", label: "Thông báo" },
+        ]}
+        activeSubTab={activeSubTab}
+        onSubTabChange={(t) => setActiveSubTab(t as any)}
+        sheetTitle="Công cụ Lịch & Nhiệm vụ"
+        sheetActions={[
+          {
+            id: "ai_ward_ocr",
+            label: "AI Đọc Lịch làm việc Phường (PDF / Ảnh)",
+            description: "Tự động bóc tách lịch Đảng ủy & UBND Phường sang lịch KP3",
+            icon: <Sparkles size={18} className="text-indigo-600" />,
+            tone: "emerald",
+            onClick: () => setShowWardOcrModal(true),
+          },
+          {
+            id: "export_tasks",
+            label: "Xuất Excel Nhiệm vụ & Lịch (.xlsx)",
+            description: "Tổng hợp tiến độ công việc & lịch công tác Khu phố 3",
+            icon: <FileSpreadsheet size={18} className="text-slate-700" />,
+            onClick: handleExportTasksAndSchedulesExcel,
+          },
+        ]}
+      />
+
+      <div className="hidden md:block">
       <PageHeader
         title="Lịch Công Tác & Phân Công Nhiệm Vụ"
         description="Điều hành lịch tuần cán bộ, phân công nhiệm vụ, báo cáo định kỳ và phát thông báo Khu phố 3"
@@ -659,6 +709,7 @@ export default function TaskAndSchedule({
           </div>
         }
       />
+      </div>
 
       {notice && (
         <InlineNotice
@@ -668,9 +719,9 @@ export default function TaskAndSchedule({
         />
       )}
 
-      {/* Adaptive 4 KPI Cards (2x2 on Mobile) */}
+      {/* Adaptive 4 KPI Cards (Desktop only) */}
       {activeSubTab === "tasks" && (
-        <div className="grid grid-cols-2 xl:grid-cols-4 gap-2.5 sm:gap-3.5">
+        <div className="hidden md:grid grid-cols-2 xl:grid-cols-4 gap-2.5 sm:gap-3.5">
           <StatCard
             label="Tổng nhiệm vụ KP3"
             value={taskKpi.total}
@@ -720,7 +771,7 @@ export default function TaskAndSchedule({
       )}
 
       {activeSubTab === "schedules" && (
-        <div className="grid grid-cols-2 xl:grid-cols-4 gap-2.5 sm:gap-3.5">
+        <div className="hidden md:grid grid-cols-2 xl:grid-cols-4 gap-2.5 sm:gap-3.5">
           <StatCard
             label="Tổng lịch cán bộ KP3"
             value={scheduleKpi.total}
@@ -768,7 +819,7 @@ export default function TaskAndSchedule({
       )}
 
       {activeSubTab === "reminders" && (
-        <div className="grid grid-cols-2 xl:grid-cols-4 gap-2.5 sm:gap-3.5">
+        <div className="hidden md:grid grid-cols-2 xl:grid-cols-4 gap-2.5 sm:gap-3.5">
           <StatCard label="Lịch báo cáo định kỳ" value={reminderKpi.total} badge={`${reminderKpi.active} đang bật`} icon={Bell} color="slate" />
           <StatCard label="Đến hạn / sắp hạn" value={reminderKpi.due} badge="báo cáo" icon={Clock} color="rose" />
           <StatCard label="Đã nộp kỳ này" value={reminderKpi.submitted} badge="báo cáo" icon={CheckCircle2} color="emerald" />
@@ -783,11 +834,11 @@ export default function TaskAndSchedule({
         </div>
       )}
 
-      {/* Compact Segmented Sub-Tab Bar (BusinessManagement Style) */}
+      {/* Compact Segmented Sub-Tab Bar (Desktop only — Mobile uses Red AppBar Sub-Tabs) */}
       <div
         role="tablist"
         aria-label="Phân khu công tác"
-        className="flex items-center gap-1 bg-slate-100/80 p-1 rounded-xl border border-slate-200/80 w-fit max-w-full overflow-x-auto whitespace-nowrap evon-scroll"
+        className="hidden md:flex items-center gap-1 bg-slate-100/80 p-1 rounded-xl border border-slate-200/80 w-fit max-w-full overflow-x-auto whitespace-nowrap evon-scroll"
       >
         <button
           id="btn-subtab-tasks"

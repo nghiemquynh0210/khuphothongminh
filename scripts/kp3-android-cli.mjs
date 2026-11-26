@@ -35,7 +35,12 @@ function dumpUiNodes() {
       const m = new RegExp(`${name}="([^"]*)"`).exec(attrs);
       return m ? m[1] : "";
     };
-    const text = getAttr("text") || getAttr("content-desc");
+    const rawText = getAttr("text") || getAttr("content-desc");
+    const text = rawText
+      .replace(/&amp;/g, "&")
+      .replace(/&lt;/g, "<")
+      .replace(/&gt;/g, ">")
+      .replace(/&quot;/g, '"');
     const boundsStr = getAttr("bounds");
     const bMatch = /\[(\d+),(\d+)\]\[(\d+),(\d+)\]/.exec(boundsStr);
     if (bMatch) {
@@ -43,12 +48,14 @@ function dumpUiNodes() {
       const y1 = Number(bMatch[2]);
       const x2 = Number(bMatch[3]);
       const y2 = Number(bMatch[4]);
-      nodes.push({
-        text: text.trim(),
-        cls: getAttr("class"),
-        clickable: getAttr("clickable") === "true",
-        bounds: { x1, y1, x2, y2, cx: Math.round((x1 + x2) / 2), cy: Math.round((y1 + y2) / 2), w: x2 - x1, h: y2 - y1 },
-      });
+      if (x2 > x1 && y2 > y1) {
+        nodes.push({
+          text: text.trim(),
+          cls: getAttr("class"),
+          clickable: getAttr("clickable") === "true",
+          bounds: { x1, y1, x2, y2, cx: Math.round((x1 + x2) / 2), cy: Math.round((y1 + y2) / 2), w: x2 - x1, h: y2 - y1 },
+        });
+      }
     }
   }
   return nodes;

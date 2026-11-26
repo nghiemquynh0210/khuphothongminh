@@ -48,6 +48,7 @@ import {
 import HouseholdDashboard from "./household/HouseholdDashboard";
 import HouseholdDuplicates from "./household/HouseholdDuplicates";
 import HouseholdAutoRecognition from "./household/HouseholdAutoRecognition";
+import { MobileSubpageShell } from "./mobile/MobileSubpageShell";
 
 export type HouseholdModuleTab = "list" | "recognition" | "dashboard" | "audit";
 
@@ -411,8 +412,43 @@ export default function HouseholdManagement({
   };
 
   return (
-    <div id="household-management-view" className="space-y-4">
-      {/* Top Banner Navigation & Actions */}
+    <div id="household-management-view" className="space-y-3 md:space-y-4">
+      {/* MOBILE NATIVE RED BRONZE-DRUM APP BAR & SUB-TABS */}
+      <MobileSubpageShell
+        title="Hộ tịch & Lưu trú KP3"
+        subtitle={`${formatVNNumber(households.length)} hộ quản lý • CT01 & CT08`}
+        primaryActionLabel="Lập sổ"
+        onPrimaryAction={() => navigate(getHouseholdCreatePath())}
+        subTabs={[
+          { id: "list", label: "Sổ hộ khẩu" },
+          { id: "recognition", label: "Nhận diện hộ" },
+          { id: "dashboard", label: "Thống kê" },
+          { id: "audit", label: "Gộp sổ trùng" },
+        ]}
+        activeSubTab={activeTab}
+        onSubTabChange={(t) => setActiveTab(t)}
+        sheetTitle="Công cụ Hộ tịch & Lưu trú"
+        sheetActions={[
+          {
+            id: "create_hh",
+            label: "Lập sổ hộ khẩu / hộ tạm trú mới",
+            description: "Khởi tạo hồ sơ CT01 hoặc CT08 mới trên địa bàn KP3",
+            icon: <Plus size={18} className="text-emerald-700" />,
+            tone: "emerald",
+            onClick: () => navigate(getHouseholdCreatePath()),
+          },
+          {
+            id: "export_hh",
+            label: `Xuất danh sách Sổ hộ khẩu (.xlsx)`,
+            description: `Xuất ${formatVNNumber(filteredHouseholds.length)} hộ gia đình theo bộ lọc hiện tại`,
+            icon: <Download size={18} className="text-blue-600" />,
+            onClick: handleExportHouseholdsExcel,
+          },
+        ]}
+      />
+
+      {/* Desktop Top Banner Navigation & Actions */}
+      <div className="hidden md:block">
       <PageHeader
         title="Quản lý Hộ tịch & Lưu trú"
         actions={
@@ -438,9 +474,10 @@ export default function HouseholdManagement({
           </div>
         }
       />
+      </div>
 
-      {/* Main Module Tab Bar (Horizontal scrollable on Mobile) */}
-      <div className="flex items-center gap-1 overflow-x-auto whitespace-nowrap border border-slate-200/80 rounded-xl p-1 bg-slate-100/80 text-xs text-slate-600 w-fit max-w-full no-scrollbar">
+      {/* Main Module Tab Bar (Desktop only — Mobile uses Red AppBar Sub-Tabs) */}
+      <div className="hidden md:flex items-center gap-1 overflow-x-auto whitespace-nowrap border border-slate-200/80 rounded-xl p-1 bg-slate-100/80 text-xs text-slate-600 w-fit max-w-full no-scrollbar">
         <button
           type="button"
           onClick={() => setActiveTab("list")}
@@ -531,7 +568,7 @@ export default function HouseholdManagement({
 
               return (
                 <div className="space-y-3">
-                  <div className="grid grid-cols-2 xl:grid-cols-4 gap-2.5 sm:gap-4 animate-in fade-in duration-200">
+                  <div className="hidden md:grid grid-cols-2 xl:grid-cols-4 gap-2.5 sm:gap-4 animate-in fade-in duration-200">
                     <StatCard
                       label="Tổng số hộ quản lý"
                       value={formatVNNumber(totalH)}

@@ -2509,8 +2509,8 @@ export default function App() {
   if (currentUser.role === "nguoidan" && citizenSubView) {
     return (
       <div className="min-h-screen bg-slate-50 flex flex-col font-sans">
-        {/* Citizen Subview Top Header */}
-        <header className="h-16 border-b border-slate-200 bg-white/95 backdrop-blur-md sticky top-0 z-40 px-4 sm:px-6 flex items-center justify-between shadow-2xs">
+        {/* Citizen Subview Top Header — ẩn trên Mobile vì các phân hệ đều có Red Native AppBar riêng */}
+        <header className="h-16 border-b border-slate-200 bg-white/95 backdrop-blur-md sticky top-0 z-40 px-4 sm:px-6 hidden md:flex items-center justify-between shadow-2xs">
           <div className="flex items-center gap-3">
             <button
               onClick={() => {
@@ -2773,26 +2773,9 @@ export default function App() {
       {/* Main Content Area */}
       <div className={`flex-1 flex flex-col ${isSidebarCollapsed ? "lg:pl-20" : "lg:pl-60"} min-w-0 transition-all duration-300 bg-[#f8fafc]`}>
 
-        {/* Top Header Bar — trên Mobile (< md) ẩn ở trang chủ vì MobileStaffHome có Hero Đỏ riêng; trang con dùng nút Back gọn chuẩn Native */}
-        <header
-          className={`h-14 border-b border-slate-200/80 bg-white/95 backdrop-blur-md items-center justify-between px-3 sm:px-6 sticky top-0 z-30 shrink-0 transition-colors ${
-            activeTab === "dashboard" ? "hidden md:flex" : "flex"
-          }`}
-        >
+        {/* Top Header Bar — trên Mobile (< md) ẩn hoàn toàn để nhường chỗ cho Red Bronze-Drum Native AppBar của từng phân hệ */}
+        <header className="h-14 border-b border-slate-200/80 bg-white/95 backdrop-blur-md hidden md:flex items-center justify-between px-3 sm:px-6 sticky top-0 z-30 shrink-0 transition-colors">
           <div className="flex items-center gap-1.5 sm:gap-2 pl-0 md:pl-12 lg:pl-0 flex-1 min-w-0 mr-2 sm:mr-3">
-            {activeTab !== "dashboard" && (
-              <button
-                type="button"
-                onClick={() => {
-                  setActiveTab("dashboard");
-                  navigate(ROUTES.DASHBOARD);
-                }}
-                aria-label="Quay lại Trang chủ"
-                className="md:hidden inline-flex h-8 w-8 items-center justify-center rounded-xl bg-slate-100 active:bg-slate-200 text-slate-800 font-bold text-sm shrink-0 cursor-pointer"
-              >
-                ←
-              </button>
-            )}
             <span className="hidden sm:inline text-xs font-medium text-slate-400 shrink-0 select-none">
               KP3 An Phú /
             </span>

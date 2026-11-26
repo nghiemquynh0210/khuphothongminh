@@ -51,6 +51,7 @@ import { Resident, ActiveTab, AdministrativeForm, LandingConfig, LocalNews } fro
 import { getNewsDetailPath, getNewsEditPath, getResidentDetailPath, navigate } from "../routes";
 import AdministrativeForms from "./AdministrativeForms";
 import { PageHeader } from "./common/PageHeader";
+import { MobileSubpageShell } from "./mobile/MobileSubpageShell";
 import { ReportSelect } from "./reports/ReportSelect";
 import { InlineNotice } from "./ui/ConfirmModal";
 import { EmptyState } from "./ui/EmptyState";
@@ -840,8 +841,27 @@ export default function SettingsAndPermissions({
         />
       )}
 
-      {/* Minimalist Flat Header & Clean Tab Bar */}
-      <div className="space-y-3">
+      {/* MOBILE NATIVE RED BRONZE-DRUM APP BAR & SUB-TABS */}
+      <MobileSubpageShell
+        title="Cấu hình & Hệ thống"
+        subtitle="Phê duyệt cán bộ • Zalo OA & ZBS • Phân quyền KP3"
+        subTabs={[
+          {
+            id: "approvals",
+            label: "Duyệt TK",
+            badge: pendingCadres.length + realPendingRegistrations.length,
+          },
+          { id: "zalo_oa", label: "Zalo OA & ZBS" },
+          { id: "portal", label: "Cổng Cư dân" },
+          { id: "permissions", label: "Phân quyền" },
+          { id: "audit", label: "Kiểm toán" },
+        ]}
+        activeSubTab={activeSubTab}
+        onSubTabChange={(t) => setActiveSubTab(t as any)}
+      />
+
+      {/* Desktop Minimalist Flat Header & Clean Tab Bar */}
+      <div className="hidden md:block space-y-3">
         <PageHeader
           title="Cấu hình & Phân quyền Hệ thống"
           description="Phê duyệt tài khoản cán bộ, kết nối Zalo OA, quản trị Cổng Cư dân và nhật ký kiểm toán"

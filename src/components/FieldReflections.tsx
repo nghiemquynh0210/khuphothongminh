@@ -41,6 +41,7 @@ import { ReportCard } from "./reports/ReportCard";
 import { ReportTable } from "./reports/ReportTable";
 import { ZaloOaChatInbox } from "./reports/ZaloOaChatInbox";
 import { SecurityPatrolLogTab } from "./reports/SecurityPatrolLogTab";
+import { MobileSubpageShell } from "./mobile/MobileSubpageShell";
 import {
   ROUTES,
   getReportCreatePath,
@@ -297,7 +298,44 @@ export default function FieldReflections({
         </div>
       )}
 
-      {/* Executive Page Header */}
+      {/* MOBILE NATIVE RED BRONZE-DRUM APP BAR & SUB-TABS */}
+      <MobileSubpageShell
+        title="Phản ánh 1022 & ANTT"
+        subtitle={`${kpi.total} hồ sơ • ${kpi.pending} mới • ${kpi.inProgress} đang xử lý`}
+        primaryActionLabel="Gửi mới"
+        onPrimaryAction={() =>
+          onOpenCreate ? onOpenCreate() : navigate(getReportCreatePath(basePath))
+        }
+        subTabs={
+          !readOnly
+            ? [
+                { id: "reports", label: `Phản ánh (${kpi.total})` },
+                { id: "patrol_logs", label: "Tuần tra ANTT" },
+                { id: "zalo_inbox", label: "Zalo OA", badge: zaloUnreadCount },
+              ]
+            : undefined
+        }
+        activeSubTab={activeSubTab}
+        onSubTabChange={(t) => setActiveSubTab(t as any)}
+        sheetTitle="Tác vụ Phản ánh 1022"
+        sheetActions={
+          !readOnly
+            ? [
+                {
+                  id: "export_1022",
+                  label: "Xuất Báo cáo 1022 (.xlsx)",
+                  description: "Tổng hợp toàn bộ hồ sơ phản ánh & tiến độ SLA",
+                  icon: <FileSpreadsheet size={18} className="text-emerald-700" />,
+                  tone: "emerald",
+                  onClick: handleExport1022Excel,
+                },
+              ]
+            : []
+        }
+      />
+
+      {/* Desktop Executive Page Header */}
+      <div className="hidden md:block">
       <PageHeader
         badgeIcon={<MessageSquareWarning size={14} className="text-emerald-700 shrink-0" />}
         badgeText="CỔNG PHẢN ÁNH 1022 • KP3 AN PHÚ"
@@ -336,6 +374,7 @@ export default function FieldReflections({
           </div>
         }
       />
+      </div>
 
       {/* Citizen Role Guard Notice */}
       {readOnly && (
@@ -352,7 +391,7 @@ export default function FieldReflections({
         <div
           role="tablist"
           aria-label="Phân khu Phản ánh hiện trường"
-          className="flex items-center overflow-x-auto whitespace-nowrap max-w-full p-1 rounded-xl bg-slate-100/90 border border-slate-200/80 gap-1 w-fit no-scrollbar"
+          className="hidden md:flex items-center overflow-x-auto whitespace-nowrap max-w-full p-1 rounded-xl bg-slate-100/90 border border-slate-200/80 gap-1 w-fit no-scrollbar"
         >
           <button
             type="button"
@@ -419,8 +458,8 @@ export default function FieldReflections({
       ) : (
         <>
 
-      {/* 4 KPI Cards (2x2 on Mobile) */}
-      <div className="grid grid-cols-2 xl:grid-cols-4 gap-2.5 sm:gap-4">
+      {/* 4 KPI Cards (Desktop only — Mobile shows compact summary in Red AppBar + immediate Report Cards) */}
+      <div className="hidden md:grid grid-cols-2 xl:grid-cols-4 gap-2.5 sm:gap-4">
         <StatCard
           label="Tổng hồ sơ"
           value={kpi.total}

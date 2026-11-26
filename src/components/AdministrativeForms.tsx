@@ -34,6 +34,7 @@ import { ReportSelect } from "./reports/ReportSelect";
 import { ConfirmModal, InlineNotice } from "./ui/ConfirmModal";
 import { Modal } from "./ui/Modal";
 import { DetailRow, DetailGrid } from "./common/DetailRow";
+import { MobileSubpageShell } from "./mobile/MobileSubpageShell";
 import { KP3_AREA_LIST, formatShortRecordId } from "../utils/kp3Utils";
 import { formatVNNumber } from "../utils/numberFormat";
 import { uploadFileToStorageBucket } from "../utils/imageUpload";
@@ -822,8 +823,31 @@ export default function AdministrativeForms({
         className="hidden"
       />
 
-      {/* Minimalist Flat Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 pb-1">
+      {/* MOBILE NATIVE RED BRONZE-DRUM APP BAR */}
+      <MobileSubpageShell
+        title="Biểu mẫu Hành chính"
+        subtitle={`${formatVNNumber(currentForms.length)} mẫu cư trú, xác nhận & thủ tục KP3`}
+        primaryActionLabel={currentUser?.role === "canbo" ? "Thêm mẫu" : undefined}
+        onPrimaryAction={currentUser?.role === "canbo" ? handleOpenCreateModal : undefined}
+        sheetTitle="Công cụ Kho Biểu mẫu"
+        sheetActions={
+          currentUser?.role === "canbo"
+            ? [
+                {
+                  id: "upload_form_file",
+                  label: "Tải lên tệp biểu mẫu (.doc, .docx, .pdf)",
+                  description: "Thêm biểu mẫu có sẵn lên Cổng Cư dân số",
+                  icon: <Upload size={18} className="text-emerald-700" />,
+                  tone: "emerald",
+                  onClick: () => directFileInputRef.current?.click(),
+                },
+              ]
+            : []
+        }
+      />
+
+      {/* Desktop Minimalist Flat Header */}
+      <div className="hidden md:flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 pb-1">
         <h1 className="text-lg sm:text-xl font-extrabold text-slate-900 tracking-tight">
           Kho Biểu mẫu Hành chính ({formatVNNumber(currentForms.length)})
         </h1>

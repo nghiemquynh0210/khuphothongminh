@@ -44,6 +44,7 @@ import {
   savePortalSetting,
 } from "../utils/supabaseSync";
 import { PageHeader } from "./common/PageHeader";
+import { MobileSubpageShell } from "./mobile/MobileSubpageShell";
 import { StatCard } from "./common/StatCard";
 import { Button } from "./ui/Button";
 import { Modal } from "./ui/Modal";
@@ -680,6 +681,50 @@ export default function GisMap({
       )}
 
       {/* Executive Page Header */}
+      {/* MOBILE NATIVE RED BRONZE-DRUM APP BAR & FULL-SCREEN GIS */}
+      <MobileSubpageShell
+        title="Bản đồ số GIS KP3"
+        subtitle={`Diện tích ${areaFormatted} • Chu vi ${perimeterFormatted}`}
+        primaryActionLabel={!readOnly ? "Ghim" : undefined}
+        onPrimaryAction={
+          !readOnly
+            ? () => {
+                setWorkspaceMode("map");
+                setIsPinFormOpen(true);
+              }
+            : undefined
+        }
+        subTabs={[
+          { id: "map", label: "Bản đồ GIS" },
+          { id: "schematic", label: "Sơ đồ 14 Tổ" },
+        ]}
+        activeSubTab={workspaceMode}
+        onSubTabChange={(m) => setWorkspaceMode(m as any)}
+        sheetTitle="Lớp Bản đồ & Công cụ GIS"
+        sheetActions={[
+          {
+            id: "toggle_layers",
+            label: showSidebar ? "Ẩn bảng Bộ lọc lớp & Danh sách ghim" : "Mở bảng Bộ lọc lớp & Danh sách ghim",
+            description: "Bật/tắt lớp Hộ dân, 230 Nhà trọ, Camera, PCCC, Phản ánh 1022",
+            icon: <Compass size={18} className="text-emerald-700" />,
+            tone: "emerald",
+            onClick: () => setShowSidebar((v) => !v),
+          },
+          ...(!readOnly && missingTotal > 0
+            ? [
+                {
+                  id: "sync_gis",
+                  label: `Đồng bộ tọa độ (${formatVNNumber(missingTotal)} điểm)`,
+                  description: "Gán tọa độ chuẩn hóa cho hộ gia đình & cơ sở mới",
+                  icon: <RefreshCw size={18} className="text-blue-600" />,
+                  onClick: () => setIsSyncModalOpen(true),
+                },
+              ]
+            : []),
+        ]}
+      />
+
+      <div className="hidden md:block">
       <PageHeader
         badgeIcon={<MapIcon size={14} className="text-emerald-700 shrink-0" />}
         badgeText="GIS KHU PHỐ 3"
@@ -718,6 +763,7 @@ export default function GisMap({
           ) : undefined
         }
       />
+      </div>
 
       {/* Citizen Privacy Guard */}
       {readOnly && (
@@ -729,8 +775,8 @@ export default function GisMap({
         </div>
       )}
 
-      {/* 4 KPI Summary Stat Cards (2x2 on Mobile) */}
-      <div className="grid grid-cols-2 xl:grid-cols-4 gap-2.5 sm:gap-4">
+      {/* 4 KPI Summary Stat Cards (Desktop only — Mobile maximizes Map viewport) */}
+      <div className="hidden md:grid grid-cols-2 xl:grid-cols-4 gap-2.5 sm:gap-4">
         <StatCard
           label="Hộ gia đình KP3"
           value={readOnly && households.length === 0 ? KP3_OFFICIAL_BASELINE.households : households.length}
@@ -791,8 +837,8 @@ export default function GisMap({
         />
       </div>
 
-      {/* Workspace Mode Switcher Bar */}
-      <div className="bg-white rounded-2xl border border-slate-200 p-3 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-2.5">
+      {/* Workspace Mode Switcher Bar (Desktop only) */}
+      <div className="hidden md:flex bg-white rounded-2xl border border-slate-200 p-3 flex-col lg:flex-row lg:items-center lg:justify-between gap-2.5">
         <div className="flex items-center gap-2" role="tablist" aria-label="Chế độ xem GIS Khu phố 3">
           <button
             type="button"

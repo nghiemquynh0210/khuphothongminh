@@ -68,6 +68,7 @@ import { ConfirmModal, InlineNotice } from "./ui/ConfirmModal";
 import { CT07Modal, NA17Modal, QuickHouseholdModal } from "./residents/ResidentModals";
 import { AgeCohortScannerModal } from "./residents/AgeCohortScannerModal";
 import { SpecialSupervisionTab } from "./reports/SpecialSupervisionTab";
+import { MobileSubpageShell } from "./mobile/MobileSubpageShell";
 import {
   canAccessSpecialSupervision,
   matchesSmartResidentSearch,
@@ -1529,8 +1530,69 @@ export default function CitizenManagement({
     (statusFilter === "Tạm trú" && temporaryExpiryFilter !== "Tất cả" ? 1 : 0);
 
   return (
-    <div id="citizen-management-view" className="space-y-4">
-      {/* Header and Action Buttons */}
+    <div id="citizen-management-view" className="space-y-3 md:space-y-4">
+      {/* MOBILE NATIVE RED BRONZE-DRUM APP BAR & SUB-TABS */}
+      <MobileSubpageShell
+        title="Quản lý Dân cư KP3"
+        subtitle={`${formatVNNumber(residents.length)} nhân khẩu • ${formatVNNumber(tabCounts.thuongTru)} TT • ${formatVNNumber(tabCounts.tamTru)} Tạm trú`}
+        primaryActionLabel="Thêm"
+        onPrimaryAction={handleOpenAddModal}
+        subTabs={[
+          { id: "residents", label: `Dân cư (${formatVNNumber(residents.length)})` },
+          { id: "nvqs", label: "NVQS • Độ tuổi" },
+          ...(canViewSpecialSupervision
+            ? [{ id: "special_supervision", label: "Đối tượng ANTT 🔒" }]
+            : []),
+        ]}
+        activeSubTab={activeResidentSection}
+        onSubTabChange={(id) => {
+          if (id === "nvqs") {
+            setActiveResidentSection("residents");
+            setShowCohortScanner(true);
+            return;
+          }
+          setActiveResidentSection(id as any);
+        }}
+        sheetTitle="Công cụ Quản lý Dân cư"
+        sheetActions={[
+          {
+            id: "nvqs",
+            label: "Rà soát NVQS (17t & 18–27t) & Độ tuổi",
+            description: "Xét duyệt 12 diện NVQS, mừng thọ người cao tuổi, trẻ đầu cấp",
+            icon: <Shield size={18} className="text-emerald-700" />,
+            tone: "emerald",
+            onClick: () => setShowCohortScanner(true),
+          },
+          {
+            id: "zalo_remind",
+            label: "Nhắc gia hạn Tạm trú qua Zalo OA / ZBS",
+            description: `${formatVNNumber(tamTruExpiringSoonCount)} sắp hết hạn • ${formatVNNumber(tamTruExpiredCount)} quá hạn`,
+            icon: <BellRing size={18} className="text-amber-600" />,
+            tone: "amber",
+            onClick: () => navigate("/dashboard/settings?subtab=zalo_oa"),
+          },
+          {
+            id: "export_excel",
+            label: `Xuất danh sách Excel (${formatVNNumber(filteredResidents.length)} người)`,
+            description: "Xuất theo bộ lọc hiện tại ra file .xlsx chuẩn Công an Phường",
+            icon: <Download size={18} className="text-blue-600" />,
+            onClick: handleExportFullExcel,
+          },
+          {
+            id: "import_excel",
+            label: "Nhập Excel / Dán văn bản thô",
+            description: "Cập nhật hàng loạt nhân khẩu vào CSDL Cloud",
+            icon: <FileSpreadsheet size={18} className="text-slate-700" />,
+            onClick: () => {
+              resetImportModalState();
+              setShowImportModal(true);
+            },
+          },
+        ]}
+      />
+
+      {/* Desktop Header and Action Buttons */}
+      <div className="hidden md:block">
       <PageHeader
         title="Quản lý Dân cư Khu phố"
         actions={
@@ -1579,6 +1641,7 @@ export default function CitizenManagement({
           </div>
         }
       />
+      </div>
 
       {notice && !showImportModal && (
         <InlineNotice
@@ -1593,7 +1656,7 @@ export default function CitizenManagement({
         <div
           role="tablist"
           aria-label="Phân hệ Quản lý Dân cư"
-          className="inline-flex flex-wrap items-center gap-1 p-1 rounded-xl bg-slate-100 border border-slate-200/90"
+          className="hidden md:inline-flex flex-wrap items-center gap-1 p-1 rounded-xl bg-slate-100 border border-slate-200/90"
         >
           <button
             type="button"
@@ -1643,8 +1706,8 @@ export default function CitizenManagement({
       ) : (
         <>
 
-      {/* 4 Standardized StatCard KPI blocks (2x2 on Mobile) */}
-      <div className="grid grid-cols-2 xl:grid-cols-4 gap-2.5 sm:gap-4">
+      {/* 4 Standardized StatCard KPI blocks (Desktop only — Mobile shows immediate Search + Data Cards) */}
+      <div className="hidden md:grid grid-cols-2 xl:grid-cols-4 gap-2.5 sm:gap-4">
         <StatCard
           label="Tổng số Dân cư"
           value={residents.length}
@@ -1712,9 +1775,9 @@ export default function CitizenManagement({
             onSearch={handleSearchChange}
           />
 
-          <div className="flex flex-wrap items-center justify-between 2xl:justify-end gap-2">
-            {/* Residency Status Tabs */}
-            <div className="flex flex-wrap items-center gap-0.5 bg-slate-100/90 border border-slate-200/80 p-1 rounded-lg">
+          <div className="flex flex-col md:flex-row md:flex-wrap items-stretch md:items-center justify-between 2xl:justify-end gap-2">
+            {/* Residency Status Tabs — Single-row swipeable on Mobile */}
+            <div className="flex items-center overflow-x-auto whitespace-nowrap no-scrollbar gap-1 bg-slate-100/90 border border-slate-200/80 p-1 rounded-xl max-w-full">
               <button
                 type="button"
                 onClick={() => handleStatusFilterChange("Tất cả")}
@@ -1857,8 +1920,8 @@ export default function CitizenManagement({
                 <span className="hidden sm:inline">{showFullCccd ? "Che CCCD" : "Hiện CCCD"}</span>
               </button>
 
-              {/* View Mode Toggle */}
-              <div className="flex items-center border border-slate-200 rounded-lg p-0.5 bg-slate-100/80 gap-0.5 shrink-0">
+              {/* View Mode Toggle (Desktop only — Mobile always uses sleek Card View) */}
+              <div className="hidden md:flex items-center border border-slate-200 rounded-lg p-0.5 bg-slate-100/80 gap-0.5 shrink-0">
                 <button
                   type="button"
                   onClick={() => setViewMode("table")}

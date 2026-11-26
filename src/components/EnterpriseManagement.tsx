@@ -58,6 +58,7 @@ import * as XLSX from "xlsx";
 import { DetailRow, DetailGrid } from "./common/DetailRow";
 import { formatVNNumber } from "../utils/numberFormat";
 import PageHeader from "./common/PageHeader";
+import { MobileSubpageShell } from "./mobile/MobileSubpageShell";
 import StatCard from "./common/StatCard";
 import { ReportSelect } from "./reports/ReportSelect";
 import { InlineNotice } from "./ui/ConfirmModal";
@@ -402,8 +403,33 @@ export default function EnterpriseManagement({
   };
 
   return (
-    <div id="enterprise-management-view" className="space-y-4">
-      {/* Minimalist Executive Header */}
+    <div id="enterprise-management-view" className="space-y-3 md:space-y-4">
+      {/* MOBILE NATIVE RED BRONZE-DRUM APP BAR & SUB-TABS */}
+      <MobileSubpageShell
+        title="Quản lý Doanh nghiệp"
+        subtitle={`${formatVNNumber(enterprises.length)} đơn vị có MST • ${formatVNNumber(totalEmployees)} lao động`}
+        primaryActionLabel="Thêm DN"
+        onPrimaryAction={() => navigate(getEnterpriseCreatePath())}
+        subTabs={[
+          { id: "list", label: `Doanh nghiệp (${enterprises.length})` },
+          { id: "economicReport", label: "Báo cáo Kinh tế" },
+        ]}
+        activeSubTab={activeMainTab}
+        onSubTabChange={(t) => setActiveMainTab(t as any)}
+        sheetTitle="Công cụ Doanh nghiệp KP3"
+        sheetActions={[
+          {
+            id: "export_ent",
+            label: "Xuất danh sách Doanh nghiệp (.xlsx)",
+            description: `Xuất ${formatVNNumber(enterprises.length)} doanh nghiệp trên địa bàn KP3`,
+            icon: <Download size={18} className="text-blue-600" />,
+            onClick: handleExportExcel,
+          },
+        ]}
+      />
+
+      {/* Desktop Executive Header */}
+      <div className="hidden md:block">
       <PageHeader
         title="Quản lý Doanh nghiệp Vừa & Nhỏ"
         actions={
@@ -426,9 +452,10 @@ export default function EnterpriseManagement({
           </div>
         }
       />
+      </div>
 
-      {/* Compact Main Subsystem Tabs */}
-      <div className="flex items-center overflow-x-auto whitespace-nowrap max-w-full gap-1 bg-slate-100/80 p-1 rounded-xl border border-slate-200/80 w-fit no-scrollbar">
+      {/* Compact Main Subsystem Tabs (Desktop only) */}
+      <div className="hidden md:flex items-center overflow-x-auto whitespace-nowrap max-w-full gap-1 bg-slate-100/80 p-1 rounded-xl border border-slate-200/80 w-fit no-scrollbar">
         <button
           type="button"
           onClick={() => setActiveMainTab("list")}
@@ -459,8 +486,8 @@ export default function EnterpriseManagement({
       {/* VIEW 1: DANH MỤC DOANH NGHIỆP & HỒ SƠ */}
       {activeMainTab === "list" ? (
         <>
-          {/* KPI Summary Cards (2x2 on Mobile) */}
-          <div className="grid grid-cols-2 lg:grid-cols-3 2xl:grid-cols-5 gap-2.5 sm:gap-4">
+          {/* KPI Summary Cards (Desktop only) */}
+          <div className="hidden md:grid grid-cols-2 lg:grid-cols-3 2xl:grid-cols-5 gap-2.5 sm:gap-4">
             <StatCard
               label="Tổng doanh nghiệp"
               value={enterprises.length}

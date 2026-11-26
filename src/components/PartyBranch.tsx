@@ -69,6 +69,7 @@ import { Resident, PartyMember, Association, AssociationMember, TaskItem } from 
 import Pagination from "./Pagination";
 import { DetailRow, DetailGrid } from "./common/DetailRow";
 import { StatCard } from "./common/StatCard";
+import { MobileSubpageShell } from "./mobile/MobileSubpageShell";
 import {
   DecisionDocumentOcrResult,
   extractDecisionDocumentViaOcr,
@@ -2538,9 +2539,50 @@ export default function PartyBranch({
   };
 
   return (
-    <div id="association-management-view" className="space-y-4">
-      {/* Minimalist Flat Header */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2.5 pb-1">
+    <div id="association-management-view" className="space-y-3 md:space-y-4">
+      {/* MOBILE NATIVE RED BRONZE-DRUM APP BAR & SUB-TABS */}
+      <MobileSubpageShell
+        title="Chi bộ & Khối Đoàn thể"
+        subtitle={`${totalAssocCount} tổ chức • ${formatVNNumber(totalMembersCount)} đảng viên & hội viên`}
+        primaryActionLabel="Thêm"
+        onPrimaryAction={() => {
+          if (onOpenCreateAssoc) {
+            onOpenCreateAssoc();
+          } else {
+            setShowAddAssocModal(true);
+          }
+        }}
+        subTabs={[
+          { id: "associations", label: `Chi hội (${totalAssocCount})` },
+          { id: "meetings", label: "Sinh hoạt" },
+          { id: "multi_role", label: `Kiêm nhiệm (${multiRoleResidentsCount})` },
+          { id: "decisions", label: "Quyết định" },
+          { id: "org_chart", label: "Sơ đồ" },
+        ]}
+        activeSubTab={activeSubTab}
+        onSubTabChange={(t) => setActiveSubTab(t as any)}
+        sheetTitle="Công cụ Chi bộ & Đoàn thể"
+        sheetActions={[
+          {
+            id: "multi_role_assign",
+            label: `Phân công kiêm nhiệm (${multiRoleResidentsCount} cán bộ)`,
+            description: "Quản lý đa vai trò cán bộ trong các tổ chức đoàn thể",
+            icon: <Sparkles size={18} className="text-emerald-700" />,
+            tone: "emerald",
+            onClick: () => handleOpenQuickAssignModal(),
+          },
+          {
+            id: "export_party",
+            label: "Xuất danh sách tổng hợp (.xlsx)",
+            description: "Xuất toàn bộ danh sách Chi bộ & các Chi hội đoàn thể",
+            icon: <FileSpreadsheet size={18} className="text-blue-600" />,
+            onClick: handleExportAllToExcel,
+          },
+        ]}
+      />
+
+      {/* Desktop Minimalist Flat Header */}
+      <div className="hidden md:flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2.5 pb-1">
         <h1 className="text-lg sm:text-xl font-extrabold tracking-tight text-slate-900 text-balance">
           Quản lý Chi bộ Đảng &amp; Khối Đoàn thể
         </h1>
@@ -2584,8 +2626,8 @@ export default function PartyBranch({
         </div>
       </div>
 
-      {/* 4 Top KPI StatCards */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+      {/* 4 Top KPI StatCards (Desktop only) */}
+      <div className="hidden md:grid grid-cols-2 lg:grid-cols-4 gap-3">
         <StatCard
           label="Tổ chức & Chi hội"
           value={totalAssocCount}
@@ -2627,11 +2669,11 @@ export default function PartyBranch({
         />
       </div>
 
-      {/* Sub-tab Navigation Bar */}
+      {/* Sub-tab Navigation Bar (Desktop only) */}
       <div
         role="tablist"
         aria-label="Phân mục quản lý Chi bộ và Đoàn thể"
-        className="flex items-center gap-1 overflow-x-auto whitespace-nowrap p-1 bg-slate-100/80 rounded-xl border border-slate-200/80 w-fit max-w-full evon-scroll"
+        className="hidden md:flex items-center gap-1 overflow-x-auto whitespace-nowrap p-1 bg-slate-100/80 rounded-xl border border-slate-200/80 w-fit max-w-full evon-scroll"
       >
         <button
           type="button"

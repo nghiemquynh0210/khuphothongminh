@@ -39,6 +39,7 @@ import {
 import Pagination from "./Pagination";
 import { StatCard } from "./common/StatCard";
 import { PageHeader } from "./common/PageHeader";
+import { MobileSubpageShell } from "./mobile/MobileSubpageShell";
 import { Button } from "./ui/Button";
 import { StatusBadge } from "./ui/StatusBadge";
 import { EmptyState } from "./ui/EmptyState";
@@ -772,7 +773,60 @@ export default function NeighborhoodFunds({
         </div>
       )}
 
-      {/* Executive Header */}
+      {/* MOBILE NATIVE RED BRONZE-DRUM APP BAR & SUB-TABS */}
+      <MobileSubpageShell
+        title="Quỹ Khu phố & VietQR"
+        subtitle={`Tồn quỹ: ${formatVNNumber(balanceFund)}đ • Thu: ${formatVNNumber(totalRevenue)}đ`}
+        primaryActionLabel={!readOnly ? (activeSubTab === "chi" ? "Phiếu chi" : "Phiếu thu") : undefined}
+        onPrimaryAction={
+          !readOnly
+            ? () => {
+                if (activeSubTab === "chi") setShowAddChiModal(true);
+                else if (activeSubTab === "danhmuc") setCreateCategoryTrigger((n) => n + 1);
+                else setShowAddThuModal(true);
+              }
+            : undefined
+        }
+        subTabs={subTabsConfig.map((t) => ({ id: t.id, label: t.label }))}
+        activeSubTab={activeSubTab}
+        onSubTabChange={(t) => setActiveSubTab(t as any)}
+        sheetTitle="Công cụ Tài chính & VietQR"
+        sheetActions={[
+          ...(!readOnly
+            ? [
+                {
+                  id: "batch_vietqr",
+                  label: "Tạo mã VietQR đóng góp theo từng Hộ",
+                  description: "Sinh mã QR tự điền số tiền & nội dung nộp quỹ theo hộ",
+                  icon: <Coins size={18} className="text-emerald-700" />,
+                  tone: "emerald" as const,
+                  onClick: () => setShowBatchVietQrModal(true),
+                },
+                {
+                  id: "new_chi",
+                  label: "Lập Phiếu chi Quỹ",
+                  description: "Ghi nhận khoản chi có người duyệt minh bạch",
+                  icon: <Plus size={18} className="text-rose-700" />,
+                  tone: "rose" as const,
+                  onClick: () => setShowAddChiModal(true),
+                },
+              ]
+            : []),
+          {
+            id: "export_funds",
+            label: "Xuất Báo cáo Tài chính 4 Sheet (.xlsx)",
+            description: "Sổ thu, Sổ chi, Danh mục quỹ & Tổng hợp tồn quỹ",
+            icon: <FileSpreadsheet size={18} className="text-blue-600" />,
+            onClick: () => {
+              exportFundsWorkbookXlsx({ categories, contributions, expenditures });
+              showToast("Đã xuất báo cáo tài chính Excel (.xlsx) gồm 4 sheet.");
+            },
+          },
+        ]}
+      />
+
+      {/* Desktop Executive Header */}
+      <div className="hidden md:block">
       <PageHeader
         badgeIcon={<Coins size={14} className="text-emerald-600 shrink-0" />}
         badgeText="QUỸ KP3 • PHƯỜNG AN PHÚ"
@@ -848,6 +902,7 @@ export default function NeighborhoodFunds({
           </div>
         }
       />
+      </div>
 
       {/* Read-only notice banner when Citizen visits */}
       {readOnly && (
@@ -859,8 +914,8 @@ export default function NeighborhoodFunds({
         </div>
       )}
 
-      {/* 4 KPI Summary Cards (2x2 on Mobile) */}
-      <div className="grid grid-cols-2 xl:grid-cols-4 gap-2.5 sm:gap-4">
+      {/* 4 KPI Summary Cards (Desktop only) */}
+      <div className="hidden md:grid grid-cols-2 xl:grid-cols-4 gap-2.5 sm:gap-4">
         <StatCard
           label="Tồn quỹ thực tế"
           value={formatVNNumber(balanceFund)}
@@ -909,8 +964,8 @@ export default function NeighborhoodFunds({
         />
       </div>
 
-      {/* Single-Row Scrollable Tab Bar */}
-      <div className="border-b border-slate-200">
+      {/* Single-Row Scrollable Tab Bar (Desktop only) */}
+      <div className="hidden md:block border-b border-slate-200">
         <div
           ref={tabListRef}
           onScroll={updateTabFade}
