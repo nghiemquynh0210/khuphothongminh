@@ -837,12 +837,12 @@ export default function Dashboard({
         urgentCount={metrics.urgentTasksCount + metrics.urgentReportsCount}
         pendingReportsCount={metrics.pendingReportsCount}
         openTasksCount={metrics.openTasksCount}
-        expiredTempCount={metrics.expiredCount}
-        expiringTempCount={metrics.expiringCount}
-        pcccWarningCount={metrics.pcccAlertCount}
-        fundBalance={metrics.fundBalance}
-        topTasks={metrics.topTasks}
-        openReports={metrics.openReports}
+        expiredTempCount={metrics.expiredTamTruCount}
+        expiringTempCount={metrics.expiringTamTruCount}
+        pcccWarningCount={metrics.pcccNeedAttentionCount}
+        fundBalance={metrics.netFundBalance}
+        topTasks={metrics.openTasks || []}
+        openReports={metrics.pendingReports || []}
         onNavigateTab={(tab) => navigateToTab(tab)}
         onOpenWordReport={() => setShowWordReportModal(true)}
         onExportExcelReport={handleExportBriefingReport}
