@@ -1,5 +1,6 @@
 package vn.tphcm.anphu.khupho3;
 
+import android.graphics.Color;
 import android.os.Bundle;
 import androidx.core.view.WindowCompat;
 import androidx.core.view.WindowInsetsControllerCompat;
@@ -9,11 +10,13 @@ public class MainActivity extends BridgeActivity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        // Android 15/16 Edge-to-Edge: ensure crisp dark status bar & navigation bar icons on light background
+        // Super-App v2.0: Red Bronze-Drum status bar (#B91C1C) with crisp white icons
+        // and crisp dark navigation bar icons on white 5-tab bottom bar
+        getWindow().setStatusBarColor(Color.parseColor("#B91C1C"));
         WindowInsetsControllerCompat controller =
                 WindowCompat.getInsetsController(getWindow(), getWindow().getDecorView());
         if (controller != null) {
-            controller.setAppearanceLightStatusBars(true);
+            controller.setAppearanceLightStatusBars(false);
             controller.setAppearanceLightNavigationBars(true);
         }
     }

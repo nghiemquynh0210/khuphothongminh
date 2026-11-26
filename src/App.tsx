@@ -64,6 +64,7 @@ import { initialAdministrativeForms } from "./mockForms";
 import Sidebar from "./components/Sidebar";
 import { LoadingFade } from "./components/common/LoadingFade";
 import { QuickCommandModal } from "./components/common/QuickCommandModal";
+import { MobileSuperAppBar } from "./components/mobile/MobileSuperAppBar";
 import { loadStoredTasks, saveStoredTasks } from "./components/tasks/tasksData";
 import { KP3_OFFICIAL_BASELINE, createTaskFromReport } from "./utils/kp3Utils";
 import type { PendingRegistration } from "./components/SettingsAndPermissions";
@@ -2453,6 +2454,48 @@ export default function App() {
             }
           }}
         />
+        <div className="h-16 md:hidden" aria-hidden="true" />
+        <MobileSuperAppBar
+          activeTab={activeTab}
+          isStaff={isAdminUser}
+          isPublicHome={true}
+          currentUser={displayCurrentUser || currentUser}
+          residentsCount={residents.length || KP3_OFFICIAL_BASELINE.population}
+          householdsCount={households.length || KP3_OFFICIAL_BASELINE.households}
+          onNavigateHome={() => {
+            setCitizenSubView(null);
+            setActiveTab("dashboard");
+            navigate(ROUTES.HOME);
+          }}
+          onSelectTab={(tab) => {
+            if (isAdminUser) {
+              setActiveTab(tab);
+              setCitizenSubView(null);
+              navigate(getDashboardExtensionPath(tab));
+            } else {
+              setCitizenSubView(tab);
+              setActiveTab(tab);
+            }
+          }}
+          onOpenStaffLogin={() => {
+            if (isAdminUser && (!isSupabaseConfigured || verifiedStaff)) {
+              setActiveTab("dashboard");
+              setCitizenSubView(null);
+              navigate(ROUTES.DASHBOARD);
+              return;
+            }
+            if (isSupabaseConfigured) {
+              setCurrentUser(null);
+              setCitizenSubView(null);
+              navigate(ROUTES.LOGIN);
+              return;
+            }
+            setCurrentUser(CANBO_USER);
+            setActiveTab("dashboard");
+            setCitizenSubView(null);
+            navigate(ROUTES.DASHBOARD);
+          }}
+        />
       </Suspense>
     );
   }
@@ -2628,6 +2671,36 @@ export default function App() {
             </Suspense>
           </AppErrorBoundary>
         </main>
+        <div className="h-16 md:hidden shrink-0" aria-hidden="true" />
+        <MobileSuperAppBar
+          activeTab={citizenSubView}
+          isStaff={false}
+          isPublicHome={false}
+          currentUser={displayCurrentUser || currentUser}
+          residentsCount={residents.length || KP3_OFFICIAL_BASELINE.population}
+          householdsCount={households.length || KP3_OFFICIAL_BASELINE.households}
+          onNavigateHome={() => {
+            setCitizenSubView(null);
+            setActiveTab("dashboard");
+            navigate(ROUTES.HOME);
+          }}
+          onSelectTab={(tab) => {
+            setCitizenSubView(tab);
+            setActiveTab(tab);
+          }}
+          onOpenStaffLogin={() => {
+            if (isSupabaseConfigured && !verifiedStaff) {
+              setCurrentUser(null);
+              setCitizenSubView(null);
+              navigate(ROUTES.LOGIN);
+              return;
+            }
+            setCurrentUser(CANBO_USER);
+            setActiveTab("dashboard");
+            setCitizenSubView(null);
+            navigate(ROUTES.DASHBOARD);
+          }}
+        />
       </div>
     );
   }
@@ -2917,7 +2990,7 @@ export default function App() {
         </header>
 
         {/* Dynamic view routing based on tab state */}
-        <main className="flex-1 p-3.5 sm:p-5 lg:p-6 overflow-y-auto max-w-7xl w-full mx-auto min-w-0">
+        <main className="flex-1 p-3.5 pb-20 sm:p-5 sm:pb-20 md:pb-6 lg:p-6 overflow-y-auto max-w-7xl w-full mx-auto min-w-0">
           {isDataLoading && activeTab === "dashboard" && (
             <LoadingFade
               variant="inline"
@@ -3224,6 +3297,26 @@ export default function App() {
             </Suspense>
           </AppErrorBoundary>
         </main>
+        <MobileSuperAppBar
+          activeTab={activeTab}
+          isStaff={true}
+          isPublicHome={false}
+          currentUser={displayCurrentUser || currentUser}
+          residentsCount={residents.length || KP3_OFFICIAL_BASELINE.population}
+          householdsCount={households.length || KP3_OFFICIAL_BASELINE.households}
+          onNavigateHome={() => {
+            setActiveTab("dashboard");
+            navigate(ROUTES.DASHBOARD);
+          }}
+          onSelectTab={(tab) => {
+            setActiveTab(tab);
+            navigate(getDashboardExtensionPath(tab));
+          }}
+          onOpenStaffLogin={() => {
+            setActiveTab("settings");
+            navigate(getDashboardExtensionPath("settings"));
+          }}
+        />
       </div>
     </div>
   );
