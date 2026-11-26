@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
+import { createPortal } from "react-dom";
 import * as XLSX from "xlsx";
 import {
   AlertTriangle,
@@ -90,6 +91,7 @@ export const SpecialSupervisionTab: React.FC<SpecialSupervisionTabProps> = ({
   // Create / Edit Modal
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [residentQuery, setResidentQuery] = useState("");
+  const [showNameSuggestions, setShowNameSuggestions] = useState(false);
   const [formResidentId, setFormResidentId] = useState<string | undefined>(undefined);
   const [formFullName, setFormFullName] = useState("");
   const [formBirthYear, setFormBirthYear] = useState("");
@@ -175,8 +177,8 @@ export const SpecialSupervisionTab: React.FC<SpecialSupervisionTabProps> = ({
   );
 
   const matchedResidents = useMemo(() => {
-    const q = residentQuery.trim();
-    if (q.length < 2) return [];
+    const q = (residentQuery.trim() || formFullName.trim());
+    if (q.length < 2 || formResidentId) return [];
     return residents
       .filter((r) =>
         matchesSmartResidentSearch(q, [
@@ -190,7 +192,7 @@ export const SpecialSupervisionTab: React.FC<SpecialSupervisionTabProps> = ({
         ])
       )
       .slice(0, 8);
-  }, [residentQuery, residents]);
+  }, [residentQuery, formFullName, formResidentId, residents]);
 
   const handlePickResident = (r: Resident) => {
     setFormResidentId(r.id);
@@ -202,6 +204,18 @@ export const SpecialSupervisionTab: React.FC<SpecialSupervisionTabProps> = ({
     setFormAddress(r.currentAddress || r.permanentAddress || r.address || "");
     setFormResidenceType(r.status || "Thường trú");
     setResidentQuery("");
+    setShowNameSuggestions(false);
+  };
+
+  const handleClearPickedResident = () => {
+    setFormResidentId(undefined);
+    setFormFullName("");
+    setFormBirthYear("");
+    setFormCccd("");
+    setFormPhone("");
+    setFormAddress("");
+    setResidentQuery("");
+    setShowNameSuggestions(true);
   };
 
   const toggleCategory = (catId: SupervisionCategoryId) => {
@@ -813,417 +827,478 @@ export const SpecialSupervisionTab: React.FC<SpecialSupervisionTabProps> = ({
         </div>
       )}
 
-      {/* CREATE MODAL */}
-      {showCreateModal && (
-        <div className="fixed inset-0 z-50 bg-slate-950/60 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto">
-          <div className="bg-white rounded-2xl border border-slate-200 shadow-2xl w-full max-w-3xl max-h-[90vh] overflow-y-auto">
-            <div className="sticky top-0 bg-white border-b border-slate-200 px-5 py-4 flex items-center justify-between z-10">
-              <div>
-                <h3 className="text-base font-extrabold text-slate-900 flex items-center gap-2">
-                  <ShieldAlert size={18} className="text-amber-600" />
-                  Thêm Hồ sơ Quản lý Đối tượng Đặc thù (Nội bộ ANTT)
-                </h3>
-                <p className="text-xs text-slate-500 mt-0.5">
-                  Lưu bảo mật nội bộ (`is_public = false`), tách biệt khỏi danh sách dân cư công khai.
-                </p>
-              </div>
-              <button
-                type="button"
-                onClick={() => setShowCreateModal(false)}
-                className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-500 cursor-pointer"
-              >
-                <X size={18} />
-              </button>
-            </div>
-
-            <form onSubmit={handleCreateRecord} className="p-5 space-y-4">
-              {/* Quick Link from 11.229 KP3 Residents */}
-              <div className="bg-blue-50/70 border border-blue-200 rounded-xl p-3.5 space-y-2">
-                <label className="block text-xs font-bold text-blue-900">
-                  Liên kết nhanh từ CSDL 11.229 nhân khẩu Khu phố 3 (không bắt buộc):
-                </label>
-                <div className="relative">
-                  <Search size={14} className="absolute left-3 top-2.5 text-blue-500" />
-                  <input
-                    type="text"
-                    placeholder="Gõ họ tên, CCCD hoặc địa chỉ nhà trọ để tự điền..."
-                    value={residentQuery}
-                    onChange={(e) => setResidentQuery(e.target.value)}
-                    className="w-full h-9 pl-9 pr-3 rounded-lg bg-white border border-blue-200 text-xs text-slate-900"
-                  />
+      {/* CREATE MODAL (Portal to document.body — zero overflow clipping) */}
+      {showCreateModal &&
+        typeof document !== "undefined" &&
+        createPortal(
+          <div className="fixed inset-0 z-[120] bg-slate-950/65 backdrop-blur-xs flex items-center justify-center p-3 sm:p-5">
+            <div className="bg-white rounded-2xl border border-slate-200 shadow-2xl w-full max-w-3xl max-h-[88vh] flex flex-col overflow-hidden">
+              {/* Fixed Header */}
+              <div className="shrink-0 bg-white border-b border-slate-200 px-5 py-3.5 flex items-center justify-between gap-3">
+                <div className="min-w-0">
+                  <h3 className="text-sm sm:text-base font-extrabold text-slate-900 flex items-center gap-2 truncate">
+                    <ShieldAlert size={18} className="text-amber-600 shrink-0" />
+                    <span className="truncate">Thêm Hồ sơ Quản lý Đối tượng Đặc thù (Nội bộ ANTT)</span>
+                  </h3>
+                  <p className="text-[11px] text-slate-500 mt-0.5">
+                    Gõ Họ tên, CCCD hoặc SĐT vào ô bên dưới để tự động trích xuất từ {residents.length.toLocaleString("vi-VN")} nhân khẩu Khu phố 3.
+                  </p>
                 </div>
-                {matchedResidents.length > 0 && (
-                  <div className="bg-white border border-blue-200 rounded-lg divide-y divide-slate-100 max-h-44 overflow-y-auto">
-                    {matchedResidents.map((r) => (
-                      <button
-                        key={r.id}
-                        type="button"
-                        onClick={() => handlePickResident(r)}
-                        className="w-full text-left px-3 py-2 hover:bg-blue-50 text-xs flex items-center justify-between gap-2 cursor-pointer"
-                      >
-                        <div>
-                          <div className="font-bold text-slate-900">
-                            {r.fullName} ({r.birthDate || "?"})
-                          </div>
-                          <div className="text-[11px] text-slate-500">
-                            {r.status} • {r.currentAddress || r.permanentAddress || r.address}
-                          </div>
-                        </div>
-                        <span className="text-[11px] font-mono text-blue-700 shrink-0">
-                          {maskCccdNumber(r.cccd)}
-                        </span>
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
-                <div className="sm:col-span-2">
-                  <label className="block font-bold text-slate-700 mb-1">Họ và tên *</label>
-                  <input
-                    type="text"
-                    required
-                    value={formFullName}
-                    onChange={(e) => setFormFullName(e.target.value)}
-                    className="w-full h-9 px-3 rounded-lg border border-slate-300 text-slate-900"
-                  />
-                </div>
-                <div>
-                  <label className="block font-bold text-slate-700 mb-1">Năm sinh</label>
-                  <input
-                    type="text"
-                    placeholder="VD: 1995"
-                    value={formBirthYear}
-                    onChange={(e) => setFormBirthYear(e.target.value)}
-                    className="w-full h-9 px-3 rounded-lg border border-slate-300 font-mono text-slate-900"
-                  />
-                </div>
-                <div>
-                  <label className="block font-bold text-slate-700 mb-1">Số CCCD</label>
-                  <input
-                    type="text"
-                    value={formCccd}
-                    onChange={(e) => setFormCccd(e.target.value)}
-                    className="w-full h-9 px-3 rounded-lg border border-slate-300 font-mono text-slate-900"
-                  />
-                </div>
-                <div>
-                  <label className="block font-bold text-slate-700 mb-1">SĐT liên hệ</label>
-                  <input
-                    type="tel"
-                    value={formPhone}
-                    onChange={(e) => setFormPhone(e.target.value)}
-                    className="w-full h-9 px-3 rounded-lg border border-slate-300 font-mono text-slate-900"
-                  />
-                </div>
-                <div>
-                  <label className="block font-bold text-slate-700 mb-1">Loại cư trú</label>
-                  <select
-                    value={formResidenceType}
-                    onChange={(e) => setFormResidenceType(e.target.value)}
-                    className="w-full h-9 px-2.5 rounded-lg border border-slate-300 bg-white text-slate-900"
-                  >
-                    <option value="Thường trú">Thường trú (CT01)</option>
-                    <option value="Tạm trú">Tạm trú (CT08 / Nhà trọ)</option>
-                    <option value="Lưu trú khác">Lưu trú khác</option>
-                  </select>
-                </div>
-              </div>
-
-              <div className="text-xs">
-                <label className="block font-bold text-slate-700 mb-1">
-                  Địa chỉ cư trú / Nhà trọ tại Khu phố 3 *
-                </label>
-                <input
-                  type="text"
-                  required
-                  value={formAddress}
-                  onChange={(e) => setFormAddress(e.target.value)}
-                  className="w-full h-9 px-3 rounded-lg border border-slate-300 text-slate-900"
-                />
-              </div>
-
-              {/* 10 Legal Categories Multi-select */}
-              <div className="space-y-2">
-                <label className="block text-xs font-bold text-slate-800">
-                  Diện quản lý theo quy định pháp luật (có thể chọn nhiều diện đồng thời) *
-                </label>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                  {SUPERVISION_CATEGORIES.map((cat) => {
-                    const checked = formCategories.includes(cat.id);
-                    return (
-                      <label
-                        key={cat.id}
-                        className={`flex items-start gap-2 p-2.5 rounded-xl border text-xs cursor-pointer transition-colors ${
-                          checked
-                            ? "bg-slate-900 text-white border-slate-900"
-                            : "bg-slate-50 text-slate-800 border-slate-200 hover:bg-slate-100"
-                        }`}
-                      >
-                        <input
-                          type="checkbox"
-                          checked={checked}
-                          onChange={() => toggleCategory(cat.id)}
-                          className="mt-0.5 accent-emerald-500"
-                        />
-                        <div>
-                          <div className="font-bold">{cat.label}</div>
-                          <div className={`text-[10px] ${checked ? "text-slate-300" : "text-slate-500"}`}>
-                            {cat.legalBasis}
-                          </div>
-                        </div>
-                      </label>
-                    );
-                  })}
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
-                <div>
-                  <label className="block font-bold text-slate-700 mb-1">Số Bản án / Quyết định</label>
-                  <input
-                    type="text"
-                    placeholder="VD: 125/2026/QĐ-THAHS"
-                    value={formDecisionNumber}
-                    onChange={(e) => setFormDecisionNumber(e.target.value)}
-                    className="w-full h-9 px-3 rounded-lg border border-slate-300 font-mono text-slate-900"
-                  />
-                </div>
-                <div>
-                  <label className="block font-bold text-slate-700 mb-1">Cơ quan ban hành</label>
-                  <input
-                    type="text"
-                    value={formIssuingAuthority}
-                    onChange={(e) => setFormIssuingAuthority(e.target.value)}
-                    className="w-full h-9 px-3 rounded-lg border border-slate-300 text-slate-900"
-                  />
-                </div>
-                <div>
-                  <label className="block font-bold text-slate-700 mb-1">Ngày bắt đầu quản lý *</label>
-                  <input
-                    type="date"
-                    required
-                    value={formStartDate}
-                    onChange={(e) => setFormStartDate(e.target.value)}
-                    className="w-full h-9 px-3 rounded-lg border border-slate-300 font-mono text-slate-900"
-                  />
-                </div>
-                <div>
-                  <label className="block font-bold text-slate-700 mb-1">Ngày hết hạn quản lý (dự kiến)</label>
-                  <input
-                    type="date"
-                    value={formEndDate}
-                    onChange={(e) => setFormEndDate(e.target.value)}
-                    className="w-full h-9 px-3 rounded-lg border border-slate-300 font-mono text-slate-900"
-                  />
-                </div>
-              </div>
-
-              <div className="text-xs">
-                <label className="block font-bold text-slate-700 mb-1">
-                  Cán bộ CSKV / Tổ ANTT phân công theo dõi, cảm hóa
-                </label>
-                <input
-                  type="text"
-                  value={formAssignedOfficer}
-                  onChange={(e) => setFormAssignedOfficer(e.target.value)}
-                  className="w-full h-9 px-3 rounded-lg border border-slate-300 text-slate-900"
-                />
-              </div>
-
-              <div className="text-xs">
-                <label className="block font-bold text-slate-700 mb-1">Ghi chú phối hợp</label>
-                <textarea
-                  rows={2}
-                  value={formNotes}
-                  onChange={(e) => setFormNotes(e.target.value)}
-                  className="w-full p-2.5 rounded-lg border border-slate-300 text-slate-900"
-                />
-              </div>
-
-              <div className="flex justify-end gap-2 pt-2 border-t border-slate-100">
                 <button
                   type="button"
                   onClick={() => setShowCreateModal(false)}
-                  className="h-9 px-4 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold cursor-pointer"
+                  className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-500 cursor-pointer shrink-0"
+                  aria-label="Đóng hộp thoại"
+                >
+                  <X size={18} />
+                </button>
+              </div>
+
+              {/* Scrollable Body */}
+              <form
+                id="create-supervision-form"
+                onSubmit={handleCreateRecord}
+                className="flex-1 overflow-y-auto p-5 space-y-4"
+              >
+                {/* Linked Resident Status Pill */}
+                {formResidentId ? (
+                  <div className="bg-emerald-50 border border-emerald-200 rounded-xl px-3.5 py-2.5 flex items-center justify-between gap-2 text-xs">
+                    <div className="flex items-center gap-2 text-emerald-900 font-semibold min-w-0">
+                      <CheckCircle2 size={15} className="text-emerald-600 shrink-0" />
+                      <span className="truncate">
+                        Đã trích xuất trực tiếp từ CSDL Dân cư KP3: <strong>{formFullName}</strong> ({formResidenceType})
+                      </span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={handleClearPickedResident}
+                      className="px-2.5 py-1 rounded-lg bg-white hover:bg-emerald-100 border border-emerald-300 text-emerald-800 text-[11px] font-bold cursor-pointer shrink-0"
+                    >
+                      Chọn người khác
+                    </button>
+                  </div>
+                ) : (
+                  <div className="bg-blue-50/70 border border-blue-200 rounded-xl px-3.5 py-2.5 text-[11px] text-blue-900 flex items-center gap-2">
+                    <Search size={14} className="text-blue-600 shrink-0" />
+                    <span>
+                      <strong>Trích xuất 1-chạm từ CSDL Dân cư:</strong> Gõ trực tiếp Họ tên (có/không dấu) hoặc CCCD vào ô <strong>Họ và tên *</strong> bên dưới rồi chọn công dân trong danh sách gợi ý.
+                    </span>
+                  </div>
+                )}
+
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
+                  <div className="sm:col-span-2 relative">
+                    <label className="block font-bold text-slate-700 mb-1">
+                      Họ và tên (Trích xuất từ CSDL Dân cư) *
+                    </label>
+                    <div className="relative">
+                      <Search size={14} className="absolute left-3 top-2.5 text-slate-400" />
+                      <input
+                        type="text"
+                        required
+                        autoComplete="off"
+                        spellCheck={false}
+                        placeholder="Gõ họ tên (VD: nguyen van), CCCD hoặc SĐT để chọn..."
+                        value={formFullName}
+                        onFocus={() => setShowNameSuggestions(true)}
+                        onChange={(e) => {
+                          setFormResidentId(undefined);
+                          setFormFullName(e.target.value);
+                          setResidentQuery(e.target.value);
+                          setShowNameSuggestions(true);
+                        }}
+                        className={`w-full h-9 pl-9 pr-3 rounded-lg border text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500/20 ${
+                          formResidentId
+                            ? "border-emerald-400 bg-emerald-50/40 font-bold"
+                            : "border-slate-300 bg-white focus:border-blue-500"
+                        }`}
+                      />
+                    </div>
+
+                    {showNameSuggestions && matchedResidents.length > 0 && (
+                      <div className="absolute left-0 right-0 top-[62px] z-30 bg-white border border-blue-300 rounded-xl shadow-xl divide-y divide-slate-100 max-h-56 overflow-y-auto">
+                        <div className="px-3 py-1.5 bg-blue-50 text-[10px] font-bold uppercase tracking-wider text-blue-800">
+                          Chọn công dân từ CSDL 11.229 nhân khẩu KP3 ({matchedResidents.length} gợi ý)
+                        </div>
+                        {matchedResidents.map((r) => (
+                          <button
+                            key={r.id}
+                            type="button"
+                            onMouseDown={(ev) => {
+                              ev.preventDefault();
+                              handlePickResident(r);
+                            }}
+                            className="w-full text-left px-3 py-2 hover:bg-blue-50 text-xs flex items-center justify-between gap-2 cursor-pointer"
+                          >
+                            <div className="min-w-0">
+                              <div className="font-bold text-slate-900 truncate">
+                                {r.fullName} ({r.birthDate || "?"})
+                              </div>
+                              <div className="text-[11px] text-slate-500 truncate">
+                                {r.status || "Thường trú"} •{" "}
+                                {r.currentAddress || r.permanentAddress || r.address}
+                              </div>
+                            </div>
+                            <span className="text-[11px] font-mono text-blue-700 shrink-0">
+                              {maskCccdNumber(r.cccd)}
+                            </span>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  <div>
+                    <label className="block font-bold text-slate-700 mb-1">Năm sinh</label>
+                    <input
+                      type="text"
+                      placeholder="VD: 1995"
+                      value={formBirthYear}
+                      onChange={(e) => setFormBirthYear(e.target.value)}
+                      className="w-full h-9 px-3 rounded-lg border border-slate-300 font-mono text-slate-900"
+                    />
+                  </div>
+                  <div>
+                    <label className="block font-bold text-slate-700 mb-1">Số CCCD</label>
+                    <input
+                      type="text"
+                      value={formCccd}
+                      onChange={(e) => setFormCccd(e.target.value)}
+                      className="w-full h-9 px-3 rounded-lg border border-slate-300 font-mono text-slate-900"
+                    />
+                  </div>
+                  <div>
+                    <label className="block font-bold text-slate-700 mb-1">SĐT liên hệ</label>
+                    <input
+                      type="tel"
+                      value={formPhone}
+                      onChange={(e) => setFormPhone(e.target.value)}
+                      className="w-full h-9 px-3 rounded-lg border border-slate-300 font-mono text-slate-900"
+                    />
+                  </div>
+                  <div>
+                    <label className="block font-bold text-slate-700 mb-1">Loại cư trú</label>
+                    <select
+                      value={formResidenceType}
+                      onChange={(e) => setFormResidenceType(e.target.value)}
+                      className="w-full h-9 px-2.5 rounded-lg border border-slate-300 bg-white text-slate-900"
+                    >
+                      <option value="Thường trú">Thường trú (CT01)</option>
+                      <option value="Tạm trú">Tạm trú (CT08 / Nhà trọ)</option>
+                      <option value="Lưu trú khác">Lưu trú khác</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div className="text-xs">
+                  <label className="block font-bold text-slate-700 mb-1">
+                    Địa chỉ cư trú / Nhà trọ tại Khu phố 3 *
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={formAddress}
+                    onChange={(e) => setFormAddress(e.target.value)}
+                    className="w-full h-9 px-3 rounded-lg border border-slate-300 text-slate-900"
+                  />
+                </div>
+
+                {/* 10 Legal Categories Multi-select */}
+                <div className="space-y-2">
+                  <label className="block text-xs font-bold text-slate-800">
+                    Diện quản lý theo quy định pháp luật (có thể chọn nhiều diện đồng thời) *
+                  </label>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    {SUPERVISION_CATEGORIES.map((cat) => {
+                      const checked = formCategories.includes(cat.id);
+                      return (
+                        <label
+                          key={cat.id}
+                          className={`flex items-start gap-2 p-2.5 rounded-xl border text-xs cursor-pointer transition-colors ${
+                            checked
+                              ? "bg-slate-900 text-white border-slate-900"
+                              : "bg-slate-50 text-slate-800 border-slate-200 hover:bg-slate-100"
+                          }`}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={checked}
+                            onChange={() => toggleCategory(cat.id)}
+                            className="mt-0.5 accent-emerald-500"
+                          />
+                          <div>
+                            <div className="font-bold">{cat.label}</div>
+                            <div
+                              className={`text-[10px] ${
+                                checked ? "text-slate-300" : "text-slate-500"
+                              }`}
+                            >
+                              {cat.legalBasis}
+                            </div>
+                          </div>
+                        </label>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                  <div>
+                    <label className="block font-bold text-slate-700 mb-1">
+                      Số Bản án / Quyết định
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="VD: 125/2026/QĐ-THAHS"
+                      value={formDecisionNumber}
+                      onChange={(e) => setFormDecisionNumber(e.target.value)}
+                      className="w-full h-9 px-3 rounded-lg border border-slate-300 font-mono text-slate-900"
+                    />
+                  </div>
+                  <div>
+                    <label className="block font-bold text-slate-700 mb-1">Cơ quan ban hành</label>
+                    <input
+                      type="text"
+                      value={formIssuingAuthority}
+                      onChange={(e) => setFormIssuingAuthority(e.target.value)}
+                      className="w-full h-9 px-3 rounded-lg border border-slate-300 text-slate-900"
+                    />
+                  </div>
+                  <div>
+                    <label className="block font-bold text-slate-700 mb-1">
+                      Ngày bắt đầu quản lý *
+                    </label>
+                    <input
+                      type="date"
+                      required
+                      value={formStartDate}
+                      onChange={(e) => setFormStartDate(e.target.value)}
+                      className="w-full h-9 px-3 rounded-lg border border-slate-300 font-mono text-slate-900"
+                    />
+                  </div>
+                  <div>
+                    <label className="block font-bold text-slate-700 mb-1">
+                      Ngày hết hạn quản lý (dự kiến)
+                    </label>
+                    <input
+                      type="date"
+                      value={formEndDate}
+                      onChange={(e) => setFormEndDate(e.target.value)}
+                      className="w-full h-9 px-3 rounded-lg border border-slate-300 font-mono text-slate-900"
+                    />
+                  </div>
+                </div>
+
+                <div className="text-xs">
+                  <label className="block font-bold text-slate-700 mb-1">
+                    Cán bộ CSKV / Tổ ANTT phân công theo dõi, cảm hóa
+                  </label>
+                  <input
+                    type="text"
+                    value={formAssignedOfficer}
+                    onChange={(e) => setFormAssignedOfficer(e.target.value)}
+                    className="w-full h-9 px-3 rounded-lg border border-slate-300 text-slate-900"
+                  />
+                </div>
+
+                <div className="text-xs">
+                  <label className="block font-bold text-slate-700 mb-1">Ghi chú phối hợp</label>
+                  <textarea
+                    rows={2}
+                    value={formNotes}
+                    onChange={(e) => setFormNotes(e.target.value)}
+                    className="w-full p-2.5 rounded-lg border border-slate-300 text-slate-900"
+                  />
+                </div>
+              </form>
+
+              {/* Fixed Footer */}
+              <div className="shrink-0 bg-slate-50 border-t border-slate-200 px-5 py-3 flex items-center justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => setShowCreateModal(false)}
+                  className="h-9 px-4 rounded-xl bg-white hover:bg-slate-100 border border-slate-200 text-slate-700 text-xs font-semibold cursor-pointer"
                 >
                   Hủy
                 </button>
                 <button
                   type="submit"
+                  form="create-supervision-form"
                   disabled={saving}
                   className="h-9 px-4 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-bold cursor-pointer disabled:opacity-50"
                 >
                   {saving ? "Đang lưu..." : "Lưu hồ sơ bảo mật"}
                 </button>
               </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* DETAIL / CHECK-IN & REINTEGRATION MODAL */}
-      {selectedRecord && (
-        <div className="fixed inset-0 z-50 bg-slate-950/60 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto">
-          <div className="bg-white rounded-2xl border border-slate-200 shadow-2xl w-full max-w-3xl max-h-[90vh] overflow-y-auto">
-            <div className="sticky top-0 bg-white border-b border-slate-200 px-5 py-4 flex items-center justify-between z-10">
-              <div>
-                <h3 className="text-base font-extrabold text-slate-900">
-                  Hồ sơ {selectedRecord.id} •{" "}
-                  {isUnlocked ? selectedRecord.fullName : maskPersonName(selectedRecord.fullName)}
-                </h3>
-                <p className="text-xs text-slate-500 mt-0.5">
-                  Cập nhật trạng thái, hỗ trợ tái hòa nhập (NĐ 49/2020) &amp; nhật ký trình diện định kỳ
-                </p>
-              </div>
-              <button
-                type="button"
-                onClick={() => setSelectedRecordId(null)}
-                className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-500 cursor-pointer"
-              >
-                <X size={18} />
-              </button>
             </div>
+          </div>,
+          document.body
+        )}
 
-            <div className="p-5 space-y-5">
-              {/* Status Switcher */}
-              <div className="space-y-2">
-                <div className="text-xs font-bold uppercase text-slate-600">
-                  Trạng thái quản lý (Tự xóa cảnh báo khi hoàn thành / xóa án tích):
+      {/* DETAIL / CHECK-IN & REINTEGRATION MODAL (Portal to document.body) */}
+      {selectedRecord &&
+        typeof document !== "undefined" &&
+        createPortal(
+          <div className="fixed inset-0 z-[120] bg-slate-950/65 backdrop-blur-xs flex items-center justify-center p-3 sm:p-5">
+            <div className="bg-white rounded-2xl border border-slate-200 shadow-2xl w-full max-w-3xl max-h-[88vh] flex flex-col overflow-hidden">
+              <div className="shrink-0 bg-white border-b border-slate-200 px-5 py-3.5 flex items-center justify-between gap-3">
+                <div className="min-w-0">
+                  <h3 className="text-sm sm:text-base font-extrabold text-slate-900 truncate">
+                    Hồ sơ {selectedRecord.id} •{" "}
+                    {isUnlocked ? selectedRecord.fullName : maskPersonName(selectedRecord.fullName)}
+                  </h3>
+                  <p className="text-[11px] text-slate-500 mt-0.5">
+                    Cập nhật trạng thái, hỗ trợ tái hòa nhập (NĐ 49/2020) &amp; nhật ký trình diện định kỳ
+                  </p>
                 </div>
-                <div className="flex flex-wrap gap-2">
-                  {(Object.keys(STATUS_META) as SupervisionRecordStatus[]).map((st) => (
-                    <button
-                      key={st}
-                      type="button"
-                      onClick={() => void handleUpdateStatus(selectedRecord.id, st)}
-                      className={`h-8 px-3 rounded-lg text-xs font-bold border cursor-pointer transition-colors ${
-                        selectedRecord.status === st
-                          ? "bg-slate-900 text-white border-slate-900"
-                          : "bg-white text-slate-700 border-slate-200 hover:bg-slate-50"
-                      }`}
-                    >
-                      {STATUS_META[st].label}
-                    </button>
-                  ))}
-                </div>
+                <button
+                  type="button"
+                  onClick={() => setSelectedRecordId(null)}
+                  className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-500 cursor-pointer shrink-0"
+                >
+                  <X size={18} />
+                </button>
               </div>
 
-              {/* Reintegration Support (Nghị định 49/2020) */}
-              <div className="bg-emerald-50/60 border border-emerald-200 rounded-xl p-4 space-y-2.5">
-                <div className="text-xs font-extrabold text-emerald-900 flex items-center gap-1.5">
-                  <HeartHandshake size={15} />
-                  Hỗ trợ Tái hòa nhập Cộng đồng (Nghị định 49/2020/NĐ-CP)
-                </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
-                  {(
-                    [
-                      { key: "cccdAndResidency", label: "Hỗ trợ cấp CCCD & đăng ký cư trú" },
-                      { key: "jobReferral", label: "Giới thiệu học nghề / việc làm" },
-                      { key: "policyLoan", label: "Hỗ trợ vay vốn tín dụng chính sách (NHCSXH)" },
-                      { key: "legalCounseling", label: "Tư vấn tâm lý, trợ giúp pháp lý" },
-                    ] as const
-                  ).map((item) => (
-                    <label
-                      key={item.key}
-                      className="flex items-center gap-2 bg-white border border-emerald-200/80 rounded-lg px-3 py-2 cursor-pointer"
-                    >
-                      <input
-                        type="checkbox"
-                        checked={Boolean(selectedRecord.reintegration?.[item.key])}
-                        onChange={() =>
-                          void handleToggleReintegration(selectedRecord.id, item.key)
-                        }
-                        className="accent-emerald-700"
-                      />
-                      <span className="font-semibold text-slate-800">{item.label}</span>
-                    </label>
-                  ))}
-                </div>
-              </div>
-
-              {/* Add Check-in Log */}
-              <form
-                onSubmit={handleAddCheckin}
-                className="bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-3"
-              >
-                <div className="text-xs font-extrabold text-slate-900 flex items-center gap-1.5">
-                  <Calendar size={14} className="text-blue-700" />
-                  Ghi nhận Nhật ký Trình diện / Tiếp xúc / Xét nghiệm nhanh
-                </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 text-xs">
-                  <select
-                    value={checkinType}
-                    onChange={(e) => setCheckinType(e.target.value as any)}
-                    className="h-9 px-2.5 rounded-lg border border-slate-300 bg-white font-semibold text-slate-900"
-                  >
-                    {(Object.keys(CHECKIN_TYPE_LABELS) as SupervisionCheckinLog["type"][]).map(
-                      (k) => (
-                        <option key={k} value={k}>
-                          {CHECKIN_TYPE_LABELS[k].label}
-                        </option>
-                      )
-                    )}
-                  </select>
-                  <input
-                    type="date"
-                    value={checkinDate}
-                    onChange={(e) => setCheckinDate(e.target.value)}
-                    className="h-9 px-3 rounded-lg border border-slate-300 bg-white font-mono text-slate-900"
-                  />
-                </div>
-                <div className="flex gap-2">
-                  <input
-                    type="text"
-                    required
-                    placeholder="Nhập nhận xét tình hình chấp hành, thái độ, địa điểm gặp gỡ..."
-                    value={checkinNote}
-                    onChange={(e) => setCheckinNote(e.target.value)}
-                    className="flex-1 h-9 px-3 rounded-lg border border-slate-300 bg-white text-xs text-slate-900"
-                  />
-                  <button
-                    type="submit"
-                    className="h-9 px-4 rounded-lg bg-blue-700 hover:bg-blue-800 text-white text-xs font-bold cursor-pointer shrink-0"
-                  >
-                    Ghi nhận
-                  </button>
-                </div>
-              </form>
-
-              {/* Check-in History */}
-              <div className="space-y-2">
-                <div className="text-xs font-bold uppercase text-slate-600">
-                  Lịch sử theo dõi ({selectedRecord.checkins?.length || 0} lượt):
-                </div>
-                <div className="space-y-2 max-h-56 overflow-y-auto pr-1">
-                  {(selectedRecord.checkins || []).map((c) => {
-                    const meta = CHECKIN_TYPE_LABELS[c.type] || CHECKIN_TYPE_LABELS.trinh_dien;
-                    return (
-                      <div
-                        key={c.id}
-                        className="border border-slate-200 rounded-xl p-3 bg-white text-xs space-y-1"
+              <div className="flex-1 overflow-y-auto p-5 space-y-5">
+                {/* Status Switcher */}
+                <div className="space-y-2">
+                  <div className="text-xs font-bold uppercase text-slate-600">
+                    Trạng thái quản lý (Tự xóa cảnh báo khi hoàn thành / xóa án tích):
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    {(Object.keys(STATUS_META) as SupervisionRecordStatus[]).map((st) => (
+                      <button
+                        key={st}
+                        type="button"
+                        onClick={() => void handleUpdateStatus(selectedRecord.id, st)}
+                        className={`h-8 px-3 rounded-lg text-xs font-bold border cursor-pointer transition-colors ${
+                          selectedRecord.status === st
+                            ? "bg-slate-900 text-white border-slate-900"
+                            : "bg-white text-slate-700 border-slate-200 hover:bg-slate-50"
+                        }`}
                       >
-                        <div className="flex items-center justify-between gap-2">
-                          <span
-                            className={`px-2 py-0.5 rounded-md border text-[11px] font-bold ${meta.color}`}
-                          >
-                            {meta.label}
-                          </span>
-                          <span className="text-[11px] font-mono text-slate-500">
-                            {c.dateIso} • {c.recordedBy}
-                          </span>
+                        {STATUS_META[st].label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Reintegration Support (Nghị định 49/2020) */}
+                <div className="bg-emerald-50/60 border border-emerald-200 rounded-xl p-4 space-y-2.5">
+                  <div className="text-xs font-extrabold text-emerald-900 flex items-center gap-1.5">
+                    <HeartHandshake size={15} />
+                    Hỗ trợ Tái hòa nhập Cộng đồng (Nghị định 49/2020/NĐ-CP)
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+                    {(
+                      [
+                        { key: "cccdAndResidency", label: "Hỗ trợ cấp CCCD & đăng ký cư trú" },
+                        { key: "jobReferral", label: "Giới thiệu học nghề / việc làm" },
+                        { key: "policyLoan", label: "Hỗ trợ vay vốn tín dụng chính sách (NHCSXH)" },
+                        { key: "legalCounseling", label: "Tư vấn tâm lý, trợ giúp pháp lý" },
+                      ] as const
+                    ).map((item) => (
+                      <label
+                        key={item.key}
+                        className="flex items-center gap-2 bg-white border border-emerald-200/80 rounded-lg px-3 py-2 cursor-pointer"
+                      >
+                        <input
+                          type="checkbox"
+                          checked={Boolean(selectedRecord.reintegration?.[item.key])}
+                          onChange={() =>
+                            void handleToggleReintegration(selectedRecord.id, item.key)
+                          }
+                          className="accent-emerald-700"
+                        />
+                        <span className="font-semibold text-slate-800">{item.label}</span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Add Check-in Log */}
+                <form
+                  onSubmit={handleAddCheckin}
+                  className="bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-3"
+                >
+                  <div className="text-xs font-extrabold text-slate-900 flex items-center gap-1.5">
+                    <Calendar size={14} className="text-blue-700" />
+                    Ghi nhận Nhật ký Trình diện / Tiếp xúc / Xét nghiệm nhanh
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 text-xs">
+                    <select
+                      value={checkinType}
+                      onChange={(e) => setCheckinType(e.target.value as any)}
+                      className="h-9 px-2.5 rounded-lg border border-slate-300 bg-white font-semibold text-slate-900"
+                    >
+                      {(Object.keys(CHECKIN_TYPE_LABELS) as SupervisionCheckinLog["type"][]).map(
+                        (k) => (
+                          <option key={k} value={k}>
+                            {CHECKIN_TYPE_LABELS[k].label}
+                          </option>
+                        )
+                      )}
+                    </select>
+                    <input
+                      type="date"
+                      value={checkinDate}
+                      onChange={(e) => setCheckinDate(e.target.value)}
+                      className="h-9 px-3 rounded-lg border border-slate-300 bg-white font-mono text-slate-900"
+                    />
+                  </div>
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      required
+                      placeholder="Nhập nhận xét tình hình chấp hành, thái độ, địa điểm gặp gỡ..."
+                      value={checkinNote}
+                      onChange={(e) => setCheckinNote(e.target.value)}
+                      className="flex-1 h-9 px-3 rounded-lg border border-slate-300 bg-white text-xs text-slate-900"
+                    />
+                    <button
+                      type="submit"
+                      className="h-9 px-4 rounded-lg bg-blue-700 hover:bg-blue-800 text-white text-xs font-bold cursor-pointer shrink-0"
+                    >
+                      Ghi nhận
+                    </button>
+                  </div>
+                </form>
+
+                {/* Check-in History */}
+                <div className="space-y-2">
+                  <div className="text-xs font-bold uppercase text-slate-600">
+                    Lịch sử theo dõi ({selectedRecord.checkins?.length || 0} lượt):
+                  </div>
+                  <div className="space-y-2 max-h-56 overflow-y-auto pr-1">
+                    {(selectedRecord.checkins || []).map((c) => {
+                      const meta = CHECKIN_TYPE_LABELS[c.type] || CHECKIN_TYPE_LABELS.trinh_dien;
+                      return (
+                        <div
+                          key={c.id}
+                          className="border border-slate-200 rounded-xl p-3 bg-white text-xs space-y-1"
+                        >
+                          <div className="flex items-center justify-between gap-2">
+                            <span
+                              className={`px-2 py-0.5 rounded-md border text-[11px] font-bold ${meta.color}`}
+                            >
+                              {meta.label}
+                            </span>
+                            <span className="text-[11px] font-mono text-slate-500">
+                              {c.dateIso} • {c.recordedBy}
+                            </span>
+                          </div>
+                          <p className="text-slate-700">{c.note}</p>
                         </div>
-                        <p className="text-slate-700">{c.note}</p>
-                      </div>
-                    );
-                  })}
+                      );
+                    })}
+                  </div>
                 </div>
               </div>
             </div>
-          </div>
-        </div>
-      )}
+          </div>,
+          document.body
+        )}
     </div>
   );
 };
