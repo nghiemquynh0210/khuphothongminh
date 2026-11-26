@@ -442,24 +442,53 @@ Dự án đã thiết lập 2 MCP Servers hoạt động:
         + Ô ghi chú chi tiết trực tiếp trên dòng (tên trường/năm học, độ cận/phân loại sức khỏe, mã đơn vị, lý do) và dải lọc thực lực 6 nhóm.
       - **Lưu trữ Cloud & Xuất Excel 2 sheet nộp Ban CHQS Phường An Phú:** Tự động đồng bộ vào `portal_settings("kp3_nvqs_records_v1", is_public = false)` và xuất Excel gồm sheet danh sách chi tiết (`RaSoat_<Năm>`) + sheet bảng tổng hợp thực lực (`TongHop_Tuoi17` / `TongHop_ThucLuc_NVQS`).
 
+  43. **Tích Hợp Tin Nhắn ZBS / ZNS 2 Tầng (Zalo Business Solutions) (Phiên 26/11/2026 — commit `670a4ec`):**
+      - **Backend (`api/notifications.ts`) & UI (`src/components/settings/ZaloZbsTab.tsx` bên trong `ZaloOaNotificationHub.tsx`):** Cho phép cấu hình Tài khoản ZBS, đồng bộ danh sách mẫu tin ZNS/ZBS, gửi thử theo số điện thoại cư dân và lưu cấu hình bảo mật tại `portal_settings`.
+      - **Tài khoản ZBS chính thức đã thiết lập:** `BanDieuHanhKhuPho3AnPhu` (`NAUJYKDQZBRR9WZK`), đã tạo & gửi duyệt Mẫu tin ID **`672329`** (`KP3 - Thong bao cong vu & Nhac gia han tam tru`, trạng thái `PENDING_REVIEW`).
+
+  44. **Phân Hệ Mật Quản Lý Đối Tượng Đặc Thù (ANTT) & Sửa Triệt Để Lỗi Gõ Nhanh Tiếng Việt (Phiên 26/11/2026 — commits `85bb6f4`, `161705c`, `ad4d26a`, `35068e6`):**
+      - **Quản lý 10 diện đối tượng đặc thù ANTT (`src/utils/specialSupervisionUtils.ts`, `src/components/reports/SpecialSupervisionTab.tsx`, 6/6 Vitest PASS):** Án treo, cấm đi khỏi nơi cư trú/tại ngoại, cải tạo không giam giữ/quản chế, tha tù trước thời hạn, chấp hành xong án phạt tù, đặc xá, người sử dụng trái phép chất ma túy, cai nghiện tự nguyện/Methadone, quản lý sau cai (1–2 năm), giáo dục tại phường.
+      - **Tích hợp trực tiếp vào `Quản lý Dân cư` (`CitizenManagement.tsx`):** Phân quyền bảo mật chuẩn Nghị định 13/2023/NĐ-CP (chỉ hiển thị với Bí thư / Admin / CSKV qua `canAccessSpecialSupervision`), Live Join trực tiếp 11.229 nhân khẩu, tìm kiếm gợi ý tự động ngay trên ô `Họ và tên *` và modal bọc `createPortal(..., document.body)` 3 phần (Header / Body cuộn / Footer) không bị tràn màn hình.
+      - **Sửa lỗi gõ nhanh tiếng Việt (`CitizenSearchInput`):** Sử dụng `lastEmittedRef` + `onCompositionStart/End` + `useDeferredValue` + chuẩn hóa NFD/NFC không dấu (`matchesSmartResidentSearch`) loại bỏ triệt để hiện tượng nhảy con trỏ / mất dấu khi gõ nhanh họ tên, CCCD, SĐT.
+
+  45. **Siêu Ứng Dụng Android / iOS KP3 An Phú v4.0.0 — Thiết Kế Lại 100% Phân Hệ & Phân Hệ Nhỏ (Phiên 26/11/2026 — commits `352356b`, `8fb7f63`, `d482432`, `6e21c4f`, `0fc5fed`, `9165172`):**
+      - **Hệ thống thành phần Mobile Native (`md:hidden`, giữ nguyên 100% giao diện Desktop):**
+        + `src/components/mobile/MobileSuperAppBar.tsx`: Thanh điều hướng đáy 5 tab cố định (`Trang chủ`, `Tin tức`, `Phản ánh`, `Tin nhắn`, `Tiện ích`) tích hợp rung phản hồi `@capacitor/haptics` (`src/utils/mobileHaptics.ts`) và badge đỏ đếm tin nhắn chưa đọc.
+        + `src/components/mobile/MobileStaffHome.tsx`: Trang chủ Cán bộ Mobile-First với Hero Trống đồng đỏ, lưới KPI 2×2 siêu gọn, dải cảnh báo nóng vuốt ngang, 4 lối tắt Squircle và **Vaul Native Gesture Bottom Sheet** xuất Báo cáo Word `.docx` / Excel `.xlsx`.
+        + `src/components/mobile/MobileUtilitiesHub.tsx`: Trung tâm Tiện ích Header Trống đồng đỏ + lưới Squircle 4 cột chia 4 nhóm phân quyền RBAC (`Dịch vụ Cư dân`, `Địa bàn & Giao thông`, `Điều hành Khu phố`, `An ninh & Quản trị 🔒`).
+        + `src/components/mobile/MobileMessagesHub.tsx`: Trung tâm Tin nhắn 3 kênh hợp nhất (`Hộp thư Zalo OA` nâng cấp Master → Detail 2 bước trên Mobile + `Phát thông báo` + `Trợ lý AI KP3`).
+        + `src/components/mobile/MobileSubpageShell.tsx`: AppBar Đỏ Trống đồng chuẩn Native tích hợp Sub-Tabs ngay trên nền Đỏ + nút `+` chính + nút `⋮` mở Vaul Action Sheet gom toàn bộ công cụ phụ (Excel/Zalo/OCR) — áp dụng đồng bộ lên **100% 13 phân hệ chính & 49 phân hệ nhỏ** (`CitizenManagement`, `HouseholdManagement`, `FieldReflections`, `BusinessManagement`, `EnterpriseManagement`, `TaskAndSchedule`, `GisMap`, `CommunityEvents`, `PartyBranch`, `SocialWelfare`, `NeighborhoodFunds`, `SettingsAndPermissions`, `AdministrativeForms`).
+      - **Hạ tầng Android 15 Emulator, Build APK & Kiểm thử Tự động:**
+        + Đã cài đặt Android 15 Emulator (`KP3_Pixel_API35`, API 35 x86_64), OpenJDK 21 (`C:\Program Files\Microsoft\jdk-21.0.13.102-hotspot`), bộ script `C:\Users\Admin\android-emulator-kit\` (`Mo-May-Ao-Android.bat` đã cấu hình `-gpu swiftshader_indirect` chạy ổn định trên Intel UHD, shortcut Desktop `May-Ao-Android-KP3.lnk`).
+        + Tích hợp MCP Server **`@mobilenext/mobile-mcp@latest`** (`github.com/mobile-next/mobile-mcp`) vào `.agents/mcp_config.json` và xây dựng CLI kiểm thử UIAutomator **`scripts/kp3-android-cli.mjs`** (`inspect`, `tap-text`, `shot`).
+        + Biên dịch & ký số thành công **`C:\Users\Admin\android-emulator-kit\KP3-AnPhu-v4.0.apk`** (`versionCode: 9`, `versionName: "4.0.0"`), kiểm thử trực tiếp trên Máy ảo Android 15 đạt **`0 crash` (`AndroidRuntime:E` rỗng)**.
+        + Bổ sung `.vercelignore` loại trừ `android/`, `ios/`, `*.apk`, `*.mp4` giúp deploy Vercel nhanh và không xung đột khi Gradle build.
+
+  46. **Studio Video Viral Remotion 4 + FFmpeg 9.1 & Video Giới Thiệu Chi Tiết 2 Phút Đồng Bộ 1 Giọng Đọc (Phiên 26/11/2026):**
+      - Đã thiết lập trọn bộ studio render video tại **`C:\Users\Admin\video-kit`** (Remotion 4, GSAP, FFmpeg 9.1 Full Build, `edge-tts` giọng `vi-VN-HoaiMyNeural` chuẩn hóa `-14 LUFS`, 3 bộ skills `remotion-skills`, `motion-ai-kit`, `gsap-skills`).
+      - Xuất bản thành công **Video Giới thiệu Chi tiết 10 Chương (`KP3Showcase2Min.tsx`)** trình diễn song song Web Portal thật & App Android v4.0 thật, đồng bộ **100% duy nhất 1 giọng đọc `vi-VN-HoaiMyNeural`**, kèm nhạc nền Tech-Corporate & phụ đề tiếng Việt:
+        + 👉 **`C:\Users\Admin\video-kit\out\KP3-AnPhu-FullShowcase-2Min-16x9.mp4`** (`02:15.70` • `1920×1080` Full HD 30fps • `58.2 MB` • Stereo AAC 48 kHz).
+        + Cùng 2 bản viral ngắn trước đó: `KP3-AnPhu-Viral-16x9.mp4` (`56.82 MB`) & `KP3-AnPhu-Viral-9x16.mp4` (`56.71 MB`).
+
 ---
 
-## 7. TRẠNG THÁI HỆ THỐNG, BÀN GIAO PHIÊN (24/11/2026) & ĐỊNH HƯỚNG TIẾP THEO
+## 7. TRẠNG THÁI HỆ THỐNG, BÀN GIAO PHIÊN (26/11/2026) & ĐỊNH HƯỚNG TIẾP THEO
 - **Trạng thái Kiểm thử & Build:**
-  - ✅ TypeScript: `npx tsc --noEmit` đạt `exit code 0` (0 lỗi trên toàn dự án Web + Serverless API).
-  - ✅ Unit Tests (Vitest): **29/29 bộ test (`136/136` kịch bản kiểm thử, bao gồm `ageCohortScanner.test.ts` đã nâng cấp NVQS 17t & 18–27t) PASS 100%**.
-  - ✅ Production Build & Chrome DevTools MCP Live E2E: Đã kiểm thử trực tiếp trên `https://bdhkp3.vercel.app` toàn bộ 6 tính năng mới, 2 công tắc AI Hộp thư Zalo OA, Webhook `POST {}` (`200 OK` ~456ms từ `sin1`) và phân hệ Rà soát NVQS tuổi 17 (15 công dân CT01) & 18–27 (146 công dân CT01) đạt **0 lỗi Console**.
+  - ✅ TypeScript: `npx tsc --noEmit` đạt `exit code 0` (0 lỗi trên toàn dự án Web + Mobile + Serverless API).
+  - ✅ Unit Tests (Vitest): Toàn bộ bộ test (bao gồm `specialSupervision.test.ts` 6/6 PASS & `ageCohortScanner.test.ts`) PASS 100%.
+  - ✅ Kiểm thử 2 môi trường thật: Đã nghiệm thu trực tiếp trên **Chrome DevTools MCP** (`0 Console Error`) và **Máy ảo Android 15 (`KP3_Pixel_API35`)** qua `scripts/kp3-android-cli.mjs` (`0 crash`, kiểm chứng hình ảnh thật `Dân cư`, `Bản đồ GIS`, `Lịch & Nhiệm vụ`, `230 Nhà trọ`, `Tin tức`, `Tin nhắn 3 kênh Zalo OA`, `Tiện ích 4 cột`).
 - **Trạng thái Hạ tầng Trực tuyến & Các Gói Phát hành:**
-  - **Web Portal Production (Region `sin1` Singapore):** 👉 **[https://bdhkp3.vercel.app](https://bdhkp3.vercel.app)** (`dpl_HjjDidvuErL5re1JnMqvND4iFA9M` — commit `29c56bb` — **READY**).
-  - **GitHub Repository (`main`):** 👉 **[https://github.com/nghiemquynh0210/khuphothongminh](https://github.com/nghiemquynh0210/khuphothongminh)** (không chứa bất kỳ secret/token plaintext nào; thư mục render video cục bộ `video-promo/` được tách biệt khỏi kho Git).
-  - **Ứng dụng Android Chính thức (`v1.1.1`, `versionCode: 3`, Signed V1+V2+V3):** 👉 **[https://github.com/nghiemquynh0210/khuphothongminh/releases/latest/download/KP3-AnPhu.apk](https://github.com/nghiemquynh0210/khuphothongminh/releases/latest/download/KP3-AnPhu.apk)** (tương thích Samsung Galaxy S25 / Android 16).
-  - **Zalo Mini App (`30172911027069915`):** **Version 6** đang hoạt động ở chế độ **Testing** trên Zalo Developer Portal.
-  - **Tự động hóa Zalo OA 24/7 (`pg_cron` Job #1 `kp3-auto-zalo-reminders-15m` & Webhook Chat 2 chiều + AI Auto-Reply):** Hoạt động ổn định trên Supabase Cloud `wjdgaobhipkgzveidtra` & `https://bdhkp3.vercel.app/api/notifications`.
+  - **Web Portal Production (Region `sin1` Singapore):** 👉 **[https://bdhkp3.vercel.app](https://bdhkp3.vercel.app)** (`dpl_CQWppbroUVPoSZNgqKfeicKhFHaK` — commit `9165172` — **READY**).
+  - **GitHub Repository (`main`):** 👉 **[https://github.com/nghiemquynh0210/khuphothongminh](https://github.com/nghiemquynh0210/khuphothongminh)** (sạch secret/token).
+  - **Ứng dụng Android Super-App mới nhất (`v4.0.0`, `versionCode: 9`, Signed):** 👉 **`C:\Users\Admin\android-emulator-kit\KP3-AnPhu-v4.0.apk`** (cùng bản phát hành GitHub Release `KP3-AnPhu.apk`).
+  - **Video Giới thiệu Chi tiết 2 phút (Full HD 1080p, 1 giọng đọc `vi-VN-HoaiMyNeural`):** 👉 **`C:\Users\Admin\video-kit\out\KP3-AnPhu-FullShowcase-2Min-16x9.mp4`** (`58.2 MB`).
+  - **Zalo Mini App (`30172911027069915`):** Version 6 (Testing) • **Zalo ZBS Account (`NAUJYKDQZBRR9WZK`):** Template `672329` (`PENDING_REVIEW`).
 - **Gợi ý Định hướng cho Phiên Làm Việc Tiếp Theo:**
-  1. Xác nhận trên Zalo Developer Portal (`developers.zalo.me` -> Ứng dụng `432932322782886593` -> **Webhook**) rằng URL `https://bdhkp3.vercel.app/api/notifications` đã bấm **Kiểm tra (`200 OK`) → Cập nhật** thành công và bật đủ sự kiện `user_send_text`, `user_send_image`, `user_send_location`, `oa_send_text`, `oa_send_image` để AI Tự động trả lời 24/7 vận hành tức thì.
-  2. Nhập liệu thực tế tiến độ đăng ký NVQS tuổi 17 và phân loại thực lực 18–27 tuổi Khu phố 3 trong **Quản lý Dân cư → Rà soát NVQS • Độ tuổi**, xuất bảng Excel 2 sheet phục vụ báo cáo Ban CHQS Phường An Phú.
-  3. Gửi xét duyệt chính thức (**Submit for Review**) phiên bản **Version 6** của Zalo Mini App `30172911027069915` lên Zalo Mini App Store và sử dụng 2 video `KP3-AnPhu-Full-9x16.mp4` / `16x9.mp4` phục vụ truyền thông Nghị quyết 57-NQ/TW.
-  4. **Định hướng mở rộng 14 Khu phố Phường An Phú (Khi anh yêu cầu sau này):** Tách thành **Phiên bản 2 (Multi-Tenant)** độc lập về mã nguồn/CSDL, tuyệt đối không làm ảnh hưởng đến hệ thống vận hành chính thức của **Khu phố 3**.
+  1. Phát hành bản **`KP3-AnPhu-v4.0.apk`** lên **GitHub Releases (`latest`)** để Cán bộ & Cư dân tải cài đặt trực tiếp từ Cổng Cư dân (và tùy chọn tích hợp thêm `@capacitor/camera` + `@capacitor/geolocation` cho chụp ảnh phản ánh 1022 / tuần tra GPS trực tiếp).
+  2. Khởi tạo dự án **iOS (`npx cap add ios`)** khi cần đóng gói xuất lên iPhone / App Store (cùng 1 bộ mã nguồn React + Tailwind + Capacitor).
+  3. Theo dõi trạng thái duyệt Mẫu tin ZBS **`672329`** trên Zalo Cloud (`PENDING_REVIEW` → `APPROVED`) để kích hoạt gửi thông báo công vụ & nhắc hạn tạm trú tự động theo SĐT.
+  4. Xuất thêm phiên bản dọc **`9:16` (TikTok / Zalo Video / Reels)** của video giới thiệu 2 phút nếu cần phục vụ truyền thông trên điện thoại.
+  5. **Định hướng mở rộng 14 Khu phố Phường An Phú (Khi anh yêu cầu sau này):** Tách thành **Phiên bản 2 (Multi-Tenant)** độc lập về mã nguồn/CSDL, tuyệt đối không làm ảnh hưởng đến hệ thống vận hành chính thức của **Khu phố 3**.
 
 <!-- ASTRYX:START -->
 Astryx v0.7.11 · 174 components
