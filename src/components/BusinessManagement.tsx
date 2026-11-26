@@ -833,7 +833,7 @@ export default function BusinessManagement({
       <div
         role="tablist"
         aria-label="Phân khu Cơ sở kinh doanh & PCCC"
-        className="inline-flex flex-wrap items-center p-1 rounded-xl bg-slate-100/90 border border-slate-200/80 gap-1"
+        className="flex items-center overflow-x-auto whitespace-nowrap max-w-full p-1 rounded-xl bg-slate-100/90 border border-slate-200/80 gap-1 w-fit no-scrollbar"
       >
         <button
           type="button"
@@ -898,8 +898,8 @@ export default function BusinessManagement({
       ) : (
         <>
 
-      {/* KPI Stats Overview Bar */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3.5">
+      {/* KPI Stats Overview Bar (2x2 on Mobile) */}
+      <div className="grid grid-cols-2 xl:grid-cols-4 gap-2.5 sm:gap-3.5">
         <StatCard
           label="Tổng cơ sở kinh doanh"
           value={businesses.length}

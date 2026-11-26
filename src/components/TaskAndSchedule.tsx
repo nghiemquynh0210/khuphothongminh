@@ -668,9 +668,9 @@ export default function TaskAndSchedule({
         />
       )}
 
-      {/* Adaptive 4 KPI Cards */}
+      {/* Adaptive 4 KPI Cards (2x2 on Mobile) */}
       {activeSubTab === "tasks" && (
-        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3.5">
+        <div className="grid grid-cols-2 xl:grid-cols-4 gap-2.5 sm:gap-3.5">
           <StatCard
             label="Tổng nhiệm vụ KP3"
             value={taskKpi.total}
@@ -720,7 +720,7 @@ export default function TaskAndSchedule({
       )}
 
       {activeSubTab === "schedules" && (
-        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3.5">
+        <div className="grid grid-cols-2 xl:grid-cols-4 gap-2.5 sm:gap-3.5">
           <StatCard
             label="Tổng lịch cán bộ KP3"
             value={scheduleKpi.total}
@@ -768,7 +768,7 @@ export default function TaskAndSchedule({
       )}
 
       {activeSubTab === "reminders" && (
-        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3.5">
+        <div className="grid grid-cols-2 xl:grid-cols-4 gap-2.5 sm:gap-3.5">
           <StatCard label="Lịch báo cáo định kỳ" value={reminderKpi.total} badge={`${reminderKpi.active} đang bật`} icon={Bell} color="slate" />
           <StatCard label="Đến hạn / sắp hạn" value={reminderKpi.due} badge="báo cáo" icon={Clock} color="rose" />
           <StatCard label="Đã nộp kỳ này" value={reminderKpi.submitted} badge="báo cáo" icon={CheckCircle2} color="emerald" />

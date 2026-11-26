@@ -1412,7 +1412,7 @@ export default function SettingsAndPermissions({
             </button>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3.5">
+          <div className="grid grid-cols-2 xl:grid-cols-4 gap-2.5 sm:gap-3.5">
             <div className="bg-white border border-slate-200/90 rounded-xl p-3.5 shadow-2xs">
               <span className="text-xs font-bold text-slate-600 uppercase tracking-wider block">Tổng số bài viết</span>
               <span className="text-lg font-bold text-slate-900 mt-1 block font-mono">{(newsList || []).length}</span>
@@ -1666,7 +1666,7 @@ export default function SettingsAndPermissions({
               </button>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3 pt-1">
+            <div className="grid grid-cols-2 xl:grid-cols-4 gap-2.5 sm:gap-3 pt-1">
               {(
                 [
                   { cat: "Xuất Excel", tone: "border-emerald-200 bg-emerald-50/50 text-emerald-800" },

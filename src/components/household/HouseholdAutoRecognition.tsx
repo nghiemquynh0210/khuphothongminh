@@ -547,7 +547,7 @@ export default function HouseholdAutoRecognition({
       )}
 
       {/* KPI Stats Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3.5">
+      <div className="grid grid-cols-2 xl:grid-cols-4 gap-2.5 sm:gap-3.5">
         <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs">
           <span className="text-[10px] uppercase font-bold text-slate-400 block tracking-wider">Tổng nhân khẩu quét</span>
           <div className="text-xl font-black text-slate-900 mt-1 flex items-baseline gap-1.5">

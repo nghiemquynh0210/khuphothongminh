@@ -428,7 +428,7 @@ export default function EnterpriseManagement({
       />
 
       {/* Compact Main Subsystem Tabs */}
-      <div className="flex flex-wrap items-center gap-1 bg-slate-100/80 p-1 rounded-xl border border-slate-200/80 w-fit">
+      <div className="flex items-center overflow-x-auto whitespace-nowrap max-w-full gap-1 bg-slate-100/80 p-1 rounded-xl border border-slate-200/80 w-fit no-scrollbar">
         <button
           type="button"
           onClick={() => setActiveMainTab("list")}
@@ -459,8 +459,8 @@ export default function EnterpriseManagement({
       {/* VIEW 1: DANH MỤC DOANH NGHIỆP & HỒ SƠ */}
       {activeMainTab === "list" ? (
         <>
-          {/* KPI Summary Cards */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-5 gap-3 sm:gap-4">
+          {/* KPI Summary Cards (2x2 on Mobile) */}
+          <div className="grid grid-cols-2 lg:grid-cols-3 2xl:grid-cols-5 gap-2.5 sm:gap-4">
             <StatCard
               label="Tổng doanh nghiệp"
               value={enterprises.length}

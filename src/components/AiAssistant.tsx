@@ -400,29 +400,29 @@ export default function AiAssistant({ context, currentUser }: AiAssistantProps =
         />
       )}
 
-      {/* Live Context Strip */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3">
-        <div className="bg-white border border-slate-200 rounded-xl px-4 py-3">
-          <div className="text-xs font-semibold text-slate-600">Quy mô KP3</div>
-          <div className="text-lg font-bold text-slate-900">
+      {/* Live Context Strip (2x2 on Mobile) */}
+      <div className="grid grid-cols-2 xl:grid-cols-4 gap-2.5 sm:gap-3">
+        <div className="bg-white border border-slate-200 rounded-xl px-3 py-2.5 sm:px-4 sm:py-3">
+          <div className="text-[11px] sm:text-xs font-semibold text-slate-500">Quy mô KP3</div>
+          <div className="text-sm sm:text-lg font-bold text-slate-900">
             {formatVNNumber(liveMetrics.householdsCount)} hộ gia đình
           </div>
         </div>
-        <div className="bg-white border border-slate-200 rounded-xl px-4 py-3">
-          <div className="text-xs font-semibold text-slate-600">Dân số quản lý</div>
-          <div className="text-lg font-bold text-slate-900">
+        <div className="bg-white border border-slate-200 rounded-xl px-3 py-2.5 sm:px-4 sm:py-3">
+          <div className="text-[11px] sm:text-xs font-semibold text-slate-500">Dân số quản lý</div>
+          <div className="text-sm sm:text-lg font-bold text-slate-900">
             {formatVNNumber(liveMetrics.residentsCount)} nhân khẩu
           </div>
         </div>
-        <div className="bg-white border border-slate-200 rounded-xl px-4 py-3">
-          <div className="text-xs font-semibold text-slate-600">Phản ánh chờ xử lý</div>
-          <div className="text-lg font-bold text-rose-700">
+        <div className="bg-white border border-slate-200 rounded-xl px-3 py-2.5 sm:px-4 sm:py-3">
+          <div className="text-[11px] sm:text-xs font-semibold text-slate-500">Phản ánh chờ xử lý</div>
+          <div className="text-sm sm:text-lg font-bold text-rose-700">
             {formatVNNumber(pendingReportsCount)} hồ sơ
           </div>
         </div>
-        <div className="bg-white border border-slate-200 rounded-xl px-4 py-3">
-          <div className="text-xs font-semibold text-slate-600">Nhiệm vụ đang mở</div>
-          <div className="text-lg font-bold text-indigo-800">
+        <div className="bg-white border border-slate-200 rounded-xl px-3 py-2.5 sm:px-4 sm:py-3">
+          <div className="text-[11px] sm:text-xs font-semibold text-slate-500">Nhiệm vụ đang mở</div>
+          <div className="text-sm sm:text-lg font-bold text-indigo-800">
             {formatVNNumber(openTasksCount)} đầu việc
           </div>
         </div>

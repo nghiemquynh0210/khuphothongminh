@@ -859,8 +859,8 @@ export default function NeighborhoodFunds({
         </div>
       )}
 
-      {/* 4 KPI Summary Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3.5 sm:gap-4">
+      {/* 4 KPI Summary Cards (2x2 on Mobile) */}
+      <div className="grid grid-cols-2 xl:grid-cols-4 gap-2.5 sm:gap-4">
         <StatCard
           label="Tồn quỹ thực tế"
           value={formatVNNumber(balanceFund)}

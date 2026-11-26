@@ -89,6 +89,15 @@
       "env": {
         "GITHUB_PERSONAL_ACCESS_TOKEN": "${GITHUB_PAT}"
       }
+    },
+    "mobile": {
+      "command": "cmd.exe",
+      "args": [
+        "/c",
+        "npx",
+        "-y",
+        "@mobilenext/mobile-mcp@latest"
+      ]
     }
   }
 }

@@ -729,8 +729,8 @@ export default function GisMap({
         </div>
       )}
 
-      {/* 4 KPI Summary Stat Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3.5 sm:gap-4">
+      {/* 4 KPI Summary Stat Cards (2x2 on Mobile) */}
+      <div className="grid grid-cols-2 xl:grid-cols-4 gap-2.5 sm:gap-4">
         <StatCard
           label="Hộ gia đình KP3"
           value={readOnly && households.length === 0 ? KP3_OFFICIAL_BASELINE.households : households.length}

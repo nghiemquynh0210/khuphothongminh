@@ -1462,8 +1462,8 @@ export default function SocialWelfare({
         }
       />
 
-      {/* 4 StatCards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3.5">
+      {/* 4 StatCards (2x2 on Mobile) */}
+      <div className="grid grid-cols-2 xl:grid-cols-4 gap-2.5 sm:gap-3.5">
         <StatCard
           label="Đối tượng thụ hưởng"
           value={kpiData.totalRecs}
@@ -1504,7 +1504,7 @@ export default function SocialWelfare({
 
       {/* Compact Sub-tab Navigation & Senior Summary Strip */}
       <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-2.5">
-        <div className="flex flex-wrap items-center gap-1 bg-slate-100/80 p-1 rounded-xl border border-slate-200/80 w-fit">
+        <div className="flex items-center overflow-x-auto whitespace-nowrap max-w-full gap-1 bg-slate-100/80 p-1 rounded-xl border border-slate-200/80 w-fit no-scrollbar">
           <button
             type="button"
             onClick={() => setActiveTab("recipients")}
