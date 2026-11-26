@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useCallback } from "react";
+import React, { useState, useEffect, useMemo, useCallback, useRef, useDeferredValue } from "react";
 import { createPortal } from "react-dom";
 import {
   Search,
@@ -48,7 +48,8 @@ import {
   Users,
   Layers,
   RefreshCw,
-  BellRing
+  BellRing,
+  Lock
 } from "lucide-react";
 import { Resident, TargetGisItem } from "../types";
 import {
@@ -66,6 +67,11 @@ import { ReportSelect } from "./reports/ReportSelect";
 import { ConfirmModal, InlineNotice } from "./ui/ConfirmModal";
 import { CT07Modal, NA17Modal, QuickHouseholdModal } from "./residents/ResidentModals";
 import { AgeCohortScannerModal } from "./residents/AgeCohortScannerModal";
+import { SpecialSupervisionTab } from "./reports/SpecialSupervisionTab";
+import {
+  canAccessSpecialSupervision,
+  matchesSmartResidentSearch,
+} from "../utils/specialSupervisionUtils";
 import { formatVNNumber } from "../utils/numberFormat";
 import { KP3_AREA_LIST, extractKp3Area, maskCccd } from "../utils/kp3Utils";
 import { recordAuditLog } from "../utils/auditLogger";
@@ -122,17 +128,37 @@ const CitizenSearchInput = React.memo(function CitizenSearchInput({
   placeholder
 }: CitizenSearchInputProps) {
   const [val, setVal] = useState(defaultValue);
+  const lastEmittedRef = useRef(defaultValue);
+  const isComposingRef = useRef(false);
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  // Chỉ đồng bộ ngược khi defaultValue đổi từ bên ngoài (VD: bấm Reset / đổi URL),
+  // TUYỆT ĐỐI không ghi đè lại giá trị chính người dùng đang gõ (tránh nhảy dấu UniKey/EVKey/IME).
   useEffect(() => {
-    setVal(defaultValue);
+    if (defaultValue !== lastEmittedRef.current) {
+      lastEmittedRef.current = defaultValue;
+      setVal(defaultValue);
+    }
   }, [defaultValue]);
 
+  const scheduleEmit = useCallback(
+    (nextVal: string) => {
+      if (timerRef.current) clearTimeout(timerRef.current);
+      timerRef.current = setTimeout(() => {
+        if (!isComposingRef.current) {
+          lastEmittedRef.current = nextVal;
+          onSearch(nextVal);
+        }
+      }, 180);
+    },
+    [onSearch]
+  );
+
   useEffect(() => {
-    const timer = setTimeout(() => {
-      onSearch(val);
-    }, 220);
-    return () => clearTimeout(timer);
-  }, [val, onSearch]);
+    return () => {
+      if (timerRef.current) clearTimeout(timerRef.current);
+    };
+  }, []);
 
   return (
     <div className="relative flex-1 min-w-0 w-full">
@@ -141,16 +167,35 @@ const CitizenSearchInput = React.memo(function CitizenSearchInput({
         id="citizen-search-input"
         name="citizenSearch"
         type="text"
-        placeholder={placeholder || "Tìm họ tên, CCCD, SĐT, địa chỉ, nhà trọ..."}
+        autoComplete="off"
+        spellCheck={false}
+        placeholder={placeholder || "Tìm họ tên (có/không dấu), CCCD, SĐT, địa chỉ, nhà trọ..."}
         value={val}
-        onChange={(e) => setVal(e.target.value)}
+        onCompositionStart={() => {
+          isComposingRef.current = true;
+        }}
+        onCompositionEnd={(e) => {
+          isComposingRef.current = false;
+          const committed = e.currentTarget.value;
+          setVal(committed);
+          scheduleEmit(committed);
+        }}
+        onChange={(e) => {
+          const next = e.target.value;
+          setVal(next);
+          if (!isComposingRef.current) {
+            scheduleEmit(next);
+          }
+        }}
         className="w-full pl-9 pr-8 py-2 border border-slate-200/90 rounded-xl text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600 bg-slate-50/50 hover:bg-white transition-all placeholder:text-slate-400"
       />
       {val && (
         <button
           type="button"
           onClick={() => {
+            if (timerRef.current) clearTimeout(timerRef.current);
             setVal("");
+            lastEmittedRef.current = "";
             onSearch("");
           }}
           className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-1 cursor-pointer"
@@ -165,6 +210,12 @@ const CitizenSearchInput = React.memo(function CitizenSearchInput({
 
 interface CitizenManagementProps {
   residents: Resident[];
+  currentUser?: {
+    username?: string;
+    fullName?: string;
+    role?: string;
+    title?: string;
+  } | null;
   onAddResident: (newResident: Resident) => void;
   onDeleteResident: (id: string) => void;
   onUpdateResidents?: (residents: Resident[]) => void;
@@ -175,6 +226,7 @@ interface CitizenManagementProps {
 
 export default function CitizenManagement({
   residents,
+  currentUser,
   onAddResident,
   onDeleteResident,
   onUpdateResidents,
@@ -182,6 +234,10 @@ export default function CitizenManagement({
   households = [],
   onNavigateToGis
 }: CitizenManagementProps) {
+  const canViewSpecialSupervision = canAccessSpecialSupervision(currentUser);
+  const [activeResidentSection, setActiveResidentSection] = useState<
+    "residents" | "special_supervision"
+  >("residents");
   const [quickHouseholdModal, setQuickHouseholdModal] = useState<any | null>(null);
 
   const handleQuickViewHousehold = (householdCodeOrId: string) => {
@@ -1371,9 +1427,11 @@ export default function CitizenManagement({
     };
   }, [residents]);
 
-  // Memoized Filter Logic with fast-path search & debounced input
+  const deferredSearchTerm = useDeferredValue(searchTerm);
+
+  // Memoized Filter Logic with smart Vietnamese (NFC/NFD/accent-insensitive) & numeric search
   const filteredResidents = useMemo(() => {
-    const query = searchTerm.toLowerCase().trim();
+    const query = deferredSearchTerm.trim();
     const hasQuery = query.length > 0;
 
     return residents.filter(res => {
@@ -1423,28 +1481,30 @@ export default function CitizenManagement({
 
       if (!hasQuery) return true;
 
-      // Fast-path text matches
-      return (
-        res.fullName.toLowerCase().includes(query) ||
-        res.cccd.toLowerCase().includes(query) ||
-        (res.phone && res.phone.includes(query)) ||
-        (res.address && res.address.toLowerCase().includes(query)) ||
-        (res.householdId && res.householdId.toLowerCase().includes(query)) ||
-        (res.occupation && res.occupation.toLowerCase().includes(query)) ||
-        (res.hometown && res.hometown.toLowerCase().includes(query)) ||
-        (res.passportNumber && res.passportNumber.toLowerCase().includes(query)) ||
-        (res.nationality && res.nationality.toLowerCase().includes(query)) ||
-        (res.temporaryRegistrationCode && res.temporaryRegistrationCode.toLowerCase().includes(query)) ||
-        (res.visaOrCardNumber && res.visaOrCardNumber.toLowerCase().includes(query)) ||
-        (res.sponsoringOrganization && res.sponsoringOrganization.toLowerCase().includes(query)) ||
-        (res.workPermitNumber && res.workPermitNumber.toLowerCase().includes(query)) ||
-        (res.healthInsuranceNumber && res.healthInsuranceNumber.toLowerCase().includes(query)) ||
-        (res.policyGroup && res.policyGroup.toLowerCase().includes(query))
-      );
+      // Smart Vietnamese (accent-insensitive, NFC/NFD) & CCCD/Phone digit-normalized match
+      return matchesSmartResidentSearch(query, [
+        res.fullName,
+        res.cccd,
+        res.phone,
+        res.address,
+        res.currentAddress,
+        res.permanentAddress,
+        res.householdId,
+        res.occupation,
+        res.hometown,
+        res.passportNumber,
+        res.nationality,
+        res.temporaryRegistrationCode,
+        res.visaOrCardNumber,
+        res.sponsoringOrganization,
+        res.workPermitNumber,
+        res.healthInsuranceNumber,
+        res.policyGroup,
+      ]);
     });
   }, [
     residents,
-    searchTerm,
+    deferredSearchTerm,
     statusFilter,
     foreignNationalityFilter,
     foreignVisaTypeFilter,
@@ -1527,6 +1587,61 @@ export default function CitizenManagement({
           onDismiss={() => setNotice(null)}
         />
       )}
+
+      {/* Sub-tabs Quản lý Dân cư (Phân hệ mật Đối tượng Đặc thù chỉ hiện với Bí thư / Admin & CSKV) */}
+      {canViewSpecialSupervision && (
+        <div
+          role="tablist"
+          aria-label="Phân hệ Quản lý Dân cư"
+          className="inline-flex flex-wrap items-center gap-1 p-1 rounded-xl bg-slate-100 border border-slate-200/90"
+        >
+          <button
+            type="button"
+            role="tab"
+            aria-selected={activeResidentSection === "residents"}
+            onClick={() => setActiveResidentSection("residents")}
+            className={`h-8 px-3.5 rounded-lg text-xs font-semibold inline-flex items-center gap-1.5 cursor-pointer transition-colors ${
+              activeResidentSection === "residents"
+                ? "bg-white text-slate-900 shadow-2xs"
+                : "text-slate-600 hover:text-slate-900"
+            }`}
+          >
+            <Users size={13} className="text-emerald-700" />
+            <span>Danh sách Dân cư ({formatVNNumber(residents.length)})</span>
+          </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={activeResidentSection === "special_supervision"}
+            onClick={() => setActiveResidentSection("special_supervision")}
+            className={`h-8 px-3.5 rounded-lg text-xs font-semibold inline-flex items-center gap-1.5 cursor-pointer transition-colors ${
+              activeResidentSection === "special_supervision"
+                ? "bg-slate-900 text-amber-300 shadow-2xs"
+                : "text-slate-600 hover:text-slate-900"
+            }`}
+            title="Phân hệ mật theo NĐ 13/2023/NĐ-CP — trích xuất trực tiếp từ 11.229 nhân khẩu"
+          >
+            <Lock
+              size={12}
+              className={
+                activeResidentSection === "special_supervision"
+                  ? "text-amber-300"
+                  : "text-rose-600"
+              }
+            />
+            <span>Đối tượng Đặc thù (ANTT)</span>
+          </button>
+        </div>
+      )}
+
+      {canViewSpecialSupervision && activeResidentSection === "special_supervision" ? (
+        <SpecialSupervisionTab
+          residents={residents}
+          currentUser={currentUser}
+          onOpenResidentDetail={(id) => navigate(getResidentDetailPath(id))}
+        />
+      ) : (
+        <>
 
       {/* 4 Standardized StatCard KPI blocks */}
       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
@@ -3285,6 +3400,8 @@ export default function CitizenManagement({
         residents={residents}
         onOpenResidentDetail={(r) => navigate(getResidentDetailPath(r.id))}
       />
+        </>
+      )}
     </div>
   );
 }

@@ -238,3 +238,99 @@ export function maskCccdNumber(cccd?: string): string {
   if (digits.length < 6) return "Chưa cập nhật";
   return `${digits.slice(0, 3)}*****${digits.slice(-4)}`;
 }
+
+/**
+ * Chuẩn hóa chuỗi tiếng Việt để tìm kiếm chính xác cả Unicode dựng sẵn (NFC) lẫn tổ hợp (NFD),
+ * hỗ trợ tìm kiếm không phân biệt dấu tiếng Việt (VD: "nguyen van" khớp "Nguyễn Văn").
+ */
+export function normalizeSearchVietnamese(input: string): string {
+  return String(input || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/đ/g, "d")
+    .replace(/Đ/g, "d")
+    .toLowerCase()
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+export function normalizeDigitsOnly(input: string): string {
+  return String(input || "").replace(/\D/g, "");
+}
+
+/**
+ * So khớp từ khóa tìm kiếm thông minh cho họ tên, CCCD, SĐT, địa chỉ, mã hộ...
+ * Hỗ trợ: tiếng Việt có dấu / không dấu, NFC / NFD, và SĐT/CCCD có dấu cách hoặc dấu gạch ngang.
+ */
+export function matchesSmartResidentSearch(
+  query: string,
+  fields: Array<string | undefined | null>
+): boolean {
+  const rawQuery = String(query || "").normalize("NFC").trim().toLowerCase();
+  if (!rawQuery) return true;
+
+  const noAccentQuery = normalizeSearchVietnamese(rawQuery);
+  const digitsQuery = normalizeDigitsOnly(rawQuery);
+  const isMostlyNumeric = digitsQuery.length >= 3 && digitsQuery.length >= rawQuery.replace(/[\s.-]/g, "").length;
+
+  for (const field of fields) {
+    if (!field) continue;
+    const rawField = String(field).normalize("NFC").toLowerCase();
+    if (rawField.includes(rawQuery)) return true;
+
+    if (noAccentQuery && normalizeSearchVietnamese(rawField).includes(noAccentQuery)) {
+      return true;
+    }
+
+    if (isMostlyNumeric && digitsQuery.length >= 3) {
+      const fieldDigits = normalizeDigitsOnly(rawField);
+      if (fieldDigits && fieldDigits.includes(digitsQuery)) return true;
+    }
+  }
+  return false;
+}
+
+export interface LiveResidentSnapshot {
+  id: string;
+  fullName: string;
+  birthDate?: string;
+  cccd?: string;
+  phone?: string;
+  currentAddress?: string;
+  permanentAddress?: string;
+  address?: string;
+  status?: string;
+  temporaryExpDate?: string;
+}
+
+/**
+ * Trích xuất động (Live Join) thông tin nhân khẩu mới nhất từ CSDL Dân cư (11.229 người)
+ * cho hồ sơ Đối tượng Đặc thù (ANTT) dựa trên `residentId`.
+ */
+export function resolveLiveSupervisionRecord(
+  record: SpecialSupervisionRecord,
+  residentsById: Map<string, LiveResidentSnapshot>
+): SpecialSupervisionRecord & {
+  isLinkedToResidentDb: boolean;
+  liveTemporaryExpDate?: string;
+} {
+  const live = record.residentId ? residentsById.get(record.residentId) : undefined;
+  if (!live) {
+    return { ...record, isLinkedToResidentDb: false };
+  }
+  const birthYear =
+    String(live.birthDate || "").match(/(19|20)\d{2}/)?.[0] || record.birthYear;
+  const liveAddress =
+    live.currentAddress || live.permanentAddress || live.address || record.address;
+  return {
+    ...record,
+    fullName: live.fullName || record.fullName,
+    birthYear,
+    cccd: live.cccd || record.cccd,
+    phone: live.phone || record.phone,
+    address: liveAddress,
+    residenceType: live.status || record.residenceType,
+    isLinkedToResidentDb: true,
+    liveTemporaryExpDate: live.temporaryExpDate,
+  };
+}

@@ -35,12 +35,15 @@ import {
   getSupervisionCategoryMeta,
   maskCccdNumber,
   maskPersonName,
+  matchesSmartResidentSearch,
+  resolveLiveSupervisionRecord,
 } from "../../utils/specialSupervisionUtils";
 
 const SUPERVISION_STORAGE_KEY = "kp3_special_supervision_v1";
 
 interface SpecialSupervisionTabProps {
   residents?: Resident[];
+  onOpenResidentDetail?: (residentId: string) => void;
   currentUser?: {
     username?: string;
     fullName?: string;
@@ -69,6 +72,7 @@ const STATUS_META: Record<SupervisionRecordStatus, { label: string; cls: string 
 
 export const SpecialSupervisionTab: React.FC<SpecialSupervisionTabProps> = ({
   residents = [],
+  onOpenResidentDetail,
   currentUser,
 }) => {
   const actorName = currentUser?.fullName || "Bí thư / Cán bộ ANTT KP3";
@@ -157,17 +161,35 @@ export const SpecialSupervisionTab: React.FC<SpecialSupervisionTabProps> = ({
     }
   };
 
+  const residentsById = useMemo(() => {
+    const map = new Map<string, Resident>();
+    for (const r of residents) {
+      map.set(r.id, r);
+    }
+    return map;
+  }, [residents]);
+
+  const liveRecords = useMemo(
+    () => records.map((rec) => resolveLiveSupervisionRecord(rec, residentsById)),
+    [records, residentsById]
+  );
+
   const matchedResidents = useMemo(() => {
-    const q = residentQuery.trim().toLowerCase();
+    const q = residentQuery.trim();
     if (q.length < 2) return [];
     return residents
-      .filter((r) => {
-        const hay = `${r.fullName || ""} ${r.cccd || ""} ${r.currentAddress || ""} ${
-          r.permanentAddress || ""
-        } ${r.phone || ""}`.toLowerCase();
-        return hay.includes(q);
-      })
-      .slice(0, 6);
+      .filter((r) =>
+        matchesSmartResidentSearch(q, [
+          r.fullName,
+          r.cccd,
+          r.phone,
+          r.currentAddress,
+          r.permanentAddress,
+          r.address,
+          r.householdId,
+        ])
+      )
+      .slice(0, 8);
   }, [residentQuery, residents]);
 
   const handlePickResident = (r: Resident) => {
@@ -464,7 +486,7 @@ export const SpecialSupervisionTab: React.FC<SpecialSupervisionTabProps> = ({
   }, [records]);
 
   const filteredRecords = useMemo(() => {
-    return records.filter((r) => {
+    return liveRecords.filter((r) => {
       if (statusFilter !== "all" && r.status !== statusFilter) return false;
       if (
         groupFilter !== "all" &&
@@ -473,15 +495,23 @@ export const SpecialSupervisionTab: React.FC<SpecialSupervisionTabProps> = ({
         return false;
       }
       if (searchTerm.trim()) {
-        const q = searchTerm.toLowerCase();
-        const hay = `${r.id} ${r.fullName} ${r.cccd || ""} ${r.address} ${
-          r.decisionNumber || ""
-        } ${r.assignedOfficer}`.toLowerCase();
-        if (!hay.includes(q)) return false;
+        if (
+          !matchesSmartResidentSearch(searchTerm, [
+            r.id,
+            r.fullName,
+            r.cccd,
+            r.phone,
+            r.address,
+            r.decisionNumber,
+            r.assignedOfficer,
+          ])
+        ) {
+          return false;
+        }
       }
       return true;
     });
-  }, [records, statusFilter, groupFilter, searchTerm]);
+  }, [liveRecords, statusFilter, groupFilter, searchTerm]);
 
   return (
     <div className="space-y-4">
@@ -677,6 +707,11 @@ export const SpecialSupervisionTab: React.FC<SpecialSupervisionTabProps> = ({
                       >
                         {stMeta.label}
                       </span>
+                      {rec.isLinkedToResidentDb && (
+                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200">
+                          ✓ Trích từ CSDL Dân cư
+                        </span>
+                      )}
                       {daysLeft !== null && rec.status === "active" && (
                         <span
                           className={`text-[11px] font-mono font-bold px-2 py-0.5 rounded-full border ${
@@ -733,6 +768,17 @@ export const SpecialSupervisionTab: React.FC<SpecialSupervisionTabProps> = ({
                   </div>
 
                   <div className="flex flex-wrap items-center gap-2 shrink-0">
+                    {rec.residentId && onOpenResidentDetail && (
+                      <button
+                        type="button"
+                        onClick={() => onOpenResidentDetail(rec.residentId!)}
+                        className="h-8 px-2.5 rounded-lg bg-slate-100 hover:bg-slate-200 border border-slate-200 text-slate-800 text-xs font-semibold inline-flex items-center gap-1 cursor-pointer"
+                        title="Mở hồ sơ nhân khẩu gốc trong CSDL Dân cư KP3"
+                      >
+                        <Eye size={12} />
+                        <span>Hồ sơ dân cư</span>
+                      </button>
+                    )}
                     <button
                       type="button"
                       onClick={() => setSelectedRecordId(rec.id)}

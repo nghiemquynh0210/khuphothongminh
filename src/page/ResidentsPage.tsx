@@ -147,6 +147,7 @@ export default function ResidentsPage({
       )}
       <CitizenManagement
         residents={residents}
+        currentUser={currentUser}
         onAddResident={onAddResident}
         onDeleteResident={onDeleteResident}
         onUpdateResidents={onUpdateResidents}
