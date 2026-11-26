@@ -8,6 +8,7 @@ import {
   Filter,
   LayoutGrid,
   List,
+  Lock,
   MessageCircle,
   MessageSquareWarning,
   Plus,
@@ -20,6 +21,7 @@ import {
   FieldReport,
   ReportMessage,
   ReportPriority,
+  Resident,
   TargetGisItem,
 } from "../types";
 import {
@@ -40,6 +42,8 @@ import { ReportCard } from "./reports/ReportCard";
 import { ReportTable } from "./reports/ReportTable";
 import { ZaloOaChatInbox } from "./reports/ZaloOaChatInbox";
 import { SecurityPatrolLogTab } from "./reports/SecurityPatrolLogTab";
+import { SpecialSupervisionTab } from "./reports/SpecialSupervisionTab";
+import { canAccessSpecialSupervision } from "../utils/specialSupervisionUtils";
 import {
   ROUTES,
   getReportCreatePath,
@@ -84,6 +88,7 @@ export interface FieldReflectionsProps {
     title?: string;
   } | null;
   readOnly?: boolean;
+  residents?: Resident[];
 }
 
 export default function FieldReflections({
@@ -98,11 +103,14 @@ export default function FieldReflections({
   onViewModeChange,
   currentUser,
   readOnly: readOnlyProp,
+  residents = [],
 }: FieldReflectionsProps) {
   const readOnly =
     typeof readOnlyProp === "boolean"
       ? readOnlyProp
       : currentUser?.role !== "canbo";
+
+  const canViewSpecialSupervision = !readOnly && canAccessSpecialSupervision(currentUser);
 
   const actorName =
     currentUser?.fullName || (readOnly ? "Cư dân Khu phố 3" : "Cán bộ Ban Điều hành KP3");
@@ -130,7 +138,9 @@ export default function FieldReflections({
 
   const REPORTS_PER_PAGE = 12;
   const [currentPage, setCurrentPage] = useState(1);
-  const [activeSubTab, setActiveSubTab] = useState<"reports" | "zalo_inbox" | "patrol_logs">("reports");
+  const [activeSubTab, setActiveSubTab] = useState<
+    "reports" | "zalo_inbox" | "patrol_logs" | "special_supervision"
+  >("reports");
   const [zaloUnreadCount, setZaloUnreadCount] = useState(0);
 
   const [toastMsg, setToastMsg] = useState<string | null>(null);
@@ -399,10 +409,29 @@ export default function FieldReflections({
             <Shield size={13} className="text-amber-700" />
             <span>Tuần tra ANTT</span>
           </button>
+          {canViewSpecialSupervision && (
+            <button
+              type="button"
+              role="tab"
+              aria-selected={activeSubTab === "special_supervision"}
+              onClick={() => setActiveSubTab("special_supervision")}
+              className={`h-8 px-3.5 rounded-lg text-xs font-semibold inline-flex items-center gap-1.5 cursor-pointer transition-colors ${
+                activeSubTab === "special_supervision"
+                  ? "bg-slate-900 text-amber-300 shadow-2xs"
+                  : "text-slate-600 hover:text-slate-900"
+              }`}
+              title="Phân hệ mật theo NĐ 13/2023/NĐ-CP — chỉ mở cho Bí thư / Admin & CSKV"
+            >
+              <Lock size={12} className={activeSubTab === "special_supervision" ? "text-amber-300" : "text-rose-600"} />
+              <span>Đối tượng Đặc thù (ANTT)</span>
+            </button>
+          )}
         </div>
       )}
 
-      {!readOnly && activeSubTab === "patrol_logs" ? (
+      {canViewSpecialSupervision && activeSubTab === "special_supervision" ? (
+        <SpecialSupervisionTab residents={residents} currentUser={currentUser} />
+      ) : !readOnly && activeSubTab === "patrol_logs" ? (
         <SecurityPatrolLogTab onAddReport={onAddReport} currentUser={currentUser} />
       ) : !readOnly && activeSubTab === "zalo_inbox" ? (
         <ZaloOaChatInbox
