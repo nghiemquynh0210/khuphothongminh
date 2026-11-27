@@ -55,7 +55,11 @@
       "destination": "/api/$1"
     },
     {
-      "source": "/((?!api/|assets/).*)",
+      "source": "/privacy",
+      "destination": "/privacy-policy.html"
+    },
+    {
+      "source": "/((?!api/|assets/|privacy-policy\\.html).*)",
       "destination": "/index.html"
     }
   ]
