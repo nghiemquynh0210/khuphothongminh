@@ -470,25 +470,44 @@ Dự án đã thiết lập 2 MCP Servers hoạt động:
         + 👉 **`C:\Users\Admin\video-kit\out\KP3-AnPhu-FullShowcase-2Min-16x9.mp4`** (`02:15.70` • `1920×1080` Full HD 30fps • `58.2 MB` • Stereo AAC 48 kHz).
         + Cùng 2 bản viral ngắn trước đó: `KP3-AnPhu-Viral-16x9.mp4` (`56.82 MB`) & `KP3-AnPhu-Viral-9x16.mp4` (`56.71 MB`).
 
+  47. **Kiểm Định Tổng Thể Pro QA Audit (Swarm 4 Chuyên Gia), Vá Triệt Để 07 P0 + 12 P1 & Xuất Bản Android v4.0.1 APK / v4.0.2 Play Store AAB (Phiên 27/11/2026 — commits `11218d6`, `08b3904`):**
+      - **Bảo mật API Serverless & Nghị định 13/2023/NĐ-CP:**
+        + Chặn triệt để PostgREST Filter Injection + giới hạn tần suất theo IP (rate-limit) + che mờ PII địa chỉ/SĐT công khai tại `mini_app_lookup_resident` (`api/notifications.ts`).
+        + Bật xác thực chữ ký MAC `X-ZEvent-Signature` (`timingSafeEqual`) cho Zalo OA Webhook (giữ nguyên fast-path healthcheck `POST {}` → `200 OK`) và whitelist Zalo CDN chống SSRF.
+        + Khóa cứng `caller.isAdmin` cho `get_zalo_browser_sync_token`, `save_config`, `save_zbs_config`; bổ sung tự động refresh token khi gặp mã lỗi `-216`/`-220` cho Zalo OA CS & ZBS/ZNS.
+        + Gia cố `api/keepalive.ts`: yêu cầu `CRON_SECRET` / `x-vercel-cron` / Staff JWT hợp lệ cho `?check_meetings=1`, gọi `ensureValidZaloAccessToken` (`getoa`) tối đa 1 lần/lượt, đặt tổng ngân sách timeout `8.5s` (`< 10s` Vercel Hobby).
+        + Đưa `timemark_photo` vào `STAFF_ONLY_DOC_TYPES` (`api/ocr-document.ts`), thêm `PATCH` vào CORS `Access-Control-Allow-Methods` (`api/staff-admin.ts`), đổi mặc định `savePortalSetting(..., isPublic = false)` (`src/utils/supabaseSync.ts`).
+      - **UI/UX Siêu Ứng Dụng Mobile v4.0 & Hiệu Năng Frontend (11.229 nhân khẩu / 7.815 hộ):**
+        + Nâng mặc định `Modal.tsx` (`z-[100]`), bọc `createPortal(..., document.body)` (`z-[110]`) cho `QuickCommandModal.tsx` & modal xem Sổ đỏ `viewingDoc` ở `BusinessManagement.tsx`.
+        + Bổ sung `env(safe-area-inset-top/bottom)` trên AppBar đỏ, Vaul Drawer và Spacer đáy (`MobileStaffHome.tsx`, `MobileSubpageShell.tsx`, `src/App.tsx`); sửa lỗi hiển thị trường `TaskItem` tại `MobileStaffHome.tsx`; thêm `.no-scrollbar` vào `src/index.css` & nâng nút chạm chính lên `>= 44px`.
+        + Tối ưu `useMemo` Map nhà trọ (`BusinessManagement.tsx`) & pre-compute `residentSearchIndex` không dấu (`CitizenManagement.tsx`); phân trang `range()` bảng `households` & giới hạn concurrency 4 + cờ `cancelled` (`src/App.tsx`).
+      - **Android App v4.0.1 APK & Google Play Bundle v4.0.2 (`.aab` API 36):**
+        + Gỡ sạch mật khẩu keystore plaintext khỏi `android/app/build.gradle` (chuyển sang `keystore.properties` / biến môi trường), chặn `*.jks`, `*.keystore`, `keystore.properties` trong `.gitignore`.
+        + Nâng `compileSdkVersion = 36` & **`targetSdkVersion = 36` (Android 16)** với xử lý Edge-to-Edge chuẩn `WindowCompat` + `ViewCompat.setOnApplyWindowInsetsListener` (`MainActivity.java`); tắt `allowMixedContent` (`capacitor.config.ts`) & `allowBackup` (`AndroidManifest.xml`).
+        + Xuất bản **`KP3-AnPhu-v4.0.1.apk`** (`13.83 MB`, `versionCode 10`) lên GitHub Releases `v4.0.1` (`latest/download/KP3-AnPhu.apk`).
+        + Xuất bản **`KP3-AnPhu-v4.0.2-api36.aab`** (`13.45 MB`, `versionCode 11`, `targetSdkVersion 36`, Bundle ID `vn.tphcm.anphu.khupho3`), ký số bằng Play Store Upload Keystore ngoài repo (`C:\Users\Admin\android-emulator-kit\kp3-anphu-playstore-upload.jks`, SHA-256 `ED:0E:06:65:33:A3:06:FC:22:BE:4B:51:85:48:2C:C8:20:69:21:E5:55:72:16:A7:A5:1F:50:DD:8D:7D:55:6E`, `jarsigner` PASS).
+      - **Phân tích Kiến trúc Mở rộng 14 Khu phố Phường An Phú (Chưa triển khai):** Đã hoàn tất đề án đánh giá 3 phương án Multi-Tenant & phân tích chuyên sâu gói **01 Supabase Pro tập trung (`$25/tháng`, RLS 3 tầng, Server-Side Pagination)**, bảo toàn tuyệt đối hệ thống KP3 hiện tại; lưu làm tài liệu tham chiếu khi Phường có chủ trương.
+
 ---
 
-## 7. TRẠNG THÁI HỆ THỐNG, BÀN GIAO PHIÊN (26/11/2026) & ĐỊNH HƯỚNG TIẾP THEO
+## 7. TRẠNG THÁI HỆ THỐNG, BÀN GIAO PHIÊN (27/11/2026) & ĐỊNH HƯỚNG TIẾP THEO
 - **Trạng thái Kiểm thử & Build:**
   - ✅ TypeScript: `npx tsc --noEmit` đạt `exit code 0` (0 lỗi trên toàn dự án Web + Mobile + Serverless API).
-  - ✅ Unit Tests (Vitest): Toàn bộ bộ test (bao gồm `specialSupervision.test.ts` 6/6 PASS & `ageCohortScanner.test.ts`) PASS 100%.
-  - ✅ Kiểm thử 2 môi trường thật: Đã nghiệm thu trực tiếp trên **Chrome DevTools MCP** (`0 Console Error`) và **Máy ảo Android 15 (`KP3_Pixel_API35`)** qua `scripts/kp3-android-cli.mjs` (`0 crash`, kiểm chứng hình ảnh thật `Dân cư`, `Bản đồ GIS`, `Lịch & Nhiệm vụ`, `230 Nhà trọ`, `Tin tức`, `Tin nhắn 3 kênh Zalo OA`, `Tiện ích 4 cột`).
+  - ✅ Unit Tests (Vitest): **30/30 test files, 143/143 tests PASS 100%** (bao gồm `keepalive`, `zaloAndStaffLink`, `staffAdmin`, `supabaseSync`, `auditSecurityAndFixes`, `specialSupervision`, `ageCohortScanner`, `leadershipSync`).
+  - ✅ Kiểm thử Production E2E & Android: Nghiệm thu trực tiếp trên **`https://bdhkp3.vercel.app`** (`0 Console Error`, `0 Network Failure`, `0` tràn ngang Desktop/Mobile, xác thực chặn PostgREST injection & keepalive bypass thành công) và đóng gói/ký số sạch APK `v4.0.1` + AAB `v4.0.2`.
 - **Trạng thái Hạ tầng Trực tuyến & Các Gói Phát hành:**
-  - **Web Portal Production (Region `sin1` Singapore):** 👉 **[https://bdhkp3.vercel.app](https://bdhkp3.vercel.app)** (`dpl_CQWppbroUVPoSZNgqKfeicKhFHaK` — commit `9165172` — **READY**).
-  - **GitHub Repository (`main`):** 👉 **[https://github.com/nghiemquynh0210/khuphothongminh](https://github.com/nghiemquynh0210/khuphothongminh)** (sạch secret/token).
-  - **Ứng dụng Android Super-App mới nhất (`v4.0.0`, `versionCode: 9`, Signed):** 👉 **`C:\Users\Admin\android-emulator-kit\KP3-AnPhu-v4.0.apk`** (cùng bản phát hành GitHub Release `KP3-AnPhu.apk`).
+  - **Web Portal Production (Region `sin1` Singapore):** 👉 **[https://bdhkp3.vercel.app](https://bdhkp3.vercel.app)** (`dpl_exzub8YpcWiDYEMH7Cs8cMzanXYD` — commit `11218d6` — **READY**).
+  - **GitHub Repository (`main`):** 👉 **[https://github.com/nghiemquynh0210/khuphothongminh](https://github.com/nghiemquynh0210/khuphothongminh)** (commit mới nhất `08b3904`, sạch secret/token).
+  - **GitHub Releases Android APK (`v4.0.1`, `versionCode: 10`, `13.83 MB`, Signed):** 👉 **`https://github.com/nghiemquynh0210/khuphothongminh/releases/latest/download/KP3-AnPhu.apk`** (file cục bộ `C:\Users\Admin\android-emulator-kit\KP3-AnPhu-v4.0.1.apk`).
+  - **Google Play Store App Bundle (`.aab` `v4.0.2`, `versionCode: 11`, `targetSdkVersion 36`, `13.45 MB`):** 👉 **`C:\Users\Admin\android-emulator-kit\KP3-AnPhu-v4.0.2-api36.aab`** (Bundle ID `vn.tphcm.anphu.khupho3`, ký bằng Upload Keystore ngoài repo `kp3-anphu-playstore-upload.jks`).
   - **Video Giới thiệu Chi tiết 2 phút (Full HD 1080p, 1 giọng đọc `vi-VN-HoaiMyNeural`):** 👉 **`C:\Users\Admin\video-kit\out\KP3-AnPhu-FullShowcase-2Min-16x9.mp4`** (`58.2 MB`).
   - **Zalo Mini App (`30172911027069915`):** Version 6 (Testing) • **Zalo ZBS Account (`NAUJYKDQZBRR9WZK`):** Template `672329` (`PENDING_REVIEW`).
 - **Gợi ý Định hướng cho Phiên Làm Việc Tiếp Theo:**
-  1. Phát hành bản **`KP3-AnPhu-v4.0.apk`** lên **GitHub Releases (`latest`)** để Cán bộ & Cư dân tải cài đặt trực tiếp từ Cổng Cư dân (và tùy chọn tích hợp thêm `@capacitor/camera` + `@capacitor/geolocation` cho chụp ảnh phản ánh 1022 / tuần tra GPS trực tiếp).
+  1. Tải file **`KP3-AnPhu-v4.0.2-api36.aab`** lên Google Play Console (Internal/Closed Testing hoặc Production) và tùy chọn tích hợp thêm `@capacitor/camera` + `@capacitor/geolocation` cho chụp ảnh phản ánh 1022 / tuần tra GPS trực tiếp.
   2. Khởi tạo dự án **iOS (`npx cap add ios`)** khi cần đóng gói xuất lên iPhone / App Store (cùng 1 bộ mã nguồn React + Tailwind + Capacitor).
   3. Theo dõi trạng thái duyệt Mẫu tin ZBS **`672329`** trên Zalo Cloud (`PENDING_REVIEW` → `APPROVED`) để kích hoạt gửi thông báo công vụ & nhắc hạn tạm trú tự động theo SĐT.
   4. Xuất thêm phiên bản dọc **`9:16` (TikTok / Zalo Video / Reels)** của video giới thiệu 2 phút nếu cần phục vụ truyền thông trên điện thoại.
-  5. **Định hướng mở rộng 14 Khu phố Phường An Phú (Khi anh yêu cầu sau này):** Tách thành **Phiên bản 2 (Multi-Tenant)** độc lập về mã nguồn/CSDL, tuyệt đối không làm ảnh hưởng đến hệ thống vận hành chính thức của **Khu phố 3**.
+  5. **Định hướng mở rộng 14 Khu phố Phường An Phú (Khi Phường có chủ trương):** Áp dụng đề án **01 Supabase Pro tập trung (`$25/tháng`, RLS 3 tầng, Server-Side Pagination)** ở nhánh/môi trường triển khai riêng, bảo toàn tuyệt đối hệ thống vận hành chính thức của **Khu phố 3**.
 
 <!-- ASTRYX:START -->
 Astryx v0.7.11 · 174 components
