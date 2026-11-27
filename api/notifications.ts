@@ -1,4 +1,103 @@
+import crypto from "node:crypto";
 import { GoogleGenAI } from "@google/genai";
+
+const publicActionRateMap = new Map<string, { count: number; resetAt: number }>();
+
+function extractPublicClientIp(req: any): string {
+  const realIp = String(req?.headers?.["x-real-ip"] || "").trim();
+  if (realIp) return realIp;
+  const xff = String(req?.headers?.["x-forwarded-for"] || "").trim();
+  if (xff) {
+    const parts = xff.split(",").map((s) => s.trim()).filter(Boolean);
+    return parts[parts.length - 1] || "local";
+  }
+  return String(req?.socket?.remoteAddress || "local");
+}
+
+function checkPublicRateLimit(bucketKey: string, maxPerMin: number): boolean {
+  const now = Date.now();
+  if (publicActionRateMap.size > 3000) {
+    for (const [k, v] of publicActionRateMap.entries()) {
+      if (now > v.resetAt) publicActionRateMap.delete(k);
+    }
+  }
+  const entry = publicActionRateMap.get(bucketKey);
+  if (!entry || now > entry.resetAt) {
+    publicActionRateMap.set(bucketKey, { count: 1, resetAt: now + 60_000 });
+    return true;
+  }
+  if (entry.count >= maxPerMin) return false;
+  entry.count += 1;
+  return true;
+}
+
+function isAllowedZaloMediaUrl(rawUrl: string): boolean {
+  try {
+    const parsed = new URL(rawUrl);
+    if (parsed.protocol !== "https:") return false;
+    const host = parsed.hostname.toLowerCase();
+    return (
+      host === "zdn.vn" ||
+      host.endsWith(".zdn.vn") ||
+      host === "zadn.vn" ||
+      host.endsWith(".zadn.vn") ||
+      host === "zalo.me" ||
+      host.endsWith(".zalo.me") ||
+      host === "zaloapp.com" ||
+      host.endsWith(".zaloapp.com")
+    );
+  } catch {
+    return false;
+  }
+}
+
+function maskPublicAddress(raw?: string | null): string {
+  const cleaned = String(raw || "")
+    .replace(/\b0\d{8,10}\b/g, "0***")
+    .replace(/\b84\d{8,10}\b/g, "84***")
+    .trim();
+  if (!cleaned) return "Khu phố 3, Phường An Phú, TP. Hồ Chí Minh";
+  const parts = cleaned.split(",").map((p) => p.trim()).filter(Boolean);
+  if (parts.length <= 1) {
+    return "Khu phố 3, Phường An Phú, TP. Hồ Chí Minh";
+  }
+  return `***, ${parts.slice(1).join(", ")}`;
+}
+
+function verifyZaloWebhookSignature(
+  req: any,
+  body: Record<string, any>,
+  appId: string,
+  appSecret: string
+): boolean {
+  const rawSig = String(
+    req?.headers?.["x-zevent-signature"] || req?.headers?.["X-ZEvent-Signature"] || ""
+  ).trim();
+  if (!rawSig) return false;
+  const sigHex = rawSig.replace(/^mac=/i, "").trim().toLowerCase();
+  if (!/^[a-f0-9]{64}$/.test(sigHex)) return false;
+
+  const rawBody =
+    typeof req?.rawBody === "string"
+      ? req.rawBody
+      : typeof req?.body === "string"
+        ? req.body
+        : JSON.stringify(body);
+  const timestamp = String(body?.timestamp ?? "").trim();
+  const expectedHex = crypto
+    .createHash("sha256")
+    .update(`${appId}${rawBody}${timestamp}${appSecret}`)
+    .digest("hex")
+    .toLowerCase();
+
+  try {
+    const a = Buffer.from(sigHex, "hex");
+    const b = Buffer.from(expectedHex, "hex");
+    return a.length === b.length && crypto.timingSafeEqual(a, b);
+  } catch {
+    return false;
+  }
+}
 
 export const ZALO_OA_KP3_DEFAULTS = {
   oaId: "3124278810088361494",
@@ -683,23 +782,25 @@ async function sendZaloOaCsMessage(
 
   try {
     // OA Cơ quan Nhà nước (oa_type = 4) sử dụng endpoint chính thức /v2.0/oa/message (không bị chặn cửa sổ 48h CS)
-    let j = await postOnce(accessToken, "https://openapi.zalo.me/v2.0/oa/message");
+    let effectiveToken = accessToken;
+    let j = await postOnce(effectiveToken, "https://openapi.zalo.me/v2.0/oa/message");
 
-    // Tự động làm mới Access Token nếu mã lỗi -216 (Access token has expired)
-    if (j?.error === -216 && refreshCtx) {
+    // Tự động làm mới Access Token nếu mã lỗi -216 / -220 (Access token hết hạn hoặc không hợp lệ)
+    if ((j?.error === -216 || j?.error === -220) && refreshCtx) {
       const refreshed = await refreshZaloAccessTokenIfNeeded(
         refreshCtx.cfg,
         refreshCtx.supabaseUrl,
         refreshCtx.serviceRoleKey,
         true
       );
-      if (refreshed && refreshed !== accessToken) {
-        j = await postOnce(refreshed, "https://openapi.zalo.me/v2.0/oa/message");
+      if (refreshed && refreshed !== effectiveToken) {
+        effectiveToken = refreshed;
+        j = await postOnce(effectiveToken, "https://openapi.zalo.me/v2.0/oa/message");
         if (j?.error === 0) {
           return {
             ok: true,
             detail: `msg_id:${j?.data?.message_id || "ok"}`,
-            newToken: refreshed,
+            newToken: effectiveToken,
           };
         }
       }
@@ -709,10 +810,14 @@ async function sendZaloOaCsMessage(
       return { ok: true, detail: `msg_id:${j?.data?.message_id || "ok"}` };
     }
 
-    // Fallback sang v3.0/oa/message/cs nếu là OA doanh nghiệp thông thường
-    const jCs = await postOnce(accessToken, "https://openapi.zalo.me/v3.0/oa/message/cs");
+    // Fallback sang v3.0/oa/message/cs nếu là OA doanh nghiệp thông thường (dùng effectiveToken mới nhất)
+    const jCs = await postOnce(effectiveToken, "https://openapi.zalo.me/v3.0/oa/message/cs");
     if (jCs?.error === 0) {
-      return { ok: true, detail: `msg_id:${jCs?.data?.message_id || "ok"}` };
+      return {
+        ok: true,
+        detail: `msg_id:${jCs?.data?.message_id || "ok"}`,
+        ...(effectiveToken !== accessToken ? { newToken: effectiveToken } : {}),
+      };
     }
 
     return { ok: false, detail: String(j?.message || `zalo_error_${j?.error}`) };
@@ -791,6 +896,8 @@ async function uploadRemoteImageToFieldReportsStorage(
   zaloUserId: string
 ): Promise<string> {
   if (!remoteUrl || !supabaseUrl || !serviceRoleKey) return remoteUrl;
+  // Chống SSRF: chỉ cho phép tải ảnh từ whitelist domain chính thức của Zalo CDN
+  if (!isAllowedZaloMediaUrl(remoteUrl)) return "";
   try {
     const imgRes = await fetch(remoteUrl);
     if (!imgRes.ok) return remoteUrl;
@@ -1216,6 +1323,24 @@ export default async function notificationsHandler(req: any, res: any) {
       return res.status(200).json({ ok: true, received: true });
     }
     try {
+      const savedCfg = await readPrivateSetting<ZaloOaSavedConfig>(
+        supabaseUrl,
+        serviceRoleKey,
+        CONFIG_KEY
+      );
+      const webhookSecret = String(savedCfg?.appSecret || process.env.ZALO_APP_SECRET || "").trim();
+      if (webhookSecret) {
+        const webhookAppId = String(
+          body.app_id || savedCfg?.appId || process.env.ZALO_APP_ID || ZALO_OA_KP3_DEFAULTS.linkedAppId
+        ).trim();
+        if (!verifyZaloWebhookSignature(req, body, webhookAppId, webhookSecret)) {
+          return res.status(401).json({
+            ok: false,
+            error: "Chữ ký xác thực Zalo Webhook (X-ZEvent-Signature) không hợp lệ.",
+          });
+        }
+      }
+
       const eventName = String(body.event_name);
       const zaloUid = String(body.sender?.id || body.follower?.id || "").trim();
       if (zaloUid) {
@@ -1242,11 +1367,6 @@ export default async function notificationsHandler(req: any, res: any) {
           // Ưu tiên tên đã lưu trong danh bạ 347+ followers để tránh độ trễ mạng/chặn IP khi gọi getprofile từ serverless
           let resolvedDisplayName = prev?.displayName || "";
           let resolvedAvatar = "";
-          const savedCfg = await readPrivateSetting<ZaloOaSavedConfig>(
-            supabaseUrl,
-            serviceRoleKey,
-            CONFIG_KEY
-          );
           let activeToken = "";
           if (savedCfg) {
             activeToken = await refreshZaloAccessTokenIfNeeded(
@@ -1484,7 +1604,14 @@ Chỉ trả về đúng nội dung tin nhắn thuần văn bản (không markdow
     const action = String(body.action || "get_config");
 
     // --- 3.1. ZALO MINI APP: TIẾP NHẬN PHẢN ÁNH 1022 TỪ CƯ DÂN ---
+    const publicClientIp = extractPublicClientIp(req);
     if (action === "public_submit_hostel_checkin") {
+      if (!checkPublicRateLimit(`hostel_checkin:${publicClientIp}`, 10)) {
+        return res.status(429).json({
+          ok: false,
+          error: "Tần suất gửi khai báo lưu trú quá nhanh. Vui lòng thử lại sau 1 phút.",
+        });
+      }
       if (!supabaseUrl || !serviceRoleKey) {
         return res.status(500).json({ ok: false, error: "Chưa cấu hình máy chủ dữ liệu." });
       }
@@ -1525,6 +1652,12 @@ Chỉ trả về đúng nội dung tin nhắn thuần văn bản (không markdow
       return res.status(200).json({ ok: true, id: newEntry.id });
     }
     if (action === "mini_app_submit_report") {
+      if (!checkPublicRateLimit(`mini_app_report:${publicClientIp}`, 10)) {
+        return res.status(429).json({
+          ok: false,
+          error: "Tần suất gửi phản ánh 1022 quá nhanh. Vui lòng thử lại sau 1 phút.",
+        });
+      }
       const { title, category, location, description, reporter_name, reporter_phone } = body;
       if (!title || !location || !description) {
         return res.status(400).json({
@@ -1574,27 +1707,42 @@ Chỉ trả về đúng nội dung tin nhắn thuần văn bản (không markdow
 
     // --- 3.2. ZALO MINI APP: TRA CỨU HỒ SƠ CƯ TRÚ AN TOÀN CHO CƯ DÂN ---
     if (action === "mini_app_lookup_resident") {
-      const rawQuery = String(body.query || body.cccd || "").trim();
-      const digits = rawQuery.replace(/\D/g, "");
+      if (!checkPublicRateLimit(`mini_app_lookup:${publicClientIp}`, 12)) {
+        return res.status(429).json({
+          ok: false,
+          error: "Bạn đang tra cứu quá nhanh. Vui lòng thử lại sau 1 phút.",
+        });
+      }
 
-      if (digits.length < 9 && rawQuery.length < 3) {
+      const rawQuery = String(body.query || body.cccd || "").trim();
+      // Chặn tuyệt đối các ký tự đặc biệt (, ) ( . * %) gây PostgREST filter injection
+      const sanitizedQuery = rawQuery.replace(/[^0-9A-Za-z-]/g, "").slice(0, 32);
+      const digits = sanitizedQuery.replace(/\D/g, "");
+
+      if (
+        !sanitizedQuery ||
+        sanitizedQuery !== rawQuery.replace(/\s+/g, "") ||
+        (digits.length < 9 && sanitizedQuery.length < 3)
+      ) {
         return res.status(400).json({
           ok: false,
-          error: "Vui lòng nhập Số CCCD (12 chữ số) hoặc Mã hộ gia đình hợp lệ.",
+          error: "Vui lòng nhập Số CCCD (12 chữ số) hoặc Mã hộ gia đình hợp lệ (chỉ gồm chữ, số và dấu gạch ngang).",
         });
       }
 
       let queryUrl = "";
-      if (digits.length === 12) {
+      if (digits.length === 12 && /^\d{12}$/.test(sanitizedQuery)) {
         queryUrl = `${supabaseUrl}/rest/v1/residents?cccd=eq.${encodeURIComponent(
           digits
         )}&select=id,full_name,cccd,status,birth_date,address,permanent_address,current_address,temporary_reg_date,temporary_exp_date,household_code,management_status&limit=1`;
-      } else {
-        queryUrl = `${supabaseUrl}/rest/v1/residents?or=(household_code.eq.${encodeURIComponent(
-          rawQuery
-        )},phone.eq.${encodeURIComponent(
+      } else if (digits.length >= 9 && digits.length <= 11 && /^\d+$/.test(sanitizedQuery)) {
+        queryUrl = `${supabaseUrl}/rest/v1/residents?phone=eq.${encodeURIComponent(
           digits
-        )})&select=id,full_name,cccd,status,birth_date,address,permanent_address,current_address,temporary_reg_date,temporary_exp_date,household_code,management_status&limit=1`;
+        )}&select=id,full_name,cccd,status,birth_date,address,permanent_address,current_address,temporary_reg_date,temporary_exp_date,household_code,management_status&limit=1`;
+      } else {
+        queryUrl = `${supabaseUrl}/rest/v1/residents?household_code=eq.${encodeURIComponent(
+          sanitizedQuery
+        )}&select=id,full_name,cccd,status,birth_date,address,permanent_address,current_address,temporary_reg_date,temporary_exp_date,household_code,management_status&limit=1`;
       }
 
       const fetchRes = await fetch(queryUrl, {
@@ -1654,6 +1802,10 @@ Chỉ trả về đúng nội dung tin nhắn thuần văn bản (không markdow
       const maskedCccd =
         cccdStr.length >= 8 ? `${cccdStr.slice(0, 3)}*****${cccdStr.slice(-4)}` : cccdStr;
 
+      const maskedAddress = maskPublicAddress(
+        item.current_address || item.permanent_address || item.address
+      );
+
       return res.status(200).json({
         ok: true,
         found: true,
@@ -1661,11 +1813,7 @@ Chỉ trả về đúng nội dung tin nhắn thuần văn bản (không markdow
           fullName: maskedName,
           idCardMasked: maskedCccd,
           residenceType: isTamTru ? "Tạm trú" : "Thường trú",
-          address:
-            item.current_address ||
-            item.permanent_address ||
-            item.address ||
-            "Khu phố 3, Phường An Phú, TP. Hồ Chí Minh",
+          address: maskedAddress,
           temporaryRegDate: item.temporary_reg_date || null,
           temporaryExpDate: item.temporary_exp_date || null,
           daysLeft,
@@ -1816,6 +1964,12 @@ Chỉ trả về đúng nội dung tin nhắn thuần văn bản (không markdow
   }
 
   if (action === "save_config") {
+    if (!caller.isAdmin) {
+      return res.status(403).json({
+        ok: false,
+        error: "Chỉ Quản trị viên (Admin / Bí thư Chi bộ) mới được phép thay đổi cấu hình bảo mật Zalo OA & Email.",
+      });
+    }
     const nextCfg: ZaloOaSavedConfig = {
       ...savedCfg,
       oaId: String(body.oaId || savedCfg.oaId || ZALO_OA_KP3_DEFAULTS.oaId).trim(),
@@ -4831,6 +4985,12 @@ ${userPrompt ? `- Ghi chú thêm của cán bộ: ${userPrompt}` : ""}`;
   }
 
   if (action === "get_zalo_browser_sync_token") {
+    if (!caller.isAdmin) {
+      return res.status(403).json({
+        ok: false,
+        error: "Chỉ Quản trị viên (Admin) mới được phép trích xuất phiên đồng bộ Zalo OA.",
+      });
+    }
     const savedCfg = await readPrivateSetting<ZaloOaSavedConfig>(
       supabaseUrl,
       serviceRoleKey,
@@ -5481,6 +5641,12 @@ Chỉ trả về đúng nội dung tin nhắn thuần văn bản (không dùng m
   }
 
   if (action === "save_zbs_config") {
+    if (!caller.isAdmin) {
+      return res.status(403).json({
+        ok: false,
+        error: "Chỉ Quản trị viên (Admin) mới được phép thay đổi cấu hình ZBS / ZNS trả phí.",
+      });
+    }
     const existing =
       (await readPrivateSetting<ZaloZbsConfig>(supabaseUrl, serviceRoleKey, ZBS_CONFIG_KEY)) ||
       DEFAULT_ZBS_CONFIG;
@@ -5509,7 +5675,7 @@ Chỉ trả về đúng nội dung tin nhắn thuần văn bản (không dùng m
       serviceRoleKey,
       CONFIG_KEY
     );
-    const activeToken = savedCfg
+    let activeToken = savedCfg
       ? await refreshZaloAccessTokenIfNeeded(savedCfg, supabaseUrl, serviceRoleKey)
       : "";
     if (!activeToken) {
@@ -5518,11 +5684,27 @@ Chỉ trả về đúng nội dung tin nhắn thuần văn bản (không dùng m
         error: "Chưa có Access Token Zalo OA hợp lệ. Vui lòng kiểm tra mục Cấu hình API & Webhook.",
       });
     }
-    const resp = await fetch("https://business.openapi.zalo.me/template/all?offset=0&limit=50", {
+    let resp = await fetch("https://business.openapi.zalo.me/template/all?offset=0&limit=50", {
       method: "GET",
       headers: { access_token: activeToken },
     });
-    const json: any = await resp.json().catch(() => ({}));
+    let json: any = await resp.json().catch(() => ({}));
+    if ((json?.error === -216 || json?.error === -220) && savedCfg) {
+      const refreshed = await refreshZaloAccessTokenIfNeeded(
+        savedCfg,
+        supabaseUrl,
+        serviceRoleKey,
+        true
+      );
+      if (refreshed && refreshed !== activeToken) {
+        activeToken = refreshed;
+        resp = await fetch("https://business.openapi.zalo.me/template/all?offset=0&limit=50", {
+          method: "GET",
+          headers: { access_token: activeToken },
+        });
+        json = await resp.json().catch(() => ({}));
+      }
+    }
     if (!resp.ok || json?.error !== 0) {
       return res.status(200).json({
         ok: false,
@@ -5573,7 +5755,7 @@ Chỉ trả về đúng nội dung tin nhắn thuần văn bản (không dùng m
       serviceRoleKey,
       CONFIG_KEY
     );
-    const activeToken = savedOa
+    let activeToken = savedOa
       ? await refreshZaloAccessTokenIfNeeded(savedOa, supabaseUrl, serviceRoleKey)
       : "";
     if (!activeToken) {
@@ -5601,19 +5783,35 @@ Chỉ trả về đúng nội dung tin nhắn thuần văn bản (không dùng m
       });
       const matchedUid = String(body.zaloUserId || matchedEntry?.zaloUserId || "").trim();
       if (matchedUid) {
-        const oaResp = await fetch("https://openapi.zalo.me/v2.0/oa/message", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            access_token: activeToken,
-          },
-          body: JSON.stringify({
-            recipient: { user_id: matchedUid },
-            message: { text: fallbackFreeText },
-          }),
-        });
-        const oaJson: any = await oaResp.json().catch(() => ({}));
-        if (oaResp.ok && oaJson?.error === 0) {
+        const sendTier1 = async (token: string) => {
+          const r = await fetch("https://openapi.zalo.me/v2.0/oa/message", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              access_token: token,
+            },
+            body: JSON.stringify({
+              recipient: { user_id: matchedUid },
+              message: { text: fallbackFreeText },
+            }),
+          });
+          const j: any = await r.json().catch(() => ({}));
+          return { ok: r.ok, json: j };
+        };
+        let tier1Res = await sendTier1(activeToken);
+        if ((tier1Res.json?.error === -216 || tier1Res.json?.error === -220) && savedOa) {
+          const refreshed = await refreshZaloAccessTokenIfNeeded(
+            savedOa,
+            supabaseUrl,
+            serviceRoleKey,
+            true
+          );
+          if (refreshed && refreshed !== activeToken) {
+            activeToken = refreshed;
+            tier1Res = await sendTier1(activeToken);
+          }
+        }
+        if (tier1Res.ok && tier1Res.json?.error === 0) {
           const logRow: ZaloZbsLogItem = {
             id: `zbs_${Date.now()}`,
             timestamp: new Date().toISOString(),
@@ -5622,7 +5820,7 @@ Chỉ trả về đúng nội dung tin nhắn thuần văn bản (không dùng m
             phone: rawPhone || phone84 || "",
             templateKey,
             status: "sent",
-            msgId: String(oaJson?.data?.message_id || ""),
+            msgId: String(tier1Res.json?.data?.message_id || ""),
             estimatedCostVnd: 0,
             detail: "Đã gửi miễn phí (0 VNĐ) qua Tầng 1 Zalo OA (Cư dân đã Quan tâm OA).",
             actorName: caller.actorName,
@@ -5669,7 +5867,7 @@ Chỉ trả về đúng nội dung tin nhắn thuần văn bản (không dùng m
         : savedZbs.mode;
 
     const trackingId = `kp3_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
-    const zbsRes = await sendZbsTemplateApi({
+    let zbsRes = await sendZbsTemplateApi({
       accessToken: activeToken,
       phone84,
       templateId: resolvedTemplateId,
@@ -5677,6 +5875,25 @@ Chỉ trả về đúng nội dung tin nhắn thuần văn bản (không dùng m
       trackingId,
       mode: effectiveMode,
     });
+    if (!zbsRes.ok && (zbsRes.errorCode === -216 || zbsRes.errorCode === -220) && savedOa) {
+      const refreshed = await refreshZaloAccessTokenIfNeeded(
+        savedOa,
+        supabaseUrl,
+        serviceRoleKey,
+        true
+      );
+      if (refreshed && refreshed !== activeToken) {
+        activeToken = refreshed;
+        zbsRes = await sendZbsTemplateApi({
+          accessToken: activeToken,
+          phone84,
+          templateId: resolvedTemplateId,
+          templateData,
+          trackingId,
+          mode: effectiveMode,
+        });
+      }
+    }
 
     const cost =
       zbsRes.ok && effectiveMode === "production" ? Number(savedZbs.unitPriceVnd || 120) : 0;

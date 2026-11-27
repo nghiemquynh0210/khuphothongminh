@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
+import { createPortal } from "react-dom";
 import { 
   Search, 
   Filter, 
@@ -104,6 +105,7 @@ import { normalizeEntityLandParcels } from "../utils/landParcelsUtils";
 import { getNormalizedLinkedHouseholdCodes } from "../utils/addressCoLocationUtils";
 import { FireSafetyAndHostelQrHub } from "./businesses/FireSafetyAndHostelQrHub";
 import { upsertResidentToDb } from "../utils/supabaseSync";
+import { normalizeSearchVietnamese } from "../utils/specialSupervisionUtils";
 
 export interface IndustrySectorDef {
   id: string;
@@ -509,6 +511,20 @@ export default function BusinessManagement({
     business: Business;
   } | null>(null);
 
+  useEffect(() => {
+    if (!viewingDoc) return;
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setViewingDoc(null);
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.body.style.overflow = prevOverflow;
+      window.removeEventListener("keydown", onKeyDown);
+    };
+  }, [viewingDoc]);
+
   const [toast, setToast] = useState<{ message: string; type: "success" | "error" | "warning" } | null>(null);
 
   const showToast = (message: string, type: "success" | "error" | "warning" = "success") => {
@@ -545,82 +561,105 @@ export default function BusinessManagement({
   const [showIndustryStats, setShowIndustryStats] = useState(false);
 
 
-  // Filtered Businesses Logic with Standardized Industry Sector Classifier & Scope Filter
-  const smallBusinessCount = React.useMemo(() => businesses.filter(isSmallBusinessOrHostel).length, [businesses]);
+  // Filtered Businesses Logic with Standardized Industry Sector Classifier & Scope Filter (Memoized + Accent-Insensitive)
+  const smallBusinessCount = useMemo(() => businesses.filter(isSmallBusinessOrHostel).length, [businesses]);
 
-  const filteredBusinesses = businesses.filter(b => {
-    if (scopeFilter === "small" && !isSmallBusinessOrHostel(b)) {
-      return false;
-    }
-
-    const searchLower = searchTerm.toLowerCase();
-    const matchesSearch = b.name.toLowerCase().includes(searchLower) || 
-                          b.owner.toLowerCase().includes(searchLower) ||
-                          b.licenseNumber.toLowerCase().includes(searchLower) ||
-                          (b.internalCode && b.internalCode.toLowerCase().includes(searchLower)) ||
-                          (b.taxCode && b.taxCode.toLowerCase().includes(searchLower)) ||
-                          (b.legalRepresentative && b.legalRepresentative.toLowerCase().includes(searchLower)) ||
-                          (b.focalPointName && b.focalPointName.toLowerCase().includes(searchLower)) ||
-                          (b.linkedHouseholdCode && b.linkedHouseholdCode.toLowerCase().includes(searchLower)) ||
-                          Boolean(b.linkedHouseholdCodes?.some(code => code.toLowerCase().includes(searchLower))) ||
-                          (b.address && b.address.toLowerCase().includes(searchLower)) ||
-                          (b.toBanDo && b.toBanDo.includes(searchTerm)) ||
-                          (b.soThua && b.soThua.includes(searchTerm)) ||
-                          (b.type && b.type.toLowerCase().includes(searchLower)) ||
-                          (b.industryGroup && b.industryGroup.toLowerCase().includes(searchLower));
-    
-    const matchesStatus = statusFilter === "Tất cả" || b.status === statusFilter;
-
-    let matchesCategory = true;
-    if (categoryFilter !== "Tất cả") {
-      const bGroup = getBusinessIndustryGroup(b);
-      matchesCategory = bGroup === categoryFilter || 
-        (categoryFilter === "Nhà trọ & Lưu trú" && bGroup === "Lưu trú & Cho thuê") ||
-        (categoryFilter === "Y tế / Sức khỏe" && bGroup === "Y tế / Chăm sóc sức khỏe");
-    }
-
-    let matchesEstablishmentFilter = true;
-    if (establishmentFilter === "household") {
-      matchesEstablishmentFilter = !b.isAccommodation;
-    } else if (establishmentFilter === "accommodation") {
-      matchesEstablishmentFilter = isAccommodationBusiness(b);
-    } else if (establishmentFilter === "pccc-pass") {
-      matchesEstablishmentFilter = Boolean(b.safetyCertified);
-    } else if (establishmentFilter === "pccc-fail") {
-      matchesEstablishmentFilter = !b.safetyCertified;
-    } else if (establishmentFilter === "has-sodo") {
-      matchesEstablishmentFilter = Boolean(b.soDoFile || b.landParcels?.some(p => p.soDoFile));
-    }
-
-    let matchesPccc = true;
-    if (pcccFilter === "Đạt chuẩn") {
-      matchesPccc = Boolean(b.safetyCertified);
-    } else if (pcccFilter === "Chưa đạt") {
-      matchesPccc = !b.safetyCertified;
-    }
-
-    let matchesStreet = true;
-    if (streetFilter !== "Tất cả") {
-      const addrLower = (b.address || "").toLowerCase();
-      const streetAreaLower = (b.streetArea || "").toLowerCase();
-      if (streetFilter === "Mặt tiền Lương Định Của") {
-        matchesStreet = streetAreaLower.includes("mặt tiền") || (!addrLower.includes("hẻm") && addrLower.includes("lương định của"));
-      } else if (streetFilter === "Hẻm 42 Lương Định Của") {
-        matchesStreet = addrLower.includes("42/") || streetAreaLower.includes("42");
-      } else if (streetFilter === "Hẻm 18 Lương Định Của") {
-        matchesStreet = addrLower.includes("18/") || streetAreaLower.includes("18");
-      } else {
-        matchesStreet = true;
+  const filteredBusinesses = useMemo(() => {
+    const searchNorm = normalizeSearchVietnamese(searchTerm);
+    return businesses.filter((b) => {
+      if (scopeFilter === "small" && !isSmallBusinessOrHostel(b)) {
+        return false;
       }
-    }
 
-    const matchesTo = toFilter === "Tất cả" || extractKp3Area(b.address) === toFilter;
+      const matchesSearch =
+        !searchNorm ||
+        normalizeSearchVietnamese(b.name || "").includes(searchNorm) ||
+        normalizeSearchVietnamese(b.owner || "").includes(searchNorm) ||
+        (b.licenseNumber || "").toLowerCase().includes(searchNorm) ||
+        Boolean(b.internalCode && b.internalCode.toLowerCase().includes(searchNorm)) ||
+        Boolean(b.taxCode && b.taxCode.toLowerCase().includes(searchNorm)) ||
+        Boolean(b.legalRepresentative && normalizeSearchVietnamese(b.legalRepresentative).includes(searchNorm)) ||
+        Boolean(b.focalPointName && normalizeSearchVietnamese(b.focalPointName).includes(searchNorm)) ||
+        Boolean(b.linkedHouseholdCode && b.linkedHouseholdCode.toLowerCase().includes(searchNorm)) ||
+        Boolean(b.linkedHouseholdCodes?.some((code) => code.toLowerCase().includes(searchNorm))) ||
+        Boolean(b.address && normalizeSearchVietnamese(b.address).includes(searchNorm)) ||
+        Boolean(b.toBanDo && b.toBanDo.includes(searchTerm.trim())) ||
+        Boolean(b.soThua && b.soThua.includes(searchTerm.trim())) ||
+        Boolean(b.type && normalizeSearchVietnamese(b.type).includes(searchNorm)) ||
+        Boolean(b.industryGroup && normalizeSearchVietnamese(b.industryGroup).includes(searchNorm));
 
-    return matchesSearch && matchesStatus && matchesCategory && matchesEstablishmentFilter && matchesPccc && matchesStreet && matchesTo;
-  });
+      const matchesStatus = statusFilter === "Tất cả" || b.status === statusFilter;
+
+      let matchesCategory = true;
+      if (categoryFilter !== "Tất cả") {
+        const bGroup = getBusinessIndustryGroup(b);
+        matchesCategory =
+          bGroup === categoryFilter ||
+          (categoryFilter === "Nhà trọ & Lưu trú" && bGroup === "Lưu trú & Cho thuê") ||
+          (categoryFilter === "Y tế / Sức khỏe" && bGroup === "Y tế / Chăm sóc sức khỏe");
+      }
+
+      let matchesEstablishmentFilter = true;
+      if (establishmentFilter === "household") {
+        matchesEstablishmentFilter = !b.isAccommodation;
+      } else if (establishmentFilter === "accommodation") {
+        matchesEstablishmentFilter = isAccommodationBusiness(b);
+      } else if (establishmentFilter === "pccc-pass") {
+        matchesEstablishmentFilter = Boolean(b.safetyCertified);
+      } else if (establishmentFilter === "pccc-fail") {
+        matchesEstablishmentFilter = !b.safetyCertified;
+      } else if (establishmentFilter === "has-sodo") {
+        matchesEstablishmentFilter = Boolean(b.soDoFile || b.landParcels?.some((p) => p.soDoFile));
+      }
+
+      let matchesPccc = true;
+      if (pcccFilter === "Đạt chuẩn") {
+        matchesPccc = Boolean(b.safetyCertified);
+      } else if (pcccFilter === "Chưa đạt") {
+        matchesPccc = !b.safetyCertified;
+      }
+
+      let matchesStreet = true;
+      if (streetFilter !== "Tất cả") {
+        const addrLower = (b.address || "").toLowerCase();
+        const streetAreaLower = (b.streetArea || "").toLowerCase();
+        if (streetFilter === "Mặt tiền Lương Định Của") {
+          matchesStreet =
+            streetAreaLower.includes("mặt tiền") ||
+            (!addrLower.includes("hẻm") && addrLower.includes("lương định của"));
+        } else if (streetFilter === "Hẻm 42 Lương Định Của") {
+          matchesStreet = addrLower.includes("42/") || streetAreaLower.includes("42");
+        } else if (streetFilter === "Hẻm 18 Lương Định Của") {
+          matchesStreet = addrLower.includes("18/") || streetAreaLower.includes("18");
+        }
+      }
+
+      const matchesTo = toFilter === "Tất cả" || extractKp3Area(b.address) === toFilter;
+
+      return (
+        matchesSearch &&
+        matchesStatus &&
+        matchesCategory &&
+        matchesEstablishmentFilter &&
+        matchesPccc &&
+        matchesStreet &&
+        matchesTo
+      );
+    });
+  }, [
+    businesses,
+    scopeFilter,
+    searchTerm,
+    statusFilter,
+    categoryFilter,
+    establishmentFilter,
+    pcccFilter,
+    streetFilter,
+    toFilter,
+  ]);
 
   // Industry Sector Statistics Calculation (Bảng Thống kê Cơ cấu Ngành nghề)
-  const sectorStats = React.useMemo(() => {
+  const sectorStats = useMemo(() => {
     const total = businesses.length || 1;
     return INDUSTRY_SECTORS.map(sec => {
       const secBusinesses = businesses.filter(b => getBusinessIndustryGroup(b) === sec.id);
@@ -643,26 +682,65 @@ export default function BusinessManagement({
     });
   }, [businesses]);
 
-  const dominantSector = React.useMemo(() => {
+  const dominantSector = useMemo(() => {
     return [...sectorStats].sort((a, b) => b.count - a.count)[0] || sectorStats[0];
   }, [sectorStats]);
 
-  // Analytics & Statistics for Local Establishments
-  const totalAccomCount = businesses.filter(b => isAccommodationBusiness(b)).length;
-  const totalRooms = businesses.reduce((acc, b) => acc + (b.soPhong || 0), 0);
-  const totalSoDoFiles = businesses.filter(b => Boolean(b.soDoFile || b.landParcels?.some(p => p.soDoFile))).length;
-  const totalCertifiedPccc = businesses.filter(b => b.safetyCertified).length;
-  const totalLocalWorkers = businesses.reduce((acc, b) => acc + (b.localWorkersCount ?? Math.floor(b.employeeCount / 2)), 0);
-  const totalTempWorkers = businesses.reduce((acc, b) => acc + (b.temporaryWorkersCount ?? Math.ceil(b.employeeCount / 2)), 0);
-  const totalForeignWorkers = businesses.reduce((acc, b) => acc + (b.foreignWorkersCount || (b.foreignWorkers?.length || 0)), 0);
-  const totalSupportNeeds = businesses.filter(b => (b.supportNeeds && b.supportNeeds.length > 0) || Boolean(b.supportNotes)).length;
+  // Analytics & Statistics for Local Establishments (Memoized)
+  const {
+    totalAccomCount,
+    totalRooms,
+    totalSoDoFiles,
+    totalCertifiedPccc,
+  } = useMemo(() => {
+    let accom = 0;
+    let rooms = 0;
+    let soDo = 0;
+    let pccc = 0;
+    for (let i = 0; i < businesses.length; i++) {
+      const b = businesses[i];
+      if (isAccommodationBusiness(b)) accom++;
+      rooms += b.soPhong || 0;
+      if (b.soDoFile || b.landParcels?.some((p) => p.soDoFile)) soDo++;
+      if (b.safetyCertified) pccc++;
+    }
+    return {
+      totalAccomCount: accom,
+      totalRooms: rooms,
+      totalSoDoFiles: soDo,
+      totalCertifiedPccc: pccc,
+    };
+  }, [businesses]);
 
   // Pagination Logic
   const totalItems = filteredBusinesses.length;
   const totalPages = Math.ceil(totalItems / itemsPerPage) || 1;
   const activePage = currentPage > totalPages ? totalPages : currentPage;
   const startIndex = (activePage - 1) * itemsPerPage;
-  const paginatedBusinesses = filteredBusinesses.slice(startIndex, startIndex + itemsPerPage);
+  const paginatedBusinesses = useMemo(
+    () => filteredBusinesses.slice(startIndex, startIndex + itemsPerPage),
+    [filteredBusinesses, startIndex, itemsPerPage]
+  );
+
+  // Memoized Map<businessId, Resident[]> cho các cơ sở lưu trú trên trang hiện tại (tránh quét 11.229 dân trong mỗi lần render)
+  const accomResidentsMap = useMemo(() => {
+    const map = new Map<string, Resident[]>();
+    const accomsOnPage = paginatedBusinesses.filter(isAccommodationBusiness);
+    if (accomsOnPage.length === 0 || residents.length === 0) return map;
+    for (const b of accomsOnPage) {
+      map.set(b.id, []);
+    }
+    for (let i = 0; i < residents.length; i++) {
+      const r = residents[i];
+      for (let j = 0; j < accomsOnPage.length; j++) {
+        const b = accomsOnPage[j];
+        if (isResidentInAccommodation(r, b)) {
+          map.get(b.id)!.push(r);
+        }
+      }
+    }
+    return map;
+  }, [paginatedBusinesses, residents]);
 
   const handleExportBusinessesExcel = () => {
     const sheet1Rows = filteredBusinesses.map((b, idx) => {
@@ -1143,7 +1221,7 @@ export default function BusinessManagement({
               </div>
               <div>
                 <div className="font-bold text-amber-950 text-sm flex flex-wrap items-center gap-2">
-                  <span>Hệ thống đã tự động nhận diện {totalAccomCount} cơ sở nhà trọ & lưu trú từ 11.632 cư dân</span>
+                  <span>Hệ thống đã tự động nhận diện {totalAccomCount} cơ sở nhà trọ & lưu trú từ {formatVNNumber(residents.length)} cư dân</span>
                   <span className="text-xs bg-amber-200 text-amber-950 font-bold px-2.5 py-0.5 rounded-full border border-amber-300">
                     Đối soát CSDL thực tế
                   </span>
@@ -1159,7 +1237,7 @@ export default function BusinessManagement({
                 onClick={handleAutoDetectHostels}
                 disabled={isDetectingHostels}
                 className="px-3.5 py-2 rounded-xl bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs flex items-center gap-1.5 transition-colors cursor-pointer disabled:opacity-50"
-                title="Quét lại toàn bộ 11.632 cư dân để bổ sung thêm cơ sở trọ mới"
+                title={`Quét lại toàn bộ ${formatVNNumber(residents.length)} cư dân để bổ sung thêm cơ sở trọ mới`}
               >
                 <RefreshCw size={13} className={isDetectingHostels ? "animate-spin" : ""} />
                 <span>Quét lại cư dân</span>
@@ -1182,8 +1260,8 @@ export default function BusinessManagement({
           /* Card Grid View: Toàn bộ chiều rộng, 1-4 cột */
           <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-4">
             {filteredBusinesses.length === 0 ? (
-              <div className="col-span-full bg-white rounded-2xl border border-slate-100 p-12 text-center text-sm text-slate-400 space-y-2">
-                <Briefcase size={36} className="mx-auto text-slate-300" />
+              <div className="col-span-full bg-white rounded-2xl border border-slate-100 p-12 text-center text-sm text-slate-600 space-y-2">
+                <Briefcase size={36} className="mx-auto text-slate-400" />
                 <p>Không tìm thấy cơ sở kinh doanh nào phù hợp với bộ lọc</p>
               </div>
             ) : (
@@ -1296,7 +1374,7 @@ export default function BusinessManagement({
 
                       {/* 4. Khối thông tin lưu trú / phòng trọ */}
                       {isAccom && (() => {
-                        const staying = residents.filter(r => isResidentInAccommodation(r, b));
+                        const staying = accomResidentsMap.get(b.id) || [];
                         const actualCount = staying.length > 0 ? staying.length : (b.soNguoiLuuTru || 0);
                         return (
                           <div className="py-2 px-3 rounded-xl bg-amber-50 border border-amber-200 text-amber-950 flex flex-wrap items-center justify-between gap-2">
@@ -1506,7 +1584,7 @@ export default function BusinessManagement({
                           {/* Cột 3: Đặc điểm Lưu trú */}
                           <td className="p-3.5 whitespace-nowrap">
                             {isAccom ? (() => {
-                              const staying = residents.filter(r => isResidentInAccommodation(r, b));
+                              const staying = accomResidentsMap.get(b.id) || [];
                               const actualCount = staying.length > 0 ? staying.length : (b.soNguoiLuuTru || 0);
                               return (
                                 <div className="space-y-1">
@@ -1642,9 +1720,20 @@ export default function BusinessManagement({
         </div>
 
       {/* DOCUMENT PREVIEW MODAL (SỔ ĐỎ PDF / ẢNH) */}
-      {viewingDoc && (
-        <div className="fixed inset-0 bg-slate-900/80 flex items-center justify-center z-50 p-4 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[92vh] flex flex-col overflow-hidden animate-in zoom-in-95 duration-150 border border-slate-200">
+      {viewingDoc &&
+        typeof document !== "undefined" &&
+        createPortal(
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-label={viewingDoc.title}
+          onClick={() => setViewingDoc(null)}
+          className="fixed inset-0 bg-slate-900/80 flex items-center justify-center z-[110] p-4 backdrop-blur-sm animate-in fade-in duration-200"
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[92vh] flex flex-col overflow-hidden animate-in zoom-in-95 duration-150 border border-slate-200"
+          >
             {/* Modal Header */}
             <div className="bg-slate-950 text-white p-4 sm:px-6 flex flex-wrap justify-between items-center gap-2 shrink-0">
               <div className="flex items-center gap-3 min-w-0">
@@ -1827,7 +1916,8 @@ export default function BusinessManagement({
               )}
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* Delete Confirmation Dialog */}

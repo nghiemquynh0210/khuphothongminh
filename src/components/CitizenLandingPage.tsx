@@ -33,6 +33,7 @@ import {
   ScheduleEvent,
 } from "../types";
 import { loadSchedulesFromDb } from "../utils/supabaseSync";
+import { normalizeSearchVietnamese } from "../utils/specialSupervisionUtils";
 import { downloadOfficialDocx } from "../utils/docxExport";
 import CitizenFooter from "./landing/CitizenFooter";
 import CitizenFormsSection from "./landing/CitizenFormsSection";
@@ -234,38 +235,53 @@ export default function CitizenLandingPage({
     return [];
   }, [news]);
 
-  const [prevMatchedPath, setPrevMatchedPath] = useState<string | null>(null);
-  const match = currentPath.match(/^\/news\/detail\/([^/?#]+)/);
-  const targetId = match ? decodeURIComponent(match[1]) : null;
-
-  if (targetId && targetId !== prevMatchedPath) {
-    setPrevMatchedPath(targetId);
-    const matchedArticle = (news || []).find((n) => String(n.id) === targetId);
-    if (matchedArticle) {
-      setNewsDetailState(matchedArticle);
+  const prevMatchedPathRef = useRef<string | null>(null);
+  useEffect(() => {
+    const match = currentPath.match(/^\/news\/detail\/([^/?#]+)/);
+    const targetId = match ? decodeURIComponent(match[1]) : null;
+    if (targetId && targetId !== prevMatchedPathRef.current) {
+      prevMatchedPathRef.current = targetId;
+      const matchedArticle = (news || []).find((n) => String(n.id) === targetId);
+      if (matchedArticle) {
+        setNewsDetailState(matchedArticle);
+      }
+    } else if (!targetId && prevMatchedPathRef.current !== null) {
+      prevMatchedPathRef.current = null;
     }
-  } else if (!targetId && prevMatchedPath !== null) {
-    setPrevMatchedPath(null);
-  }
+  }, [currentPath, news]);
 
   const searchResults = useMemo(() => {
-    const q = portalSearch.trim().toLowerCase();
+    const q = normalizeSearchVietnamese(portalSearch);
     if (q.length < 2) return null;
     return {
       forms: forms
-        .filter((f) => f.title.toLowerCase().includes(q) || f.code.toLowerCase().includes(q))
+        .filter(
+          (f) =>
+            normalizeSearchVietnamese(f.title).includes(q) ||
+            normalizeSearchVietnamese(f.code).includes(q)
+        )
         .slice(0, 5),
       events: events
-        .filter((e) => e.title.toLowerCase().includes(q) || e.description.toLowerCase().includes(q))
+        .filter(
+          (e) =>
+            normalizeSearchVietnamese(e.title).includes(q) ||
+            normalizeSearchVietnamese(e.description).includes(q)
+        )
         .slice(0, 5),
       leaders: (landingConfig.leadership && landingConfig.leadership.length > 0
         ? landingConfig.leadership
         : VERIFIED_LEADERSHIP
       ).filter(
-        (l) => l.name.toLowerCase().includes(q) || l.role.toLowerCase().includes(q)
+        (l) =>
+          normalizeSearchVietnamese(l.name).includes(q) ||
+          normalizeSearchVietnamese(l.role).includes(q)
       ),
       news: (news || [])
-        .filter((n) => n.title.toLowerCase().includes(q) || (n.content && n.content.toLowerCase().includes(q)))
+        .filter(
+          (n) =>
+            normalizeSearchVietnamese(n.title).includes(q) ||
+            Boolean(n.content && normalizeSearchVietnamese(n.content).includes(q))
+        )
         .slice(0, 5),
     };
   }, [portalSearch, forms, events, news, landingConfig.leadership]);

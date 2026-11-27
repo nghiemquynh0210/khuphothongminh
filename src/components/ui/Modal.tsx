@@ -52,7 +52,7 @@ export function Modal({
   footerClassName = "justify-end",
   closeOnOverlayClick = true,
   compact = false,
-  zIndexClass = "z-50",
+  zIndexClass = "z-[100]",
 }: ModalProps) {
   const titleId = useId();
   const dialogRef = useRef<HTMLDivElement>(null);

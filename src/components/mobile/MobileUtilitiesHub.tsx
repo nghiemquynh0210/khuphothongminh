@@ -199,7 +199,7 @@ export const MobileUtilitiesHub: React.FC<MobileUtilitiesHubProps> = ({
     },
     {
       id: "hostels",
-      label: "230 Nhà trọ",
+      label: "Nhà trọ & Lưu trú",
       icon: <Hotel size={22} />,
       gradient: "from-orange-500 to-orange-700",
       tab: "businesses",
@@ -377,7 +377,8 @@ export const MobileUtilitiesHub: React.FC<MobileUtilitiesHubProps> = ({
         type="button"
         onClick={() => scrollRef.current?.scrollTo({ top: 0, behavior: "smooth" })}
         aria-label="Cuộn lên đầu trang"
-        className="fixed right-4 bottom-[80px] z-[90] w-10 h-10 rounded-full bg-red-700 hover:bg-red-800 text-white shadow-lg flex items-center justify-center active:scale-95 transition-transform cursor-pointer"
+        style={{ bottom: "calc(80px + env(safe-area-inset-bottom, 0px))" }}
+        className="fixed right-4 z-[90] min-w-11 min-h-11 rounded-full bg-red-700 hover:bg-red-800 text-white shadow-lg flex items-center justify-center active:scale-95 transition-transform cursor-pointer"
       >
         <ArrowUp size={18} />
       </button>

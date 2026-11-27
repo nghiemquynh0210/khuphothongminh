@@ -84,11 +84,12 @@ export const MobileStaffHome: React.FC<MobileStaffHomeProps> = ({
   };
 
   return (
-    <div className="md:hidden -mx-3.5 -mt-3.5 pb-4 bg-slate-50 min-h-screen">
+    <div className="md:hidden -mx-3.5 sm:-mx-5 -mt-3.5 sm:-mt-5 pb-4 bg-slate-50 min-h-screen">
       {/* 1. HERO BANNER ĐỎ TRỐNG ĐỒNG (CHUẨN SUPER-APP NATIVE) */}
       <div
-        className="text-white px-4 pt-4 pb-10 relative overflow-hidden"
+        className="text-white px-4 pb-10 relative overflow-hidden"
         style={{
+          paddingTop: "calc(16px + env(safe-area-inset-top, 0px))",
           background:
             "radial-gradient(circle at 85% 120%, rgba(254,202,202,0.18) 0%, transparent 50%), repeating-radial-gradient(circle at 80% 110%, rgba(255,255,255,0.06) 0px, rgba(255,255,255,0.06) 2px, transparent 2px, transparent 15px), linear-gradient(135deg, #B91C1C 0%, #DC2626 55%, #991B1B 100%)",
         }}
@@ -112,9 +113,9 @@ export const MobileStaffHome: React.FC<MobileStaffHomeProps> = ({
                   onOpenQuickCommand();
                 }}
                 aria-label="Tìm nhanh dân cư, hộ khẩu"
-                className="w-9 h-9 rounded-full bg-white/15 active:bg-white/25 flex items-center justify-center text-white backdrop-blur-xs cursor-pointer"
+                className="min-w-11 min-h-11 rounded-full bg-white/15 active:bg-white/25 flex items-center justify-center text-white backdrop-blur-xs cursor-pointer"
               >
-                <Search size={17} />
+                <Search size={18} />
               </button>
             )}
             <button
@@ -124,9 +125,9 @@ export const MobileStaffHome: React.FC<MobileStaffHomeProps> = ({
                 navigate(ROUTES.HOME);
               }}
               aria-label="Xem Cổng Cư dân"
-              className="w-9 h-9 rounded-full bg-white/15 active:bg-white/25 flex items-center justify-center text-white backdrop-blur-xs cursor-pointer"
+              className="min-w-11 min-h-11 rounded-full bg-white/15 active:bg-white/25 flex items-center justify-center text-white backdrop-blur-xs cursor-pointer"
             >
-              <Globe size={17} />
+              <Globe size={18} />
             </button>
           </div>
         </div>
@@ -328,7 +329,7 @@ export const MobileStaffHome: React.FC<MobileStaffHomeProps> = ({
             <button
               type="button"
               onClick={() => goTab("tasks")}
-              className="text-[11px] font-bold text-red-700 inline-flex items-center gap-0.5 cursor-pointer"
+              className="min-h-11 px-2 -mr-2 text-[11px] font-bold text-red-700 inline-flex items-center gap-0.5 cursor-pointer"
             >
               <span>Tất cả</span>
               <ChevronRight size={13} />
@@ -336,7 +337,7 @@ export const MobileStaffHome: React.FC<MobileStaffHomeProps> = ({
           </div>
 
           {topTasks.length === 0 ? (
-            <p className="text-xs text-slate-500 py-2">Chưa có nhiệm vụ đang mở.</p>
+            <p className="text-xs text-slate-600 py-2">Chưa có nhiệm vụ đang mở.</p>
           ) : (
             <div className="divide-y divide-slate-100">
               {topTasks.slice(0, 3).map((task) => (
@@ -350,8 +351,8 @@ export const MobileStaffHome: React.FC<MobileStaffHomeProps> = ({
                     <p className="text-xs font-bold text-slate-900 line-clamp-2 leading-snug">
                       {task.title}
                     </p>
-                    <p className="text-[11px] text-slate-500 mt-0.5 truncate">
-                      {task.assigneeName || task.department} • Hạn {task.dueDate || "—"}
+                    <p className="text-[11px] text-slate-600 mt-0.5 truncate">
+                      {task.assignee?.name || task.unit} • Hạn {task.deadline || "—"}
                     </p>
                   </div>
                   <span
@@ -379,7 +380,7 @@ export const MobileStaffHome: React.FC<MobileStaffHomeProps> = ({
             <button
               type="button"
               onClick={() => goTab("reports")}
-              className="text-[11px] font-bold text-red-700 inline-flex items-center gap-0.5 cursor-pointer"
+              className="min-h-11 px-2 -mr-2 text-[11px] font-bold text-red-700 inline-flex items-center gap-0.5 cursor-pointer"
             >
               <span>Xem hết</span>
               <ChevronRight size={13} />
@@ -387,7 +388,7 @@ export const MobileStaffHome: React.FC<MobileStaffHomeProps> = ({
           </div>
 
           {openReports.length === 0 ? (
-            <p className="text-xs text-slate-500 py-1.5">Tất cả phản ánh 1022 đã được giải quyết.</p>
+            <p className="text-xs text-slate-600 py-1.5">Tất cả phản ánh 1022 đã được giải quyết.</p>
           ) : (
             <div className="divide-y divide-slate-100">
               {openReports.slice(0, 2).map((rep) => (
@@ -399,7 +400,7 @@ export const MobileStaffHome: React.FC<MobileStaffHomeProps> = ({
                 >
                   <div className="min-w-0 flex-1">
                     <p className="text-xs font-bold text-slate-900 line-clamp-1">{rep.title}</p>
-                    <p className="text-[11px] text-slate-500 mt-0.5 truncate">{rep.location}</p>
+                    <p className="text-[11px] text-slate-600 mt-0.5 truncate">{rep.location}</p>
                   </div>
                   <span className="shrink-0 text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-50 text-amber-800">
                     {rep.status}
@@ -415,7 +416,10 @@ export const MobileStaffHome: React.FC<MobileStaffHomeProps> = ({
       <Drawer.Root open={reportSheetOpen} onOpenChange={setReportSheetOpen}>
         <Drawer.Portal>
           <Drawer.Overlay className="fixed inset-0 bg-slate-950/50 z-[95] backdrop-blur-[1px]" />
-          <Drawer.Content className="fixed bottom-0 left-0 right-0 z-[96] bg-white rounded-t-3xl p-5 pb-8 outline-none shadow-2xl">
+          <Drawer.Content
+            className="fixed bottom-0 left-0 right-0 z-[96] bg-white rounded-t-3xl p-5 outline-none shadow-2xl"
+            style={{ paddingBottom: "calc(28px + env(safe-area-inset-bottom, 0px))" }}
+          >
             <div className="mx-auto w-11 h-1.5 rounded-full bg-slate-300 mb-4" />
             <Drawer.Title className="text-base font-extrabold text-slate-900">
               Xuất Báo cáo Điều hành Khu phố 3

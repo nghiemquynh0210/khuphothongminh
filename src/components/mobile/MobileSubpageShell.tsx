@@ -64,27 +64,28 @@ export function MobileSubpageShell<T extends string = string>({
 
   return (
     <div
-      className={`md:hidden -mx-3.5 -mt-3.5 ${
+      className={`md:hidden -mx-3.5 sm:-mx-5 -mt-3.5 sm:-mt-5 ${
         children !== undefined ? "bg-slate-50 min-h-[calc(100vh-64px)] flex flex-col" : "mb-2.5"
       }`}
     >
       {/* Native Red Bronze-Drum App Bar */}
       <div
-        className="shrink-0 text-white px-3.5 pt-3 pb-3 sticky top-0 z-30 shadow-sm"
+        className="shrink-0 text-white px-3.5 pb-3 sticky top-0 z-30 shadow-sm"
         style={{
+          paddingTop: "calc(12px + env(safe-area-inset-top, 0px))",
           background:
             "radial-gradient(circle at 85% 130%, rgba(254,202,202,0.16) 0%, transparent 55%), repeating-radial-gradient(circle at 80% 115%, rgba(255,255,255,0.05) 0px, rgba(255,255,255,0.05) 2px, transparent 2px, transparent 14px), linear-gradient(135deg, #B91C1C 0%, #DC2626 55%, #991B1B 100%)",
         }}
       >
         <div className="flex items-center justify-between gap-2">
-          <div className="flex items-center gap-2.5 min-w-0 flex-1">
+          <div className="flex items-center gap-2 min-w-0 flex-1">
             <button
               type="button"
               onClick={handleBack}
               aria-label="Quay lại"
-              className="w-8 h-8 rounded-full bg-white/15 active:bg-white/25 flex items-center justify-center text-white shrink-0 cursor-pointer"
+              className="min-w-11 min-h-11 rounded-full bg-white/15 active:bg-white/25 flex items-center justify-center text-white shrink-0 cursor-pointer"
             >
-              <ArrowLeft size={17} />
+              <ArrowLeft size={18} />
             </button>
             <div className="min-w-0 flex-1">
               <h1 className="text-[15px] font-extrabold tracking-tight leading-tight truncate">
@@ -108,9 +109,9 @@ export function MobileSubpageShell<T extends string = string>({
                   onPrimaryAction();
                 }}
                 aria-label={primaryActionLabel || "Thêm mới"}
-                className="h-8 px-2.5 rounded-xl bg-white text-red-700 font-extrabold text-xs inline-flex items-center gap-1 shadow-xs active:scale-95 transition-transform cursor-pointer"
+                className="min-h-11 px-3 rounded-xl bg-white text-red-700 font-extrabold text-xs inline-flex items-center gap-1 shadow-xs active:scale-95 transition-transform cursor-pointer"
               >
-                <Plus size={14} strokeWidth={2.5} />
+                <Plus size={15} strokeWidth={2.5} />
                 {primaryActionLabel && <span>{primaryActionLabel}</span>}
               </button>
             )}
@@ -122,9 +123,9 @@ export function MobileSubpageShell<T extends string = string>({
                   setSheetOpen(true);
                 }}
                 aria-label="Mở menu tác vụ"
-                className="w-8 h-8 rounded-full bg-white/15 active:bg-white/25 flex items-center justify-center text-white cursor-pointer"
+                className="min-w-11 min-h-11 rounded-full bg-white/15 active:bg-white/25 flex items-center justify-center text-white cursor-pointer"
               >
-                <MoreVertical size={17} />
+                <MoreVertical size={18} />
               </button>
             )}
           </div>
@@ -148,7 +149,7 @@ export function MobileSubpageShell<T extends string = string>({
                     void triggerLightHaptic();
                     onSubTabChange(tab.id);
                   }}
-                  className={`py-1.5 px-3 rounded-lg text-[11.5px] font-bold inline-flex items-center gap-1.5 shrink-0 transition-colors cursor-pointer ${
+                  className={`min-h-9 py-1.5 px-3 rounded-lg text-[11.5px] font-bold inline-flex items-center gap-1.5 shrink-0 transition-colors cursor-pointer ${
                     active
                       ? "bg-white text-red-700 shadow-xs"
                       : "text-red-50/95 hover:text-white"
@@ -158,7 +159,7 @@ export function MobileSubpageShell<T extends string = string>({
                   <span>{tab.label}</span>
                   {tab.badge !== undefined && tab.badge !== 0 && tab.badge !== "" && (
                     <span
-                      className={`px-1.5 py-0.2 rounded-full text-[10px] font-extrabold ${
+                      className={`px-1.5 py-0.5 rounded-full text-[10px] font-extrabold ${
                         active ? "bg-red-100 text-red-800" : "bg-white/20 text-white"
                       }`}
                     >
@@ -184,7 +185,10 @@ export function MobileSubpageShell<T extends string = string>({
         <Drawer.Root open={sheetOpen} onOpenChange={setSheetOpen}>
           <Drawer.Portal>
             <Drawer.Overlay className="fixed inset-0 bg-slate-950/50 z-[96] backdrop-blur-[1px]" />
-            <Drawer.Content className="fixed bottom-0 left-0 right-0 z-[97] bg-white rounded-t-3xl p-5 pb-8 outline-none shadow-2xl max-h-[82vh] overflow-y-auto">
+            <Drawer.Content
+              className="fixed bottom-0 left-0 right-0 z-[97] bg-white rounded-t-3xl p-5 outline-none shadow-2xl max-h-[82vh] overflow-y-auto"
+              style={{ paddingBottom: "calc(28px + env(safe-area-inset-bottom, 0px))" }}
+            >
               <div className="mx-auto w-11 h-1.5 rounded-full bg-slate-300 mb-4" />
               <Drawer.Title className="text-base font-extrabold text-slate-900">
                 {sheetTitle}

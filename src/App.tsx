@@ -599,12 +599,13 @@ export default function App() {
   // Nạp dữ liệu từ Supabase PostgreSQL (phân quyền Strict RLS cho Khách công khai vs Cán bộ đã xác thực)
   useEffect(() => {
     if (isSupabaseConfigured && !authChecked) return;
+    let cancelled = false;
 
     async function fetchSupabaseData() {
       if (!isSupabaseConfigured || !supabase) return;
       const isApprovedStaff = Boolean(verifiedStaffRef.current);
       try {
-        setIsDataLoading(true);
+        if (!cancelled) setIsDataLoading(true);
 
         // 0. Nạp cấu hình Cổng thông tin, Sự kiện, Biểu mẫu & Lịch công tác công khai từ Supabase
         const [savedLandingCfg, dbEvents, dbForms, dbSchedules] = await Promise.all([
@@ -613,6 +614,7 @@ export default function App() {
           loadAdministrativeFormsFromDb(),
           loadSchedulesFromDb(),
         ]);
+        if (cancelled) return;
 
         if (Array.isArray(dbSchedules)) {
           setAllSchedules(dbSchedules);
@@ -652,15 +654,17 @@ export default function App() {
 
         if (isApprovedStaff) {
           const batchSize = 1000;
+          const FETCH_CONCURRENCY = 4;
           const [
-            { data: dbHouseholds, error: hErr },
+            firstHhPage,
             firstResPage,
             residentExtendedMeta,
           ] = await Promise.all([
             (supabase as any)
               .from("households")
-              .select("*")
-              .order("code", { ascending: true }),
+              .select("*", { count: "exact" })
+              .order("code", { ascending: true })
+              .range(0, batchSize - 1),
             (supabase as any)
               .from("residents")
               .select("*", { count: "exact" })
@@ -669,9 +673,48 @@ export default function App() {
               .range(0, batchSize - 1),
             loadPortalSetting<Record<string, Record<string, any>>>(RESIDENT_EXTENDED_META_KEY),
           ]);
+          if (cancelled) return;
 
-          if (!hErr && dbHouseholds && dbHouseholds.length > 0) {
-            loadedHouseholds = dbHouseholds.map((h: any) => hydrateHouseholdFromDbRow(h));
+          // Phân trang toàn bộ bảng households (tránh PostgREST cắt ở 1.000 dòng)
+          let allDbHouseholds: any[] = [];
+          if (!firstHhPage.error && Array.isArray(firstHhPage.data) && firstHhPage.data.length > 0) {
+            allDbHouseholds = [...firstHhPage.data];
+            const totalHhCount =
+              typeof firstHhPage.count === "number" && firstHhPage.count > batchSize
+                ? Math.min(firstHhPage.count, 25000)
+                : firstHhPage.data.length === batchSize
+                ? 20000
+                : firstHhPage.data.length;
+
+            if (firstHhPage.data.length === batchSize && totalHhCount > batchSize) {
+              const hhRanges: Array<[number, number]> = [];
+              for (let start = batchSize; start < totalHhCount; start += batchSize) {
+                hhRanges.push([start, start + batchSize - 1]);
+              }
+              for (let i = 0; i < hhRanges.length; i += FETCH_CONCURRENCY) {
+                if (cancelled) return;
+                const chunk = hhRanges.slice(i, i + FETCH_CONCURRENCY);
+                const chunkResults = await Promise.all(
+                  chunk.map(([from, to]) =>
+                    (supabase as any)
+                      .from("households")
+                      .select("*")
+                      .order("code", { ascending: true })
+                      .range(from, to)
+                  )
+                );
+                for (const pageRes of chunkResults) {
+                  if (!pageRes.error && Array.isArray(pageRes.data) && pageRes.data.length > 0) {
+                    allDbHouseholds = allDbHouseholds.concat(pageRes.data);
+                  }
+                }
+              }
+            }
+          }
+
+          if (cancelled) return;
+          if (allDbHouseholds.length > 0) {
+            loadedHouseholds = allDbHouseholds.map((h: any) => hydrateHouseholdFromDbRow(h));
             setHouseholds(loadedHouseholds);
           }
 
@@ -694,27 +737,32 @@ export default function App() {
               for (let start = batchSize; start < totalCount; start += batchSize) {
                 remainingRanges.push([start, start + batchSize - 1]);
               }
-              const pageResults = await Promise.all(
-                remainingRanges.map(([from, to]) =>
-                  (supabase as any)
-                    .from("residents")
-                    .select("*")
-                    .order("created_at", { ascending: false })
-                    .order("id", { ascending: true })
-                    .range(from, to)
-                )
-              );
-              for (const pageRes of pageResults) {
-                if (
-                  !pageRes.error &&
-                  Array.isArray(pageRes.data) &&
-                  pageRes.data.length > 0
-                ) {
-                  allResidents = allResidents.concat(pageRes.data);
+              for (let i = 0; i < remainingRanges.length; i += FETCH_CONCURRENCY) {
+                if (cancelled) return;
+                const chunk = remainingRanges.slice(i, i + FETCH_CONCURRENCY);
+                const pageResults = await Promise.all(
+                  chunk.map(([from, to]) =>
+                    (supabase as any)
+                      .from("residents")
+                      .select("*")
+                      .order("created_at", { ascending: false })
+                      .order("id", { ascending: true })
+                      .range(from, to)
+                  )
+                );
+                for (const pageRes of pageResults) {
+                  if (
+                    !pageRes.error &&
+                    Array.isArray(pageRes.data) &&
+                    pageRes.data.length > 0
+                  ) {
+                    allResidents = allResidents.concat(pageRes.data);
+                  }
                 }
               }
             }
           }
+          if (cancelled) return;
 
           if (allResidents.length > 0) {
             mappedResidents = allResidents.map((r: any) => {
@@ -838,6 +886,7 @@ export default function App() {
             ? loadPortalSetting<Record<string, any>>(BUSINESS_EXTENDED_META_KEY)
             : Promise.resolve(null),
         ]);
+        if (cancelled) return;
 
         const deletedBizIds = new Set<string>(
           Array.isArray(businessExtendedMeta?.__deleted_ids__)
@@ -1125,13 +1174,16 @@ export default function App() {
           }
         }
       } catch (e) {
-        console.warn("Lỗi nạp dữ liệu từ Supabase:", e);
+        if (!cancelled) console.warn("Lỗi nạp dữ liệu từ Supabase:", e);
       } finally {
-        setIsDataLoading(false);
+        if (!cancelled) setIsDataLoading(false);
       }
     }
 
     fetchSupabaseData();
+    return () => {
+      cancelled = true;
+    };
   }, [authChecked, verifiedStaff?.userId]);
 
   // New State variables for the 3 additional views
@@ -1505,33 +1557,37 @@ export default function App() {
     householdsRef.current = households;
   }, [households]);
 
+  const residentsRef = useRef<Resident[]>(residents);
+  useEffect(() => {
+    residentsRef.current = residents;
+  }, [residents]);
+
   const handleHouseholdsChange: React.Dispatch<React.SetStateAction<Household[]>> = (updater) => {
-    setHouseholds((prev) => {
-      const next = typeof updater === "function" ? (updater as (p: Household[]) => Household[])(prev) : updater;
-      if (verifiedStaffRef.current) {
-        void syncHouseholdsDiffToDb(prev, next);
-      }
-      return next;
-    });
+    const prev = householdsRef.current;
+    const next = typeof updater === "function" ? (updater as (p: Household[]) => Household[])(prev) : updater;
+    householdsRef.current = next;
+    setHouseholds(next);
+    if (verifiedStaffRef.current) {
+      void syncHouseholdsDiffToDb(prev, next);
+    }
   };
 
   const updateResidentsWithSync: React.Dispatch<React.SetStateAction<Resident[]>> = (
     updaterOrNext
   ) => {
-    setResidents((prev) => {
-      const next =
-        typeof updaterOrNext === "function"
-          ? (updaterOrNext as (p: Resident[]) => Resident[])(prev)
-          : updaterOrNext;
-      if (verifiedStaffRef.current || currentUser?.role === "canbo") {
-        void syncResidentsDiffToDb(prev, next);
-      }
-      const tempBuild = buildTemporaryHouseholdsFromResidents(next, householdsRef.current);
-      setTimeout(() => {
-        setHouseholds(tempBuild.mergedHouseholds);
-      }, 0);
-      return tempBuild.updatedResidents;
-    });
+    const prev = residentsRef.current;
+    const next =
+      typeof updaterOrNext === "function"
+        ? (updaterOrNext as (p: Resident[]) => Resident[])(prev)
+        : updaterOrNext;
+    const tempBuild = buildTemporaryHouseholdsFromResidents(next, householdsRef.current);
+    residentsRef.current = tempBuild.updatedResidents;
+    householdsRef.current = tempBuild.mergedHouseholds;
+    setResidents(tempBuild.updatedResidents);
+    setHouseholds(tempBuild.mergedHouseholds);
+    if (verifiedStaffRef.current || currentUser?.role === "canbo") {
+      void syncResidentsDiffToDb(prev, next);
+    }
   };
 
   const handleBusinessesChange: React.Dispatch<React.SetStateAction<Business[]>> = (updater) => {
@@ -2454,7 +2510,11 @@ export default function App() {
             }
           }}
         />
-        <div className="h-16 md:hidden" aria-hidden="true" />
+        <div
+          className="md:hidden"
+          style={{ height: "calc(64px + env(safe-area-inset-bottom, 0px))" }}
+          aria-hidden="true"
+        />
         <MobileSuperAppBar
           activeTab={activeTab}
           isStaff={isAdminUser}
@@ -2676,7 +2736,11 @@ export default function App() {
             </Suspense>
           </AppErrorBoundary>
         </main>
-        <div className="h-16 md:hidden shrink-0" aria-hidden="true" />
+        <div
+          className="md:hidden shrink-0"
+          style={{ height: "calc(64px + env(safe-area-inset-bottom, 0px))" }}
+          aria-hidden="true"
+        />
         <MobileSuperAppBar
           activeTab={citizenSubView}
           isStaff={false}
@@ -3000,7 +3064,7 @@ export default function App() {
         </header>
 
         {/* Dynamic view routing based on tab state */}
-        <main className="flex-1 p-3.5 pb-20 sm:p-5 sm:pb-20 md:pb-6 lg:p-6 overflow-y-auto max-w-7xl w-full mx-auto min-w-0">
+        <main className="flex-1 p-3.5 pb-[calc(80px+env(safe-area-inset-bottom,0px))] sm:p-5 sm:pb-[calc(80px+env(safe-area-inset-bottom,0px))] md:pb-6 lg:p-6 overflow-y-auto max-w-7xl w-full mx-auto min-w-0">
           {isDataLoading && activeTab === "dashboard" && (
             <LoadingFade
               variant="inline"

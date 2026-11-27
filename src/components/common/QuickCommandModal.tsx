@@ -1,4 +1,5 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import {
   ArrowRight,
   Bot,
@@ -43,6 +44,7 @@ import {
   isEnterpriseRecord,
   maskCccd,
 } from "../../utils/kp3Utils";
+import { normalizeSearchVietnamese } from "../../utils/specialSupervisionUtils";
 
 export type QuickCommandGroup =
   | "Cư dân KP3"
@@ -136,7 +138,7 @@ const COMMAND_ITEMS: QuickCommandItem[] = [
     id: "mod-residents",
     group: "Phân hệ điều hành",
     label: "Quản lý Dân cư",
-    description: "11.632 nhân khẩu thường trú & tạm trú, cảnh báo hết hạn",
+    description: "Nhân khẩu thường trú & tạm trú toàn KP3, cảnh báo hết hạn",
     path: getDashboardExtensionPath("residents"),
     tab: "residents",
     icon: Users,
@@ -146,7 +148,7 @@ const COMMAND_ITEMS: QuickCommandItem[] = [
     id: "mod-households",
     group: "Phân hệ điều hành",
     label: "Quản lý Hộ khẩu",
-    description: "488 sổ hộ tịch điện tử, tự nhận diện hộ & cây phả hệ",
+    description: "Sổ hộ tịch điện tử, tự nhận diện hộ & cây phả hệ",
     path: getDashboardExtensionPath("households"),
     tab: "households",
     icon: Home,
@@ -165,7 +167,7 @@ const COMMAND_ITEMS: QuickCommandItem[] = [
     id: "mod-businesses",
     group: "Phân hệ điều hành",
     label: "Cơ sở Kinh doanh & Nhà trọ",
-    description: "Hộ cá thể, PCCC và 108 cơ sở lưu trú trên địa bàn",
+    description: "Hộ cá thể, PCCC và cơ sở lưu trú trên địa bàn",
     path: getDashboardExtensionPath("businesses"),
     tab: "businesses",
     icon: Store,
@@ -305,18 +307,19 @@ export function QuickCommandModal({
   tasks = [],
 }: QuickCommandModalProps) {
   const [query, setQuery] = useState("");
+  const deferredQuery = useDeferredValue(query);
   const [activeIndex, setActiveIndex] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
 
   const filteredItems = useMemo(() => {
-    const q = query.trim().toLowerCase();
+    const q = normalizeSearchVietnamese(deferredQuery);
 
     const matchedCommands = COMMAND_ITEMS.filter((item) => {
       if (item.staffOnly && !isStaff) return false;
       if (!q) return true;
       return (
-        item.label.toLowerCase().includes(q) ||
-        item.description.toLowerCase().includes(q) ||
+        normalizeSearchVietnamese(item.label).includes(q) ||
+        normalizeSearchVietnamese(item.description).includes(q) ||
         item.path.toLowerCase().includes(q)
       );
     });
@@ -332,8 +335,8 @@ export function QuickCommandModal({
       let resCount = 0;
       for (let i = 0; i < residents.length && resCount < 5; i++) {
         const r = residents[i];
-        const nameMatch = r.fullName?.toLowerCase().includes(q);
-        const cccdMatch = r.cccd?.toLowerCase().includes(q);
+        const nameMatch = normalizeSearchVietnamese(r.fullName || "").includes(q);
+        const cccdMatch = (r.cccd || "").toLowerCase().includes(q);
         const phoneMatch = r.phone ? r.phone.toLowerCase().includes(q) : false;
         if (nameMatch || cccdMatch || phoneMatch) {
           liveEntityResults.push({
@@ -362,9 +365,9 @@ export function QuickCommandModal({
         i++
       ) {
         const h = households[i];
-        const codeMatch = h.code?.toLowerCase().includes(q);
-        const ownerMatch = h.ownerName?.toLowerCase().includes(q);
-        const addrMatch = h.address?.toLowerCase().includes(q);
+        const codeMatch = (h.code || "").toLowerCase().includes(q);
+        const ownerMatch = normalizeSearchVietnamese(h.ownerName || "").includes(q);
+        const addrMatch = normalizeSearchVietnamese(h.address || "").includes(q);
         if (codeMatch || ownerMatch || addrMatch) {
           liveEntityResults.push({
             id: `hh-${h.id}`,
@@ -391,11 +394,11 @@ export function QuickCommandModal({
       ) {
         const b = businesses[i];
         const match =
-          b.name?.toLowerCase().includes(q) ||
-          (b.taxCode && b.taxCode.toLowerCase().includes(q)) ||
-          (b.licenseNumber && b.licenseNumber.toLowerCase().includes(q)) ||
-          (b.owner && b.owner.toLowerCase().includes(q)) ||
-          (b.legalRepresentative && b.legalRepresentative.toLowerCase().includes(q));
+          normalizeSearchVietnamese(b.name || "").includes(q) ||
+          Boolean(b.taxCode && b.taxCode.toLowerCase().includes(q)) ||
+          Boolean(b.licenseNumber && b.licenseNumber.toLowerCase().includes(q)) ||
+          Boolean(b.owner && normalizeSearchVietnamese(b.owner).includes(q)) ||
+          Boolean(b.legalRepresentative && normalizeSearchVietnamese(b.legalRepresentative).includes(q));
 
         if (match) {
           const isEnt = isEnterpriseRecord(b);
@@ -432,10 +435,10 @@ export function QuickCommandModal({
         const rep = reports[i];
         const shortCode = formatShortRecordId(rep.id, "PA");
         const match =
-          rep.id?.toLowerCase().includes(q) ||
+          (rep.id || "").toLowerCase().includes(q) ||
           shortCode.toLowerCase().includes(q) ||
-          rep.title?.toLowerCase().includes(q) ||
-          rep.location?.toLowerCase().includes(q);
+          normalizeSearchVietnamese(rep.title || "").includes(q) ||
+          normalizeSearchVietnamese(rep.location || "").includes(q);
         if (match) {
           liveEntityResults.push({
             id: `rep-${rep.id}`,
@@ -458,9 +461,9 @@ export function QuickCommandModal({
         ) {
           const t = tasks[i];
           const match =
-            t.id?.toLowerCase().includes(q) ||
-            t.title?.toLowerCase().includes(q) ||
-            t.unit?.toLowerCase().includes(q);
+            (t.id || "").toLowerCase().includes(q) ||
+            normalizeSearchVietnamese(t.title || "").includes(q) ||
+            normalizeSearchVietnamese(t.unit || "").includes(q);
           if (match) {
             liveEntityResults.push({
               id: `task-${t.id}`,
@@ -479,7 +482,7 @@ export function QuickCommandModal({
     }
 
     return [...liveEntityResults, ...matchedCommands];
-  }, [query, isStaff, residents, households, businesses, reports, tasks]);
+  }, [deferredQuery, isStaff, residents, households, businesses, reports, tasks]);
 
   useEffect(() => {
     if (isOpen) {
@@ -529,12 +532,12 @@ export function QuickCommandModal({
 
   if (!isOpen) return null;
 
-  return (
+  const modalContent = (
     <div
       role="dialog"
       aria-modal="true"
       aria-label="Tìm kiếm liên thông toàn hệ thống và chuyển nhanh phân hệ"
-      className="fixed inset-0 z-50 flex items-start justify-center pt-12 sm:pt-20 px-3 sm:px-4 bg-slate-950/50 backdrop-blur-xs animate-in fade-in duration-150"
+      className="fixed inset-0 z-[110] flex items-start justify-center pt-12 sm:pt-20 px-3 sm:px-4 bg-slate-950/50 backdrop-blur-xs animate-in fade-in duration-150"
       onClick={onClose}
     >
       <div
@@ -552,13 +555,13 @@ export function QuickCommandModal({
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Tìm cư dân, CCCD, hộ khẩu, MST/nhà trọ, mã PA-..., nhiệm vụ hoặc phân hệ..."
             aria-label="Nhập từ khóa tìm kiếm liên thông toàn hệ thống"
-            className="flex-1 bg-transparent text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none min-w-0"
+            className="flex-1 bg-transparent text-sm text-slate-900 placeholder:text-slate-500 focus:outline-none min-w-0"
           />
           <button
             type="button"
             onClick={onClose}
             aria-label="Đóng hộp thoại tìm nhanh"
-            className="p-1.5 rounded-lg text-slate-500 hover:text-slate-800 hover:bg-slate-200/70 cursor-pointer"
+            className="min-w-11 min-h-11 sm:min-w-9 sm:min-h-9 inline-flex items-center justify-center rounded-lg text-slate-500 hover:text-slate-800 hover:bg-slate-200/70 cursor-pointer"
           >
             <X size={16} />
           </button>
@@ -635,6 +638,8 @@ export function QuickCommandModal({
       </div>
     </div>
   );
+
+  return typeof document !== "undefined" ? createPortal(modalContent, document.body) : modalContent;
 }
 
 export default QuickCommandModal;

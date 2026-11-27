@@ -93,7 +93,7 @@ export async function loadPortalSetting<T>(key: string): Promise<T | null> {
 export async function savePortalSetting<T>(
   key: string,
   value: T,
-  isPublic: boolean = true
+  isPublic: boolean = false
 ): Promise<boolean> {
   if (!isSupabaseConfigured || !supabase) return false;
   try {

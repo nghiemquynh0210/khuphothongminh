@@ -67,6 +67,7 @@ const STAFF_ONLY_DOC_TYPES = new Set([
   "land_certificate",
   "ward_schedule",
   "decision_document",
+  "timemark_photo",
 ]);
 
 const ALLOWED_OCR_MIMES = new Set([

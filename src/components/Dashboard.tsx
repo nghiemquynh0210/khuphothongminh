@@ -61,6 +61,7 @@ import {
   maskCccd,
 } from "../utils/kp3Utils";
 import { getEffectiveResidencyStatus } from "../utils/residencyClassifier";
+import { normalizeSearchVietnamese } from "../utils/specialSupervisionUtils";
 import { recordAuditLog } from "../utils/auditLogger";
 import { formatVNNumber } from "../utils/numberFormat";
 import {
@@ -328,7 +329,7 @@ export default function Dashboard({
   );
 
   const handleSearchHousehold = (query: string) => {
-    const q = query.trim().toLowerCase();
+    const q = normalizeSearchVietnamese(query);
     if (!q) {
       setSearchFeedback("Vui lòng nhập Mã sổ hộ khẩu, Mã hộ tạm trú (TT-0001), tên chủ hộ hoặc số CCCD.");
       setSearchedHousehold(null);
@@ -336,17 +337,23 @@ export default function Dashboard({
     }
 
     let foundH =
-      households.find((h) => h.code.toLowerCase() === q) ||
+      households.find((h) => normalizeSearchVietnamese(h.code) === q) ||
       households.find(
         (h) =>
-          h.code.toLowerCase().includes(q) ||
-          h.ownerName.toLowerCase().includes(q) ||
-          h.members?.some((m) => (m.cccd || "").toLowerCase().includes(q) || m.name.toLowerCase().includes(q))
+          normalizeSearchVietnamese(h.code).includes(q) ||
+          normalizeSearchVietnamese(h.ownerName).includes(q) ||
+          h.members?.some(
+            (m) =>
+              (m.cccd || "").toLowerCase().includes(q) ||
+              normalizeSearchVietnamese(m.name).includes(q)
+          )
       );
 
     if (!foundH) {
       const foundRes = residents.find(
-        (r) => r.cccd.toLowerCase().includes(q) || r.fullName.toLowerCase().includes(q)
+        (r) =>
+          (r.cccd || "").toLowerCase().includes(q) ||
+          normalizeSearchVietnamese(r.fullName).includes(q)
       );
       if (foundRes?.householdId) {
         foundH = households.find((h) => h.code === foundRes.householdId);
@@ -558,14 +565,14 @@ export default function Dashboard({
   ];
 
   const filteredDashboardForms = useMemo(() => {
-    const q = dashboardFormSearch.trim().toLowerCase();
+    const q = normalizeSearchVietnamese(dashboardFormSearch);
     return forms.filter((f) => {
       const matchCat = dashboardFormCategory === "Tất cả" || f.category === dashboardFormCategory;
       const matchSearch =
         !q ||
-        f.title.toLowerCase().includes(q) ||
-        f.code.toLowerCase().includes(q) ||
-        f.description.toLowerCase().includes(q);
+        normalizeSearchVietnamese(f.title).includes(q) ||
+        normalizeSearchVietnamese(f.code).includes(q) ||
+        normalizeSearchVietnamese(f.description).includes(q);
       return matchCat && matchSearch;
     });
   }, [forms, dashboardFormCategory, dashboardFormSearch]);
@@ -1517,11 +1524,14 @@ export default function Dashboard({
                   </thead>
                   <tbody className="divide-y divide-slate-100 bg-white">
                     {searchedMembers.map((member, idx) => {
-                      const matchedRes = residents.find(
-                        (r) =>
-                          (member.cccd && r.cccd === member.cccd) ||
-                          (r.fullName === member.fullName && r.householdId === searchedHousehold.code)
-                      );
+                      const isDirectResident = !String(member.id || "").startsWith("M-");
+                      const matchedRes = isDirectResident
+                        ? member
+                        : residents.find(
+                            (r) =>
+                              (member.cccd && r.cccd === member.cccd) ||
+                              (r.fullName === member.fullName && r.householdId === searchedHousehold.code)
+                          );
                       return (
                         <tr
                           key={member.id || idx}

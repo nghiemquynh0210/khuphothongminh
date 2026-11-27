@@ -71,7 +71,8 @@ import { SpecialSupervisionTab } from "./reports/SpecialSupervisionTab";
 import { MobileSubpageShell } from "./mobile/MobileSubpageShell";
 import {
   canAccessSpecialSupervision,
-  matchesSmartResidentSearch,
+  normalizeDigitsOnly,
+  normalizeSearchVietnamese,
 } from "../utils/specialSupervisionUtils";
 import { formatVNNumber } from "../utils/numberFormat";
 import { KP3_AREA_LIST, extractKp3Area, maskCccd } from "../utils/kp3Utils";
@@ -188,7 +189,7 @@ const CitizenSearchInput = React.memo(function CitizenSearchInput({
             scheduleEmit(next);
           }
         }}
-        className="w-full pl-9 pr-8 py-2 border border-slate-200/90 rounded-xl text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600 bg-slate-50/50 hover:bg-white transition-all placeholder:text-slate-400"
+        className="w-full pl-9 pr-8 py-2 border border-slate-200/90 rounded-xl text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600 bg-slate-50/50 hover:bg-white transition-all placeholder:text-slate-500"
       />
       {val && (
         <button
@@ -1122,7 +1123,7 @@ export default function CitizenManagement({
           }
 
           const birthYear = birthDateIso ? parseInt(birthDateIso.slice(0, 4), 10) : null;
-          const isElderly = birthYear ? (2026 - birthYear) >= 60 : false;
+          const isElderly = birthYear ? (new Date().getFullYear() - birthYear) >= 60 : false;
           const prevRes = existingByCccd.get(cccdClean);
           const policyLower = (prevRes?.policyGroup || row.policyGroup || "").toLowerCase();
 
@@ -1430,60 +1431,12 @@ export default function CitizenManagement({
 
   const deferredSearchTerm = useDeferredValue(searchTerm);
 
-  // Memoized Filter Logic with smart Vietnamese (NFC/NFD/accent-insensitive) & numeric search
-  const filteredResidents = useMemo(() => {
-    const query = deferredSearchTerm.trim();
-    const hasQuery = query.length > 0;
-
-    return residents.filter(res => {
-      const isForeign = isForeignResident(res);
-
-      let matchesStatus = true;
-      if (statusFilter === "Người nước ngoài") {
-        if (!isForeign) return false;
-        if (foreignNationalityFilter !== "Tất cả" && res.nationality !== foreignNationalityFilter) return false;
-        if (foreignVisaTypeFilter !== "Tất cả" && res.visaOrCardType !== foreignVisaTypeFilter) return false;
-        if (foreignExpiryFilter !== "Tất cả") {
-          const expiryInfo = getVisaExpiryStatus(res.visaValidUntil);
-          if (foreignExpiryFilter === "Sắp hết hạn" && expiryInfo.status !== "expiring_soon") return false;
-          if (foreignExpiryFilter === "Còn hạn dài" && expiryInfo.status !== "valid") return false;
-          if (foreignExpiryFilter === "Đã hết hạn" && expiryInfo.status !== "expired") return false;
-        }
-      } else if (statusFilter === "Tạm trú") {
-        if (res.status !== "Tạm trú" || isForeign) return false;
-        if (temporaryExpiryFilter !== "Tất cả") {
-          const expStatus = getTemporaryResidenceExpiryStatus(res.temporaryExpDate);
-          if (temporaryExpiryFilter === "Sắp hết hạn (< 30 ngày)" && !expStatus.isWarning) return false;
-          if (temporaryExpiryFilter === "Đã hết hạn" && !expStatus.isExpired) return false;
-          if (temporaryExpiryFilter === "Còn hạn dài" && (expStatus.isWarning || expStatus.isExpired)) return false;
-        }
-      } else if (statusFilter === "Tạm vắng") {
-        const effective = getEffectiveResidencyStatus(res);
-        if (effective !== "Tạm vắng") return false;
-      } else if (statusFilter !== "Tất cả") {
-        if (statusFilter === "Thường trú") {
-          matchesStatus = res.status === "Thường trú" && !isForeign && getEffectiveResidencyStatus(res) !== "Tạm vắng";
-        } else {
-          matchesStatus = res.status === statusFilter && !isForeign;
-        }
-      }
-
-      if (!matchesStatus) return false;
-
-      if (genderFilter !== "Tất cả" && res.gender !== genderFilter) return false;
-      if (policyFilter !== "Tất cả") {
-        if (policyFilter === "Người cao tuổi") {
-          if (!isElderlyResident(res)) return false;
-        } else if (!res.policyGroup || !res.policyGroup.includes(policyFilter)) {
-          return false;
-        }
-      }
-      if (toFilter !== "all" && extractKp3Area(res.address) !== toFilter) return false;
-
-      if (!hasQuery) return true;
-
-      // Smart Vietnamese (accent-insensitive, NFC/NFD) & CCCD/Phone digit-normalized match
-      return matchesSmartResidentSearch(query, [
+  // Pre-compute Vietnamese no-accent & digits search index once per residents update (avoids ~190k NFD regex ops/keystroke)
+  const residentSearchIndex = useMemo(() => {
+    const idx = new Array<{ noAccent: string; digits: string }>(residents.length);
+    for (let i = 0; i < residents.length; i++) {
+      const res = residents[i];
+      const joined = [
         res.fullName,
         res.cccd,
         res.phone,
@@ -1501,10 +1454,87 @@ export default function CitizenManagement({
         res.workPermitNumber,
         res.healthInsuranceNumber,
         res.policyGroup,
-      ]);
-    });
+      ]
+        .filter(Boolean)
+        .join(" ");
+      idx[i] = {
+        noAccent: normalizeSearchVietnamese(joined),
+        digits: normalizeDigitsOnly(`${res.cccd || ""} ${res.phone || ""} ${res.householdId || ""} ${res.passportNumber || ""}`),
+      };
+    }
+    return idx;
+  }, [residents]);
+
+  // Memoized Filter Logic with smart Vietnamese (NFC/NFD/accent-insensitive) & numeric search
+  const filteredResidents = useMemo(() => {
+    const rawQuery = deferredSearchTerm.trim();
+    const noAccentQuery = normalizeSearchVietnamese(rawQuery);
+    const digitsQuery = normalizeDigitsOnly(rawQuery);
+    const isMostlyNumeric =
+      digitsQuery.length >= 3 &&
+      digitsQuery.length >= rawQuery.replace(/[\s.-]/g, "").length;
+    const hasQuery = noAccentQuery.length > 0 || isMostlyNumeric;
+
+    const result: Resident[] = [];
+    for (let i = 0; i < residents.length; i++) {
+      const res = residents[i];
+      const isForeign = isForeignResident(res);
+
+      let matchesStatus = true;
+      if (statusFilter === "Người nước ngoài") {
+        if (!isForeign) continue;
+        if (foreignNationalityFilter !== "Tất cả" && res.nationality !== foreignNationalityFilter) continue;
+        if (foreignVisaTypeFilter !== "Tất cả" && res.visaOrCardType !== foreignVisaTypeFilter) continue;
+        if (foreignExpiryFilter !== "Tất cả") {
+          const expiryInfo = getVisaExpiryStatus(res.visaValidUntil);
+          if (foreignExpiryFilter === "Sắp hết hạn" && expiryInfo.status !== "expiring_soon") continue;
+          if (foreignExpiryFilter === "Còn hạn dài" && expiryInfo.status !== "valid") continue;
+          if (foreignExpiryFilter === "Đã hết hạn" && expiryInfo.status !== "expired") continue;
+        }
+      } else if (statusFilter === "Tạm trú") {
+        if (res.status !== "Tạm trú" || isForeign) continue;
+        if (temporaryExpiryFilter !== "Tất cả") {
+          const expStatus = getTemporaryResidenceExpiryStatus(res.temporaryExpDate);
+          if (temporaryExpiryFilter === "Sắp hết hạn (< 30 ngày)" && !expStatus.isWarning) continue;
+          if (temporaryExpiryFilter === "Đã hết hạn" && !expStatus.isExpired) continue;
+          if (temporaryExpiryFilter === "Còn hạn dài" && (expStatus.isWarning || expStatus.isExpired)) continue;
+        }
+      } else if (statusFilter === "Tạm vắng") {
+        const effective = getEffectiveResidencyStatus(res);
+        if (effective !== "Tạm vắng") continue;
+      } else if (statusFilter !== "Tất cả") {
+        if (statusFilter === "Thường trú") {
+          matchesStatus = res.status === "Thường trú" && !isForeign && getEffectiveResidencyStatus(res) !== "Tạm vắng";
+        } else {
+          matchesStatus = res.status === statusFilter && !isForeign;
+        }
+      }
+
+      if (!matchesStatus) continue;
+
+      if (genderFilter !== "Tất cả" && res.gender !== genderFilter) continue;
+      if (policyFilter !== "Tất cả") {
+        if (policyFilter === "Người cao tuổi") {
+          if (!isElderlyResident(res)) continue;
+        } else if (!res.policyGroup || !res.policyGroup.includes(policyFilter)) {
+          continue;
+        }
+      }
+      if (toFilter !== "all" && extractKp3Area(res.address) !== toFilter) continue;
+
+      if (hasQuery) {
+        const entry = residentSearchIndex[i];
+        const matchedText = noAccentQuery.length > 0 && entry.noAccent.includes(noAccentQuery);
+        const matchedDigits = isMostlyNumeric && entry.digits.includes(digitsQuery);
+        if (!matchedText && !matchedDigits) continue;
+      }
+
+      result.push(res);
+    }
+    return result;
   }, [
     residents,
+    residentSearchIndex,
     deferredSearchTerm,
     statusFilter,
     foreignNationalityFilter,
@@ -1885,7 +1915,7 @@ export default function CitizenManagement({
                 <Filter size={13} />
                 <span>Bộ lọc</span>
                 {activeSubFilterCount > 0 && (
-                  <span className="px-1.5 py-0.2 rounded-full bg-white/20 text-[10px] font-mono">
+                  <span className="px-1.5 py-0.5 rounded-full bg-white/20 text-[10px] font-mono">
                     {activeSubFilterCount}
                   </span>
                 )}
@@ -2260,7 +2290,7 @@ export default function CitizenManagement({
               <tbody className="divide-y divide-slate-100">
                 {filteredResidents.length === 0 ? (
                   <tr>
-                    <td colSpan={5} className="text-center py-12 text-sm text-slate-400">
+                    <td colSpan={5} className="text-center py-12 text-sm text-slate-600">
                       Không tìm thấy cư dân nào phù hợp với bộ lọc hiện tại
                     </td>
                   </tr>
@@ -2616,7 +2646,7 @@ export default function CitizenManagement({
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-4 p-4 sm:p-5 bg-slate-50/35">
             {filteredResidents.length === 0 ? (
-              <div className="text-center py-16 text-xs text-slate-400 col-span-full">
+              <div className="text-center py-16 text-xs text-slate-600 col-span-full">
                 Không tìm thấy cư dân nào phù hợp với bộ lọc hiện tại
               </div>
             ) : (
@@ -2836,7 +2866,7 @@ export default function CitizenManagement({
                         <button
                           type="button"
                           onClick={() => handleOpenDetailModal(res)}
-                          className="h-8 px-3 text-emerald-800 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 rounded-lg text-xs font-bold inline-flex items-center gap-1.5 cursor-pointer transition-colors whitespace-nowrap"
+                          className="min-h-11 md:min-h-8 md:h-8 px-3 text-emerald-800 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 rounded-lg text-xs font-bold inline-flex items-center gap-1.5 cursor-pointer transition-colors whitespace-nowrap"
                           title="Xem chi tiết hồ sơ cư dân"
                         >
                           <Eye size={13} />
@@ -2847,7 +2877,7 @@ export default function CitizenManagement({
                           <button
                             type="button"
                             onClick={() => handleDirections(res)}
-                            className="h-8 px-2 inline-flex items-center justify-center gap-1 text-slate-600 hover:text-emerald-800 rounded-lg hover:bg-emerald-50 border border-slate-200 text-[11px] font-semibold cursor-pointer transition-colors"
+                            className="min-h-11 md:min-h-8 md:h-8 px-2.5 md:px-2 inline-flex items-center justify-center gap-1 text-slate-600 hover:text-emerald-800 rounded-lg hover:bg-emerald-50 border border-slate-200 text-[11px] font-semibold cursor-pointer transition-colors"
                             title="Định vị nơi cư trú trên Bản đồ GIS"
                           >
                             <MapPin size={12} className="text-emerald-600" />
@@ -2857,8 +2887,9 @@ export default function CitizenManagement({
                             <button
                               type="button"
                               onClick={() => handleOpenNA17(res)}
-                              className="h-8 w-8 inline-flex items-center justify-center text-purple-700 hover:text-purple-900 rounded-lg hover:bg-purple-50 border border-purple-200 cursor-pointer transition-colors"
+                              className="min-h-11 min-w-11 md:min-h-8 md:min-w-8 md:h-8 md:w-8 inline-flex items-center justify-center text-purple-700 hover:text-purple-900 rounded-lg hover:bg-purple-50 border border-purple-200 cursor-pointer transition-colors"
                               title="In mẫu NA17 (Khai báo NNN)"
+                              aria-label="In mẫu NA17 (Khai báo NNN)"
                             >
                               <FileText size={13} />
                             </button>
@@ -2866,8 +2897,9 @@ export default function CitizenManagement({
                             <button
                               type="button"
                               onClick={() => handleOpenCT07(res)}
-                              className="h-8 w-8 inline-flex items-center justify-center text-slate-600 hover:text-emerald-800 rounded-lg hover:bg-slate-100 border border-slate-200 cursor-pointer transition-colors"
+                              className="min-h-11 min-w-11 md:min-h-8 md:min-w-8 md:h-8 md:w-8 inline-flex items-center justify-center text-slate-600 hover:text-emerald-800 rounded-lg hover:bg-slate-100 border border-slate-200 cursor-pointer transition-colors"
                               title="In xác nhận cư trú CT07"
+                              aria-label="In xác nhận cư trú CT07"
                             >
                               <Printer size={13} />
                             </button>
@@ -2875,8 +2907,9 @@ export default function CitizenManagement({
                           <button
                             type="button"
                             onClick={() => handleEditClick(res)}
-                            className="h-8 w-8 inline-flex items-center justify-center text-slate-600 hover:text-blue-700 rounded-lg hover:bg-slate-100 border border-slate-200 cursor-pointer transition-colors"
+                            className="min-h-11 min-w-11 md:min-h-8 md:min-w-8 md:h-8 md:w-8 inline-flex items-center justify-center text-slate-600 hover:text-blue-700 rounded-lg hover:bg-slate-100 border border-slate-200 cursor-pointer transition-colors"
                             title="Sửa hồ sơ"
+                            aria-label="Sửa hồ sơ"
                           >
                             <Edit2 size={13} />
                           </button>

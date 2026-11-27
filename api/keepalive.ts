@@ -154,10 +154,93 @@ export function resetKeepAliveThrottleForTests() {
   lastCachedResult = null;
 }
 
+const TOTAL_KEEPALIVE_BUDGET_MS = 8500;
+
+async function fetchWithDeadline(
+  url: string,
+  init: RequestInit | undefined,
+  deadlineMs: number,
+  maxPerCallMs = 4500
+): Promise<Response> {
+  const remaining = deadlineMs - Date.now();
+  if (remaining <= 200) {
+    const err = new Error("Keepalive timeout budget exceeded");
+    (err as any).name = "AbortError";
+    throw err;
+  }
+  const timeoutMs = Math.min(maxPerCallMs, remaining);
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    return await fetch(url, { ...(init || {}), signal: controller.signal });
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+async function verifyKeepAliveStaffJwt(
+  authHeader: string,
+  supabaseUrl: string,
+  anonKey: string,
+  serviceRoleKey: string,
+  deadlineMs: number
+): Promise<boolean> {
+  if (!authHeader.toLowerCase().startsWith("bearer ") || !serviceRoleKey) return false;
+  const token = authHeader.slice(7).trim();
+  if (!token) return false;
+  try {
+    const userRes = await fetchWithDeadline(
+      `${supabaseUrl}/auth/v1/user`,
+      {
+        method: "GET",
+        headers: {
+          apikey: anonKey || serviceRoleKey,
+          Authorization: `Bearer ${token}`,
+        },
+      },
+      deadlineMs,
+      2500
+    );
+    if (!userRes.ok) return false;
+    const authUser = await userRes.json().catch(() => null);
+    if (!authUser?.id) return false;
+    const profRes = await fetchWithDeadline(
+      `${supabaseUrl}/rest/v1/user_profiles?id=eq.${encodeURIComponent(authUser.id)}&select=role,approval_status`,
+      {
+        method: "GET",
+        headers: {
+          apikey: serviceRoleKey,
+          Authorization: `Bearer ${serviceRoleKey}`,
+          Accept: "application/json",
+        },
+      },
+      deadlineMs,
+      2500
+    );
+    if (!profRes.ok) return false;
+    const rows = await profRes.json().catch(() => []);
+    const profile = rows?.[0];
+    return Boolean(
+      profile &&
+        profile.approval_status === "approved" &&
+        (profile.role === "admin" || profile.role === "cadre")
+    );
+  } catch {
+    return false;
+  }
+}
+
+interface SharedZaloRunCtx {
+  cfg?: Record<string, any>;
+  accessToken?: string;
+  tokenChecked?: boolean;
+}
+
 async function refreshZaloToken(
   cfg: Record<string, any>,
   supabaseUrl: string,
-  headers: Record<string, string>
+  headers: Record<string, string>,
+  deadlineMs: number
 ): Promise<string> {
   const refreshToken = String(cfg.refreshToken || process.env.ZALO_OA_REFRESH_TOKEN || "").trim();
   const appSecret = String(cfg.appSecret || process.env.ZALO_APP_SECRET || "").trim();
@@ -169,36 +252,46 @@ async function refreshZaloToken(
     form.set("app_id", appId);
     form.set("grant_type", "refresh_token");
     form.set("refresh_token", refreshToken);
-    const refRes = await fetch("https://oauth.zaloapp.com/v4/oa/access_token", {
-      method: "POST",
-      headers: {
-        secret_key: appSecret,
-        "Content-Type": "application/x-www-form-urlencoded",
+    const refRes = await fetchWithDeadline(
+      "https://oauth.zaloapp.com/v4/oa/access_token",
+      {
+        method: "POST",
+        headers: {
+          secret_key: appSecret,
+          "Content-Type": "application/x-www-form-urlencoded",
+        },
+        body: form.toString(),
       },
-      body: form.toString(),
-    });
+      deadlineMs,
+      3000
+    );
     const refJson = await refRes.json().catch(() => ({}));
     if (refJson?.access_token) {
       const nextAccess = String(refJson.access_token).trim();
-      await fetch(`${supabaseUrl}/rest/v1/portal_settings?on_conflict=key`, {
-        method: "POST",
-        headers: {
-          ...headers,
-          "Content-Type": "application/json",
-          Prefer: "resolution=merge-duplicates,return=minimal",
-        },
-        body: JSON.stringify({
-          key: "zalo_oa_config_v1",
-          value: {
-            ...cfg,
-            accessToken: nextAccess,
-            ...(refJson.refresh_token ? { refreshToken: String(refJson.refresh_token).trim() } : {}),
-            updatedAt: new Date().toISOString(),
+      await fetchWithDeadline(
+        `${supabaseUrl}/rest/v1/portal_settings?on_conflict=key`,
+        {
+          method: "POST",
+          headers: {
+            ...headers,
+            "Content-Type": "application/json",
+            Prefer: "resolution=merge-duplicates,return=minimal",
           },
-          is_public: false,
-          updated_at: new Date().toISOString(),
-        }),
-      });
+          body: JSON.stringify({
+            key: "zalo_oa_config_v1",
+            value: {
+              ...cfg,
+              accessToken: nextAccess,
+              ...(refJson.refresh_token ? { refreshToken: String(refJson.refresh_token).trim() } : {}),
+              updatedAt: new Date().toISOString(),
+            },
+            is_public: false,
+            updated_at: new Date().toISOString(),
+          }),
+        },
+        deadlineMs,
+        2500
+      );
       return nextAccess;
     }
   } catch {
@@ -210,23 +303,42 @@ async function refreshZaloToken(
 async function ensureValidZaloAccessToken(
   cfg: Record<string, any>,
   supabaseUrl: string,
-  headers: Record<string, string>
+  headers: Record<string, string>,
+  deadlineMs: number,
+  sharedCtx?: SharedZaloRunCtx
 ): Promise<string> {
+  if (sharedCtx?.tokenChecked) {
+    return sharedCtx.accessToken || "";
+  }
   let accessToken = String(cfg.accessToken || process.env.ZALO_OA_ACCESS_TOKEN || "").trim();
   if (!accessToken) {
-    return await refreshZaloToken(cfg, supabaseUrl, headers);
+    accessToken = await refreshZaloToken(cfg, supabaseUrl, headers, deadlineMs);
+    if (sharedCtx) {
+      sharedCtx.tokenChecked = true;
+      sharedCtx.accessToken = accessToken;
+    }
+    return accessToken;
   }
   try {
-    const ping = await fetch("https://openapi.zalo.me/v2.0/oa/getoa", {
-      headers: { access_token: accessToken },
-    });
+    const ping = await fetchWithDeadline(
+      "https://openapi.zalo.me/v2.0/oa/getoa",
+      {
+        headers: { access_token: accessToken },
+      },
+      deadlineMs,
+      2500
+    );
     const pingJson = await ping.json().catch(() => ({}));
     if (pingJson?.error && pingJson.error !== 0) {
-      const refreshed = await refreshZaloToken(cfg, supabaseUrl, headers);
+      const refreshed = await refreshZaloToken(cfg, supabaseUrl, headers, deadlineMs);
       if (refreshed) accessToken = refreshed;
     }
   } catch {
     // keep current token on transient ping timeout
+  }
+  if (sharedCtx) {
+    sharedCtx.tokenChecked = true;
+    sharedCtx.accessToken = accessToken;
   }
   return accessToken;
 }
@@ -237,20 +349,26 @@ async function postZaloOaMessageWithRetry(
   textMsg: string,
   cfg: Record<string, any>,
   supabaseUrl: string,
-  headers: Record<string, string>
+  headers: Record<string, string>,
+  deadlineMs: number
 ): Promise<{ ok: boolean; detail: string; updatedToken?: string }> {
   const sendOnce = async (token: string) => {
-    const r = await fetch("https://openapi.zalo.me/v2.0/oa/message", {
-      method: "POST",
-      headers: {
-        access_token: token,
-        "Content-Type": "application/json",
+    const r = await fetchWithDeadline(
+      "https://openapi.zalo.me/v2.0/oa/message",
+      {
+        method: "POST",
+        headers: {
+          access_token: token,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          recipient: { user_id: zaloUid },
+          message: { text: textMsg },
+        }),
       },
-      body: JSON.stringify({
-        recipient: { user_id: zaloUid },
-        message: { text: textMsg },
-      }),
-    });
+      deadlineMs,
+      2500
+    );
     const j = await r.json().catch(() => ({}));
     return { httpOk: r.ok, json: j };
   };
@@ -258,7 +376,7 @@ async function postZaloOaMessageWithRetry(
   try {
     let { httpOk, json } = await sendOnce(accessToken);
     if ((json?.error === -216 || json?.error === -220) && cfg) {
-      const refreshed = await refreshZaloToken(cfg, supabaseUrl, headers);
+      const refreshed = await refreshZaloToken(cfg, supabaseUrl, headers, deadlineMs);
       if (refreshed && refreshed !== accessToken) {
         const retry = await sendOnce(refreshed);
         if (retry.httpOk && retry.json?.error === 0) {
@@ -286,7 +404,9 @@ async function postZaloOaMessageWithRetry(
 
 async function checkAndDispatchDue60mMeetings(
   supabaseUrl: string,
-  serviceRoleKey: string
+  serviceRoleKey: string,
+  deadlineMs: number,
+  sharedCtx: SharedZaloRunCtx
 ): Promise<{ sent: number; checkedToday: number; dueInWindow: number }> {
   const nowMs = Date.now();
   const vnNow = new Date(nowMs + 7 * 3_600_000);
@@ -303,37 +423,59 @@ async function checkAndDispatchDue60mMeetings(
   };
 
   const [cfgRows, followerRows, logRows, schRows, mapRows, assocRows] = await Promise.all([
-    fetch(`${supabaseUrl}/rest/v1/portal_settings?key=eq.zalo_oa_config_v1&select=value`, {
-      headers,
-    }).then((r) => (r.ok ? r.json() : [])),
-    fetch(`${supabaseUrl}/rest/v1/portal_settings?key=eq.zalo_oa_followers_v1&select=value`, {
-      headers,
-    }).then((r) => (r.ok ? r.json() : [])),
-    fetch(
+    fetchWithDeadline(
+      `${supabaseUrl}/rest/v1/portal_settings?key=eq.zalo_oa_config_v1&select=value`,
+      { headers },
+      deadlineMs,
+      2500
+    ).then((r) => (r.ok ? r.json() : [])),
+    fetchWithDeadline(
+      `${supabaseUrl}/rest/v1/portal_settings?key=eq.zalo_oa_followers_v1&select=value`,
+      { headers },
+      deadlineMs,
+      2500
+    ).then((r) => (r.ok ? r.json() : [])),
+    fetchWithDeadline(
       `${supabaseUrl}/rest/v1/portal_settings?key=eq.notification_dispatch_logs_v1&select=value`,
-      { headers }
+      { headers },
+      deadlineMs,
+      2500
     ).then((r) => (r.ok ? r.json() : [])),
-    fetch(
+    fetchWithDeadline(
       `${supabaseUrl}/rest/v1/work_schedules?schedule_date=eq.${todayVnIso}&select=id,title,schedule_date,schedule_time,location,attendees,status,attachments`,
-      { headers }
+      { headers },
+      deadlineMs,
+      2500
     ).then((r) => (r.ok ? r.json() : [])),
-    fetch(
+    fetchWithDeadline(
       `${supabaseUrl}/rest/v1/portal_settings?key=eq.cadre_zalo_mapping_v1&select=value`,
-      { headers }
+      { headers },
+      deadlineMs,
+      2500
     ).then((r) => (r.ok ? r.json() : [])),
-    fetch(`${supabaseUrl}/rest/v1/associations_records?key=eq.associations&select=payload`, {
-      headers,
-    }).then((r) => (r.ok ? r.json() : [])),
+    fetchWithDeadline(
+      `${supabaseUrl}/rest/v1/associations_records?key=eq.associations&select=payload`,
+      { headers },
+      deadlineMs,
+      2500
+    ).then((r) => (r.ok ? r.json() : [])),
   ]);
 
   const scheduleList: any[] = Array.isArray(schRows) ? schRows : [];
   const cfg = cfgRows?.[0]?.value || {};
+  sharedCtx.cfg = cfg;
   if (cfg.autoRemindMeeting60mEnabled === false) {
     return { sent: 0, checkedToday: scheduleList.length, dueInWindow: 0 };
   }
 
   const leadMinutes = Math.min(240, Math.max(5, Number(cfg.meetingRemindMinutesBefore) || 60));
-  let accessToken = await ensureValidZaloAccessToken(cfg, supabaseUrl, headers);
+  let accessToken = await ensureValidZaloAccessToken(
+    cfg,
+    supabaseUrl,
+    headers,
+    deadlineMs,
+    sharedCtx
+  );
   if (!accessToken) {
     return { sent: 0, checkedToday: scheduleList.length, dueInWindow: 0 };
   }
@@ -419,16 +561,20 @@ async function checkAndDispatchDue60mMeetings(
       );
       if (sentAutoDedupeSet.has(dedupeKey) || sentLegacyAuto) continue;
 
+      if (deadlineMs - Date.now() <= 900) break;
+
       const sendRes = await postZaloOaMessageWithRetry(
         accessToken,
         target.zaloUserId,
         textMsg,
         cfg,
         supabaseUrl,
-        headers
+        headers,
+        deadlineMs
       );
       if (sendRes.updatedToken) {
         accessToken = sendRes.updatedToken;
+        sharedCtx.accessToken = sendRes.updatedToken;
       }
 
       if (sendRes.ok) {
@@ -475,8 +621,11 @@ async function checkAndDispatchDue60mMeetings(
 
 async function checkAndDispatchDueRecurringReports(
   supabaseUrl: string,
-  serviceRoleKey: string
+  serviceRoleKey: string,
+  deadlineMs: number,
+  sharedCtx: SharedZaloRunCtx
 ): Promise<number> {
+  if (deadlineMs - Date.now() <= 1200) return 0;
   const nowMs = Date.now();
   const vnNow = new Date(nowMs + 7 * 3_600_000);
   const pad = (n: number) => String(n).padStart(2, "0");
@@ -492,26 +641,48 @@ async function checkAndDispatchDueRecurringReports(
   };
 
   const [cfgRows, followerRows, logRows, remRows, mapRows] = await Promise.all([
-    fetch(`${supabaseUrl}/rest/v1/portal_settings?key=eq.zalo_oa_config_v1&select=value`, {
-      headers,
-    }).then((r) => (r.ok ? r.json() : [])),
-    fetch(`${supabaseUrl}/rest/v1/portal_settings?key=eq.zalo_oa_followers_v1&select=value`, {
-      headers,
-    }).then((r) => (r.ok ? r.json() : [])),
-    fetch(
-      `${supabaseUrl}/rest/v1/portal_settings?key=eq.notification_dispatch_logs_v1&select=value`,
-      { headers }
+    sharedCtx.cfg
+      ? Promise.resolve([{ value: sharedCtx.cfg }])
+      : fetchWithDeadline(
+          `${supabaseUrl}/rest/v1/portal_settings?key=eq.zalo_oa_config_v1&select=value`,
+          { headers },
+          deadlineMs,
+          2500
+        ).then((r) => (r.ok ? r.json() : [])),
+    fetchWithDeadline(
+      `${supabaseUrl}/rest/v1/portal_settings?key=eq.zalo_oa_followers_v1&select=value`,
+      { headers },
+      deadlineMs,
+      2500
     ).then((r) => (r.ok ? r.json() : [])),
-    fetch(`${supabaseUrl}/rest/v1/recurring_reminders?select=id,title,payload`, {
-      headers,
-    }).then((r) => (r.ok ? r.json() : [])),
-    fetch(`${supabaseUrl}/rest/v1/portal_settings?key=eq.cadre_zalo_mapping_v1&select=value`, {
-      headers,
-    }).then((r) => (r.ok ? r.json() : [])),
+    fetchWithDeadline(
+      `${supabaseUrl}/rest/v1/portal_settings?key=eq.notification_dispatch_logs_v1&select=value`,
+      { headers },
+      deadlineMs,
+      2500
+    ).then((r) => (r.ok ? r.json() : [])),
+    fetchWithDeadline(
+      `${supabaseUrl}/rest/v1/recurring_reminders?select=id,title,payload`,
+      { headers },
+      deadlineMs,
+      2500
+    ).then((r) => (r.ok ? r.json() : [])),
+    fetchWithDeadline(
+      `${supabaseUrl}/rest/v1/portal_settings?key=eq.cadre_zalo_mapping_v1&select=value`,
+      { headers },
+      deadlineMs,
+      2500
+    ).then((r) => (r.ok ? r.json() : [])),
   ]);
 
   const cfg = cfgRows?.[0]?.value || {};
-  let accessToken = await ensureValidZaloAccessToken(cfg, supabaseUrl, headers);
+  let accessToken = await ensureValidZaloAccessToken(
+    cfg,
+    supabaseUrl,
+    headers,
+    deadlineMs,
+    sharedCtx
+  );
   if (!accessToken) return 0;
 
   const followers: any[] = Array.isArray(followerRows?.[0]?.value) ? followerRows[0].value : [];
@@ -580,15 +751,21 @@ async function checkAndDispatchDueRecurringReports(
       const dedupeKey = `rpt_auto:${row.id}:${nextDue}:${stage}:${target.cadreKey}`;
       if (dedupeSet.has(dedupeKey)) continue;
 
+      if (deadlineMs - Date.now() <= 900) break;
+
       const sendRes = await postZaloOaMessageWithRetry(
         accessToken,
         target.zaloUserId,
         textMsg,
         cfg,
         supabaseUrl,
-        headers
+        headers,
+        deadlineMs
       );
-      if (sendRes.updatedToken) accessToken = sendRes.updatedToken;
+      if (sendRes.updatedToken) {
+        accessToken = sendRes.updatedToken;
+        sharedCtx.accessToken = sendRes.updatedToken;
+      }
 
       if (sendRes.ok) {
         sent++;
@@ -645,32 +822,8 @@ export default async function handler(req: any, res: any) {
     return res.status(405).json({ ok: false, error: "Method not allowed" });
   }
 
-  const cronSecret = (process.env.CRON_SECRET || "").trim();
-  const authHeader = String(req?.headers?.authorization || req?.headers?.Authorization || "").trim();
-  const hasCronHeader = Boolean(req?.headers?.["x-vercel-cron"]);
-  const isVercelCron = cronSecret
-    ? hasCronHeader && authHeader === `Bearer ${cronSecret}`
-    : hasCronHeader;
-  const isScheduledProbe =
-    isVercelCron ||
-    String(req?.url || "").includes("check_meetings=1") ||
-    String(req?.query?.check_meetings || "") === "1";
-  const nowMs = Date.now();
-
-  // Chống spam liên tục trên cùng một warm instance cho HTTP ping thường,
-  // NHƯNG LUÔN chạy thật 100% khi nhận tín hiệu từ Vercel Cron hoặc pg_cron / GitHub Actions (?check_meetings=1)!
-  if (
-    !isVercelCron &&
-    !isScheduledProbe &&
-    lastCachedResult &&
-    nowMs - lastVerifiedAtMs < MIN_DB_QUERY_INTERVAL_MS
-  ) {
-    return res.status(200).json({
-      ...lastCachedResult,
-      throttled: true,
-      checkedAt: new Date(nowMs).toISOString(),
-    });
-  }
+  const startedAt = Date.now();
+  const overallDeadlineMs = startedAt + TOTAL_KEEPALIVE_BUDGET_MS;
 
   const supabaseUrl = (
     process.env.VITE_SUPABASE_URL ||
@@ -684,6 +837,58 @@ export default async function handler(req: any, res: any) {
     ""
   ).trim();
 
+  const serviceRoleKey = (process.env.SUPABASE_SERVICE_ROLE_KEY || "").trim();
+
+  const cronSecret = (process.env.CRON_SECRET || "").trim();
+  const authHeader = String(req?.headers?.authorization || req?.headers?.Authorization || "").trim();
+  const cronHeaderSecret = String(req?.headers?.["x-kp3-cron-secret"] || "").trim();
+  const hasCronHeader = Boolean(req?.headers?.["x-vercel-cron"]);
+  const isVercelCron = cronSecret
+    ? hasCronHeader && authHeader === `Bearer ${cronSecret}`
+    : hasCronHeader;
+  const hasValidCronSecret = Boolean(
+    cronSecret && (authHeader === `Bearer ${cronSecret}` || cronHeaderSecret === cronSecret)
+  );
+  const wantsMeetingProbe =
+    String(req?.url || "").includes("check_meetings=1") ||
+    String(req?.query?.check_meetings || "") === "1";
+
+  let isAuthorizedMeetingProbe = false;
+  if (wantsMeetingProbe) {
+    if (isVercelCron || hasValidCronSecret) {
+      isAuthorizedMeetingProbe = true;
+    } else if (!cronSecret && !serviceRoleKey) {
+      // Môi trường local/unit test không có secret -> giữ nguyên hành vi kiểm thử ping DB
+      isAuthorizedMeetingProbe = true;
+    } else if (serviceRoleKey && authHeader.toLowerCase().startsWith("bearer ")) {
+      isAuthorizedMeetingProbe = await verifyKeepAliveStaffJwt(
+        authHeader,
+        supabaseUrl,
+        anonKey,
+        serviceRoleKey,
+        overallDeadlineMs
+      );
+    }
+  }
+
+  const isScheduledProbe = isVercelCron || hasValidCronSecret || isAuthorizedMeetingProbe;
+  const nowMs = Date.now();
+
+  // Chống spam liên tục trên cùng một warm instance cho HTTP ping thường,
+  // NHƯNG LUÔN chạy thật 100% khi nhận tín hiệu hợp lệ từ Vercel Cron hoặc Cron Secret / Staff JWT!
+  if (
+    !isVercelCron &&
+    !isScheduledProbe &&
+    lastCachedResult &&
+    nowMs - lastVerifiedAtMs < MIN_DB_QUERY_INTERVAL_MS
+  ) {
+    return res.status(200).json({
+      ...lastCachedResult,
+      throttled: true,
+      checkedAt: new Date(nowMs).toISOString(),
+    });
+  }
+
   if (!anonKey) {
     return res.status(503).json({
       ok: false,
@@ -693,23 +898,22 @@ export default async function handler(req: any, res: any) {
     });
   }
 
-  const startedAt = Date.now();
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 8000);
-
   try {
     const queryUrl = `${supabaseUrl}/rest/v1/portal_settings?select=key,updated_at&limit=2`;
-    const dbRes = await fetch(queryUrl, {
-      method: "GET",
-      headers: {
-        apikey: anonKey,
-        Authorization: `Bearer ${anonKey}`,
-        Accept: "application/json",
-        "Cache-Control": "no-cache",
+    const dbRes = await fetchWithDeadline(
+      queryUrl,
+      {
+        method: "GET",
+        headers: {
+          apikey: anonKey,
+          Authorization: `Bearer ${anonKey}`,
+          Accept: "application/json",
+          "Cache-Control": "no-cache",
+        },
       },
-      signal: controller.signal,
-    });
-    clearTimeout(timeoutId);
+      overallDeadlineMs,
+      4500
+    );
 
     const latencyMs = Date.now() - startedAt;
 
@@ -726,19 +930,26 @@ export default async function handler(req: any, res: any) {
     const rows = await dbRes.json();
     let mode = "postgrest-select";
 
-    const serviceRoleKey = (process.env.SUPABASE_SERVICE_ROLE_KEY || "").trim();
     let meetingsSent = 0;
     let meetingsCheckedToday = 0;
     let meetingsDueInWindow = 0;
     let reportsSent = 0;
 
+    const sharedZaloCtx: SharedZaloRunCtx = {};
+
     if (
       serviceRoleKey &&
+      overallDeadlineMs - Date.now() > 1500 &&
       (isScheduledProbe || Date.now() - lastMeeting60mCheckAtMs >= MIN_MEETING_60M_CHECK_MS)
     ) {
       lastMeeting60mCheckAtMs = Date.now();
       try {
-        const mtgResult = await checkAndDispatchDue60mMeetings(supabaseUrl, serviceRoleKey);
+        const mtgResult = await checkAndDispatchDue60mMeetings(
+          supabaseUrl,
+          serviceRoleKey,
+          overallDeadlineMs,
+          sharedZaloCtx
+        );
         meetingsSent = mtgResult.sent;
         meetingsCheckedToday = mtgResult.checkedToday;
         meetingsDueInWindow = mtgResult.dueInWindow;
@@ -748,13 +959,20 @@ export default async function handler(req: any, res: any) {
       } catch {
         // Không làm gián đoạn keepalive chính
       }
-      try {
-        reportsSent = await checkAndDispatchDueRecurringReports(supabaseUrl, serviceRoleKey);
-        if (reportsSent > 0) {
-          mode += `+zalo-report-sent(${reportsSent})`;
+      if (overallDeadlineMs - Date.now() > 1200) {
+        try {
+          reportsSent = await checkAndDispatchDueRecurringReports(
+            supabaseUrl,
+            serviceRoleKey,
+            overallDeadlineMs,
+            sharedZaloCtx
+          );
+          if (reportsSent > 0) {
+            mode += `+zalo-report-sent(${reportsSent})`;
+          }
+        } catch {
+          // Không làm gián đoạn keepalive chính
         }
-      } catch {
-        // Không làm gián đoạn keepalive chính
       }
     }
 
@@ -868,7 +1086,6 @@ export default async function handler(req: any, res: any) {
 
     return res.status(200).json(payload);
   } catch (err: any) {
-    clearTimeout(timeoutId);
     return res.status(503).json({
       ok: false,
       service: "kp3-an-phu-keepalive",

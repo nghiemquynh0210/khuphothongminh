@@ -18,9 +18,12 @@ __pycache__/
 *.xls
 *.csv
 
-# Android release binaries
+# Android release binaries & signing secrets
 *.apk
 *.aab
+*.jks
+*.keystore
+keystore.properties
 
 # Local promo video workspace & heavy media outputs
 video-promo/

@@ -281,6 +281,14 @@ textarea {
 }
 
 /* Horizontal overflow edge fade & subtle directory scrollbar */
+.no-scrollbar {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
 .evon-scroll {
   scrollbar-width: thin;
   scrollbar-color: transparent transparent;
