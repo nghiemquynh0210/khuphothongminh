@@ -17,6 +17,11 @@ const config: CapacitorConfig = {
     allowMixedContent: false,
     backgroundColor: "#B91C1C",
   },
+  ios: {
+    backgroundColor: "#B91C1C",
+    contentInset: "never",
+    allowsLinkPreview: false,
+  },
 };
 
 export default config;

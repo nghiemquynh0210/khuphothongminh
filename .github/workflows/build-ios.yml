@@ -1,0 +1,167 @@
+name: Build iOS App (.ipa) — KP3 An Phu
+
+on:
+  workflow_dispatch:
+    inputs:
+      upload_testflight:
+        description: "Upload len TestFlight (can du Apple Developer Secrets)"
+        required: false
+        default: "false"
+        type: choice
+        options:
+          - "false"
+          - "true"
+
+jobs:
+  build-ios:
+    name: Build Capacitor iOS (.ipa) on macOS Cloud
+    runs-on: macos-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "npm"
+
+      - name: Install dependencies & Build Web App
+        env:
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL || 'https://wjdgaobhipkgzveidtra.supabase.co' }}
+          VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndqZGdhb2JoaXBrZ3p2ZWlkdHJhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTE4NTk0MzQsImV4cCI6MjEwNzQzNTQzNH0.7fw6blUWmBm9lJ-tfazcGEsr20KOT6Qn1ytSZk_CMtU' }}
+        run: |
+          npm ci --legacy-peer-deps --no-audit --no-fund || npm install --no-audit --no-fund
+          npm run build
+          npx cap sync ios
+
+      - name: Check signing mode (Unsigned IPA vs Signed App Store IPA)
+        id: sign_mode
+        env:
+          HAS_CERT: ${{ secrets.BUILD_CERTIFICATE_BASE64 != '' }}
+          HAS_PROFILE: ${{ secrets.BUILD_PROVISION_PROFILE_BASE64 != '' }}
+        run: |
+          if [ "$HAS_CERT" = "true" ] && [ "$HAS_PROFILE" = "true" ]; then
+            echo "signed=true" >> "$GITHUB_OUTPUT"
+            echo "Mode: SIGNED App Store / TestFlight IPA"
+          else
+            echo "signed=false" >> "$GITHUB_OUTPUT"
+            echo "Mode: UNSIGNED IPA (ready for AltServer / SideStore / Sideloadly on Windows)"
+          fi
+
+      # --- MODE 1: UNSIGNED IPA (0 VND, no Apple Developer $99 required) ---
+      - name: Build Unsigned iOS App & Package .ipa
+        if: steps.sign_mode.outputs.signed == 'false'
+        run: |
+          cd ios/App
+          xcodebuild \
+            -project App.xcodeproj \
+            -scheme App \
+            -configuration Release \
+            -sdk iphoneos \
+            -derivedDataPath "$RUNNER_TEMP/DerivedData" \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY="" \
+            AD_HOC_CODE_SIGNING_ALLOWED=NO \
+            build
+
+          APP_PATH="$RUNNER_TEMP/DerivedData/Build/Products/Release-iphoneos/App.app"
+          if [ ! -d "$APP_PATH" ]; then
+            echo "ERROR: App.app not found at $APP_PATH"
+            exit 1
+          fi
+
+          mkdir -p "$RUNNER_TEMP/ipa_stage/Payload" "$RUNNER_TEMP/output"
+          cp -R "$APP_PATH" "$RUNNER_TEMP/ipa_stage/Payload/KP3AnPhu.app"
+          cd "$RUNNER_TEMP/ipa_stage"
+          zip -qry "$RUNNER_TEMP/output/KP3-AnPhu-iOS-v4.0.2-unsigned.ipa" Payload
+          ls -lh "$RUNNER_TEMP/output/KP3-AnPhu-iOS-v4.0.2-unsigned.ipa"
+
+      # --- MODE 2: SIGNED IPA + OPTIONAL TESTFLIGHT (Apple Developer Program) ---
+      - name: Import Apple Signing Certificate & Provisioning Profile
+        if: steps.sign_mode.outputs.signed == 'true'
+        env:
+          BUILD_CERTIFICATE_BASE64: ${{ secrets.BUILD_CERTIFICATE_BASE64 }}
+          P12_PASSWORD: ${{ secrets.P12_PASSWORD }}
+          BUILD_PROVISION_PROFILE_BASE64: ${{ secrets.BUILD_PROVISION_PROFILE_BASE64 }}
+          KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD || 'kp3-ci-keychain-temp' }}
+        run: |
+          CERTIFICATE_PATH="$RUNNER_TEMP/build_certificate.p12"
+          PROVISIONING_PROFILE_PATH="$RUNNER_TEMP/app_store.mobileprovision"
+          KEYCHAIN_PATH="$RUNNER_TEMP/app-signing.keychain-db"
+
+          echo "$BUILD_CERTIFICATE_BASE64" | base64 --decode > "$CERTIFICATE_PATH"
+          echo "$BUILD_PROVISION_PROFILE_BASE64" | base64 --decode > "$PROVISIONING_PROFILE_PATH"
+
+          security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          security set-keychain-settings -lut 21600 "$KEYCHAIN_PATH"
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          security import "$CERTIFICATE_PATH" -P "$P12_PASSWORD" -A -t cert -f pkcs12 -k "$KEYCHAIN_PATH"
+          security list-keychain -d user -s "$KEYCHAIN_PATH"
+
+          mkdir -p "$HOME/Library/MobileDevice/Provisioning Profiles"
+          cp "$PROVISIONING_PROFILE_PATH" "$HOME/Library/MobileDevice/Provisioning Profiles/"
+
+      - name: Archive & Export Signed App Store .ipa
+        if: steps.sign_mode.outputs.signed == 'true'
+        env:
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          PROVISIONING_PROFILE_NAME: ${{ secrets.PROVISIONING_PROFILE_NAME }}
+        run: |
+          mkdir -p "$RUNNER_TEMP/output"
+          cat > "$RUNNER_TEMP/ExportOptions.plist" <<EOF
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+          <dict>
+            <key>method</key>
+            <string>app-store-connect</string>
+            <key>teamID</key>
+            <string>${APPLE_TEAM_ID}</string>
+            <key>signingStyle</key>
+            <string>manual</string>
+            <key>provisioningProfiles</key>
+            <dict>
+              <key>vn.tphcm.anphu.khupho3</key>
+              <string>${PROVISIONING_PROFILE_NAME}</string>
+            </dict>
+          </dict>
+          </plist>
+          EOF
+
+          cd ios/App
+          xcodebuild \
+            -project App.xcodeproj \
+            -scheme App \
+            -configuration Release \
+            -sdk iphoneos \
+            -archivePath "$RUNNER_TEMP/App.xcarchive" \
+            DEVELOPMENT_TEAM="${APPLE_TEAM_ID}" \
+            archive
+
+          xcodebuild \
+            -exportArchive \
+            -archivePath "$RUNNER_TEMP/App.xcarchive" \
+            -exportPath "$RUNNER_TEMP/output" \
+            -exportOptionsPlist "$RUNNER_TEMP/ExportOptions.plist"
+
+          ls -lh "$RUNNER_TEMP/output"
+
+      - name: Upload Signed .ipa to TestFlight
+        if: steps.sign_mode.outputs.signed == 'true' && inputs.upload_testflight == 'true'
+        uses: apple-actions/upload-testflight-build@v5
+        with:
+          app-path: ${{ runner.temp }}/output/App.ipa
+          issuer-id: ${{ secrets.APPSTORE_ISSUER_ID }}
+          api-key-id: ${{ secrets.APPSTORE_API_KEY_ID }}
+          api-private-key: ${{ secrets.APPSTORE_API_PRIVATE_KEY }}
+
+      - name: Upload iOS .ipa Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: KP3-AnPhu-iOS-v4.0.2-ipa
+          path: ${{ runner.temp }}/output/*.ipa
+          retention-days: 30
